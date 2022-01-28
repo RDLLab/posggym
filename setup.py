@@ -3,7 +3,8 @@ from setuptools import setup, find_packages
 
 # Environment and test specific dependencies.
 extras = {
-    "test": ["pytest>=6.2.5"]
+    "test": ["pytest>=6.2"],
+    "render": ["matplotlib>=3.5"]
 }
 
 extras['all'] = [item for group in extras.values() for item in group]

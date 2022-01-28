@@ -18,11 +18,11 @@ class Grid:
     """A base grid class, with general utility functions and attributes """
 
     def __init__(self,
-                 grid_height: int,
                  grid_width: int,
+                 grid_height: int,
                  block_coords: Optional[Set[Coord]] = None):
-        self.height = grid_height
         self.width = grid_width
+        self.height = grid_height
 
         if block_coords is None:
             block_coords = set()
@@ -59,13 +59,13 @@ class Grid:
         """Get set of adjacent non-blocked coordinates """
         neighbours = []
         if coord[1] > 0 or include_out_of_bounds:
-            neighbours.append((coord[0]-1, coord[1]))    # N
+            neighbours.append((coord[0], coord[1]-1))    # N
         if coord[1] < self.height - 1 or include_out_of_bounds:
-            neighbours.append((coord[0]+1, coord[1]))    # S
+            neighbours.append((coord[0], coord[1]+1))    # S
         if coord[0] < self.width - 1 or include_out_of_bounds:
-            neighbours.append((coord[0], coord[1]+1))    # E
+            neighbours.append((coord[0]+1, coord[1]))    # E
         if coord[0] > 0 or include_out_of_bounds:
-            neighbours.append((coord[0], coord[1]-1))    # W
+            neighbours.append((coord[0]-1, coord[1]))    # W
 
         if ignore_blocks:
             return neighbours
@@ -87,13 +87,13 @@ class Grid:
         """
         new_coord_list = list(coord)
         if move_dir == Direction.NORTH:
-            new_coord_list[0] = max(0, coord[0]-1)
-        elif move_dir == Direction.SOUTH:
-            new_coord_list[0] = min(self.height-1, coord[0]+1)
-        elif move_dir == Direction.EAST:
-            new_coord_list[1] = min(self.width-1, coord[1]+1)
-        elif move_dir == Direction.WEST:
             new_coord_list[1] = max(0, coord[1]-1)
+        elif move_dir == Direction.SOUTH:
+            new_coord_list[1] = min(self.height-1, coord[1]+1)
+        elif move_dir == Direction.EAST:
+            new_coord_list[0] = min(self.width-1, coord[0]+1)
+        elif move_dir == Direction.WEST:
+            new_coord_list[0] = max(0, coord[0]-1)
         new_coord = (new_coord_list[0], new_coord_list[1])
 
         if not ignore_blocks and new_coord in self.block_coords:

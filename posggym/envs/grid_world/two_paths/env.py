@@ -7,6 +7,7 @@ from posggym import core
 import posggym.model as M
 
 from posggym.envs.grid_world.utils import Direction
+import posggym.envs.grid_world.render as render_lib
 import posggym.envs.grid_world.two_paths.model as tp_model
 
 
@@ -79,7 +80,9 @@ class TwoPathsEnv(core.Env):
     start state once a terminal state is reached.
     """
 
-    metadata = {"render.modes": ['human']}
+    metadata = {"render.modes": ['human', 'ascii']}
+
+    VIEWER_SIZE = (3, 3)
 
     def __init__(self,
                  grid_name: str,
@@ -95,6 +98,9 @@ class TwoPathsEnv(core.Env):
         self._step_num = 0
         self._last_actions: Optional[tp_model.TPJointAction] = None
         self._last_rewards: Optional[M.JointReward] = None
+
+        self._viewer = None
+        self._renderer: Optional[render_lib.GWRenderer] = None
 
     def step(self,
              actions: M.JointAction
@@ -117,7 +123,7 @@ class TwoPathsEnv(core.Env):
         return self._last_obs
 
     def render(self, mode: str = "human") -> None:
-        if mode == "human":
+        if mode == "ascii":
             outfile = sys.stdout
 
             grid_str = self._model.grid.get_ascii_repr(
@@ -136,7 +142,44 @@ class TwoPathsEnv(core.Env):
                 output.append(f"Rewards: <{self._last_rewards}>")
 
             outfile.write("\n".join(output) + "\n")
+        elif mode == "human":
+            grid = self.model.grid
+            if self._viewer is None:
+                # pylint: disable=[import-outside-toplevel]
+                from posggym.envs.grid_world import viewer
+                self._viewer = viewer.GWViewer(   # type: ignore
+                    "Two-Paths Env", (grid.width, grid.height)
+                )
+                self._viewer.show(block=False)   # type: ignore
+
+            if self._renderer is None:
+                static_objs = [
+                    render_lib.GWObject(
+                        coord, 'green', render_lib.Shape.RECTANGLE
+                    ) for coord in grid.goal_coords
+                ]
+                self._renderer = render_lib.GWRenderer(
+                    self.n_agents,
+                    grid,
+                    static_objs,
+                    render_blocks=True
+                )
+
+            agent_obs_coords = tuple(
+                grid.get_neighbours(self._state[i], True)
+                for i in range(self.n_agents)
+            )
+            print(f"{agent_obs_coords=}")
+
+            img = self._renderer.render(
+                self._state,
+                agent_obs_coords,
+                agent_dirs=None,
+                other_objs=None,
+                agent_colors=None
+            )
+            self._viewer.display_img(img)  # type: ignore
 
     @property
-    def model(self) -> M.POSGModel:
+    def model(self) -> tp_model.TwoPathsModel:
         return self._model
