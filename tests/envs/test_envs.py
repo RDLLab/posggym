@@ -110,7 +110,7 @@ def test_model(spec):
     obs_0 = model.sample_initial_obs(s_0)
     check_obs(obs_0)
 
-    obs_0, s_0 = model.sample_initial_state_and_obs()
+    s_0, obs_0 = model.sample_initial_state_and_obs()
     assert state_space.contains(s_0)
     check_obs(obs_0)
 
@@ -123,7 +123,7 @@ def test_model(spec):
 
     for i, r_i in enumerate(timestep.rewards):
         assert np.isscalar(r_i), f"{r_i} is not a scalar for {model}"
-        assert model.reward_ranges[i][0] <= r_i <= model.reward_ranges[i][0]
+        assert model.reward_ranges[i][0] <= r_i <= model.reward_ranges[i][1]
 
     done, outcomes = timestep.done, timestep.outcomes
     assert isinstance(done, bool), f"Expected {done} to be a bool for {model}"

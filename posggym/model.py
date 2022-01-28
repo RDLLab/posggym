@@ -41,22 +41,21 @@ class Belief(abc.ABC):
     def get_dist(self) -> Dict[State, float]:
         """Get belief as a distribution: S -> prob map """
 
+    def sample_belief_dist(self, num_samples: int) -> Dict[State, float]:
+        """Helper method for constructing a belief distribution.
 
-def sample_belief_dist(belief: 'Belief',
-                       num_samples: int) -> Dict[State, float]:
-    """Construct a belief distribution via Monte-Carlo sampling.
+        Constructs belief via Monte-Carlo sampling.
+        Requires that the State objects for the given belief are hashable.
+        """
+        b_map: Dict[State, float] = {}
 
-    Requires that the State objects for the given belief are hashable.
-    """
-    b_map: Dict[State, float] = {}
+        s_prob = 1.0 / num_samples
+        for s in (self.sample() for _ in range(num_samples)):
+            if s not in b_map:
+                b_map[s] = 0.0
+            b_map[s] += s_prob
 
-    s_prob = 1.0 / num_samples
-    for s in (belief.sample() for _ in range(num_samples)):
-        if s not in b_map:
-            b_map[s] = 0.0
-        b_map[s] += s_prob
-
-    return b_map
+        return b_map
 
 
 class JointTimestep(NamedTuple):

@@ -1,5 +1,5 @@
-posg
-####
+POSGGym
+#######
 
 The goal of this library is to provide implementations of Partially Observable Stochastic Game (POSG) environments coupled with dynamic models of each environment, all under a unified API. While there are a number of amazing open-source implementations for POSG environments, very few have easily useable dynamic models that can be used for planning. The aim of this library is to fill this gap.
 
@@ -40,4 +40,18 @@ Generative Model Environments
 Authors
 -------
 
-...
+**Jonathon Schwartz** - Jonathon.schwartz@anu.edu.au
+
+
+License
+-------
+
+`MIT`_ © 2022, Jonathon Schwartz
+
+.. _MIT: LICENSE
+
+
+Versioning
+----------
+
+The POSGGym library uses `semantic versioning <https://semver.org/>`_.
