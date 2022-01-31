@@ -269,7 +269,7 @@ class MABCModel(M.POSGFullModel):
 
     def reward_fn(self,
                   state: M.State,
-                  actions: M.JointAction) -> List[float]:
+                  actions: M.JointAction) -> M.JointReward:
         return self._rew_map[(state, actions)]
 
     def _construct_rew_func(self) -> Dict:

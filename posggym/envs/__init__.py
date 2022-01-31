@@ -15,6 +15,11 @@ register(
     entry_point="posggym.envs.full_model.mabc:MABCEnv"
 )
 
+register(
+    env_id="MultiAgentTiger-v0",
+    entry_point="posggym.envs.full_model.mat:MultiAgentTigerEnv"
+)
+
 
 # Grid World
 # -------------------------------------------
