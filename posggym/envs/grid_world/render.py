@@ -52,13 +52,13 @@ DIR_TO_VEC = [
 
 DIR_TO_THETA = [
     # NORTH
-    0.5*math.pi*3,
+    0.5*math.pi*2,
     # SOUTH
-    0.5*math.pi*1,
-    # EAST
     0.5*math.pi*0,
+    # EAST
+    0.5*math.pi*1,
     # WEST
-    0.5*math.pi*2
+    0.5*math.pi*3
 ]
 
 
