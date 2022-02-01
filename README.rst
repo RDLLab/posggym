@@ -109,10 +109,13 @@ These environments include model which are fully defined, in the sense they incl
 
 The code for most of these environments is located in the `posggym/envs/full_model` subdirectory.
 
-- *Multi-Access Broadcast Channel (MABC)*
+- **Multi-Access Broadcast Channel (MABC)**
+
   - Ooi, J. M., and Wornell, G. W. 1996. Decentralized control of a multiple access broadcast channel: Performance bounds. In Proceedings of the 35th Conference on Decision and Control, 293–298.
   - Hansen, Eric A., Daniel S. Bernstein, and Shlomo Zilberstein. 2004. “Dynamic Programming for Partially Observable Stochastic Games.” In Proceedings of the 19th National Conference on Artifical Intelligence, 709–715. AAAI’04.
-- *Multi-Agent Tiger*
+
+- **Multi-Agent Tiger**
+
   - Gmytrasiewicz, Piotr J., and Prashant Doshi. “A Framework for Sequential Planning in Multi-Agent Settings.” Journal of Artificial Intelligence Research 24 (2005): 49–79.
 
 Generative Model Environments
@@ -120,10 +123,13 @@ Generative Model Environments
 
 The code for most of these environments is located in the various `posggym/envs` subdirectories.
 
-- *Two-Path*
-- *Pursuit Evasion*
+- **Two-Path**
+- **Pursuit Evasion**
+
   - Seaman, Iris Rubi, Jan-Willem van de Meent, and David Wingate. 2018. “Nested Reasoning About Autonomous Agents Using Probabilistic Programs.” ArXiv Preprint ArXiv:1812.01569.
-- *Unmanned Aerial Vehicle (UAV)*
+
+- **Unmanned Aerial Vehicle (UAV)**
+
   - Panella, Alessandro, and Piotr Gmytrasiewicz. 2017. “Interactive POMDPs with Finite-State Models of Other Agents.” Autonomous Agents and Multi-Agent Systems 31 (4): 861–904.
 
 
