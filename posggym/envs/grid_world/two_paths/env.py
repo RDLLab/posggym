@@ -61,7 +61,7 @@ class TwoPathsEnv(core.Env):
     If the runner reaches the goal then the runner recieves a reward of 100,
     while the chaser recieves a penalty of -100.
     If the runner is observed by the chaser, then the runner recieves a penalty
-    of -100, while the chaser recieves a penalty of 100.
+    of -100, while the chaser recieves a reward of 100.
 
     The rewards make the environment adversarial, but not strictly zero-sum,
     due to the small penalty each step.

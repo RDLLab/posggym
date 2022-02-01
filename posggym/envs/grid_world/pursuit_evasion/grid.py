@@ -349,10 +349,11 @@ def _convert_map_to_grid(ascii_map: str,
     )
 
 
+# grid_name: (grid_make_fn, step_limit)
 SUPPORTED_GRIDS = {
-    '8x8': get_8x8_grid,
-    '16x16': get_16x16_grid,
-    '32x32': get_32x32_grid
+    '8x8': (get_8x8_grid, 50),
+    '16x16': (get_16x16_grid, 100),
+    '32x32': (get_32x32_grid, 200)
 }
 
 
@@ -363,4 +364,4 @@ def load_grid(grid_name: str) -> PEGrid:
         f"Unsupported grid name '{grid_name}'. Grid name must be one of: "
         f"{SUPPORTED_GRIDS.keys()}."
     )
-    return SUPPORTED_GRIDS[grid_name]()
+    return SUPPORTED_GRIDS[grid_name][0]()

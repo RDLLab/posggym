@@ -8,13 +8,13 @@ class TPGrid(Grid):
     """A grid for the Two-Paths Problem """
 
     def __init__(self,
-                 grid_height: int,
                  grid_width: int,
+                 grid_height: int,
                  block_coords: Set[Coord],
                  goal_coords: Set[Coord],
                  init_runner_coord: Coord,
                  init_chaser_coord: Coord):
-        super().__init__(grid_height, grid_width, block_coords)
+        super().__init__(grid_width, grid_height, block_coords)
         self.goal_coords = goal_coords
         self.init_runner_coord = init_runner_coord
         self.init_chaser_coord = init_chaser_coord
@@ -141,10 +141,11 @@ def get_7x7_grid() -> TPGrid:
     )
 
 
+# grid_name: (grid_make_fn, step_limit)
 SUPPORTED_GRIDS = {
-    '3x3': get_3x3_grid,
-    '4x4': get_4x4_grid,
-    '7x7': get_7x7_grid,
+    '3x3': (get_3x3_grid, 20),
+    '4x4': (get_4x4_grid, 20),
+    '7x7': (get_7x7_grid, 20)
 }
 
 
@@ -155,4 +156,4 @@ def load_grid(grid_name: str) -> TPGrid:
         f"Unsupported grid name '{grid_name}'. Grid name must be one of: "
         f"{SUPPORTED_GRIDS.keys()}."
     )
-    return SUPPORTED_GRIDS[grid_name]()
+    return SUPPORTED_GRIDS[grid_name][0]()

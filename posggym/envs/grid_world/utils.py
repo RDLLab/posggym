@@ -57,7 +57,7 @@ class Grid:
 
     def get_neighbours(self,
                        coord: Coord,
-                       ignore_blocks: bool,
+                       ignore_blocks: bool = False,
                        include_out_of_bounds: bool = False
                        ) -> List[Coord]:
         """Get set of adjacent non-blocked coordinates """
@@ -83,7 +83,7 @@ class Grid:
     def get_next_coord(self,
                        coord: Coord,
                        move_dir: Direction,
-                       ignore_blocks: bool) -> Coord:
+                       ignore_blocks: bool = False) -> Coord:
         """Get next coordinate given loc and movement direction
 
         If new coordinate is outside of the grid boundary, or (ignore_blocks is
@@ -112,7 +112,7 @@ class Grid:
                                include_origin: bool) -> Set[Coord]:
         """Get set of locs within given distance from loc """
         assert dist > 0
-        adj_coords = self.get_neighbors(origin, ignore_blocks)
+        adj_coords = self.get_neighbours(origin, ignore_blocks)
         in_dist_coords = set(adj_coords)
 
         if (
@@ -131,9 +131,9 @@ class Grid:
                 )
             )
 
-        if not include_origin and coord in in_dist_coords:
+        if not include_origin and origin in in_dist_coords:
             # must remove since it will get added again during recursive call
-            in_dist_coords.remove(coord)
+            in_dist_coords.remove(origin)
 
         return in_dist_coords
 

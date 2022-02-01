@@ -158,7 +158,7 @@ class GWRenderer:
 
     def render(self,
                agent_coords: Tuple[Coord, ...],
-               agent_obs_coords: Tuple[List[Coord], ...],
+               agent_obs_coords: Optional[Tuple[List[Coord], ...]],
                agent_dirs: Optional[Tuple[Direction, ...]],
                other_objs: Optional[List[GWObject]],
                agent_colors: Optional[Tuple[str, ...]] = None,
@@ -170,7 +170,8 @@ class GWRenderer:
         img = np.zeros(shape=(width_px, height_px, 3), dtype=np.uint8)
 
         observed_coords: Set[Coord] = set()
-        observed_coords.update(*agent_obs_coords)
+        if agent_obs_coords is not None:
+            observed_coords.update(*agent_obs_coords)
 
         dynamic_objs_map: Dict[Coord, List[GWObject]] = {}
         if other_objs is None:

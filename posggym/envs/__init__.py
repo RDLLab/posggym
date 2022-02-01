@@ -7,6 +7,11 @@ from posggym.envs.registration import make
 from posggym.envs.registration import spec
 from posggym.envs.registration import registry
 
+from posggym.envs.grid_world import pursuit_evasion
+from posggym.envs.grid_world import two_paths
+from posggym.envs.grid_world import uav
+
+
 # Full Model
 # -------------------------------------------
 
@@ -25,129 +30,63 @@ register(
 # -------------------------------------------
 
 # Two Paths
-register(
-    env_id="TwoPaths3x3-v0",
-    entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
-    max_episode_steps=20,
-    kwargs={
-        "grid_name": "3x3",
-        "action_probs": 1.0,
-        "infinite_horizon": False
-    }
-)
+for grid_name, v in two_paths.grid.SUPPORTED_GRIDS.items():
+    register(
+        env_id=f"TwoPaths{grid_name}-v0",
+        entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
+        max_episode_steps=v[1],
+        kwargs={
+            "grid_name": grid_name,
+            "action_probs": 1.0,
+            "infinite_horizon": False
+        }
+    )
 
-register(
-    env_id="TwoPaths3x3Stochastic-v0",
-    entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
-    max_episode_steps=20,
-    kwargs={
-        "grid_name": "3x3",
-        "action_probs": 0.9,
-        "infinite_horizon": False
-    }
-)
+    register(
+        env_id=f"TwoPaths{grid_name}Stochastic-v0",
+        entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
+        max_episode_steps=v[1],
+        kwargs={
+            "grid_name": grid_name,
+            "action_probs": 0.9,
+            "infinite_horizon": False
+        }
+    )
 
-register(
-    env_id="TwoPaths4x4-v0",
-    entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
-    max_episode_steps=20,
-    kwargs={
-        "grid_name": "4x4",
-        "action_probs": 1.0,
-        "infinite_horizon": False
-    }
-)
-
-register(
-    env_id="TwoPaths4x4Stochastic-v0",
-    entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
-    max_episode_steps=20,
-    kwargs={
-        "grid_name": "4x4",
-        "action_probs": 0.9,
-        "infinite_horizon": False
-    }
-)
-
-register(
-    env_id="TwoPaths7x7-v0",
-    entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
-    max_episode_steps=20,
-    kwargs={
-        "grid_name": "7x7",
-        "action_probs": 1.0,
-        "infinite_horizon": False
-    }
-)
-
-register(
-    env_id="TwoPaths7x7Stochastic-v0",
-    entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
-    max_episode_steps=20,
-    kwargs={
-        "grid_name": "7x7",
-        "action_probs": 0.9,
-        "infinite_horizon": False
-    }
-)
 
 # Pursuit-Evasion
-register(
-    env_id="PursuitEvasion8x8-v0",
-    entry_point="posggym.envs.grid_world.pursuit_evasion:PursuitEvasionEnv",
-    max_episode_steps=50,
-    kwargs={
-        "grid_name": "8x8",
-        "action_probs": 1.0,
-    }
-)
+for grid_name, v in pursuit_evasion.grid.SUPPORTED_GRIDS.items():
+    register(
+        env_id=f"PursuitEvasion{grid_name}-v0",
+        entry_point=(
+            "posggym.envs.grid_world.pursuit_evasion:PursuitEvasionEnv"
+        ),
+        max_episode_steps=v[1],
+        kwargs={
+            "grid_name": grid_name,
+            "action_probs": 1.0,
+        }
+    )
 
-register(
-    env_id="PursuitEvasion8x8Stochastic-v0",
-    entry_point="posggym.envs.grid_world.pursuit_evasion:PursuitEvasionEnv",
-    max_episode_steps=50,
-    kwargs={
-        "grid_name": "8x8",
-        "action_probs": 0.9,
-    }
-)
+    register(
+        env_id=f"PursuitEvasion{grid_name}Stochastic-v0",
+        entry_point=(
+            "posggym.envs.grid_world.pursuit_evasion:PursuitEvasionEnv"
+        ),
+        max_episode_steps=v[1],
+        kwargs={
+            "grid_name": grid_name,
+            "action_probs": 0.9,
+        }
+    )
 
-register(
-    env_id="PursuitEvasion16x16-v0",
-    entry_point="posggym.envs.grid_world.pursuit_evasion:PursuitEvasionEnv",
-    max_episode_steps=100,
-    kwargs={
-        "grid_name": "16x16",
-        "action_probs": 1.0,
-    }
-)
 
-register(
-    env_id="PursuitEvasion16x16Stochastic-v0",
-    entry_point="posggym.envs.grid_world.pursuit_evasion:PursuitEvasionEnv",
-    max_episode_steps=100,
-    kwargs={
-        "grid_name": "16x16",
-        "action_probs": 0.9,
-    }
-)
-
-register(
-    env_id="PursuitEvasion32x32-v0",
-    entry_point="posggym.envs.grid_world.pursuit_evasion:PursuitEvasionEnv",
-    max_episode_steps=200,
-    kwargs={
-        "grid_name": "32x32",
-        "action_probs": 1.0,
-    }
-)
-
-register(
-    env_id="PursuitEvasion32x32Stochastic-v0",
-    entry_point="posggym.envs.grid_world.pursuit_evasion:PursuitEvasionEnv",
-    max_episode_steps=200,
-    kwargs={
-        "grid_name": "32x32",
-        "action_probs": 0.9,
-    }
-)
+# Unmanned Aerial Vehicle (UAV)
+for grid_name in uav.grid.SUPPORTED_GRIDS:
+    register(
+        env_id=f"UAV{grid_name}-v0",
+        entry_point="posggym.envs.grid_world.uav:UAVEnv",
+        kwargs={
+            "grid_name": grid_name,
+        }
+    )
