@@ -93,8 +93,10 @@ class PursuitEvasionEnv(core.Env):
 
     This Pursuit-Evasion implementation is a discrete version of the problem
     presented in the paper:
-    - Seaman et al (2018) *Nested Reasoning About Autonomous Agents Using
-      Probabilistic Programs*
+    - Seaman, Iris Rubi, Jan-Willem van de Meent, and David Wingate. 2018.
+      “Nested Reasoning About Autonomous Agents Using Probabilistic Programs.”
+      ArXiv Preprint ArXiv:1812.01569.
+
     """
 
     metadata = {"render.modes": ['human', 'ascii']}
