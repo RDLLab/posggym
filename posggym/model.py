@@ -26,6 +26,15 @@ class Outcome(enum.Enum):
         return self.name
 
 
+class JointTimestep(NamedTuple):
+    """Values returned by model after a single step """
+    state: State
+    observations: JointObservation
+    rewards: JointReward
+    done: bool
+    outcomes: Optional[Tuple[Outcome, ...]]
+
+
 class Belief(abc.ABC):
     """An abstract belief class """
 
@@ -56,15 +65,6 @@ class Belief(abc.ABC):
             b_map[s] += s_prob
 
         return b_map
-
-
-class JointTimestep(NamedTuple):
-    """Values returned by model after a single step """
-    state: State
-    observations: JointObservation
-    rewards: JointReward
-    done: bool
-    outcomes: Optional[Tuple[Outcome, ...]]
 
 
 class POSGModel(abc.ABC):

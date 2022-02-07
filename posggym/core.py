@@ -37,7 +37,7 @@ class Env(abc.ABC):
     @abc.abstractmethod
     def step(self,
              actions: Tuple[M.Action, ...]
-             ) -> Tuple[M.JointAction, M.JointReward, bool, dict]:
+             ) -> Tuple[M.JointObservation, M.JointReward, bool, dict]:
         """Run one timestep in the environment.
 
         When the end of an episode is reached, the user is responsible for
