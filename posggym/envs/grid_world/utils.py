@@ -1,6 +1,7 @@
 """General grid world problem utility functions and classes """
 import enum
 import itertools
+from queue import PriorityQueue
 from typing import Tuple, List, Set, Optional, Iterable, Dict
 
 Coord = Tuple[int, int]
@@ -179,3 +180,36 @@ class Grid:
                 dists[d] = []
             dists[d].append(coord)
         return dists
+
+    def get_all_shortest_paths(self,
+                               origins: List[Coord]
+                               ) -> Dict[Coord, Dict[Coord, float]]:
+        """Get shortest path distance from every origin coord to every other
+        coord in the grid
+        """
+        src_dists = {}
+        for origin in origins:
+            src_dists[origin] = self.dijkstra(origin)
+        return src_dists
+
+    def dijkstra(self, origin: Coord) -> Dict[Coord, float]:
+        """Get shortest path distance between origin and all other coords in
+        the grid
+        """
+        dist = {origin: 0.0}
+        pq = PriorityQueue()   # type: ignore
+        pq.put((dist[origin], origin))
+
+        visited = set([origin])
+
+        while not pq.empty():
+            _, coord = pq.get()
+
+            for adj_coord in self.get_neighbours(coord, False):
+                if dist[coord] + 1 < dist.get(adj_coord, float('inf')):
+                    dist[adj_coord] = dist[coord] + 1
+
+                    if adj_coord not in visited:
+                        pq.put((dist[adj_coord], adj_coord))
+                        visited.add(adj_coord)
+        return dist
