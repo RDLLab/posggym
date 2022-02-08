@@ -13,35 +13,35 @@ import posggym.envs.grid_world.pursuit_evasion.model as pe_model
 class PursuitEvasionEnv(core.Env):
     """The Pursuit-Evasion Grid World Environment.
 
-    An adversarial 2D grid world problem involving two agents, a runner and
-    a chaser. The runner's goal is to reach a goal location, on the other side
-    of the grid, while the goal of the chaser is to spot the runner
-    before it reaches it's goal. The runner is considered caught if it is
-    observed by the chaser, or occupies the same location. The runner and
-    chaser have knowledge of each others starting locations. However, only the
-    runner has knowledge of it's goal location. The chaser only knowns that the
-    goal location is somewhere on the opposite side of the grid to the runners
-    start location.
+    An adversarial 2D grid world problem involving two agents, a evader and
+    a pursuer. The evader's goal is to reach a goal location, on the other side
+    of the grid, while the goal of the pursuer is to spot the evader
+    before it reaches it's goal. The evader is considered caught if it is
+    observed by the pursuer, or occupies the same location. The evader and
+    pursuer have knowledge of each others starting locations. However, only the
+    evader has knowledge of it's goal location. The pursuer only knowns that
+    the goal location is somewhere on the opposite side of the grid to the
+    evaders start location.
 
     This environment requires each agent to reason about the which path the
     other agent will take through the dense grid environment.
 
     Agents
     ------
-    Runner=0
-    Chaser=1
+    Evader=0
+    Pursuer=1
 
     State
     -----
     Each state is made up of:
 
-    0. the (x, y) coordinate of the runner
-    1. the direction the runner is facing
-    2. the (x, y) coordinate of the chaser
-    3. the direction the chaser is facing
-    4. the (x, y) coordinate of the runner
-    5. the (x, y) coordinate of the runner's start location
-    6. the (x, y) coordinate of the chaser's start location
+    0. the (x, y) coordinate of the evader
+    1. the direction the evader is facing
+    2. the (x, y) coordinate of the pursuer
+    3. the direction the pursuer is facing
+    4. the (x, y) coordinate of the evader
+    5. the (x, y) coordinate of the evader's start location
+    6. the (x, y) coordinate of the pursuer's start location
 
     Actions
     -------
@@ -57,12 +57,12 @@ class PursuitEvasionEnv(core.Env):
     2. whether they see the other agent in a cone in front of them
     3. whether they hear the other agent (whether the other agent is within
        distance 2 from the agent in any direction)
-    4. the (x, y) coordinate of the runner's start location
-    5. the (x, y) coordinate of the chaser's start location
+    4. the (x, y) coordinate of the evader's start location
+    5. the (x, y) coordinate of the pursuer's start location
 
-    The Runner also observes:
+    The Evader also observes:
 
-    1. the (x, y) coordinate of the runner's goal location
+    1. the (x, y) coordinate of the evader's goal location
 
     Note, the goal and start coordinate observations do not change during a
     single episode, but they do change between episodes.
@@ -70,10 +70,10 @@ class PursuitEvasionEnv(core.Env):
     Reward
     ------
     Both agents receive a penalty of -1.0 for each step.
-    If the runner reaches the goal then the runner recieves a reward of 100,
-    while the chaser recieves a penalty of -100.
-    If the runner is observed by the chaser, then the runner recieves a penalty
-    of -100, while the chaser recieves a penalty of 100.
+    If the evader reaches the goal then the evader recieves a reward of 100,
+    while the pursuer recieves a penalty of -100.
+    If the evader is observed by the pursuer, then the evader recieves a penalty
+    of -100, while the pursuer recieves a penalty of 100.
 
     The rewards make the environment adversarial, but not strictly zero-sum,
     due to the small penalty each step.
@@ -81,7 +81,7 @@ class PursuitEvasionEnv(core.Env):
     Transition Dynamics
     -------------------
     By default actions are deterministic and an episode ends when either the
-    runner is caught, the runner reaches a goal, or the step limit is reached.
+    evader is caught, the evader reaches a goal, or the step limit is reached.
 
     The environment can also be run in stochastic mode by changing the
     action_probs parameter at initialization. This controls the probability
@@ -146,8 +146,8 @@ class PursuitEvasionEnv(core.Env):
 
             grid_str = self._model.grid.get_ascii_repr(
                 goal_coord=self._state[4],
-                runner_coord=self._state[0],
-                chaser_coord=self._state[2]
+                evader_coord=self._state[0],
+                pursuer_coord=self._state[2]
             )
 
             output = [

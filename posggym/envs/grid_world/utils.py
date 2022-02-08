@@ -110,7 +110,7 @@ class Grid:
                                dist: int,
                                ignore_blocks: bool,
                                include_origin: bool) -> Set[Coord]:
-        """Get set of locs within given distance from loc """
+        """Get set of coords within given distance from origin """
         assert dist > 0
         adj_coords = self.get_neighbours(origin, ignore_blocks)
         in_dist_coords = set(adj_coords)
@@ -137,16 +137,45 @@ class Grid:
 
         return in_dist_coords
 
+    def get_coords_at_dist(self,
+                           origin: Coord,
+                           dist: int,
+                           ignore_blocks: bool) -> Set[Coord]:
+        """Get set of coords at given distance from origin """
+        assert dist > 0
+
+        if dist == 0:
+            return {origin}
+
+        in_dist_coords = self.get_coords_within_dist(
+            origin, dist, ignore_blocks, False
+        )
+
+        at_dist_coords: Set[Coord] = set()
+        for coord in in_dist_coords:
+            if self.manhattan_dist(origin, coord) == dist:
+                at_dist_coords.add(coord)
+
+        return at_dist_coords
+
     def get_min_dist_coords(self,
                             origin: Coord,
                             coords: Iterable[Coord]) -> List[Coord]:
         """Get list of coord in coords closest to origin """
+        dists = self.get_coords_by_distance(origin, coords)
+        if len(dists) == 0:
+            return []
+        return dists[min(dists)]
+
+    def get_coords_by_distance(self,
+                               origin: Coord,
+                               coords: Iterable[Coord]
+                               ) -> Dict[int, List[Coord]]:
+        """Get mapping from distance to coords at that distance from origin """
         dists: Dict[int, List[Coord]] = {}
         for coord in coords:
             d = self.manhattan_dist(origin, coord)
             if d not in dists:
                 dists[d] = []
             dists[d].append(coord)
-        if len(dists) == 0:
-            return []
-        return dists[min(dists)]
+        return dists

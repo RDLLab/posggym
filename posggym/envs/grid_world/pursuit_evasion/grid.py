@@ -13,29 +13,29 @@ class PEGrid(Grid):
                  grid_height: int,
                  block_coords: Set[Coord],
                  goal_coords_map: Dict[Coord, List[Coord]],
-                 runner_start_coords: List[Coord],
-                 chaser_start_coords: List[Coord]):
+                 evader_start_coords: List[Coord],
+                 pursuer_start_coords: List[Coord]):
         super().__init__(grid_width, grid_height, block_coords)
         self._goal_coords_map = goal_coords_map
-        self.runner_start_coords = runner_start_coords
-        self.chaser_start_coords = chaser_start_coords
+        self.evader_start_coords = evader_start_coords
+        self.pursuer_start_coords = pursuer_start_coords
 
     @property
     def all_goal_coords(self) -> List[Coord]:
-        """The list of all runner goal locations """
+        """The list of all evader goal locations """
         all_locs = set()
         for v in self._goal_coords_map.values():
             all_locs.update(v)
         return list(all_locs)
 
-    def get_goal_coords(self, runner_start_coord: Coord) -> List[Coord]:
-        """Get list of possible runner goal coords for given start coords """
-        return self._goal_coords_map[runner_start_coord]
+    def get_goal_coords(self, evader_start_coord: Coord) -> List[Coord]:
+        """Get list of possible evader goal coords for given start coords """
+        return self._goal_coords_map[evader_start_coord]
 
     def get_ascii_repr(self,
                        goal_coord: Union[None, Coord, List[Coord]],
-                       runner_coord: Union[None, Coord, List[Coord]],
-                       chaser_coord: Union[None, Coord, List[Coord]]) -> str:
+                       evader_coord: Union[None, Coord, List[Coord]],
+                       pursuer_coord: Union[None, Coord, List[Coord]]) -> str:
         """Get ascii repr of grid """
         if goal_coord is None:
             goal_coords = set()
@@ -57,21 +57,21 @@ class PEGrid(Grid):
                     row_repr.append(".")
             grid_repr.append(row_repr)
 
-        if runner_coord is None:
-            runner_coord = []
-        elif not isinstance(runner_coord, List):
-            runner_coord = [runner_coord]
+        if evader_coord is None:
+            evader_coord = []
+        elif not isinstance(evader_coord, List):
+            evader_coord = [evader_coord]
 
-        for coord in runner_coord:
+        for coord in evader_coord:
             grid_repr[coord[0]][coord[1]] = "R"
 
-        if chaser_coord is None:
-            chaser_coord = []
-        elif not isinstance(chaser_coord, List):
-            chaser_coord = [chaser_coord]
+        if pursuer_coord is None:
+            pursuer_coord = []
+        elif not isinstance(pursuer_coord, List):
+            pursuer_coord = [pursuer_coord]
 
-        for coord in chaser_coord:
-            if coord in runner_coord:
+        for coord in pursuer_coord:
+            if coord in evader_coord:
                 grid_repr[coord[0]][coord[1]] = "X"
             else:
                 grid_repr[coord[0]][coord[1]] = "C"
@@ -85,8 +85,8 @@ class PEGrid(Grid):
         """Get ascii repr of initial grid """
         return self.get_ascii_repr(
             self.all_goal_coords,
-            self.runner_start_coords,
-            self.chaser_start_coords
+            self.evader_start_coords,
+            self.pursuer_start_coords
         )
 
     def get_fov(self,
@@ -183,10 +183,10 @@ def get_8x8_grid() -> PEGrid:
     Seaman et al 2018, 'Nested Reasoning About Autonomous Agents Using
     Probabilistic Programs'
 
-    - 0, 1, 2, 7, 8, 9 are possible runner start and goal locations
-    - 5, 6 are possible chaser start locations
+    - 0, 1, 2, 7, 8, 9 are possible evader start and goal locations
+    - 5, 6 are possible pursuer start locations
 
-    The runner start and goal locations are always on opposite sides of the
+    The evader start and goal locations are always on opposite sides of the
     map.
     """
     ascii_map = (
@@ -210,10 +210,10 @@ def get_16x16_grid() -> PEGrid:
     Seaman et al 2018, 'Nested Reasoning About Autonomous Agents Using
     Probabilistic Programs'
 
-    - 0, 1, 2, 7, 8, 9 are possible runner start and goal locations
-    - 5, 6 are possible chaser start locations
+    - 0, 1, 2, 7, 8, 9 are possible evader start and goal locations
+    - 5, 6 are possible pursuer start locations
 
-    The runner start and goal locations are always on opposite sides of the
+    The evader start and goal locations are always on opposite sides of the
     map.
 
     """
@@ -245,10 +245,10 @@ def get_32x32_grid() -> PEGrid:
     Seaman et al 2018, 'Nested Reasoning About Autonomous Agents Using
     Probabilistic Programs'
 
-    - 0, 1, 2, 7, 8, 9 are possible runner start and goal locations
-    - 5, 6 are possible chaser start locations
+    - 0, 1, 2, 7, 8, 9 are possible evader start and goal locations
+    - 5, 6 are possible pursuer start locations
 
-    The runner start and goal locations are always on opposite sides of the
+    The evader start and goal locations are always on opposite sides of the
     map.
 
     """
@@ -297,18 +297,18 @@ def _convert_map_to_grid(ascii_map: str,
                          height: int,
                          width: int,
                          block_symbol: str = "#",
-                         chaser_start_symbols: Optional[Set[str]] = None,
-                         runner_start_symbols: Optional[Set[str]] = None,
-                         runner_goal_symbol_map: Optional[Dict] = None
+                         pursuer_start_symbols: Optional[Set[str]] = None,
+                         evader_start_symbols: Optional[Set[str]] = None,
+                         evader_goal_symbol_map: Optional[Dict] = None
                          ) -> PEGrid:
     assert len(ascii_map) == height * width
 
-    if chaser_start_symbols is None:
-        chaser_start_symbols = set(['3', '4', '5', '6'])
-    if runner_start_symbols is None:
-        runner_start_symbols = set(['0', '1', '2', '7', '8', '9'])
-    if runner_goal_symbol_map is None:
-        runner_goal_symbol_map = {
+    if pursuer_start_symbols is None:
+        pursuer_start_symbols = set(['3', '4', '5', '6'])
+    if evader_start_symbols is None:
+        evader_start_symbols = set(['0', '1', '2', '7', '8', '9'])
+    if evader_goal_symbol_map is None:
+        evader_goal_symbol_map = {
             '0': ['7', '8', '9'],
             '1': ['7', '8', '9'],
             '2': ['8', '9'],
@@ -318,34 +318,34 @@ def _convert_map_to_grid(ascii_map: str,
         }
 
     block_coords = set()
-    runner_start_coords = []
-    chaser_start_coords = []
-    runner_symbol_coord_map = {}
+    evader_start_coords = []
+    pursuer_start_coords = []
+    evader_symbol_coord_map = {}
 
     for loc, symbol in enumerate(ascii_map):
         coord = _loc_to_coord(loc, width)
         if symbol == block_symbol:
             block_coords.add(coord)
-        elif symbol in chaser_start_symbols:
-            chaser_start_coords.append(coord)
-        elif symbol in runner_start_symbols:
-            runner_start_coords.append(coord)
-            runner_symbol_coord_map[symbol] = coord
+        elif symbol in pursuer_start_symbols:
+            pursuer_start_coords.append(coord)
+        elif symbol in evader_start_symbols:
+            evader_start_coords.append(coord)
+            evader_symbol_coord_map[symbol] = coord
 
-    runner_goal_coords_map = {}
-    for start_symbol, goal_symbols in runner_goal_symbol_map.items():
-        start_coord = runner_symbol_coord_map[start_symbol]
-        runner_goal_coords_map[start_coord] = [
-            runner_symbol_coord_map[symbol] for symbol in goal_symbols
+    evader_goal_coords_map = {}
+    for start_symbol, goal_symbols in evader_goal_symbol_map.items():
+        start_coord = evader_symbol_coord_map[start_symbol]
+        evader_goal_coords_map[start_coord] = [
+            evader_symbol_coord_map[symbol] for symbol in goal_symbols
         ]
 
     return PEGrid(
         grid_width=width,
         grid_height=height,
         block_coords=block_coords,
-        goal_coords_map=runner_goal_coords_map,
-        runner_start_coords=runner_start_coords,
-        chaser_start_coords=chaser_start_coords
+        goal_coords_map=evader_goal_coords_map,
+        evader_start_coords=evader_start_coords,
+        pursuer_start_coords=pursuer_start_coords
     )
 
 

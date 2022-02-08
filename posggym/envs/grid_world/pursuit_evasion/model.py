@@ -9,8 +9,8 @@ import posggym.model as M
 from posggym.envs.grid_world.utils import Direction, Coord
 import posggym.envs.grid_world.pursuit_evasion.grid as grid_lib
 
-# State = (r_coord, r_dir, c_coord, c_dir, r_start_coord,
-#          c_start_coord, r_goal_coord)
+# State = (e_coord, e_dir, p_coord, p_dir, e_start_coord,
+#          p_start_coord, e_goal_coord)
 INITIAL_DIR = Direction.NORTH
 PEState = Tuple[Coord, Direction, Coord, Direction, Coord, Coord, Coord]
 
@@ -18,13 +18,13 @@ PEState = Tuple[Coord, Direction, Coord, Direction, Coord, Coord, Coord]
 PEAction = int
 PEJointAction = Tuple[PEAction, PEAction]
 
-# R Obs = Tuple[WallObs, seen, heard, goal_coord, r_start_coord, c_start_coord]
+# E Obs = Tuple[WallObs, seen, heard, e_start_coord, p_start_coord, goal_coord]
 #            = Tuple[Tuple[int, int, int, int, int, int], Coord, Coord, Coord]
-# C Obs = Tuple[WallObs, seen, heard, r_start_coord, c_start_coord]
+# P Obs = Tuple[WallObs, seen, heard, e_start_coord, p_start_coord]
 #       = Tuple[Tuple[int, int, int, int, int, int], Coord, Coord]
-PERunnerObs = Tuple[Tuple[int, ...], Coord, Coord, Coord]
-PEChaserObs = Tuple[Tuple[int, ...], Coord, Coord]
-PEJointObs = Tuple[PERunnerObs, PEChaserObs]
+PEEvaderObs = Tuple[Tuple[int, ...], Coord, Coord, Coord]
+PEPursuerObs = Tuple[Tuple[int, ...], Coord, Coord]
+PEJointObs = Tuple[PEEvaderObs, PEPursuerObs]
 
 
 class PEB0(M.Belief):
@@ -32,42 +32,44 @@ class PEB0(M.Belief):
 
     def __init__(self,
                  grid: grid_lib.PEGrid,
+                 evader_start_coord: Optional[Coord] = None,
+                 pursuer_start_coord: Optional[Coord] = None,
                  goal_coord: Optional[Coord] = None,
-                 runner_start_coord: Optional[Coord] = None,
-                 chaser_start_coord: Optional[Coord] = None,
                  dist_res: int = 1000):
         self._grid = grid
         self._dist_res = dist_res
+        self._evader_start_coord = evader_start_coord
+        self._pursuer_start_coord = pursuer_start_coord
         self._goal_coord = goal_coord
-        self._runner_start_coord = runner_start_coord
-        self._chaser_start_coord = chaser_start_coord
 
     def sample(self) -> M.State:
-        if self._runner_start_coord is None:
-            runner_start_coord = random.choice(self._grid.runner_start_coords)
+        if self._evader_start_coord is None:
+            evader_start_coord = random.choice(self._grid.evader_start_coords)
         else:
-            runner_start_coord = self._runner_start_coord
+            evader_start_coord = self._evader_start_coord
 
-        if self._chaser_start_coord is None:
-            chaser_start_coord = random.choice(self._grid.chaser_start_coords)
+        if self._pursuer_start_coord is None:
+            pursuer_start_coord = random.choice(
+                self._grid.pursuer_start_coords
+            )
         else:
-            chaser_start_coord = self._chaser_start_coord
+            pursuer_start_coord = self._pursuer_start_coord
 
         if self._goal_coord is None:
             goal_coord = random.choice(
-                self._grid.get_goal_coords(runner_start_coord)
+                self._grid.get_goal_coords(evader_start_coord)
             )
         else:
             goal_coord = self._goal_coord
 
         return (
-            runner_start_coord,
+            evader_start_coord,
             INITIAL_DIR,
-            chaser_start_coord,
+            pursuer_start_coord,
             INITIAL_DIR,
+            evader_start_coord,
+            pursuer_start_coord,
             goal_coord,
-            runner_start_coord,
-            chaser_start_coord
         )
 
     def sample_k(self, k: int) -> Sequence[M.State]:
@@ -82,13 +84,13 @@ class PursuitEvasionModel(M.POSGModel):
 
     NUM_AGENTS = 2
 
-    RUNNER_IDX = 0
-    CHASER_IDX = 1
+    EVADER_IDX = 0
+    PURSUER_IDX = 1
 
-    R_RUNNER_ACTION = -1.0        # Reward each step for runner
-    R_CHASER_ACTION = -1.0        # Reward each step for chaser
-    R_CAPTURE = 100.0             # Chaser reward for capturing runner
-    R_EVASION = 100.0             # Runner reward for reaching goal
+    R_EVADER_ACTION = -1.0        # Reward each step for evader
+    R_PURSUER_ACTION = -1.0        # Reward each step for pursuer
+    R_CAPTURE = 100.0             # Pursuer reward for capturing evader
+    R_EVASION = 100.0             # Evader reward for reaching goal
 
     FOV_EXPANSION_INCR = 3
     HEARING_DIST = 2
@@ -107,35 +109,33 @@ class PursuitEvasionModel(M.POSGModel):
 
     @property
     def state_space(self) -> spaces.Space:
-        # s = (r_coord, r_dir, c_coord, c_dir, r_goal_coord,
-        #      r_start_coord, c_start_coord)
-        #   = Tuple[Coord, Direction, Coord, Direction, Coord, Coord, Coord]
+        # s = Tuple[Coord, Direction, Coord, Direction, Coord, Coord, Coord]
         return spaces.Tuple((
-            # r_coord
+            # e_coord
             spaces.Tuple((
                 spaces.Discrete(self.grid.width),
                 spaces.Discrete(self.grid.height)
             )),
-            # r_dir
+            # e_dir
             spaces.Discrete(len(Direction)),
-            # c_coord
+            # p_coord
             spaces.Tuple((
                 spaces.Discrete(self.grid.width),
                 spaces.Discrete(self.grid.height)
             )),
-            # c_dir
+            # p_dir
             spaces.Discrete(len(Direction)),
-            # r_goal_coord
+            # e_start_coord
             spaces.Tuple((
                 spaces.Discrete(self.grid.width),
                 spaces.Discrete(self.grid.height)
             )),
-            # r_start_coord
+            # p_start_coord
             spaces.Tuple((
                 spaces.Discrete(self.grid.width),
                 spaces.Discrete(self.grid.height)
             )),
-            # r_goal_coord
+            # e_goal_coord
             spaces.Tuple((
                 spaces.Discrete(self.grid.width),
                 spaces.Discrete(self.grid.height)
@@ -159,26 +159,26 @@ class PursuitEvasionModel(M.POSGModel):
             spaces.Discrete(self.grid.height)
         ))
 
-        runner_obs_space = spaces.Tuple((
+        evader_obs_space = spaces.Tuple((
             # Wall obs, seen, heard
             env_obs_space,
-            # r_goal_coord
+            # e_start_coord
             coord_obs_space,
-            # r_start_coord
+            # p_start_coord
             coord_obs_space,
-            # c_start_coord
-            coord_obs_space
+            # e_goal_coord
+            coord_obs_space,
         ))
 
-        chaser_obs_space = spaces.Tuple((
+        pursuer_obs_space = spaces.Tuple((
             # Wall obs, seen, heard
             env_obs_space,
-            # r_start_coord
+            # e_start_coord
             coord_obs_space,
-            # c_start_coord
+            # p_start_coord
             coord_obs_space
         ))
-        return (runner_obs_space, chaser_obs_space)
+        return (evader_obs_space, pursuer_obs_space)
 
     @property
     def reward_ranges(self) -> Tuple[Tuple[M.Reward, M.Reward], ...]:
@@ -193,18 +193,18 @@ class PursuitEvasionModel(M.POSGModel):
     def get_agent_initial_belief(self,
                                  agent_id: int,
                                  obs: M.Observation) -> M.Belief:
-        if agent_id == self.RUNNER_IDX:
+        if agent_id == self.EVADER_IDX:
             return PEB0(
                 self.grid,
-                goal_coord=obs[1],
-                runner_start_coord=obs[2],
-                chaser_start_coord=obs[3]
+                evader_start_coord=obs[1],
+                pursuer_start_coord=obs[2],
+                goal_coord=obs[3]
             )
 
         return PEB0(
                 self.grid,
-                runner_start_coord=obs[2],
-                chaser_start_coord=obs[3]
+                evader_start_coord=obs[1],
+                pursuer_start_coord=obs[2]
             )
 
     def sample_initial_obs(self, state: M.State) -> M.JointObservation:
@@ -216,8 +216,8 @@ class PursuitEvasionModel(M.POSGModel):
              actions: M.JointAction
              ) -> M.JointTimestep:
         next_state = self._get_next_state(state, actions)  # type: ignore
-        obs, runner_detected = self._get_obs(next_state)
-        reward = self._get_reward(next_state, runner_detected)
+        obs, evader_detected = self._get_obs(next_state)
+        reward = self._get_reward(next_state, evader_detected)
         done = self.is_done(next_state)
         outcomes = self.get_outcome(next_state) if done else None
         return M.JointTimestep(next_state, obs, reward, done, outcomes)
@@ -225,51 +225,51 @@ class PursuitEvasionModel(M.POSGModel):
     def _get_next_state(self,
                         state: PEState,
                         actions: PEJointAction) -> PEState:
-        runner_a = actions[self.RUNNER_IDX]
-        chaser_a = actions[self.CHASER_IDX]
+        evader_a = actions[self.EVADER_IDX]
+        pursuer_a = actions[self.PURSUER_IDX]
 
-        if random.random() < self._action_probs[self.RUNNER_IDX]:
-            other_as = [a for a in Direction if a != runner_a]
-            runner_a = random.choice(other_as)
+        if random.random() < self._action_probs[self.EVADER_IDX]:
+            other_as = [a for a in Direction if a != evader_a]
+            evader_a = random.choice(other_as)
 
-        if random.random() < self._action_probs[self.CHASER_IDX]:
-            other_as = [a for a in Direction if a != chaser_a]
-            chaser_a = random.choice(other_as)
+        if random.random() < self._action_probs[self.PURSUER_IDX]:
+            other_as = [a for a in Direction if a != pursuer_a]
+            pursuer_a = random.choice(other_as)
 
-        chaser_next_dir = Direction(chaser_a)
-        chaser_next_coord = self.grid.get_next_coord(
-            state[2], chaser_next_dir, ignore_blocks=False
+        pursuer_next_dir = Direction(pursuer_a)
+        pursuer_next_coord = self.grid.get_next_coord(
+            state[2], pursuer_next_dir, ignore_blocks=False
         )
 
-        runner_next_coord = state[0]
-        runner_next_dir = Direction(runner_a)
-        if chaser_next_coord != state[0]:
-            runner_next_coord = self.grid.get_next_coord(
-                state[0], runner_next_dir, ignore_blocks=False
+        evader_next_coord = state[0]
+        evader_next_dir = Direction(evader_a)
+        if pursuer_next_coord != state[0]:
+            evader_next_coord = self.grid.get_next_coord(
+                state[0], evader_next_dir, ignore_blocks=False
             )
 
         return (
-            runner_next_coord,
-            runner_next_dir,
-            chaser_next_coord,
-            chaser_next_dir,
-            state[4],   # goal coord
-            state[5],   # runner start coord
-            state[6]    # chaser start coord
+            evader_next_coord,
+            evader_next_dir,
+            pursuer_next_coord,
+            pursuer_next_dir,
+            state[4],   # evader start coord
+            state[5],   # pursuer start coord
+            state[6]    # goal coord
         )
 
     def _get_obs(self, state: PEState) -> Tuple[PEJointObs, bool]:
-        runner_obs = self._get_runner_obs(state)
-        chaser_obs, seen = self._get_chaser_obs(state)
-        return (runner_obs, chaser_obs), seen
+        evader_obs = self._get_evader_obs(state)
+        pursuer_obs, seen = self._get_pursuer_obs(state)
+        return (evader_obs, pursuer_obs), seen
 
-    def _get_runner_obs(self, state: PEState) -> PERunnerObs:
+    def _get_evader_obs(self, state: PEState) -> PEEvaderObs:
         walls, seen, heard = self._get_agent_obs(state[0], state[1], state[2])
         return ((*walls, seen, heard), state[4], state[5], state[6])
 
-    def _get_chaser_obs(self, state: PEState) -> Tuple[PEChaserObs, bool]:
+    def _get_pursuer_obs(self, state: PEState) -> Tuple[PEPursuerObs, bool]:
         walls, seen, heard = self._get_agent_obs(state[2], state[3], state[0])
-        return ((*walls, seen, heard), state[5], state[6]), bool(seen)
+        return ((*walls, seen, heard), state[4], state[5]), bool(seen)
 
     def _get_agent_obs(self,
                        agent_coord: Coord,
@@ -305,37 +305,37 @@ class PursuitEvasionModel(M.POSGModel):
         dist = self.grid.manhattan_dist(ego_coord, opp_coord)
         return dist <= self.HEARING_DIST
 
-    def _get_reward(self, state: PEState, runner_seen: bool) -> M.JointReward:
-        runner_coord, chaser_coord = state[0], state[2]
-        runner_goal_coord = state[4]
+    def _get_reward(self, state: PEState, evader_seen: bool) -> M.JointReward:
+        evader_coord, pursuer_coord = state[0], state[2]
+        evader_goal_coord = state[4]
 
-        if runner_coord == chaser_coord or runner_seen:
+        if evader_coord == pursuer_coord or evader_seen:
             return (-self.R_CAPTURE, self.R_CAPTURE)
-        if runner_coord == runner_goal_coord:
+        if evader_coord == evader_goal_coord:
             return (self.R_EVASION, -self.R_EVASION)
 
-        return (self.R_RUNNER_ACTION, self.R_CHASER_ACTION)
+        return (self.R_EVADER_ACTION, self.R_PURSUER_ACTION)
 
     def is_done(self, state: M.State) -> bool:
-        runner_coord, chaser_coord = state[0], state[2]
-        runner_goal_coord = state[4]
-        if runner_coord == chaser_coord:
+        evader_coord, pursuer_coord = state[0], state[2]
+        evader_goal_coord = state[4]
+        if evader_coord == pursuer_coord:
             return True
-        if runner_coord == runner_goal_coord:
+        if evader_coord == evader_goal_coord:
             return True
-        return self._get_opponent_seen(chaser_coord, state[3], runner_coord)
+        return self._get_opponent_seen(pursuer_coord, state[3], evader_coord)
 
     def get_outcome(self, state: M.State) -> Tuple[M.Outcome, ...]:
         # Assuming this method is called on final timestep
-        runner_coord, chaser_coord = state[0], state[2]
-        runner_goal_coord = state[4]
+        evader_coord, pursuer_coord = state[0], state[2]
+        evader_goal_coord = state[4]
 
         # check this first before relatively expensive detection check
-        if runner_coord == chaser_coord:
+        if evader_coord == pursuer_coord:
             return (M.Outcome.LOSS, M.Outcome.WIN)
-        if runner_coord == runner_goal_coord:
+        if evader_coord == evader_goal_coord:
             return (M.Outcome.WIN, M.Outcome.LOSS)
 
-        if self._get_opponent_seen(chaser_coord, state[3], runner_coord):
+        if self._get_opponent_seen(pursuer_coord, state[3], evader_coord):
             return (M.Outcome.LOSS, M.Outcome.WIN)
         return (M.Outcome.DRAW, M.Outcome.DRAW)
