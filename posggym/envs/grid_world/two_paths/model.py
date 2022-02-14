@@ -165,7 +165,7 @@ class TwoPathsModel(M.POSGModel):
         runner_a = actions[self.RUNNER_IDX]
         chaser_a = actions[self.CHASER_IDX]
 
-        if random.random() < self._action_probs[self.CHASER_IDX]:
+        if random.random() > self._action_probs[self.CHASER_IDX]:
             other_as = [a for a in Direction if a != chaser_a]
             chaser_a = random.choice(other_as)
         chaser_next_coord = self.grid.get_next_coord(
@@ -176,7 +176,7 @@ class TwoPathsModel(M.POSGModel):
             # Runner considered to capture Fugitive
             runner_next_coord = runner_coord
         else:
-            if random.random() < self._action_probs[self.RUNNER_IDX]:
+            if random.random() > self._action_probs[self.RUNNER_IDX]:
                 other_as = [a for a in Direction if a != runner_a]
                 runner_a = random.choice(other_as)
             runner_next_coord = self.grid.get_next_coord(

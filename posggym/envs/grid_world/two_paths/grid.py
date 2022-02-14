@@ -37,17 +37,14 @@ class TPGrid(Grid):
             grid_repr.append(row_repr)
 
         if runner_coord is not None:
-            grid_repr[runner_coord[0]][runner_coord[1]] = "R"
+            grid_repr[runner_coord[1]][runner_coord[0]] = "R"
         if chaser_coord is not None:
             if chaser_coord == runner_coord:
-                grid_repr[chaser_coord[0]][chaser_coord[1]] = "X"
+                grid_repr[chaser_coord[1]][chaser_coord[0]] = "X"
             else:
-                grid_repr[chaser_coord[0]][chaser_coord[1]] = "C"
+                grid_repr[chaser_coord[1]][chaser_coord[0]] = "C"
 
-        return (
-            str(self)
-            + "\n" + "\n".join(list(list((" ".join(r) for r in grid_repr))))
-        )
+        return "\n".join(list(list((" ".join(r) for r in grid_repr))))
 
     def get_init_ascii_repr(self) -> str:
         """Get ascii repr of initial grid """

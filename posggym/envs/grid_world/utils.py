@@ -112,7 +112,9 @@ class Grid:
                                ignore_blocks: bool,
                                include_origin: bool) -> Set[Coord]:
         """Get set of coords within given distance from origin """
-        assert dist > 0
+        if dist == 0:
+            return {origin} if include_origin else set()
+
         adj_coords = self.get_neighbours(origin, ignore_blocks)
         in_dist_coords = set(adj_coords)
 
@@ -143,8 +145,6 @@ class Grid:
                            dist: int,
                            ignore_blocks: bool) -> Set[Coord]:
         """Get set of coords at given distance from origin """
-        assert dist > 0
-
         if dist == 0:
             return {origin}
 
