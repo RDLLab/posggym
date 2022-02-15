@@ -1,5 +1,5 @@
 """A grid in the Runner Chaser Problem """
-from queue import Queue
+from collections import deque
 from typing import List, Set, Optional, Dict, Union
 
 from posggym.envs.grid_world.utils import Grid, Coord, Direction
@@ -63,7 +63,7 @@ class PEGrid(Grid):
             evader_coord = [evader_coord]
 
         for coord in evader_coord:
-            grid_repr[coord[0]][coord[1]] = "R"
+            grid_repr[coord[1]][coord[0]] = "R"
 
         if pursuer_coord is None:
             pursuer_coord = []
@@ -72,14 +72,11 @@ class PEGrid(Grid):
 
         for coord in pursuer_coord:
             if coord in evader_coord:
-                grid_repr[coord[0]][coord[1]] = "X"
+                grid_repr[coord[1]][coord[0]] = "X"
             else:
-                grid_repr[coord[0]][coord[1]] = "C"
+                grid_repr[coord[1]][coord[0]] = "C"
 
-        return (
-            str(self)
-            + "\n" + "\n".join(list(list((" ".join(r) for r in grid_repr))))
-        )
+        return "\n".join(list(list((" ".join(r) for r in grid_repr))))
 
     def get_init_ascii_repr(self) -> str:
         """Get ascii repr of initial grid """
@@ -102,51 +99,57 @@ class PEGrid(Grid):
         assert widening_increment > 0
         fov = set([origin])
 
-        frontier_queue: Queue[Coord] = Queue()
-        frontier_queue.put(origin)
+        frontier_queue: deque[Coord] = deque([origin])
         visited = set([origin])
 
-        while not frontier_queue.empty():
-            coords = frontier_queue.get()
+        while len(frontier_queue):
+            coord = frontier_queue.pop()
 
-            for next_coords in self._get_fov_successors(
-                    origin, direction, coords, widening_increment
+            for next_coord in self._get_fov_successors(
+                    origin, direction, coord, widening_increment
             ):
-                if next_coords not in visited:
-                    visited.add(next_coords)
-                    frontier_queue.put(next_coords)
-                    fov.add(next_coords)
+                if next_coord not in visited:
+                    visited.add(next_coord)
+                    frontier_queue.append(next_coord)
+                    fov.add(next_coord)
         return fov
 
     def _get_fov_successors(self,
                             origin: Coord,
                             direction: Direction,
-                            coords: Coord,
+                            coord: Coord,
                             widening_increment: int) -> List[Coord]:
         successors = []
 
-        forward_successor = self._get_fov_successor(coords, direction)
+        forward_successor = self._get_fov_successor(coord, direction)
         if forward_successor is not None:
             successors.append(forward_successor)
         else:
             return successors
 
-        if not self._check_expand_fov(origin, coords, widening_increment):
+        # Expands FOV at depth 1 and then every widening_increment depth
+        if direction in [Direction.NORTH, Direction.SOUTH]:
+            depth = abs(origin[1] - coord[1])
+        else:
+            depth = abs(origin[0] - coord[0])
+        if depth != 1 and depth % widening_increment != 0:
+            # Don't expand sideways
             return successors
 
-        side_successor: Optional[Coord] = None
         side_coords_list: List[Coord] = []
-        if direction in [Direction.NORTH, Direction.SOUTH]:
-            if 0 < coords[1] <= origin[1]:
-                side_coords_list.append((coords[0], coords[1]-1))
-            if origin[1] <= coords[1] < self.width-1:
-                side_coords_list.append((coords[0], coords[1]+1))
-        if direction in [Direction.EAST, Direction.WEST]:
-            if 0 < coords[0] <= origin[0]:
-                side_coords_list.append((coords[0]-1, coords[1]))
-            elif origin[0] <= coords[0] < self.height-1:
-                side_coords_list.append((coords[0]+1, coords[1]))
 
+        if direction in [Direction.NORTH, Direction.SOUTH]:
+            if 0 < coord[0] <= origin[0]:
+                side_coords_list.append((coord[0]-1, coord[1]))
+            if origin[0] <= coord[0] < self.width-1:
+                side_coords_list.append((coord[0]+1, coord[1]))
+        else:
+            if 0 < coord[1] <= origin[1]:
+                side_coords_list.append((coord[0], coord[1]-1))
+            elif origin[1] <= coord[1] < self.height-1:
+                side_coords_list.append((coord[0], coord[1]+1))
+
+        side_successor: Optional[Coord] = None
         for side_coord in side_coords_list:
             if side_coord in self.block_coords:
                 continue
@@ -166,14 +169,38 @@ class PEGrid(Grid):
             return None
         return new_coord
 
-    @staticmethod
-    def _check_expand_fov(origin: Coord,
-                          coord: Coord,
-                          widening_increment: int) -> bool:
-        # Expands field of vision at depth 1 and
-        # then every widening_increment depth
-        d = max(abs(origin[0] - coord[0]), abs(origin[1] - coord[1]))
-        return d == 1 or (d > 1 and d % widening_increment == 0)
+
+def get_5x5_grid() -> PEGrid:
+    """Generate the 5-by-5 PE grid layout.
+
+    - 0, 1, 2, 3 are possible evader start and goal locations
+    - 5 are possible pursuer start locations
+
+    The evader start and goal locations are always on opposite sides of the
+    map.
+
+    """
+    ascii_map = (
+        " 9  8"
+        " # # "
+        " #5  "
+        " # # "
+        "0  1 "
+    )
+
+    return _convert_map_to_grid(
+        ascii_map,
+        5,
+        5,
+        pursuer_start_symbols=set(['5']),
+        evader_start_symbols=set(['0', '1', '8', '9']),
+        evader_goal_symbol_map={
+            '0': ['8', '9'],
+            '1': ['8', '9'],
+            '8': ['0', '1'],
+            '9': ['0', '1'],
+        }
+    )
 
 
 def get_8x8_grid() -> PEGrid:
@@ -351,6 +378,7 @@ def _convert_map_to_grid(ascii_map: str,
 
 # grid_name: (grid_make_fn, step_limit)
 SUPPORTED_GRIDS = {
+    '5x5': (get_5x5_grid, 20),
     '8x8': (get_8x8_grid, 50),
     '16x16': (get_16x16_grid, 100),
     '32x32': (get_32x32_grid, 200)

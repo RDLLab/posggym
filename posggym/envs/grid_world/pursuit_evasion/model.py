@@ -9,8 +9,7 @@ import posggym.model as M
 from posggym.envs.grid_world.utils import Direction, Coord
 import posggym.envs.grid_world.pursuit_evasion.grid as grid_lib
 
-# State = (e_coord, e_dir, p_coord, p_dir, e_start_coord,
-#          p_start_coord, e_goal_coord)
+# State = (e_coord, e_dir, p_coord, p_dir, e_0_coord, p_0_coord, e_goal_coord)
 INITIAL_DIR = Direction.NORTH
 PEState = Tuple[Coord, Direction, Coord, Direction, Coord, Coord, Coord]
 
@@ -18,12 +17,14 @@ PEState = Tuple[Coord, Direction, Coord, Direction, Coord, Coord, Coord]
 PEAction = int
 PEJointAction = Tuple[PEAction, PEAction]
 
-# E Obs = Tuple[WallObs, seen, heard, e_start_coord, p_start_coord, goal_coord]
-#            = Tuple[Tuple[int, int, int, int, int, int], Coord, Coord, Coord]
-# P Obs = Tuple[WallObs, seen, heard, e_start_coord, p_start_coord]
-#       = Tuple[Tuple[int, int, int, int, int, int], Coord, Coord]
+# E Obs = Tuple[WallObs, seen, heard, e_0_coord, p_0_coord, goal_coord]
+#       = Tuple[Tuple[int, int, int, int, int, int], Coord, Coord, Coord]
+# P Obs = Tuple[WallObs, seen, heard, e_0_coord, p_0_coord, blank_coord]
+#       = Tuple[Tuple[int, int, int, int, int, int], Coord, Coord, Coord]
+# Note, we use blank_coord for P Obs so Obs spaces are identical between the
+# two agents. The blank_coord is always (0, 0).
 PEEvaderObs = Tuple[Tuple[int, ...], Coord, Coord, Coord]
-PEPursuerObs = Tuple[Tuple[int, ...], Coord, Coord]
+PEPursuerObs = Tuple[Tuple[int, ...], Coord, Coord, Coord]
 PEJointObs = Tuple[PEEvaderObs, PEPursuerObs]
 
 
@@ -159,26 +160,17 @@ class PursuitEvasionModel(M.POSGModel):
             spaces.Discrete(self.grid.height)
         ))
 
-        evader_obs_space = spaces.Tuple((
+        obs_space = spaces.Tuple((
             # Wall obs, seen, heard
             env_obs_space,
             # e_start_coord
             coord_obs_space,
             # p_start_coord
             coord_obs_space,
-            # e_goal_coord
+            # e_goal_coord/blank_coord
             coord_obs_space,
         ))
-
-        pursuer_obs_space = spaces.Tuple((
-            # Wall obs, seen, heard
-            env_obs_space,
-            # e_start_coord
-            coord_obs_space,
-            # p_start_coord
-            coord_obs_space
-        ))
-        return (evader_obs_space, pursuer_obs_space)
+        return (obs_space, obs_space)
 
     @property
     def reward_ranges(self) -> Tuple[Tuple[M.Reward, M.Reward], ...]:
@@ -228,11 +220,11 @@ class PursuitEvasionModel(M.POSGModel):
         evader_a = actions[self.EVADER_IDX]
         pursuer_a = actions[self.PURSUER_IDX]
 
-        if random.random() < self._action_probs[self.EVADER_IDX]:
+        if random.random() > self._action_probs[self.EVADER_IDX]:
             other_as = [a for a in Direction if a != evader_a]
             evader_a = random.choice(other_as)
 
-        if random.random() < self._action_probs[self.PURSUER_IDX]:
+        if random.random() > self._action_probs[self.PURSUER_IDX]:
             other_as = [a for a in Direction if a != pursuer_a]
             pursuer_a = random.choice(other_as)
 
@@ -269,7 +261,7 @@ class PursuitEvasionModel(M.POSGModel):
 
     def _get_pursuer_obs(self, state: PEState) -> Tuple[PEPursuerObs, bool]:
         walls, seen, heard = self._get_agent_obs(state[2], state[3], state[0])
-        return ((*walls, seen, heard), state[4], state[5]), bool(seen)
+        return ((*walls, seen, heard), state[4], state[5], (0, 0)), bool(seen)
 
     def _get_agent_obs(self,
                        agent_coord: Coord,
@@ -307,7 +299,7 @@ class PursuitEvasionModel(M.POSGModel):
 
     def _get_reward(self, state: PEState, evader_seen: bool) -> M.JointReward:
         evader_coord, pursuer_coord = state[0], state[2]
-        evader_goal_coord = state[4]
+        evader_goal_coord = state[6]
 
         if evader_coord == pursuer_coord or evader_seen:
             return (-self.R_CAPTURE, self.R_CAPTURE)
@@ -318,7 +310,7 @@ class PursuitEvasionModel(M.POSGModel):
 
     def is_done(self, state: M.State) -> bool:
         evader_coord, pursuer_coord = state[0], state[2]
-        evader_goal_coord = state[4]
+        evader_goal_coord = state[6]
         if evader_coord == pursuer_coord:
             return True
         if evader_coord == evader_goal_coord:
@@ -328,7 +320,7 @@ class PursuitEvasionModel(M.POSGModel):
     def get_outcome(self, state: M.State) -> Tuple[M.Outcome, ...]:
         # Assuming this method is called on final timestep
         evader_coord, pursuer_coord = state[0], state[2]
-        evader_goal_coord = state[4]
+        evader_goal_coord = state[6]
 
         # check this first before relatively expensive detection check
         if evader_coord == pursuer_coord:

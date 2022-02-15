@@ -60,7 +60,7 @@ class GWViewer:
 
         # Let matplotlib process UI events
         # This is needed for interactive mode to work properly
-        plt.pause(0.001)
+        plt.pause(0.01)
 
     @staticmethod
     def show(block: bool = True) -> None:

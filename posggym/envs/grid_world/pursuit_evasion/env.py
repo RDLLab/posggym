@@ -54,15 +54,13 @@ class PursuitEvasionEnv(core.Env):
 
     1. whether there is a wall or not in the adjacent cells in the four
        cardinal directions,
-    2. whether they see the other agent in a cone in front of them
+    2. whether they see the other agent in a cone in front of them,
     3. whether they hear the other agent (whether the other agent is within
-       distance 2 from the agent in any direction)
-    4. the (x, y) coordinate of the evader's start location
-    5. the (x, y) coordinate of the pursuer's start location
-
-    The Evader also observes:
-
-    1. the (x, y) coordinate of the evader's goal location
+       distance 2 from the agent in any direction),
+    4. the (x, y) coordinate of the evader's start location,
+    5. the (x, y) coordinate of the pursuer's start location,
+    6. Evader: the (x, y) coordinate of the evader's goal location.
+       Pursuer: blank coordinate = (0, 0).
 
     Note, the goal and start coordinate observations do not change during a
     single episode, but they do change between episodes.
@@ -72,8 +70,8 @@ class PursuitEvasionEnv(core.Env):
     Both agents receive a penalty of -1.0 for each step.
     If the evader reaches the goal then the evader recieves a reward of 100,
     while the pursuer recieves a penalty of -100.
-    If the evader is observed by the pursuer, then the evader recieves a penalty
-    of -100, while the pursuer recieves a penalty of 100.
+    If the evader is observed by the pursuer, then the evader recieves a
+    penalty of -100, while the pursuer recieves a penalty of 100.
 
     The rewards make the environment adversarial, but not strictly zero-sum,
     due to the small penalty each step.
@@ -125,7 +123,7 @@ class PursuitEvasionEnv(core.Env):
         self._step_num += 1
         self._state = step.state
         self._last_obs = step.observations
-        self._last_actions = actions       # type: ignore
+        self._last_actions = actions         # type: ignore
         self._last_rewards = step.rewards
         aux = {"outcomes": step.outcomes}
         return (step.observations, step.rewards, step.done, aux)
@@ -141,13 +139,15 @@ class PursuitEvasionEnv(core.Env):
         return self._last_obs
 
     def render(self, mode: str = "human") -> None:
+        evader_coord = self._state[0]
+        pursuer_coord = self._state[2]
+        goal_coord = self._state[6]
+
         if mode == "ascii":
             outfile = sys.stdout
 
             grid_str = self._model.grid.get_ascii_repr(
-                goal_coord=self._state[4],
-                evader_coord=self._state[0],
-                pursuer_coord=self._state[2]
+                goal_coord, evader_coord, pursuer_coord
             )
 
             output = [
@@ -168,14 +168,15 @@ class PursuitEvasionEnv(core.Env):
                 # pylint: disable=[import-outside-toplevel]
                 from posggym.envs.grid_world import viewer
                 self._viewer = viewer.GWViewer(   # type: ignore
-                    "Pursuit-Evasion Env", (grid.width, grid.height)
+                    "Pursuit-Evasion Env",
+                    (min(grid.height, 8), min(grid.width, 8))
                 )
                 self._viewer.show(block=False)   # type: ignore
 
             if self._renderer is None:
                 static_objs = [
                     render_lib.GWObject(
-                        self._state[4], 'green', render_lib.Shape.RECTANGLE
+                        goal_coord, 'green', render_lib.Shape.RECTANGLE
                     )
                 ]
                 self._renderer = render_lib.GWRenderer(
@@ -194,7 +195,7 @@ class PursuitEvasionEnv(core.Env):
             )
 
             img = self._renderer.render(
-                (self._state[0], self._state[2]),
+                (evader_coord, pursuer_coord),
                 agent_obs_coords,
                 agent_dirs=(self._state[1], self._state[3]),
                 other_objs=None,

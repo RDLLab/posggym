@@ -1,3 +1,6 @@
+# Custom additions
+envs_to_add
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
