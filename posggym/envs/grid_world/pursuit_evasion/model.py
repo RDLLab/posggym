@@ -279,7 +279,7 @@ class PursuitEvasionModel(M.POSGModel):
         )
         return tuple(
             int(
-                self.grid.coord_in_bounds(coord)
+                not self.grid.coord_in_bounds(coord)
                 or coord in self.grid.block_coords
             ) for coord in adj_coords
         )
