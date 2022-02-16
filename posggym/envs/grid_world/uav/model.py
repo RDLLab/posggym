@@ -226,13 +226,11 @@ class UAVModel(M.POSGModel):
         uav_coord, fug_coord = next_state
 
         if fug_coord in (uav_coord, self.grid.safe_house_coord):
-            outcomes = self.get_outcome(next_state)
             # fug caught or fug safe
             fug_coord = self._sample_fug_coord(uav_coord)
             next_state = (uav_coord, fug_coord)
-        else:
-            outcomes = None
 
+        outcomes = None
         obs = self._sample_obs(next_state)
         done = self.is_done(next_state)
         return M.JointTimestep(next_state, obs, rewards, done, outcomes)
@@ -324,9 +322,4 @@ class UAVModel(M.POSGModel):
         return False
 
     def get_outcome(self, state: M.State) -> Tuple[M.Outcome, ...]:
-        uav_coord, fug_coord = state
-        if fug_coord == self.grid.safe_house_coord:
-            return (M.Outcome.LOSS, M.Outcome.WIN)
-        if uav_coord == fug_coord:
-            return (M.Outcome.WIN, M.Outcome.LOSS)
-        return (M.Outcome.DRAW, M.Outcome.DRAW)
+        return (M.Outcome.NA, M.Outcome.NA)

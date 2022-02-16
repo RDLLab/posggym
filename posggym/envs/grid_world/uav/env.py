@@ -102,7 +102,8 @@ class UAVEnv(core.Env):
         aux = {"outcomes": step.outcomes}
         return (step.observations, step.rewards, step.done, aux)
 
-    def reset(self, seed: Optional[int] = None) -> M.JointObservation:
+    def reset(self, *, seed: Optional[int] = None) -> M.JointObservation:
+        super().reset(seed=seed)
         init_conds = self._model.sample_initial_state_and_obs()
         self._state, self._last_obs = init_conds
         self._last_actions = None
@@ -163,3 +164,8 @@ class UAVEnv(core.Env):
     @property
     def model(self) -> uav_model.UAVModel:
         return self._model
+
+    def close(self) -> None:
+        if self._viewer is not None:
+            self._viewer.close()   # type: ignore
+            self._viewer = None

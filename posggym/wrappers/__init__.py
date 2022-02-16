@@ -1,0 +1,1 @@
+from posggym.wrappers.flatten_observation import FlattenObservation

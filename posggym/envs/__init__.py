@@ -30,11 +30,11 @@ register(
 # -------------------------------------------
 
 # Two Paths
-for grid_name, v in two_paths.grid.SUPPORTED_GRIDS.items():
+for grid_name in two_paths.grid.SUPPORTED_GRIDS:
     register(
         env_id=f"TwoPaths{grid_name}-v0",
         entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
-        max_episode_steps=v[1],
+        max_episode_steps=two_paths.grid.SUPPORTED_GRIDS[grid_name][1],
         kwargs={
             "grid_name": grid_name,
             "action_probs": 1.0,
@@ -45,7 +45,7 @@ for grid_name, v in two_paths.grid.SUPPORTED_GRIDS.items():
     register(
         env_id=f"TwoPaths{grid_name}Stochastic-v0",
         entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
-        max_episode_steps=v[1],
+        max_episode_steps=two_paths.grid.SUPPORTED_GRIDS[grid_name][1],
         kwargs={
             "grid_name": grid_name,
             "action_probs": 0.9,
@@ -55,13 +55,13 @@ for grid_name, v in two_paths.grid.SUPPORTED_GRIDS.items():
 
 
 # Pursuit-Evasion
-for grid_name, v in pursuit_evasion.grid.SUPPORTED_GRIDS.items():
+for grid_name in pursuit_evasion.grid.SUPPORTED_GRIDS:
     register(
         env_id=f"PursuitEvasion{grid_name}-v0",
         entry_point=(
             "posggym.envs.grid_world.pursuit_evasion:PursuitEvasionEnv"
         ),
-        max_episode_steps=v[1],
+        max_episode_steps=pursuit_evasion.grid.SUPPORTED_GRIDS[grid_name][1],
         kwargs={
             "grid_name": grid_name,
             "action_probs": 1.0,
@@ -73,7 +73,7 @@ for grid_name, v in pursuit_evasion.grid.SUPPORTED_GRIDS.items():
         entry_point=(
             "posggym.envs.grid_world.pursuit_evasion:PursuitEvasionEnv"
         ),
-        max_episode_steps=v[1],
+        max_episode_steps=pursuit_evasion.grid.SUPPORTED_GRIDS[grid_name][1],
         kwargs={
             "grid_name": grid_name,
             "action_probs": 0.9,
