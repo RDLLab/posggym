@@ -1,5 +1,5 @@
 import sys
-from typing import Tuple
+from typing import Tuple, Set
 
 from gym import spaces
 
@@ -7,7 +7,7 @@ from posggym import Env
 
 try:
     from ray.rllib.env.multi_agent_env import MultiAgentEnv
-    from ray.rllib.utils.typing import MultiAgentDict
+    from ray.rllib.utils.typing import MultiAgentDict, AgentID
 except ImportError:
     print(
         "The posggym.wrapper.rllib_multi_agent_env Wrapper depends on the "
@@ -18,7 +18,7 @@ except ImportError:
 
 
 class RllibMultiAgentEnv(MultiAgentEnv):
-    """An interface between a POSGGym env and a Rllib MultiAgentEnv
+    """An interface between a POSGGym env and a Rllib MultiAgentEnv.
 
     This involves:
     - treating agent IDs as strings (instead of ints)
@@ -34,7 +34,7 @@ class RllibMultiAgentEnv(MultiAgentEnv):
 
     @property
     def observation_space(self):
-        """The environment observation space
+        """Get the environment observation space.
 
         This is a dictionary mapping agent IDs to the agent's observation space
         """
@@ -44,7 +44,7 @@ class RllibMultiAgentEnv(MultiAgentEnv):
 
     @property
     def action_space(self):
-        """The environment action space
+        """Get the environment action space.
 
         This is a dictionary mapping agent IDs to the agent's action space
         """
@@ -54,6 +54,10 @@ class RllibMultiAgentEnv(MultiAgentEnv):
                 for i in range(self.env.n_agents)
             }
         )
+
+    def get_agent_ids(self) -> Set[AgentID]:
+        """Return a set of agent ids in the environment."""
+        return self._agent_ids
 
     def reset(self) -> MultiAgentDict:
         obs = self.env.reset()
