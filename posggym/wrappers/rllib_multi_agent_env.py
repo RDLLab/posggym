@@ -55,6 +55,10 @@ class RllibMultiAgentEnv(MultiAgentEnv):
             }
         )
 
+    @property
+    def n_agents(self) -> int:
+        return self.env.n_agents
+
     def get_agent_ids(self) -> Set[AgentID]:
         """Return a set of agent ids in the environment."""
         return self._agent_ids

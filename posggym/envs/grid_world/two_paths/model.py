@@ -1,4 +1,4 @@
-"""The POSG Model for the Two-Paths Problem """
+"""The POSG Model for the Two-Paths Problem."""
 import random
 import itertools
 from typing import Tuple, Union, Sequence, Dict
@@ -28,7 +28,7 @@ CELL_OBS_STR = ["X", "#", "0"]
 
 
 class TPB0(M.Belief):
-    """The initial belief in a Two-Paths problem """
+    """The initial belief in a Two-Paths problem."""
 
     def __init__(self,
                  grid: grid_lib.TPGrid,
@@ -51,10 +51,10 @@ class TPB0(M.Belief):
 
 
 class TwoPathsModel(M.POSGModel):
-    """Two-Paths Problem Model
+    """Two-Paths Problem Model.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     grid_name : str
         determines the environment map (see posggym.envs.two_paths.grid for
         available grids)

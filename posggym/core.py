@@ -1,4 +1,4 @@
-"""Contains the main POSG environment class and functions
+"""Contains the main POSG environment class and functions.
 
 The implementation is heavily inspired by the Open AI Gym
 https://github.com/openai/gym
@@ -70,11 +70,12 @@ class Env(abc.ABC):
             will return undefined results
         info : dict
             contains auxiliary diagnostic information (helpful for debugging)
+
         """
 
     @abc.abstractmethod
     def reset(self, *, seed: Optional[int] = None) -> M.JointObservation:
-        """Resets the environment returns the initial observations
+        """Reset the environment returns the initial observations.
 
         Arguments
         ---------
@@ -86,11 +87,12 @@ class Env(abc.ABC):
         observations : object
             the joint observation containing one observation per agent in the
             environment
+
         """
 
     @abc.abstractmethod
     def render(self, mode: str = "human") -> None:
-        """Renders the environment.
+        """Render the environment.
 
         The set of supported modes varies per environment.
 
@@ -98,6 +100,7 @@ class Env(abc.ABC):
         ---------
         mode : str, optional
             the mode to render with (default='human')
+
         """
 
     def close(self) -> None:
@@ -109,26 +112,26 @@ class Env(abc.ABC):
     @property
     @abc.abstractmethod
     def model(self) -> M.POSGModel:
-        """The model for this environment. """
+        """Get the model for this environment."""
 
     @property
     def n_agents(self) -> int:
-        """The number of agents in this environment """
+        """Get the number of agents in this environment."""
         return self.model.n_agents
 
     @property
     def action_spaces(self) -> Tuple[spaces.Space, ...]:
-        """The action space for each agent """
+        """Get the action space for each agent."""
         return self.model.action_spaces
 
     @property
     def obs_spaces(self) -> Tuple[spaces.Space, ...]:
-        """The observation space for each agent """
+        """Get the observation space for each agent."""
         return self.model.obs_spaces
 
     @property
     def reward_ranges(self) -> Tuple[Tuple[M.Reward, M.Reward], ...]:
-        """The minimum and maximum  possible rewards for each agent """
+        """The minimum and maximum  possible rewards for each agent."""
         return self.model.reward_ranges
 
     @property
@@ -139,6 +142,7 @@ class Env(abc.ABC):
         -------
         env: posggym.Env
             The base non-wrapped posggym.Env instance
+
         """
         return self
 
@@ -146,11 +150,11 @@ class Env(abc.ABC):
         return f"<{type(self).__name__} instance>"
 
     def __enter__(self):
-        """Support with-statement for the environment """
+        """Support with-statement for the environment."""
         return self
 
     def __exit__(self, *args):
-        """Support with-statement for the environment """
+        """Support with-statement for the environment."""
         self.close()
         # propagate exception
         return False
@@ -186,7 +190,7 @@ class Wrapper(Env):
 
     @classmethod
     def class_name(cls):
-        """Get the name of the wrapper class """
+        """Get the name of the wrapper class."""
         return cls.__name__
 
     @property
@@ -225,7 +229,7 @@ class Wrapper(Env):
 
     @property                      # type: ignore
     def metadata(self) -> Dict:    # type: ignore
-        """Get wrapper metadata """
+        """Get wrapper metadata."""
         if self._metadata is None:
             return self.env.metadata
         return self._metadata
@@ -261,7 +265,7 @@ class Wrapper(Env):
 
 
 class ObservationWrapper(Wrapper):
-    """Wraps environment to allow modular transformations of observations
+    """Wraps environment to allow modular transformations of observations.
 
     Subclasses should atleast implement the observations function.
     """
@@ -276,12 +280,12 @@ class ObservationWrapper(Wrapper):
 
     @abc.abstractmethod
     def observations(self, observations):
-        """Transforms observations recieved from wrapped environment """
+        """Transforms observations recieved from wrapped environment."""
         raise NotImplementedError
 
 
 class RewardWrapper(Wrapper):
-    """Wraps environment to allow modular transformations of rewards
+    """Wraps environment to allow modular transformations of rewards.
 
     Subclasses should atleast implement the rewards function.
     """
@@ -295,12 +299,12 @@ class RewardWrapper(Wrapper):
 
     @abc.abstractmethod
     def rewards(self, rewards):
-        """Transforms rewards recieved from wrapped environment """
+        """Transforms rewards recieved from wrapped environment."""
         raise NotImplementedError
 
 
 class ActionWrapper(Wrapper):
-    """Wraps environment to allow modular transformations of actions
+    """Wraps environment to allow modular transformations of actions.
 
     Subclasses should atleast implement the actions and reverse_actions
     functions.
@@ -314,10 +318,10 @@ class ActionWrapper(Wrapper):
 
     @abc.abstractmethod
     def actions(self, action):
-        """Transform actions for wrapped environment """
+        """Transform actions for wrapped environment."""
         raise NotImplementedError
 
     @abc.abstractmethod
     def reverse_actions(self, actions):
-        """Revers transformation of actions """
+        """Revers transformation of actions."""
         raise NotImplementedError

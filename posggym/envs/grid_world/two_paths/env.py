@@ -109,7 +109,7 @@ class TwoPathsEnv(core.Env):
         self._last_obs = step.observations
         self._last_actions = actions
         self._last_rewards = step.rewards
-        aux = {"outcomes": step.outcomes}
+        aux = {"outcome": step.outcomes}
         return (step.observations, step.rewards, step.done, aux)
 
     def reset(self, *, seed: Optional[int] = None) -> M.JointObservation:
