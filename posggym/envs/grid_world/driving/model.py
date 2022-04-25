@@ -79,16 +79,6 @@ CELL_OBS = [VEHICLE, WALL, EMPTY]
 CELL_OBS_STR = ["V", "#", "0"]
 
 
-ACTION_DIR_MAP = {
-    Direction.NORTH: [
-        Direction.NORTH,
-        Direction.NORTH,
-        Direction.NORTH,
-        Direction.EAST,
-        Direction.WEST]
-}
-
-
 class DB0(M.Belief):
     """The initial belief in a Driving problem."""
 
@@ -289,8 +279,9 @@ class DrivingModel(M.POSGModel):
 
             vehicle_coords.remove(state_i.coord)
 
+            next_speed = self._get_next_speed(action_i, state_i.speed)
             move_dir = self._get_move_direction(
-                action_i, state_i.speed, state_i.facing_dir)
+                action_i, next_speed, state_i.facing_dir)
             next_dir = self._get_next_direction(action_i, state_i.facing_dir)
             next_speed = self._get_next_speed(action_i, state_i.speed)
             next_coord, collision_type, hit_vehicle = self._get_next_coord(
@@ -409,9 +400,9 @@ class DrivingModel(M.POSGModel):
         vehicle_coords = set([vs.coord for vs in state])
 
         cell_obs: List[int] = []
-        for row, col in product(range(obs_depth), range(obs_width)):
+        for col, row in product(range(obs_width), range(obs_depth)):
             obs_grid_coord = self._map_obs_to_grid_coord(
-                (row, col), state_i.coord, state_i.facing_dir
+                (col, row), state_i.coord, state_i.facing_dir
             )
             if (
                 obs_grid_coord is None
@@ -431,23 +422,23 @@ class DrivingModel(M.POSGModel):
         grid_row = -1
         grid_col = -1
         if facing_dir == Direction.NORTH:
-            grid_row = agent_coord[0] + obs_coord[0] - self._obs_front
-            grid_col = agent_coord[1] + obs_coord[1] - self._obs_side
-        elif facing_dir == Direction.SOUTH:
-            grid_row = agent_coord[0] - obs_coord[0] + self._obs_front
-            grid_col = agent_coord[1] - obs_coord[1] + self._obs_side
+            grid_row = agent_coord[1] + obs_coord[1] - self._obs_front
+            grid_col = agent_coord[0] + obs_coord[0] - self._obs_side
         elif facing_dir == Direction.EAST:
-            grid_row = agent_coord[0] + obs_coord[1] - self._obs_side
-            grid_col = agent_coord[1] - obs_coord[0] + self._obs_front
+            grid_row = agent_coord[1] + obs_coord[0] - self._obs_side
+            grid_col = agent_coord[0] - obs_coord[1] + self._obs_front
+        elif facing_dir == Direction.SOUTH:
+            grid_row = agent_coord[1] - obs_coord[1] + self._obs_front
+            grid_col = agent_coord[0] - obs_coord[0] + self._obs_side
         else:
-            grid_row = agent_coord[0] - obs_coord[1] + self._obs_side
-            grid_col = agent_coord[1] + obs_coord[0] - self._obs_front
+            grid_row = agent_coord[1] - obs_coord[0] + self._obs_side
+            grid_col = agent_coord[0] + obs_coord[1] - self._obs_front
 
         if (
             0 <= grid_row < self.grid.height
             and 0 <= grid_col < self.grid.width
         ):
-            return (grid_row, grid_col)
+            return (grid_col, grid_row)
         return None
 
     def get_obs_coords(self,
@@ -457,9 +448,9 @@ class DrivingModel(M.POSGModel):
         obs_depth = self._obs_front + self._obs_back + 1
         obs_width = (2 * self._obs_side) + 1
         obs_coords: List[Coord] = []
-        for row, col in product(range(obs_depth), range(obs_width)):
+        for col, row in product(range(obs_width), range(obs_depth)):
             obs_grid_coord = self._map_obs_to_grid_coord(
-                (row, col), origin, facing_dir
+                (col, row), origin, facing_dir
             )
             if obs_grid_coord is not None:
                 obs_coords.append(obs_grid_coord)

@@ -1,4 +1,4 @@
-"""The POSG Model for the Discrete Pursuit Evasion Problem """
+"""The POSG Model for the Discrete Pursuit Evasion Problem."""
 import random
 from typing import Optional, Tuple, Union, Sequence, Dict
 
@@ -29,7 +29,7 @@ PEJointObs = Tuple[PEEvaderObs, PEPursuerObs]
 
 
 class PEB0(M.Belief):
-    """The initial belief in a Pursuit-Evasion problem """
+    """The initial belief in a Pursuit-Evasion problem."""
 
     def __init__(self,
                  grid: grid_lib.PEGrid,
@@ -81,17 +81,17 @@ class PEB0(M.Belief):
 
 
 class PursuitEvasionModel(M.POSGModel):
-    """Discrete Pursuit-Evasion Model """
+    """Discrete Pursuit-Evasion Model."""
 
     NUM_AGENTS = 2
 
     EVADER_IDX = 0
     PURSUER_IDX = 1
 
-    R_EVADER_ACTION = -1.0        # Reward each step for evader
-    R_PURSUER_ACTION = -1.0        # Reward each step for pursuer
-    R_CAPTURE = 100.0             # Pursuer reward for capturing evader
-    R_EVASION = 100.0             # Evader reward for reaching goal
+    R_EVADER_ACTION = -0.01        # Reward each step for evader
+    R_PURSUER_ACTION = -0.01       # Reward each step for pursuer
+    R_CAPTURE = 1.0                # Pursuer reward for capturing evader
+    R_EVASION = 1.0                # Evader reward for reaching goal
 
     FOV_EXPANSION_INCR = 3
     HEARING_DIST = 2

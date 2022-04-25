@@ -1,4 +1,4 @@
-"""A grid in the Runner Chaser Problem """
+"""A grid in the Runner Chaser Problem."""
 from collections import deque
 from typing import List, Set, Optional, Dict, Union
 
@@ -6,7 +6,7 @@ from posggym.envs.grid_world.utils import Grid, Coord, Direction
 
 
 class PEGrid(Grid):
-    """A grid for the Pursuit Evasion Problem """
+    """A grid for the Pursuit Evasion Problem."""
 
     def __init__(self,
                  grid_width: int,
@@ -22,21 +22,21 @@ class PEGrid(Grid):
 
     @property
     def all_goal_coords(self) -> List[Coord]:
-        """The list of all evader goal locations """
+        """The list of all evader goal locations."""
         all_locs = set()
         for v in self._goal_coords_map.values():
             all_locs.update(v)
         return list(all_locs)
 
     def get_goal_coords(self, evader_start_coord: Coord) -> List[Coord]:
-        """Get list of possible evader goal coords for given start coords """
+        """Get list of possible evader goal coords for given start coords."""
         return self._goal_coords_map[evader_start_coord]
 
     def get_ascii_repr(self,
                        goal_coord: Union[None, Coord, List[Coord]],
                        evader_coord: Union[None, Coord, List[Coord]],
                        pursuer_coord: Union[None, Coord, List[Coord]]) -> str:
-        """Get ascii repr of grid """
+        """Get ascii repr of grid."""
         if goal_coord is None:
             goal_coords = set()
         elif isinstance(goal_coord, list):
@@ -79,7 +79,7 @@ class PEGrid(Grid):
         return "\n".join(list(list((" ".join(r) for r in grid_repr))))
 
     def get_init_ascii_repr(self) -> str:
-        """Get ascii repr of initial grid """
+        """Get ascii repr of initial grid."""
         return self.get_ascii_repr(
             self.all_goal_coords,
             self.evader_start_coords,
@@ -90,7 +90,7 @@ class PEGrid(Grid):
                 origin: Coord,
                 direction: Direction,
                 widening_increment: int) -> Set[Coord]:
-        """Get the Field of vision from origin looking in given direction
+        """Get the Field of vision from origin looking in given direction.
 
         Uses BFS starting from origin and expanding in the direction, while
         accounting for obstacles blocking the field of view,
@@ -132,6 +132,7 @@ class PEGrid(Grid):
             depth = abs(origin[1] - coord[1])
         else:
             depth = abs(origin[0] - coord[0])
+
         if depth != 1 and depth % widening_increment != 0:
             # Don't expand sideways
             return successors
@@ -386,7 +387,7 @@ SUPPORTED_GRIDS = {
 
 
 def load_grid(grid_name: str) -> PEGrid:
-    """Load grid with given name """
+    """Load grid with given name."""
     grid_name = grid_name.lower()
     assert grid_name in SUPPORTED_GRIDS, (
         f"Unsupported grid name '{grid_name}'. Grid name must be one of: "

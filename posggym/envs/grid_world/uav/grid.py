@@ -1,4 +1,4 @@
-"""A grid in the Unmanned Aerial Vehicle Problem """
+"""A grid in the Unmanned Aerial Vehicle Problem."""
 import itertools
 from typing import List, Optional, Set
 
@@ -6,7 +6,7 @@ from posggym.envs.grid_world.utils import Grid, Coord
 
 
 class UAVGrid(Grid):
-    """A grid for the MA UAV Problem """
+    """A grid for the MA UAV Problem."""
 
     def __init__(self,
                  grid_width: int,
@@ -26,7 +26,7 @@ class UAVGrid(Grid):
     def get_ascii_repr(self,
                        fug_coord: Optional[Coord],
                        uav_coord: Optional[Coord]) -> str:
-        """Get ascii repr of grid """
+        """Get ascii repr of grid."""
         grid_repr = []
         for row in range(self.height):
             row_repr = []
@@ -155,7 +155,7 @@ SUPPORTED_GRIDS = {
 
 
 def load_grid(grid_name: str) -> UAVGrid:
-    """Load grid with given name """
+    """Load grid with given name."""
     grid_name = grid_name.lower()
     assert grid_name in SUPPORTED_GRIDS, (
         f"Unsupported grid name '{grid_name}'. Grid name must be one of: "

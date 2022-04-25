@@ -40,7 +40,7 @@ class DrivingGrid(Grid):
         for row in range(self.height):
             row_repr = []
             for col in range(self.width):
-                coord = (row, col)
+                coord = (col, row)
                 if coord in self.block_coords:
                     row_repr.append("#")
                 elif coord in vehicle_dests:
@@ -105,7 +105,7 @@ def parse_grid_str(grid_str: str, supported_num_agents: int) -> DrivingGrid:
     shared_dest_coords: Set[Coord] = set()
     agent_dest_coords_map: Dict[int, Set[Coord]] = {}
     for r, c in product(range(grid_height), range(grid_width)):
-        coord = (r, c)
+        coord = (c, r)
         char = row_strs[r][c]
 
         if char == "#":

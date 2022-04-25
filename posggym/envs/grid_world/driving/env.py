@@ -1,5 +1,6 @@
 """Environment class for the Driving Grid World Problem."""
 import sys
+from pprint import pprint
 from typing import Optional, Tuple
 
 from posggym import core
@@ -190,6 +191,13 @@ class DrivingEnv(core.Env):
                 agent_colors=None
             )
             self._viewer.display_img(img)  # type: ignore
+
+            pprint(self._state)
+            if self._last_actions is not None:
+                action_str = ", ".join(
+                    [dmodel.ACTIONS_STR[a] for a in self._last_actions]
+                )
+                print(action_str)
 
     @property
     def model(self) -> dmodel.DrivingModel:

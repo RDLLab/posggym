@@ -1,4 +1,4 @@
-"""The POSG Model for the MA Unmaned Aerial Vehicle Problem """
+"""The POSG Model for the MA Unmaned Aerial Vehicle Problem."""
 import random
 from typing import Optional, List, Tuple, Sequence, Dict
 
@@ -33,7 +33,7 @@ UAV_OBS_ACC = 0.9
 
 
 class UAVB0(M.Belief):
-    """The initial belief in a UAV problem """
+    """The initial belief in a UAV problem."""
 
     def __init__(self,
                  grid: grid_lib.UAVGrid,
@@ -149,7 +149,7 @@ class UAVB0(M.Belief):
 
 
 class UAVModel(M.POSGModel):
-    """Unmaned Aerial Vehicle Problem Model """
+    """Unmaned Aerial Vehicle Problem Model."""
 
     NUM_AGENTS = 2
 

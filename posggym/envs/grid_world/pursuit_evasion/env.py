@@ -46,7 +46,7 @@ class PursuitEvasionEnv(core.Env):
     Actions
     -------
     Each agent has 4 actions corresponding to moving in the 4 cardinal
-    directions (NORTH=0, SOUTH=1, EAST=2, WEST=3).
+    directions (NORTH=0, EAST=1, SOUTH=2, WEST=3).
 
     Observation
     -----------
@@ -67,11 +67,11 @@ class PursuitEvasionEnv(core.Env):
 
     Reward
     ------
-    Both agents receive a penalty of -1.0 for each step.
-    If the evader reaches the goal then the evader recieves a reward of 100,
-    while the pursuer recieves a penalty of -100.
+    Both agents receive a penalty of -0.01 for each step.
+    If the evader reaches the goal then the evader recieves a reward of 1,
+    while the pursuer recieves a penalty of -1.
     If the evader is observed by the pursuer, then the evader recieves a
-    penalty of -100, while the pursuer recieves a penalty of 100.
+    penalty of -1, while the pursuer recieves a penalty of 1.
 
     The rewards make the environment adversarial, but not strictly zero-sum,
     due to the small penalty each step.

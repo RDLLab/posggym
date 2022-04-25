@@ -4,18 +4,19 @@ import itertools
 from queue import PriorityQueue
 from typing import Tuple, List, Set, Optional, Iterable, Dict
 
+# (x, y) coord = (col, row) coord
 Coord = Tuple[int, int]
 
 
 class Direction(enum.IntEnum):
     """A direction in a grid."""
     NORTH = 0
-    SOUTH = 1
-    EAST = 2
+    EAST = 1
+    SOUTH = 2
     WEST = 3
 
 
-DIRECTION_ASCII_REPR = ["^", "v", ">", "<"]
+DIRECTION_ASCII_REPR = ["^", ">", "v", "<"]
 
 
 class Grid:
@@ -68,10 +69,10 @@ class Grid:
         neighbours = []
         if coord[1] > 0 or include_out_of_bounds:
             neighbours.append((coord[0], coord[1]-1))    # N
-        if coord[1] < self.height - 1 or include_out_of_bounds:
-            neighbours.append((coord[0], coord[1]+1))    # S
         if coord[0] < self.width - 1 or include_out_of_bounds:
             neighbours.append((coord[0]+1, coord[1]))    # E
+        if coord[1] < self.height - 1 or include_out_of_bounds:
+            neighbours.append((coord[0], coord[1]+1))    # S
         if coord[0] > 0 or include_out_of_bounds:
             neighbours.append((coord[0]-1, coord[1]))    # W
 
@@ -97,10 +98,10 @@ class Grid:
         new_coord_list = list(coord)
         if move_dir == Direction.NORTH:
             new_coord_list[1] = max(0, coord[1]-1)
-        elif move_dir == Direction.SOUTH:
-            new_coord_list[1] = min(self.height-1, coord[1]+1)
         elif move_dir == Direction.EAST:
             new_coord_list[0] = min(self.width-1, coord[0]+1)
+        elif move_dir == Direction.SOUTH:
+            new_coord_list[1] = min(self.height-1, coord[1]+1)
         elif move_dir == Direction.WEST:
             new_coord_list[0] = max(0, coord[0]-1)
         new_coord = (new_coord_list[0], new_coord_list[1])

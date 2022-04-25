@@ -42,10 +42,10 @@ AGENT_COLORS = ['red', 'blue', 'purple', 'yellow']
 DIR_TO_VEC = [
     # NORTH (negative Y)
     np.array((0, -1)),
-    # SOUTH (positive Y)
-    np.array((0, 1)),
     # EAST (positive X)
     np.array((1, 0)),
+    # SOUTH (positive Y)
+    np.array((0, 1)),
     # WEST (negative X)
     np.array((-1, 0)),
 ]
@@ -53,10 +53,10 @@ DIR_TO_VEC = [
 DIR_TO_THETA = [
     # NORTH
     0.5*math.pi*2,
-    # SOUTH
-    0.5*math.pi*0,
     # EAST
     0.5*math.pi*1,
+    # SOUTH
+    0.5*math.pi*0,
     # WEST
     0.5*math.pi*3
 ]

@@ -1,4 +1,4 @@
-"""Environment class for the Unmanned Aerial Vehicle Grid World Problem """
+"""Environment class for the Unmanned Aerial Vehicle Grid World Problem."""
 import sys
 from typing import Optional, Tuple
 
@@ -39,7 +39,7 @@ class UAVEnv(core.Env):
     Actions
     -------
     Each agent has 4 actions corresponding to moving in the 4 cardinal
-    directions (NORTH=0, SOUTH=1, EAST=2, WEST=3).
+    directions (NORTH=0, EAST=1, SOUTH=2, WEST=3).
 
     Observation
     -----------
