@@ -1,6 +1,5 @@
 """Environment class for the Driving Grid World Problem."""
 import sys
-from pprint import pprint
 from typing import Optional, Tuple
 
 from posggym import core
@@ -65,9 +64,10 @@ class DrivingEnv(core.Env):
 
     Reward
     ------
-    All agents receive a penalty of -0.01 for each step. They also recieve a
-    penalty of -0.5 for hitting an obstacle, and -1.0 for hitting another
-    vehicle. A reward of 1.0 is given if the agent reaches it's destination.
+    All agents receive a penalty of 0.00 for each step. They also recieve a
+    penalty of -0.5 for hitting an obstacle (if ``obstacle_collision=True``),
+    and -1.0 for hitting another vehicle. A reward of 1.0 is given if the agent
+    reaches it's destination.
 
     Transition Dynamics
     -------------------
@@ -95,11 +95,17 @@ class DrivingEnv(core.Env):
     def __init__(self,
                  grid: DrivingGrid,
                  num_agents: int,
-                 obs_dim: Tuple[int, int, int] = (3, 1, 1),
+                 obs_dim: Tuple[int, int, int],
+                 obstacle_collisions: bool,
                  infinite_horizon: bool = False,
                  **kwargs):
         self._model = dmodel.DrivingModel(
-            grid, num_agents, obs_dim, infinite_horizon, **kwargs
+            grid,
+            num_agents,
+            obs_dim,
+            obstacle_collisions,
+            infinite_horizon,
+            **kwargs
         )
 
         init_conds = self._model.sample_initial_state_and_obs()
@@ -192,13 +198,6 @@ class DrivingEnv(core.Env):
                 agent_colors=None
             )
             self._viewer.display_img(img)  # type: ignore
-
-            pprint(self._state)
-            if self._last_actions is not None:
-                action_str = ", ".join(
-                    [dmodel.ACTIONS_STR[a] for a in self._last_actions]
-                )
-                print(action_str)
 
     @property
     def model(self) -> dmodel.DrivingModel:

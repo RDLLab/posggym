@@ -138,13 +138,16 @@ class DrivingModel(M.POSGModel):
     obs_dims : (int, int, int)
         number of cells in front, behind, and to the side that each agent
         can observe
+    obstacle_collisions : bool
+        whether cars can crash into wall and other obstacles, on top of
+        crashing into other vehicles
     infinite_horizon : bool
         whether problem should terminate once a terminal state is reached
         (default, False) or reset to start position and continue (True).
 
     """
 
-    R_ACTION = -0.01
+    R_ACTION = 0.00
     R_CRASH_OBJECT = -0.5
     R_CRASH_VEHICLE = -1.0
     R_DESTINATION_REACHED = 1.0
@@ -153,6 +156,7 @@ class DrivingModel(M.POSGModel):
                  grid: DrivingGrid,
                  num_agents: int,
                  obs_dim: Tuple[int, int, int],
+                 obstacle_collisions: bool,
                  infinite_horizon: bool = False,
                  **kwargs):
         assert 0 < num_agents <= grid.supported_num_agents
@@ -160,6 +164,7 @@ class DrivingModel(M.POSGModel):
         super().__init__(num_agents, **kwargs)
         self.grid = grid
         self._obs_front, self._obs_back, self._obs_side = obs_dim
+        self._obstacle_collisions = obstacle_collisions
         self._infinite_horizon = infinite_horizon
 
         self._rng = random.Random(None)
@@ -292,8 +297,10 @@ class DrivingModel(M.POSGModel):
                 state_i.coord, next_speed, move_dir, vehicle_coords
             )
 
-            if collision_type != CollisionType.NONE:
+            crashed = False
+            if collision_type == CollisionType.VEHICLE:
                 # update state of vehicle that was hit
+                crashed = True
                 collision_types[i] = collision_type
                 for j in range(self.n_agents):
                     next_state_j = next_state[j]
@@ -308,6 +315,12 @@ class DrivingModel(M.POSGModel):
                             crashed=int(True)
                         )
                         break
+            elif (
+                self._obstacle_collisions
+                and collision_type == CollisionType.OBSTACLE
+            ):
+                crashed = True
+                collision_types[i] = collision_type
 
             next_state[i] = VehicleState(
                 coord=next_coord,
@@ -315,7 +328,7 @@ class DrivingModel(M.POSGModel):
                 speed=next_speed,
                 dest_coord=state_i.dest_coord,
                 dest_reached=int(next_coord == state_i.dest_coord),
-                crashed=int(collision_type != CollisionType.NONE)
+                crashed=int(crashed)
             )
 
             vehicle_coords.add(next_coord)
@@ -469,7 +482,10 @@ class DrivingModel(M.POSGModel):
             if state[i].crashed or state[i].dest_reached:
                 # already in terminal/rewarded state
                 r_i = 0.0
-            elif collision_types[i] == CollisionType.OBSTACLE:
+            elif (
+                self._obstacle_collisions
+                and collision_types[i] == CollisionType.OBSTACLE
+            ):
                 r_i = self.R_CRASH_OBJECT
             elif collision_types[i] == CollisionType.VEHICLE:
                 r_i = self.R_CRASH_VEHICLE
