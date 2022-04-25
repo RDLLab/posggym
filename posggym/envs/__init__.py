@@ -10,6 +10,7 @@ from posggym.envs.registration import registry
 from posggym.envs.grid_world import pursuit_evasion
 from posggym.envs.grid_world import two_paths
 from posggym.envs.grid_world import uav
+from posggym.envs.grid_world import driving
 
 
 # Full Model
@@ -110,5 +111,33 @@ for grid_name in uav.grid.SUPPORTED_GRIDS:
         entry_point="posggym.envs.grid_world.uav:UAVEnv",
         kwargs={
             "grid_name": grid_name,
+        }
+    )
+
+
+# Driving
+for grid_name in driving.grid.SUPPORTED_GRIDS:
+    grid_fn, finite_steps, inf_steps = driving.grid.SUPPORTED_GRIDS[grid_name]
+    register(
+        env_id=f"Driving{grid_name}-v0",
+        entry_point="posggym.envs.grid_world.driving:DrivingEnv",
+        max_episode_steps=finite_steps,
+        kwargs={
+            "grid": grid_fn(),
+            "num_agents": 2,
+            "obs_dim": (3, 1, 1),
+            "infinite_horizon": False
+        }
+    )
+
+    register(
+        env_id=f"Driving{grid_name}-v1",
+        entry_point="posggym.envs.grid_world.driving:DrivingEnv",
+        max_episode_steps=inf_steps,
+        kwargs={
+            "grid": grid_fn(),
+            "num_agents": 2,
+            "obs_dim": (3, 1, 1),
+            "infinite_horizon": True
         }
     )
