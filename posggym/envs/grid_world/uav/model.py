@@ -37,6 +37,7 @@ class UAVB0(M.Belief):
 
     def __init__(self,
                  grid: grid_lib.UAVGrid,
+                 rng: random.Random,
                  uav_obs: Optional[UAVUAVObs] = None,
                  fug_obs: Optional[UAVFUGObs] = None,
                  dist_res: int = 1000):
@@ -46,6 +47,7 @@ class UAVB0(M.Belief):
             or not (uav_obs is not None and fug_obs is not None)
         )
         self._grid = grid
+        self._rng = rng
         self._dist_res = dist_res
         self._uav_obs = uav_obs
         self._fug_obs = fug_obs
@@ -64,35 +66,37 @@ class UAVB0(M.Belief):
         return self._sample()
 
     def _sample(self) -> M.State:
-        uav_coord = random.choice(self._grid.init_uav_coords)
+        uav_coord = self._rng.choice(self._grid.init_uav_coords)
         fug_start_coords = list(self._grid.init_fug_coords)
         if uav_coord in fug_start_coords:
             fug_start_coords.remove(uav_coord)
-        fug_coord = random.choice(fug_start_coords)
+        fug_coord = self._rng.choice(fug_start_coords)
         return uav_coord, fug_coord
 
     def _sample_uav(self) -> M.State:
         uav_coord, fug_coord = self._uav_obs   # type: ignore
 
-        if random.random() < UAV_OBS_ACC:
+        if self._rng.random() < UAV_OBS_ACC:
             # UAV_OBS_ACC probability obs loc is correct
             true_fug_coord = fug_coord
         else:
             fug_start_coords = list(self._grid.init_fug_coords)
             if uav_coord in fug_start_coords:
                 fug_start_coords.remove(uav_coord)
-            true_fug_coord = random.choice(fug_start_coords)
+            true_fug_coord = self._rng.choice(fug_start_coords)
 
         return uav_coord, true_fug_coord
 
     def _sample_fug(self) -> M.State:
         valid_coords, cum_probs = self._valid_fug_coords_dist
-        fug_coord = random.choices(valid_coords, cum_weights=cum_probs, k=1)[0]
+        fug_coord = self._rng.choices(
+            valid_coords, cum_weights=cum_probs, k=1
+        )[0]
 
         uav_start_coords = list(self._grid.init_uav_coords)
         if fug_coord in uav_start_coords:
             uav_start_coords.remove(fug_coord)
-        uav_coord = random.choice(uav_start_coords)
+        uav_coord = self._rng.choice(uav_start_coords)
 
         return uav_coord, fug_coord
 
@@ -165,6 +169,7 @@ class UAVModel(M.POSGModel):
                  **kwargs):
         super().__init__(self.NUM_AGENTS, **kwargs)
         self.grid = grid_lib.load_grid(grid_name)
+        self._rng = random.Random(None)
 
     @property
     def state_space(self) -> spaces.Space:
@@ -204,14 +209,14 @@ class UAVModel(M.POSGModel):
 
     @property
     def initial_belief(self) -> M.Belief:
-        return UAVB0(self.grid)
+        return UAVB0(self.grid, self._rng)
 
     def get_agent_initial_belief(self,
                                  agent_id: int,
                                  obs: M.Observation) -> M.Belief:
         if agent_id == self.UAV_IDX:
-            return UAVB0(self.grid, uav_obs=obs)
-        return UAVB0(self.grid, fug_obs=obs)
+            return UAVB0(self.grid, self._rng, uav_obs=obs)
+        return UAVB0(self.grid, self._rng, fug_obs=obs)
 
     def sample_initial_obs(self, state: M.State) -> M.JointObservation:
         return self._sample_obs(state)
@@ -261,7 +266,7 @@ class UAVModel(M.POSGModel):
         fug_start_coords = list(self.grid.init_fug_coords)
         if uav_coord in fug_start_coords:
             fug_start_coords.remove(uav_coord)
-        return random.choice(fug_start_coords)
+        return self._rng.choice(fug_start_coords)
 
     def _sample_obs(self, next_state: UAVState) -> UAVJointObs:
         uav_obs = self._sample_uav_obs(next_state)
@@ -273,14 +278,14 @@ class UAVModel(M.POSGModel):
 
         if (
             fug_coord == self.grid.safe_house_coord
-            or random.random() < UAV_OBS_ACC
+            or self._rng.random() < UAV_OBS_ACC
         ):
             fug_coord_obs = fug_coord
         else:
             adj_coords = self.grid.get_neighbours(fug_coord)
             if uav_coord in adj_coords:
                 adj_coords.remove(uav_coord)
-            fug_coord_obs = random.choice(adj_coords)
+            fug_coord_obs = self._rng.choice(adj_coords)
 
         return uav_coord, fug_coord_obs
 
@@ -303,9 +308,9 @@ class UAVModel(M.POSGModel):
         if true_obs == OBSNONE:
             return true_obs
 
-        if random.random() < FUG_OBS_ACC:
+        if self._rng.random() < FUG_OBS_ACC:
             return true_obs
-        return random.choice([OBSNORTH, OBSSOUTH, OBSLEVEL])
+        return self._rng.choice([OBSNORTH, OBSSOUTH, OBSLEVEL])
 
     def _get_reward(self, next_state: UAVState) -> M.JointReward:
         uav_coord, fug_coord = next_state
@@ -323,3 +328,6 @@ class UAVModel(M.POSGModel):
 
     def get_outcome(self, state: M.State) -> Tuple[M.Outcome, ...]:
         return (M.Outcome.NA, M.Outcome.NA)
+
+    def set_seed(self, seed: Optional[int] = None):
+        self._rng = random.Random(seed)

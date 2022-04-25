@@ -33,11 +33,13 @@ class PEB0(M.Belief):
 
     def __init__(self,
                  grid: grid_lib.PEGrid,
+                 rng: random.Random,
                  evader_start_coord: Optional[Coord] = None,
                  pursuer_start_coord: Optional[Coord] = None,
                  goal_coord: Optional[Coord] = None,
                  dist_res: int = 1000):
         self._grid = grid
+        self._rng = rng
         self._dist_res = dist_res
         self._evader_start_coord = evader_start_coord
         self._pursuer_start_coord = pursuer_start_coord
@@ -45,19 +47,21 @@ class PEB0(M.Belief):
 
     def sample(self) -> M.State:
         if self._evader_start_coord is None:
-            evader_start_coord = random.choice(self._grid.evader_start_coords)
+            evader_start_coord = self._rng.choice(
+                self._grid.evader_start_coords
+            )
         else:
             evader_start_coord = self._evader_start_coord
 
         if self._pursuer_start_coord is None:
-            pursuer_start_coord = random.choice(
+            pursuer_start_coord = self._rng.choice(
                 self._grid.pursuer_start_coords
             )
         else:
             pursuer_start_coord = self._pursuer_start_coord
 
         if self._goal_coord is None:
-            goal_coord = random.choice(
+            goal_coord = self._rng.choice(
                 self._grid.get_goal_coords(evader_start_coord)
             )
         else:
@@ -107,6 +111,8 @@ class PursuitEvasionModel(M.POSGModel):
         if isinstance(action_probs, float):
             action_probs = (action_probs, action_probs)
         self._action_probs = action_probs
+
+        self._rng = random.Random(None)
 
     @property
     def state_space(self) -> spaces.Space:
@@ -180,7 +186,7 @@ class PursuitEvasionModel(M.POSGModel):
 
     @property
     def initial_belief(self) -> M.Belief:
-        return PEB0(self.grid)
+        return PEB0(self.grid, self._rng)
 
     def get_agent_initial_belief(self,
                                  agent_id: int,
@@ -188,6 +194,7 @@ class PursuitEvasionModel(M.POSGModel):
         if agent_id == self.EVADER_IDX:
             return PEB0(
                 self.grid,
+                self._rng,
                 evader_start_coord=obs[1],
                 pursuer_start_coord=obs[2],
                 goal_coord=obs[3]
@@ -195,6 +202,7 @@ class PursuitEvasionModel(M.POSGModel):
 
         return PEB0(
                 self.grid,
+                self._rng,
                 evader_start_coord=obs[1],
                 pursuer_start_coord=obs[2]
             )
@@ -220,13 +228,13 @@ class PursuitEvasionModel(M.POSGModel):
         evader_a = actions[self.EVADER_IDX]
         pursuer_a = actions[self.PURSUER_IDX]
 
-        if random.random() > self._action_probs[self.EVADER_IDX]:
+        if self._rng.random() > self._action_probs[self.EVADER_IDX]:
             other_as = [a for a in Direction if a != evader_a]
-            evader_a = random.choice(other_as)
+            evader_a = self._rng.choice(other_as)
 
-        if random.random() > self._action_probs[self.PURSUER_IDX]:
+        if self._rng.random() > self._action_probs[self.PURSUER_IDX]:
             other_as = [a for a in Direction if a != pursuer_a]
-            pursuer_a = random.choice(other_as)
+            pursuer_a = self._rng.choice(other_as)
 
         pursuer_next_dir = Direction(pursuer_a)
         pursuer_next_coord = self.grid.get_next_coord(
@@ -331,3 +339,6 @@ class PursuitEvasionModel(M.POSGModel):
         if self._get_opponent_seen(pursuer_coord, state[3], evader_coord):
             return (M.Outcome.LOSS, M.Outcome.WIN)
         return (M.Outcome.DRAW, M.Outcome.DRAW)
+
+    def set_seed(self, seed: Optional[int] = None):
+        self._rng = random.Random(seed)

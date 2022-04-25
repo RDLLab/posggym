@@ -1,5 +1,6 @@
 """Run a random agent on an environment."""
 from argparse import ArgumentParser
+from typing import Optional
 
 import posggym
 
@@ -7,11 +8,18 @@ import posggym
 def main(env_name: str,
          num_episodes: int,
          episode_step_limit: int,
+         seed: Optional[int],
          render: bool,
          render_mode: str,
          pause_each_step: bool):
     """Run random agents."""
     env = posggym.make(env_name)
+    action_spaces = env.action_spaces
+    # set random seeds
+    if seed is not None:
+        env.reset(seed=seed)
+        for i in range(len(action_spaces)):
+            action_spaces[i].seed(seed+1+i)
 
     for i in range(num_episodes):
 
@@ -24,7 +32,7 @@ def main(env_name: str,
             input("Press any key")
 
         for _ in range(episode_step_limit):
-            a = tuple(a.sample() for a in env.action_spaces)
+            a = tuple(a.sample() for a in action_spaces)
             _, _, done, _ = env.step(a)
 
             if render:
@@ -52,6 +60,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--episode_step_limit", type=int, default=100,
         help="Max number of steps to run each epsiode for (default=100)"
+    )
+    parser.add_argument(
+        "--seed", type=int, default=None,
+        help="Random Seed (default=None)"
     )
     parser.add_argument(
         "--render", action='store_true',

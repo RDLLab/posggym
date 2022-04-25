@@ -80,6 +80,42 @@ def test_random_rollout(spec):
 
 
 @pytest.mark.parametrize("spec", spec_list)
+def test_random_seeding(spec):
+    """Test random seeding using random rollouts in each environment
+
+    N.B. May need to be more selective of the environments to test in the
+    future.
+    """
+    step_limit = 50
+    seed = 42
+
+    trajectories = [[], []]
+
+    for i in range(2):
+        env = spec.make()
+        action_spaces = env.action_spaces
+
+        obs = env.reset(seed=seed)
+        for j in range(len(action_spaces)):
+            action_spaces[j].seed(seed + 1 + j)
+
+        for _ in range(step_limit):
+            a = tuple(a.sample() for a in action_spaces)
+            obs, rews, done, _ = env.step(a)
+            trajectories[i].append((a, obs, rews, done))
+            if done:
+                break
+        env.close()
+
+    assert len(trajectories[0]) == len(trajectories[1])
+    for ts0, ts1 in zip(trajectories[0], trajectories[1]):
+        assert ts0[0] == ts1[0]
+        assert ts0[1] == ts1[1]
+        assert ts0[2] == ts1[2]
+        assert ts0[3] == ts1[3]
+
+
+@pytest.mark.parametrize("spec", spec_list)
 def test_model(spec):
     """Run single test step and reset for model of each registered env """
 

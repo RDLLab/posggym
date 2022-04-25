@@ -1,7 +1,7 @@
-"""The POSG Model for the Multi-Access Broadcast problem """
+"""The POSG Model for the Multi-Access Broadcast problem."""
 import random
 from itertools import product
-from typing import Tuple, Sequence, Dict
+from typing import Tuple, Sequence, Dict, Optional
 
 from gym import spaces
 
@@ -42,10 +42,13 @@ OBS_STR = [("GL", "GR"), ("CL", "CR", "S")]
 
 
 class MATB0(M.Belief):
-    """The initial belief in a Multi-Agent Tiger problem """
+    """The initial belief in a Multi-Agent Tiger problem."""
+
+    def __init__(self, rng: random.Random):
+        self._rng = rng
 
     def sample(self) -> M.State:
-        return random.choice(STATES)
+        return self._rng.choice(STATES)
 
     def sample_k(self, k: int) -> Sequence[M.State]:
         return [self.sample() for _ in range(k)]
@@ -59,7 +62,7 @@ class MATB0(M.Belief):
 
 
 class MultiAgentTigerModel(M.POSGFullModel):
-    """Multi-Agent Tiger problem Model """
+    """Multi-Agent Tiger problem Model."""
 
     NUM_AGENTS = 2
 
@@ -78,6 +81,8 @@ class MultiAgentTigerModel(M.POSGFullModel):
         self._state_space = STATES
         self._action_spaces = tuple([*ACTIONS] for _ in range(self.n_agents))
         self._obs_spaces = tuple(OBS_SPACE for _ in range(self.n_agents))
+
+        self._rng = random.Random(None)
 
         self._trans_map = self._construct_trans_func()
         self._rew_map = self._construct_rew_func()
@@ -110,7 +115,7 @@ class MultiAgentTigerModel(M.POSGFullModel):
 
     @property
     def initial_belief(self) -> M.Belief:
-        return MATB0()
+        return MATB0(self._rng)
 
     def get_agent_initial_belief(self,
                                  agent_id: M.AgentID,
@@ -118,7 +123,7 @@ class MultiAgentTigerModel(M.POSGFullModel):
         return self.initial_belief
 
     def sample_initial_obs(self, state: M.State) -> M.JointObservation:
-        return tuple(random.choice(OBS_SPACE) for _ in range(self.n_agents))
+        return tuple(self._rng.choice(OBS_SPACE) for _ in range(self.n_agents))
 
     def step(self,
              state: M.State,
@@ -136,22 +141,21 @@ class MultiAgentTigerModel(M.POSGFullModel):
 
         return M.JointTimestep(next_state, obs, rewards, done, outcomes)
 
-    @staticmethod
-    def _sample_next_state(state: MATState,
+    def _sample_next_state(self,
+                           state: MATState,
                            actions: MATJointAction) -> MATState:
         next_state = state
         if any(a != LISTEN for a in actions):
-            next_state = random.choice(STATES)
+            next_state = self._rng.choice(STATES)
         return next_state
 
     def _sample_obs(self,
                     state: MATState,
                     actions: MATJointAction) -> MATJointObs:
-        """Get observation given state and action """
         obs_list = []
         for agent_id, a in enumerate(actions):
             if a != LISTEN:
-                obs_list.append(random.choice(OBS_SPACE))
+                obs_list.append(self._rng.choice(OBS_SPACE))
                 continue
 
             other_agent_id = (agent_id + 1) % self.n_agents
@@ -164,24 +168,23 @@ class MultiAgentTigerModel(M.POSGFullModel):
         return tuple(obs_list)
 
     def _sample_tiger_obs(self, state: MATState) -> int:
-        if random.random() < self._obs_prob:
+        if self._rng.random() < self._obs_prob:
             # correct obs
             return GROWLLEFT if state == TLEFT else GROWLRIGHT
         return GROWLRIGHT if state == TLEFT else GROWLLEFT
 
     def _sample_creak_obs(self, a_j: MATAction) -> int:
-        """Get creak observation """
-        if random.random() < self._creak_obs_prob:
+        if self._rng.random() < self._creak_obs_prob:
             # correct obs
             if a_j == LISTEN:
                 return SILENCE
             return CREAKLEFT if a_j == OPENLEFT else CREAKRIGHT
 
         if a_j == LISTEN:
-            return random.choice([CREAKLEFT, CREAKRIGHT])
+            return self._rng.choice([CREAKLEFT, CREAKRIGHT])
         if a_j == OPENLEFT:
-            return random.choice([CREAKRIGHT, SILENCE])
-        return random.choice([CREAKRIGHT, SILENCE])
+            return self._rng.choice([CREAKRIGHT, SILENCE])
+        return self._rng.choice([CREAKRIGHT, SILENCE])
 
     def _get_reward(self,
                     state: MATState,
@@ -201,6 +204,9 @@ class MultiAgentTigerModel(M.POSGFullModel):
 
     def get_outcome(self, state: M.State) -> Tuple[M.Outcome, ...]:
         return tuple(M.Outcome.NA for _ in range(self.n_agents))
+
+    def set_seed(self, seed: Optional[int] = None):
+        self._rng = random.Random(seed)
 
     def transition_fn(self,
                       state: M.State,

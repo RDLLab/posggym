@@ -1,7 +1,7 @@
 """The POSG Model for the Two-Paths Problem."""
 import random
 import itertools
-from typing import Tuple, Union, Sequence, Dict
+from typing import Tuple, Union, Sequence, Dict, Optional
 
 from gym import spaces
 
@@ -89,6 +89,8 @@ class TwoPathsModel(M.POSGModel):
             action_probs = (action_probs, action_probs)
         self._action_probs = action_probs
 
+        self._rng = random.Random(None)
+
     @property
     def state_space(self) -> spaces.Space:
         return spaces.Tuple(
@@ -165,9 +167,9 @@ class TwoPathsModel(M.POSGModel):
         runner_a = actions[self.RUNNER_IDX]
         chaser_a = actions[self.CHASER_IDX]
 
-        if random.random() > self._action_probs[self.CHASER_IDX]:
+        if self._rng.random() > self._action_probs[self.CHASER_IDX]:
             other_as = [a for a in Direction if a != chaser_a]
-            chaser_a = random.choice(other_as)
+            chaser_a = self._rng.choice(other_as)
         chaser_next_coord = self.grid.get_next_coord(
             chaser_coord, Direction(chaser_a), ignore_blocks=False
         )
@@ -176,9 +178,9 @@ class TwoPathsModel(M.POSGModel):
             # Runner considered to capture Fugitive
             runner_next_coord = runner_coord
         else:
-            if random.random() > self._action_probs[self.RUNNER_IDX]:
+            if self._rng.random() > self._action_probs[self.RUNNER_IDX]:
                 other_as = [a for a in Direction if a != runner_a]
-                runner_a = random.choice(other_as)
+                runner_a = self._rng.choice(other_as)
             runner_next_coord = self.grid.get_next_coord(
                 runner_coord, Direction(runner_a), ignore_blocks=False
             )
@@ -247,6 +249,9 @@ class TwoPathsModel(M.POSGModel):
         ):
             return (M.Outcome.LOSS, M.Outcome.WIN)
         return (M.Outcome.DRAW, M.Outcome.DRAW)
+
+    def set_seed(self, seed: Optional[int] = None):
+        self._rng = random.Random(seed)
 
     def _state_is_terminal(self, state: TPState) -> bool:
         runner_coords = state[self.RUNNER_IDX]

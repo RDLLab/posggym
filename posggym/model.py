@@ -155,6 +155,10 @@ class POSGModel(abc.ABC):
         win, draw, loss, or undefined (for models with no winning or losing).
         """
 
+    @abc.abstractmethod
+    def set_seed(self, seed: Optional[int] = None):
+        """Set the seed for the model RNG."""
+
 
 class POSGFullModel(POSGModel, abc.ABC):
     """A Fully definte Partially Observable Stochastic Game model.

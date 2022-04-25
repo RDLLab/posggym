@@ -1,11 +1,11 @@
-"""A uniform random bot policy """
+"""A uniform random bot policy."""
 
 import posggym.model as M
 from posggym.bots.core import BotPolicy
 
 
 class RandomPolicy(BotPolicy):
-    """Uniform random policy """
+    """Uniform random policy."""
 
     def __init__(self, model: M.POSGModel, agent_id: M.AgentID):
         self._model = model

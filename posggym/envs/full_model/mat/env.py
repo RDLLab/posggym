@@ -1,4 +1,4 @@
-"""The environment class for the Multi-Agent Tiger Problem """
+"""The environment class for the Multi-Agent Tiger Problem."""
 import sys
 from typing import Optional, Tuple
 
@@ -83,6 +83,7 @@ class MultiAgentTigerEnv(core.Env):
     - Gmytrasiewicz, Piotr J., and Prashant Doshi. “A Framework for Sequential
     Planning in Multi-Agent Settings.” Journal of Artificial Intelligence
     Research 24 (2005): 49–79.
+
     """
 
     metadata = {"render.modes": ['human']}
@@ -114,7 +115,9 @@ class MultiAgentTigerEnv(core.Env):
         return (step.observations, step.rewards, step.done, aux)
 
     def reset(self, *, seed: Optional[int] = None) -> M.JointObservation:
-        super().reset(seed=seed)
+        if seed is not None:
+            self._model.set_seed(seed)
+
         init_conds = self._model.sample_initial_state_and_obs()
         self._state, self._last_obs = init_conds
         self._last_actions = None

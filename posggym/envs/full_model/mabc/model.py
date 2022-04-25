@@ -1,4 +1,4 @@
-"""The POSG Model for the Multi-Access Broadcast problem """
+"""The POSG Model for the Multi-Access Broadcast problem."""
 import random
 from itertools import product
 from typing import Optional, List, Dict, Tuple, Sequence
@@ -30,20 +30,22 @@ OBS_STR = ["C", "NC"]
 
 
 class MABCInitialBelief(M.Belief):
-    """The initial belief in a MABC problem """
+    """The initial belief in a MABC problem."""
 
     def __init__(self,
                  n_agents: int,
                  init_buffer_dist: Tuple[float, ...],
-                 state_space: List[MABCState]):
+                 state_space: List[MABCState],
+                 rng: random.Random):
         self._n_agents = n_agents
         self._init_buffer_dist = init_buffer_dist
         self._state_space = state_space
+        self._rng = rng
 
     def sample(self) -> M.State:
         node_states = []
         for i in range(self._n_agents):
-            if random.random() <= self._init_buffer_dist[i]:
+            if self._rng.random() <= self._init_buffer_dist[i]:
                 node_states.append(FULL)
             else:
                 node_states.append(EMPTY)
@@ -72,7 +74,7 @@ class MABCInitialBelief(M.Belief):
 
 
 class MABCModel(M.POSGFullModel):
-    """POSG Model for the Multi-Access Broadcast Channel problem """
+    """POSG Model for the Multi-Access Broadcast Channel problem."""
 
     DEFAULT_FILL_PROBS = (0.9, 0.1)
     DEFAULT_OBS_PROB = 0.9
@@ -110,6 +112,8 @@ class MABCModel(M.POSGFullModel):
         self._obs_prob = obs_prob
         self._init_buffer_dist = init_buffer_dist
 
+        self._rng = random.Random(None)
+
         self._trans_map = self._construct_trans_func()
         self._rew_map = self._construct_rew_func()
         self._obs_map = self._construct_obs_func()
@@ -142,7 +146,7 @@ class MABCModel(M.POSGFullModel):
     @property
     def initial_belief(self) -> M.Belief:
         return MABCInitialBelief(
-            self.n_agents, self._init_buffer_dist, self._state_space
+            self.n_agents, self._init_buffer_dist, self._state_space, self._rng
         )
 
     def get_agent_initial_belief(self,
@@ -184,7 +188,7 @@ class MABCModel(M.POSGFullModel):
             if a_i == SEND:
                 # buffer emptied even if there is a collision
                 next_node_states[i] = EMPTY
-            if random.random() <= self._fill_probs[i]:
+            if self._rng.random() <= self._fill_probs[i]:
                 next_node_states[i] = FULL
         return tuple(next_node_states)
 
@@ -199,7 +203,7 @@ class MABCModel(M.POSGFullModel):
 
         obs_list = []
         for _ in range(self.n_agents):
-            if random.random() <= self._obs_prob:
+            if self._rng.random() <= self._obs_prob:
                 obs_list.append(correct_obs)
             else:
                 obs_list.append(wrong_obs)
@@ -210,6 +214,9 @@ class MABCModel(M.POSGFullModel):
 
     def get_outcome(self, state: M.State) -> Tuple[M.Outcome, ...]:
         return tuple(M.Outcome.NA for _ in range(self.n_agents))
+
+    def set_seed(self, seed: Optional[int] = None):
+        self._rng = random.Random(seed)
 
     def transition_fn(self,
                       state: M.State,

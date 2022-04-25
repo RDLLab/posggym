@@ -11,8 +11,6 @@ from gym import spaces
 
 import posggym.model as M
 
-# TODO Handle seeds properly
-
 
 class Env(abc.ABC):
     """The main POSG environment class.
@@ -25,7 +23,6 @@ class Env(abc.ABC):
         reset
         render
         close
-        seed
 
     And the main attributes:
 
@@ -80,7 +77,11 @@ class Env(abc.ABC):
         Arguments
         ---------
         seed : int, optional
-            RNG seed (default=None)
+            The seed that is used to initialize the environment's PRNG. If the
+            ``seed=None`` is passed, the PRNG will *not* be reset. If you pass
+            an integer, the PRNG will be reset even if it already exists.
+            Usually, you want to pass an integer *right after the environment
+            has been initialized and then never again*.
 
         Returns
         -------

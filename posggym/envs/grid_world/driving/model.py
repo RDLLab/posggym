@@ -85,11 +85,13 @@ class DB0(M.Belief):
     def __init__(self,
                  n_agents: int,
                  grid: DrivingGrid,
+                 rng: random.Random,
                  dist_res: int = 1000):
         assert n_agents <= grid.supported_num_agents
         assert n_agents <= grid.supported_num_agents
         self._n_agents = n_agents
         self._grid = grid
+        self._rng = rng
         self._dist_res = dist_res
         # change set to list to make sampling faster
         self._dest_coords = [
@@ -102,9 +104,9 @@ class DB0(M.Belief):
         for i in range(self._n_agents):
             start_coords_i = self._grid.start_coords[i]
             avail_start_coords = start_coords_i.difference(chosen_start_coords)
-            start_coord = random.choice(list(avail_start_coords))
+            start_coord = self._rng.choice(list(avail_start_coords))
             chosen_start_coords.add(start_coord)
-            dest_coord = random.choice(self._dest_coords[i])
+            dest_coord = self._rng.choice(self._dest_coords[i])
             # VehicleState = Tuple[Coord, Direction, Speed, Coord]
             state_i = VehicleState(
                 coord=start_coord,
@@ -159,6 +161,8 @@ class DrivingModel(M.POSGModel):
         self.grid = grid
         self._obs_front, self._obs_back, self._obs_side = obs_dim
         self._infinite_horizon = infinite_horizon
+
+        self._rng = random.Random(None)
 
     @property
     def state_space(self) -> spaces.Space:
@@ -229,7 +233,7 @@ class DrivingModel(M.POSGModel):
 
     @property
     def initial_belief(self) -> M.Belief:
-        return DB0(self.n_agents, self.grid)
+        return DB0(self.n_agents, self.grid, self._rng)
 
     def get_agent_initial_belief(self,
                                  agent_id: int,
@@ -263,7 +267,7 @@ class DrivingModel(M.POSGModel):
                         actions: DJointAction
                         ) -> Tuple[DState, List[CollisionType]]:
         exec_order = list(range(self.n_agents))
-        random.shuffle(exec_order)
+        self._rng.shuffle(exec_order)
 
         next_state = [vs for vs in state]
         vehicle_coords: Set[Coord] = set([vs.coord for vs in state])
@@ -496,6 +500,9 @@ class DrivingModel(M.POSGModel):
                 outcome_i = M.Outcome.DRAW
             outcomes.append(outcome_i)
         return tuple(outcomes)
+
+    def set_seed(self, seed: Optional[int] = None):
+        self._rng = random.Random(seed)
 
     def _vehicle_state_is_terminal(self, vehicle_state: VehicleState) -> bool:
         return bool(vehicle_state.dest_reached or vehicle_state.crashed)
