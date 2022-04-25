@@ -1,4 +1,4 @@
-"""Functions and classes for rendering grid world environments
+"""Functions and classes for rendering grid world environments.
 
 This implemention is based on the gym-minigrid library:
 - github.com/maximecb/gym-minigrid/blob/master/gym_minigrid/minigrid.py
@@ -63,7 +63,7 @@ DIR_TO_THETA = [
 
 
 class Shape(enum.Enum):
-    """An Object shape """
+    """An Object shape."""
     RECTANGLE = enum.auto()
     TRIANGLE = enum.auto()
     CIRCLE = enum.auto()
@@ -71,7 +71,7 @@ class Shape(enum.Enum):
 
 
 class GWObject:
-    """An object in the grid world """
+    """An object in the grid world."""
 
     def __init__(self,
                  coord: Coord,
@@ -87,7 +87,7 @@ class GWObject:
         self.direction = direction
 
     def render(self, img: np.ndarray):
-        """Draw object into image cell """
+        """Draw object into image cell."""
         if self.shape == Shape.RECTANGLE:
             _fill_coords(img, _point_in_rect(0, 1, 0, 1), COLORS[self.color])
         elif self.shape == Shape.CIRCLE:
@@ -106,7 +106,7 @@ class GWObject:
 
 
 class GWRenderer:
-    """Handles generating grid world renders """
+    """Handles generating grid world renders."""
 
     def __init__(self,
                  n_agents: int,
@@ -163,7 +163,7 @@ class GWRenderer:
                other_objs: Optional[List[GWObject]],
                agent_colors: Optional[Tuple[str, ...]] = None,
                tile_size: int = TILE_PIXELS) -> np.ndarray:
-        """Generate Grid-World render """
+        """Generate Grid-World render."""
         width_px = self._width * tile_size
         height_px = self._height * tile_size
 
@@ -223,7 +223,7 @@ class GWRenderer:
 def _fill_coords(img: np.ndarray,
                  fn: Callable,
                  color: np.ndarray) -> np.ndarray:
-    """ Fill pixels of an image with coordinates matching a filter function """
+    """Fill pixels of an image with coordinates matching a filter function."""
     for y in range(img.shape[0]):
         for x in range(img.shape[1]):
             yf = (y + 0.5) / img.shape[0]
@@ -326,7 +326,7 @@ def _point_in_triangle(a, b, c):
 
 
 def _highlight_img(img: np.ndarray, color=(255, 255, 255), alpha=0.2):
-    """Add highlighting to an image """
+    """Add highlighting to an image."""
     blend_img = img + alpha * (np.array(color, dtype=np.uint8) - img)
     blend_img = blend_img.clip(0, 255).astype(np.uint8)
     img[:, :, :] = blend_img

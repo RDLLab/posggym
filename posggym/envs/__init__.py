@@ -53,6 +53,28 @@ for grid_name in two_paths.grid.SUPPORTED_GRIDS:
         }
     )
 
+    register(
+        env_id=f"TwoPaths{grid_name}-v1",
+        entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
+        max_episode_steps=two_paths.grid.SUPPORTED_GRIDS[grid_name][2],
+        kwargs={
+            "grid_name": grid_name,
+            "action_probs": 1.0,
+            "infinite_horizon": True
+        }
+    )
+
+    register(
+        env_id=f"TwoPaths{grid_name}Stochastic-v1",
+        entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
+        max_episode_steps=two_paths.grid.SUPPORTED_GRIDS[grid_name][2],
+        kwargs={
+            "grid_name": grid_name,
+            "action_probs": 0.9,
+            "infinite_horizon": True
+        }
+    )
+
 
 # Pursuit-Evasion
 for grid_name in pursuit_evasion.grid.SUPPORTED_GRIDS:

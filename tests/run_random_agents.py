@@ -1,4 +1,4 @@
-"""Run a random agent on an environment """
+"""Run a random agent on an environment."""
 from argparse import ArgumentParser
 
 import posggym
@@ -10,10 +10,10 @@ def main(env_name: str,
          render: bool,
          render_mode: str,
          pause_each_step: bool):
-    """Run random agents """
+    """Run random agents."""
     env = posggym.make(env_name)
 
-    for _ in range(num_episodes):
+    for i in range(num_episodes):
 
         env.reset()
 
@@ -34,6 +34,7 @@ def main(env_name: str,
                 input("Press any key")
 
             if done:
+                print(f"End episode {i}")
                 break
     env.close()
 

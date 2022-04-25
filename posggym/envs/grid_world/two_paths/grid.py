@@ -1,11 +1,11 @@
-"""A grid in the Two-Paths Problem """
+"""A grid in the Two-Paths Problem."""
 from typing import Set, Optional
 
 from posggym.envs.grid_world.utils import Grid, Coord
 
 
 class TPGrid(Grid):
-    """A grid for the Two-Paths Problem """
+    """A grid for the Two-Paths Problem."""
 
     def __init__(self,
                  grid_width: int,
@@ -22,7 +22,7 @@ class TPGrid(Grid):
     def get_ascii_repr(self,
                        runner_coord: Optional[Coord],
                        chaser_coord: Optional[Coord]) -> str:
-        """Get ascii repr of grid  """
+        """Get ascii repr of grid."""
         grid_repr = []
         for row in range(self.height):
             row_repr = []
@@ -47,7 +47,7 @@ class TPGrid(Grid):
         return "\n".join(list(list((" ".join(r) for r in grid_repr))))
 
     def get_init_ascii_repr(self) -> str:
-        """Get ascii repr of initial grid """
+        """Get ascii repr of initial grid."""
         return self.get_ascii_repr(
             self.init_runner_coord, self.init_chaser_coord
         )
@@ -138,16 +138,17 @@ def get_7x7_grid() -> TPGrid:
     )
 
 
-# grid_name: (grid_make_fn, step_limit)
+# grid_name:
+#  (grid_make_fn, finite horizon step_limit, infinite horizon step_limit)
 SUPPORTED_GRIDS = {
-    '3x3': (get_3x3_grid, 20),
-    '4x4': (get_4x4_grid, 20),
-    '7x7': (get_7x7_grid, 20)
+    '3x3': (get_3x3_grid, 20, 100),
+    '4x4': (get_4x4_grid, 20, 100),
+    '7x7': (get_7x7_grid, 20, 100)
 }
 
 
 def load_grid(grid_name: str) -> TPGrid:
-    """Load grid with given name """
+    """Load grid with given name."""
     grid_name = grid_name.lower()
     assert grid_name in SUPPORTED_GRIDS, (
         f"Unsupported grid name '{grid_name}'. Grid name must be one of: "

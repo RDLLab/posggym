@@ -1,4 +1,4 @@
-"""Environment class for the Two-Paths Grid World Problem """
+"""Environment class for the Two-Paths Grid World Problem."""
 import sys
 from typing import Optional, Tuple, Union
 
@@ -88,7 +88,6 @@ class PursuitEvasionEnv(core.Env):
 
     References
     ----------
-
     This Pursuit-Evasion implementation is a discrete version of the problem
     presented in the paper:
     - Seaman, Iris Rubi, Jan-Willem van de Meent, and David Wingate. 2018.

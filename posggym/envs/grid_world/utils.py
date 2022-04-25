@@ -1,4 +1,4 @@
-"""General grid world problem utility functions and classes """
+"""General grid world problem utility functions and classes."""
 import enum
 import itertools
 from queue import PriorityQueue
@@ -8,15 +8,18 @@ Coord = Tuple[int, int]
 
 
 class Direction(enum.IntEnum):
-    """A direction in a grid """
+    """A direction in a grid."""
     NORTH = 0
     SOUTH = 1
     EAST = 2
     WEST = 3
 
 
+DIRECTION_ASCII_REPR = ["^", "v", ">", "<"]
+
+
 class Grid:
-    """A base grid class, with general utility functions and attributes """
+    """A base grid class, with general utility functions and attributes."""
 
     def __init__(self,
                  grid_width: int,
@@ -31,17 +34,17 @@ class Grid:
 
     @property
     def all_coords(self) -> List[Coord]:
-        """The list of all locations on grid, including blocks """
+        """The list of all locations on grid, including blocks."""
         return list(itertools.product(range(self.width), range(self.width)))
 
     @property
     def n_coords(self) -> int:
-        """The total number of coordinates on grid, including blocks """
+        """The total number of coordinates on grid, including blocks."""
         return self.height * self.width
 
     @property
     def unblocked_coords(self) -> List[Coord]:
-        """The list of all coordinates on the grid excluding blocks """
+        """The list of all coordinates on the grid excluding blocks."""
         return [
             coord for coord in self.all_coords
             if coord not in self.block_coords
@@ -49,11 +52,11 @@ class Grid:
 
     @staticmethod
     def manhattan_dist(coord1: Coord, coord2: Coord) -> int:
-        """Get manhattan distance between two coordinates on the grid """
+        """Get manhattan distance between two coordinates on the grid."""
         return abs(coord1[0] - coord2[0]) + abs(coord1[1] - coord2[1])
 
     def coord_in_bounds(self, coord: Coord) -> bool:
-        """Return whether a coordinate is inside the grid or not """
+        """Return whether a coordinate is inside the grid or not."""
         return 0 <= coord[0] < self.width and 0 <= coord[1] < self.height
 
     def get_neighbours(self,
@@ -61,7 +64,7 @@ class Grid:
                        ignore_blocks: bool = False,
                        include_out_of_bounds: bool = False
                        ) -> List[Coord]:
-        """Get set of adjacent non-blocked coordinates """
+        """Get set of adjacent non-blocked coordinates."""
         neighbours = []
         if coord[1] > 0 or include_out_of_bounds:
             neighbours.append((coord[0], coord[1]-1))    # N
@@ -85,7 +88,7 @@ class Grid:
                        coord: Coord,
                        move_dir: Direction,
                        ignore_blocks: bool = False) -> Coord:
-        """Get next coordinate given loc and movement direction
+        """Get next coordinate given loc and movement direction.
 
         If new coordinate is outside of the grid boundary, or (ignore_blocks is
         False and new coordinate is a block) then returns the original
@@ -111,7 +114,7 @@ class Grid:
                                dist: int,
                                ignore_blocks: bool,
                                include_origin: bool) -> Set[Coord]:
-        """Get set of coords within given distance from origin """
+        """Get set of coords within given distance from origin."""
         if dist == 0:
             return {origin} if include_origin else set()
 
@@ -144,7 +147,7 @@ class Grid:
                            origin: Coord,
                            dist: int,
                            ignore_blocks: bool) -> Set[Coord]:
-        """Get set of coords at given distance from origin """
+        """Get set of coords at given distance from origin."""
         if dist == 0:
             return {origin}
 
@@ -162,7 +165,7 @@ class Grid:
     def get_min_dist_coords(self,
                             origin: Coord,
                             coords: Iterable[Coord]) -> List[Coord]:
-        """Get list of coord in coords closest to origin """
+        """Get list of coord in coords closest to origin."""
         dists = self.get_coords_by_distance(origin, coords)
         if len(dists) == 0:
             return []
@@ -172,7 +175,7 @@ class Grid:
                                origin: Coord,
                                coords: Iterable[Coord]
                                ) -> Dict[int, List[Coord]]:
-        """Get mapping from distance to coords at that distance from origin """
+        """Get mapping from distance to coords at that distance from origin."""
         dists: Dict[int, List[Coord]] = {}
         for coord in coords:
             d = self.manhattan_dist(origin, coord)
@@ -184,18 +187,14 @@ class Grid:
     def get_all_shortest_paths(self,
                                origins: List[Coord]
                                ) -> Dict[Coord, Dict[Coord, float]]:
-        """Get shortest path distance from every origin coord to every other
-        coord in the grid
-        """
+        """Get shortest path distance from every origin to all other coords."""
         src_dists = {}
         for origin in origins:
             src_dists[origin] = self.dijkstra(origin)
         return src_dists
 
     def dijkstra(self, origin: Coord) -> Dict[Coord, float]:
-        """Get shortest path distance between origin and all other coords in
-        the grid
-        """
+        """Get shortest path distance between origin and all other coords."""
         dist = {origin: 0.0}
         pq = PriorityQueue()   # type: ignore
         pq.put((dist[origin], origin))

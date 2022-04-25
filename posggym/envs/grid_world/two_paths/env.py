@@ -1,7 +1,6 @@
-"""Environment class for the Two-Paths Grid World Problem """
+"""Environment class for the Two-Paths Grid World Problem."""
 import sys
 from typing import Optional, Tuple, Union
-
 
 from posggym import core
 import posggym.model as M
@@ -57,11 +56,11 @@ class TwoPathsEnv(core.Env):
 
     Reward
     ------
-    Both agents receive a penalty of -1.0 for each step.
-    If the runner reaches the goal then the runner recieves a reward of 100,
-    while the chaser recieves a penalty of -100.
+    Both agents receive a penalty of -0.01 for each step.
+    If the runner reaches the goal then the runner recieves a reward of 1.0,
+    while the chaser recieves a penalty of -1.0.
     If the runner is observed by the chaser, then the runner recieves a penalty
-    of -100, while the chaser recieves a reward of 100.
+    of -1.0, while the chaser recieves a reward of 1.0.
 
     The rewards make the environment adversarial, but not strictly zero-sum,
     due to the small penalty each step.

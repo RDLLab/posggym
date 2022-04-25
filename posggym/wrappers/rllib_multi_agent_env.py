@@ -90,7 +90,10 @@ class RllibMultiAgentEnv(MultiAgentEnv):
         return obs_dict, reward_dict, done_dict, info_dict
 
     def render(self, mode=None):
-        return self.env.render(mode)
+        return_val = self.env.render(mode)
+        if return_val is None:
+            return True
+        return return_val
 
     def close(self):
         self.env.close()

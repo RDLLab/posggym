@@ -72,9 +72,9 @@ class TwoPathsModel(M.POSGModel):
     RUNNER_IDX = 0
     CHASER_IDX = 1
 
-    R_ACTION = -1.0
-    R_CAPTURE = -100.0    # Runner reward, Chaser = -R_CAPTURE
-    R_SAFE = 100.0        # Runner reward, Chaser = -R_SAFE
+    R_ACTION = -0.01
+    R_CAPTURE = -1.0    # Runner reward, Chaser = -R_CAPTURE
+    R_SAFE = 1.0        # Runner reward, Chaser = -R_SAFE
 
     def __init__(self,
                  grid_name: str,

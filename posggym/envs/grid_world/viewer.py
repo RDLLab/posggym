@@ -1,4 +1,4 @@
-"""Class for displaying renders of grid-world environments
+"""Class for displaying renders of grid-world environments.
 
 The Viewer is seperated from the rendering functionality, in case users want
 to use the renders without displaying them, and to seperate out dependencies
@@ -20,7 +20,7 @@ except ImportError:
 
 
 class GWViewer:
-    """Handles displaying grid world renders """
+    """Handles displaying grid world renders."""
 
     def __init__(self, title: str, figsize: Tuple[int, int] = (9, 9)):
         self._title = title
@@ -47,8 +47,7 @@ class GWViewer:
         self._fig.canvas.mpl_connect('close_event', close_handler)
 
     def display_img(self, img: np.ndarray):
-        """Show an image or update the image being shown """
-
+        """Show an image or update the image being shown."""
         # Show the first image of the environment
         if self._imshow_obj is None:
             self._imshow_obj = self._ax.imshow(
@@ -64,7 +63,7 @@ class GWViewer:
 
     @staticmethod
     def show(block: bool = True) -> None:
-        """ Show the window, and start an event loop """
+        """Show the window, and start an event loop."""
         # If not blocking, trigger interactive mode
         if not block:
             plt.ion()
@@ -75,6 +74,6 @@ class GWViewer:
         plt.show()
 
     def close(self) -> None:
-        """ Close the window """
+        """Close the window."""
         plt.close(self._fig)
         self._closed = True

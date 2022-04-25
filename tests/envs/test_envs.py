@@ -91,13 +91,13 @@ def test_model(spec):
 
     state_space = model.state_space
     obs_spaces = model.obs_spaces
-    action_spaces = env.action_spaces
+    action_spaces = model.action_spaces
 
-    assert len(obs_spaces) == env.n_agents
-    assert len(action_spaces) == env.n_agents
+    assert len(obs_spaces) == model.n_agents
+    assert len(action_spaces) == model.n_agents
 
     def check_obs(obs):
-        assert len(obs) == env.n_agents
+        assert len(obs) == model.n_agents
         for i, o_i in enumerate(obs):
             assert obs_spaces[i].contains(o_i), \
                 f"Reset agent {i} observation: {o_i} not in space for {env}"
@@ -114,12 +114,12 @@ def test_model(spec):
     assert state_space.contains(s_0)
     check_obs(obs_0)
 
-    a = tuple(action_spaces[i].sample() for i in range(env.n_agents))
+    a = tuple(action_spaces[i].sample() for i in range(model.n_agents))
     timestep = model.step(s_0, a)
 
     assert state_space.contains(timestep.state)
     check_obs(timestep.observations)
-    assert len(timestep.rewards) == env.n_agents
+    assert len(timestep.rewards) == model.n_agents
 
     for i, r_i in enumerate(timestep.rewards):
         assert np.isscalar(r_i), f"{r_i} is not a scalar for {model}"
