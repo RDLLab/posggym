@@ -93,20 +93,22 @@ class DB0(M.Belief):
         self._grid = grid
         self._rng = rng
         self._dist_res = dist_res
-        # change set to list to make sampling faster
-        self._dest_coords = [
-            list(dest_coords_i) for dest_coords_i in grid.dest_coords
-        ]
 
     def sample(self) -> M.State:
         state = []
         chosen_start_coords: Set[Coord] = set()
+        chosen_dest_coords: Set[Coord] = set()
         for i in range(self._n_agents):
             start_coords_i = self._grid.start_coords[i]
             avail_start_coords = start_coords_i.difference(chosen_start_coords)
             start_coord = self._rng.choice(list(avail_start_coords))
             chosen_start_coords.add(start_coord)
-            dest_coord = self._rng.choice(self._dest_coords[i])
+
+            dest_coords_i = self._grid.dest_coords[i]
+            avail_dest_coords = dest_coords_i.difference(chosen_dest_coords)
+            dest_coord = self._rng.choice(list(avail_dest_coords))
+            chosen_dest_coords.add(dest_coord)
+
             # VehicleState = Tuple[Coord, Direction, Speed, Coord]
             state_i = VehicleState(
                 coord=start_coord,
