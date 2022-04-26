@@ -183,12 +183,26 @@ class DrivingEnv(core.Env):
 
             agent_coords = tuple(vs.coord for vs in self._state)
             agent_dirs = tuple(vs.facing_dir for vs in self._state)
+
+            # Add agent destination locations
             other_objs = [
                 render_lib.GWObject(
-                    vs.dest_coord, 'green', render_lib.Shape.RECTANGLE
+                    vs.dest_coord,
+                    render_lib.get_agent_color(i),
+                    render_lib.Shape.RECTANGLE
                 )
-                for vs in self._state
+                for i, vs in enumerate(self._state)
             ]
+            # Add visualization for crashed agents
+            for i, vs in enumerate(self._state):
+                if vs.crashed:
+                    other_objs.append(
+                        render_lib.GWObject(
+                            vs.coord,
+                            'yellow',
+                            render_lib.Shape.CIRCLE
+                        )
+                    )
 
             img = self._renderer.render(
                 agent_coords,

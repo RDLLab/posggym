@@ -37,6 +37,12 @@ COLOR_TO_IDX = {
 
 AGENT_COLORS = ['red', 'blue', 'purple', 'yellow']
 
+
+def get_agent_color(agent_id: int) -> str:
+    """Get color for agent."""
+    return AGENT_COLORS[agent_id]
+
+
 # Map of agent direction indices to vectors
 # Ordering matches ordering in grid_lib.Direction enum
 DIR_TO_VEC = [
