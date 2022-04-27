@@ -175,12 +175,12 @@ def get_3x3_static_grid() -> DrivingGrid:
 def get_6x6_static_grid() -> DrivingGrid:
     """Generate a static Driving 6-by-6 grid layout."""
     grid_str = (
-        "+.##+#\n"
-        "..+#.+\n"
+        ".+##+#\n"
+        "+..#.+\n"
         "#.###.\n"
         "#.....\n"
-        "-..##.\n"
-        "#-.-.-\n"
+        "-...#.\n"
+        "#-#-.-\n"
     )
     return parse_grid_str(grid_str, 4)
 

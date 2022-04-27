@@ -256,17 +256,9 @@ class DrivingModel(M.POSGModel):
              ) -> M.JointTimestep:
         next_state, collision_types = self._get_next_state(state, actions)
         rewards = self._get_rewards(state, next_state, collision_types)
-        done = self._state_is_terminal(next_state)
-
+        done = self.is_done(next_state)
         outcomes = self.get_outcome(next_state) if done else None
-
-        # TODO only reset vehicles that reach a terminal state
-        if self._infinite_horizon and done:
-            next_state = self.sample_initial_state()   # type: ignore
-            done = False
-
         obs = self._get_obs(next_state)
-
         return M.JointTimestep(next_state, obs, rewards, done, outcomes)
 
     def _get_next_state(self,
@@ -285,7 +277,16 @@ class DrivingModel(M.POSGModel):
             state_i = state[i]
             next_state_i = next_state[i]
             # check next_state in case agent i was crashed into this step
-            if state_i.dest_reached or next_state_i.crashed:
+            if (
+                self._infinite_horizon
+                and (state_i.dest_reached or state_i.crashed)
+            ):
+                # vehicle reached terminal state in previous step so reset
+                vehicle_coords.remove(state_i.coord)
+                next_state[i] = self._reset_vehicle(i, state_i, vehicle_coords)
+                vehicle_coords.add(next_state[i].coord)
+                continue
+            elif state_i.dest_reached or next_state_i.crashed:
                 continue
 
             vehicle_coords.remove(state_i.coord)
@@ -336,6 +337,29 @@ class DrivingModel(M.POSGModel):
             vehicle_coords.add(next_coord)
 
         return tuple(next_state), collision_types
+
+    def _reset_vehicle(self,
+                       v_idx: int,
+                       vs_i: VehicleState,
+                       vehicle_coords: Set[Coord]) -> VehicleState:
+        if not (vs_i.dest_reached or vs_i.crashed):
+            return vs_i
+
+        start_coords_i = self.grid.start_coords[v_idx]
+        avail_start_coords = start_coords_i.difference(vehicle_coords)
+
+        avail_start_coords.add(vs_i.coord)
+        new_coord = self._rng.choice(list(avail_start_coords))
+
+        new_vs_i = VehicleState(
+            coord=new_coord,
+            facing_dir=INIT_DIR,
+            speed=INIT_SPEED,
+            dest_coord=vs_i.dest_coord,
+            dest_reached=int(False),
+            crashed=int(False)
+        )
+        return new_vs_i
 
     def _get_move_direction(self,
                             action: DAction,

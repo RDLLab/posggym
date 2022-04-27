@@ -83,7 +83,8 @@ class GWObject:
                  coord: Coord,
                  color: str,
                  shape: Shape,
-                 direction: Optional[Direction] = None):
+                 direction: Optional[Direction] = None,
+                 alpha: Optional[float] = None):
         if shape == Shape.TRIANGLE:
             assert direction is not None
 
@@ -91,6 +92,7 @@ class GWObject:
         self.color = color
         self.shape = shape
         self.direction = direction
+        self.alpha = alpha
 
     def render(self, img: np.ndarray):
         """Draw object into image cell."""
@@ -109,6 +111,9 @@ class GWObject:
             _fill_coords(img, tri_fn, COLORS[self.color])
         else:
             raise AttributeError("Unsupported Object shape: {self.shape}")
+
+        if self.alpha is not None:
+            _highlight_img(img, alpha=self.alpha)
 
 
 class GWRenderer:

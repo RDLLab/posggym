@@ -189,7 +189,9 @@ class DrivingEnv(core.Env):
                 render_lib.GWObject(
                     vs.dest_coord,
                     render_lib.get_agent_color(i),
-                    render_lib.Shape.RECTANGLE
+                    render_lib.Shape.RECTANGLE,
+                    # make dest squares slightly different to vehicle color
+                    alpha=0.2
                 )
                 for i, vs in enumerate(self._state)
             ]
