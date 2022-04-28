@@ -74,9 +74,10 @@ DJointObs = Tuple[DObs, ...]
 VEHICLE = 0
 WALL = 1
 EMPTY = 2
+DESTINATION = 3
 
-CELL_OBS = [VEHICLE, WALL, EMPTY]
-CELL_OBS_STR = ["V", "#", "0"]
+CELL_OBS = [VEHICLE, WALL, EMPTY, DESTINATION]
+CELL_OBS_STR = ["V", "#", "0", "D"]
 
 
 class DB0(M.Belief):
@@ -454,6 +455,8 @@ class DrivingModel(M.POSGModel):
                 cell_obs.append(WALL)
             elif obs_grid_coord in vehicle_coords:
                 cell_obs.append(VEHICLE)
+            elif obs_grid_coord == state_i.dest_coord:
+                cell_obs.append(DESTINATION)
             else:
                 cell_obs.append(EMPTY)
         return tuple(cell_obs)

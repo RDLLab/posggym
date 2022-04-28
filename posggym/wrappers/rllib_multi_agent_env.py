@@ -27,10 +27,12 @@ class RllibMultiAgentEnv(MultiAgentEnv):
     """
 
     def __init__(self, env: Env):
-        super().__init__()
+        # must assign this first before calling super().__init__() so that
+        # property functions are initialized before super().__init__() is
+        # called
         self.env = env
-
         self._agent_ids = set(str(i) for i in range(self.env.n_agents))
+        super().__init__()
 
     @property
     def observation_space(self):
@@ -100,4 +102,4 @@ class RllibMultiAgentEnv(MultiAgentEnv):
 
     @property
     def unwrapped(self):
-        return self.env.unwrapped
+        return self
