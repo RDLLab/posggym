@@ -31,7 +31,8 @@ def main(env_name: str,
         if pause_each_step:
             input("Press any key")
 
-        for _ in range(episode_step_limit):
+        t = 0
+        while episode_step_limit is None or t < episode_step_limit:
             a = tuple(a.sample() for a in action_spaces)
             _, _, done, _ = env.step(a)
 
@@ -44,6 +45,8 @@ def main(env_name: str,
             if done:
                 print(f"End episode {i}")
                 break
+            t += 1
+
     env.close()
 
 
@@ -58,8 +61,8 @@ if __name__ == "__main__":
         help="The number of episodes to run (default=1)"
     )
     parser.add_argument(
-        "--episode_step_limit", type=int, default=100,
-        help="Max number of steps to run each epsiode for (default=100)"
+        "--episode_step_limit", type=int, default=None,
+        help="Max number of steps to run each epsiode for (default=None)"
     )
     parser.add_argument(
         "--seed", type=int, default=None,

@@ -13,10 +13,6 @@ from posggym.envs.grid_world.utils import Direction, Coord
 from posggym.envs.grid_world.driving.grid import DrivingGrid
 
 
-# TODO Try using named tuple for vehicle state, see if it has a noticable
-#      impact on speed
-
-
 class Speed(enum.IntEnum):
     """A speed setting for a vehicle."""
     REVERSE = 0
@@ -31,11 +27,6 @@ class CollisionType(enum.IntEnum):
     OBSTACLE = 1
     VEHICLE = 2
 
-
-# vehicle state = (
-#   current_coord, Direction, Speed, dest_coord, dest_reached
-# )
-# N.B. dest_reached needed so agent isn't rewarded twice for reaching dest
 
 class VehicleState(NamedTuple):
     """The state of a vehicle in the Driving Environment."""
@@ -465,8 +456,6 @@ class DrivingModel(M.POSGModel):
                                obs_coord: Coord,
                                agent_coord: Coord,
                                facing_dir: Direction) -> Optional[Coord]:
-        grid_row = -1
-        grid_col = -1
         if facing_dir == Direction.NORTH:
             grid_row = agent_coord[1] + obs_coord[1] - self._obs_front
             grid_col = agent_coord[0] + obs_coord[0] - self._obs_side
