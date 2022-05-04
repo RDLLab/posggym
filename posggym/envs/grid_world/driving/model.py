@@ -268,7 +268,6 @@ class DrivingModel(M.POSGModel):
             action_i = actions[i]
             state_i = state[i]
             next_state_i = next_state[i]
-            # check next_state in case agent i was crashed into this step
             if (
                 self._infinite_horizon
                 and (state_i.dest_reached or state_i.crashed)
@@ -279,6 +278,8 @@ class DrivingModel(M.POSGModel):
                 vehicle_coords.add(next_state[i].coord)
                 continue
             elif state_i.dest_reached or next_state_i.crashed:
+                # already at destination or crashed, or was crashed into this
+                # step
                 continue
 
             vehicle_coords.remove(state_i.coord)
@@ -340,7 +341,10 @@ class DrivingModel(M.POSGModel):
         start_coords_i = self.grid.start_coords[v_idx]
         avail_start_coords = start_coords_i.difference(vehicle_coords)
 
-        avail_start_coords.add(vs_i.coord)
+        if vs_i.coord in start_coords_i:
+            # add it back in since it will be remove during difference op
+            avail_start_coords.add(vs_i.coord)
+
         new_coord = self._rng.choice(list(avail_start_coords))
 
         new_vs_i = VehicleState(
