@@ -1,5 +1,5 @@
 """Run a random agent on an environment."""
-from argparse import ArgumentParser
+import argparse
 from typing import Optional
 
 import posggym
@@ -51,7 +51,9 @@ def main(env_name: str,
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser(conflict_handler='resolve')
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     parser.add_argument(
         "env_name", type=str,
         help="Name of environment to run"

@@ -1,7 +1,8 @@
 """General grid world problem utility functions and classes."""
 import enum
+import random
 import itertools
-from queue import PriorityQueue
+from queue import PriorityQueue, Queue
 from typing import Tuple, List, Set, Optional, Iterable, Dict
 
 # (x, y) coord = (col, row) coord
@@ -213,3 +214,91 @@ class Grid:
                         pq.put((dist[adj_coord], adj_coord))
                         visited.add(adj_coord)
         return dist
+
+    def get_connected_components(self) -> List[Set[Coord]]:
+        """Get list of connected components.
+
+        A connected component is the set of all coords that are connected to
+        each other - i.e. can be reached from each other.
+        """
+        components = []
+        to_explore = set(self.unblocked_coords)
+
+        while len(to_explore) > 0:
+            coord = to_explore.pop()
+            current_component = set([coord])
+            to_expand: Queue[Coord] = Queue()
+            to_expand.put(coord)
+
+            while not to_expand.empty():
+                coord = to_expand.get()
+                for adj_coord in self.get_neighbours(coord):
+                    if adj_coord in to_explore:
+                        to_explore.remove(adj_coord)
+                        to_expand.put(adj_coord)
+                        current_component.add(adj_coord)
+
+            components.append(current_component)
+        return components
+
+
+class GridGenerator:
+    """Class for generating grid layouts.
+
+    Note, a block in the grid is an obstacle occupying a single cell, while
+    here and obstacle refers to a collection of one or more connected blocks.
+    """
+
+    def __init__(self,
+                 width: int,
+                 height: int,
+                 mask: Set[Coord],
+                 max_obstacle_size: int,
+                 seed: Optional[int] = None):
+        assert max_obstacle_size > 0
+        self.width = width
+        self.height = height
+        self.mask = mask
+        self.max_obstacle_size = max_obstacle_size
+        self._rng = random.Random(seed)
+
+    def generate(self, max_num_obstacles: int) -> Grid:
+        """Generate a new grid."""
+        block_coords: Set[Coord] = set()
+        for _ in range(max_num_obstacles):
+            obstacle = self._get_random_obstacle()
+            if not self.mask.intersection(obstacle):
+                block_coords.update(obstacle)
+        return Grid(self.width, self.height, block_coords)
+
+    def _get_random_obstacle(self) -> Set[Coord]:
+        obstacle_height = self._rng.randint(1, self.max_obstacle_size)
+        obstacle_width = self._rng.randint(1, self.max_obstacle_size)
+        obstacle_x = self._rng.randint(0, self.width-1)
+        obstacle_y = self._rng.randint(0, self.height-1)
+        obstacle = set()
+        for x in range(obstacle_x, obstacle_x + obstacle_width):
+            if x >= self.width:
+                break
+            for y in range(obstacle_y, obstacle_y + obstacle_height):
+                if y >= self.height:
+                    break
+                obstacle.add((x, y))
+        return obstacle
+
+    def get_grid_str(self, grid: Grid) -> str:
+        """Get a str representation of a grid with mask applied."""
+        grid_repr = []
+        for row in range(grid.height):
+            row_repr = []
+            for col in range(grid.width):
+                coord = (col, row)
+                if coord in grid.block_coords:
+                    row_repr.append("#")
+                elif coord in self.mask:
+                    row_repr.append("M")
+                else:
+                    row_repr.append(".")
+            grid_repr.append(row_repr)
+
+        return "\n".join(list(list((" ".join(r) for r in grid_repr))))
