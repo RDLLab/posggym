@@ -9,8 +9,7 @@ from typing import Tuple, Optional, List, Callable, Dict, Set
 import math
 import numpy as np
 
-import posggym.envs.grid_world.two_paths.grid as grid_lib
-from posggym.envs.grid_world.utils import Direction, Coord
+from posggym.envs.grid_world.core import Direction, Coord, Grid
 
 
 # Size in pixels of a tile in the full-scale human view
@@ -44,7 +43,7 @@ def get_agent_color(agent_id: int) -> str:
 
 
 # Map of agent direction indices to vectors
-# Ordering matches ordering in grid_lib.Direction enum
+# Ordering matches ordering in Direction enum
 DIR_TO_VEC = [
     # NORTH (negative Y)
     np.array((0, -1)),
@@ -121,7 +120,7 @@ class GWRenderer:
 
     def __init__(self,
                  n_agents: int,
-                 grid: grid_lib.Grid,
+                 grid: Grid,
                  static_objs: List[GWObject],
                  render_blocks: bool = True):
         self._n_agents = n_agents

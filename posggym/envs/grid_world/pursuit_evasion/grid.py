@@ -2,7 +2,7 @@
 from collections import deque
 from typing import List, Set, Optional, Dict, Union
 
-from posggym.envs.grid_world.utils import Grid, Coord, Direction
+from posggym.envs.grid_world.core import Grid, Coord, Direction
 
 
 class PEGrid(Grid):

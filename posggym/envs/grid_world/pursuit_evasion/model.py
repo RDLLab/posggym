@@ -6,7 +6,7 @@ from gym import spaces
 
 import posggym.model as M
 
-from posggym.envs.grid_world.utils import Direction, Coord
+from posggym.envs.grid_world.core import Direction, Coord
 import posggym.envs.grid_world.pursuit_evasion.grid as grid_lib
 
 # State = (e_coord, e_dir, p_coord, p_dir, e_0_coord, p_0_coord, e_goal_coord)

@@ -8,7 +8,7 @@ from gym import spaces
 
 import posggym.model as M
 
-from posggym.envs.grid_world.utils import Direction, Coord
+from posggym.envs.grid_world.core import Direction, Coord
 
 from posggym.envs.grid_world.driving.grid import DrivingGrid
 

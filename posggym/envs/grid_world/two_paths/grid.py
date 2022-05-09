@@ -1,7 +1,7 @@
 """A grid in the Two-Paths Problem."""
 from typing import Set, Optional
 
-from posggym.envs.grid_world.utils import Grid, Coord
+from posggym.envs.grid_world.core import Grid, Coord
 
 
 class TPGrid(Grid):

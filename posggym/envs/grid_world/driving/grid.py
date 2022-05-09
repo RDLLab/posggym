@@ -2,7 +2,7 @@
 from typing import Set, List, Dict
 from itertools import product
 
-from posggym.envs.grid_world.utils import (
+from posggym.envs.grid_world.core import (
     Grid, Coord, Direction, DIRECTION_ASCII_REPR
 )
 

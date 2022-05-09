@@ -2,7 +2,7 @@
 import itertools
 from typing import List, Optional, Set
 
-from posggym.envs.grid_world.utils import Grid, Coord
+from posggym.envs.grid_world.core import Grid, Coord
 
 
 class UAVGrid(Grid):

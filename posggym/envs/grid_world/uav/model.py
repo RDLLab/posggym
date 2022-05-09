@@ -7,7 +7,7 @@ from gym import spaces
 import posggym.model as M
 
 import posggym.envs.grid_world.uav.grid as grid_lib
-from posggym.envs.grid_world.utils import Direction, Coord
+from posggym.envs.grid_world.core import Direction, Coord
 
 
 UAVState = Tuple[Coord, Coord]

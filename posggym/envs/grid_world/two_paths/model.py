@@ -7,8 +7,8 @@ from gym import spaces
 
 import posggym.model as M
 
+from posggym.envs.grid_world.core import Direction, Coord
 import posggym.envs.grid_world.two_paths.grid as grid_lib
-from posggym.envs.grid_world.utils import Direction, Coord
 
 
 TPState = Tuple[Coord, Coord]

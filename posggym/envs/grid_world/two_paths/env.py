@@ -5,7 +5,7 @@ from typing import Optional, Tuple, Union
 from posggym import core
 import posggym.model as M
 
-from posggym.envs.grid_world.utils import Direction
+from posggym.envs.grid_world.core import Direction
 import posggym.envs.grid_world.render as render_lib
 import posggym.envs.grid_world.two_paths.model as tp_model
 
