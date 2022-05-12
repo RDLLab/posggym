@@ -92,7 +92,7 @@ class DrivingEnv(core.Env):
     all agents have either crashed or reach their destination.
     """
 
-    metadata = {"render.modes": ['human', 'ascii']}
+    metadata = {"render.modes": ['human', 'ascii', "rgb"]}
 
     def __init__(self,
                  grid: DrivingGrid,
@@ -142,7 +142,7 @@ class DrivingEnv(core.Env):
         self._step_num = 0
         return self._last_obs
 
-    def render(self, mode: str = "human") -> None:
+    def render(self, mode: str = "human"):
         if mode == "ascii":
             outfile = sys.stdout
 
@@ -164,9 +164,9 @@ class DrivingEnv(core.Env):
                 output.append(f"Rewards: <{self._last_rewards}>")
 
             outfile.write("\n".join(output) + "\n")
-        elif mode == "human":
+        elif mode in ("human", "rgb"):
             grid = self.model.grid
-            if self._viewer is None:
+            if mode == "human" and self._viewer is None:
                 # pylint: disable=[import-outside-toplevel]
                 from posggym.envs.grid_world import viewer
                 self._viewer = viewer.GWViewer(   # type: ignore
@@ -228,9 +228,16 @@ class DrivingEnv(core.Env):
                 )
             )
 
-            self._viewer.display_img(env_img, agent_idx=None)  # type: ignore
-            for i, obs_img in enumerate(agent_obs_imgs):
-                self._viewer.display_img(obs_img, agent_idx=i)  # type: ignore
+            if mode == "human":
+                self._viewer.display_img(        # type: ignore
+                    env_img, agent_idx=None
+                )
+                for i, obs_img in enumerate(agent_obs_imgs):
+                    self._viewer.display_img(    # type: ignore
+                        obs_img, agent_idx=i
+                    )
+            else:
+                return (env_img, agent_obs_imgs)
         else:
             raise NotImplementedError
 
@@ -331,13 +338,13 @@ class DrivingGenEnv(DrivingEnv):
 
         return super().reset(seed=seed)
 
-    def render(self, mode: str = "human") -> None:
+    def render(self, mode: str = "human"):
         if mode == "ascii":
             super().render(mode)
             return
-        elif mode == "human":
+        elif mode in ("human", "rgb"):
             grid = self.model.grid
-            if self._viewer is None:
+            if mode == "human" and self._viewer is None:
                 # pylint: disable=[import-outside-toplevel]
                 from posggym.envs.grid_world import viewer
                 self._viewer = viewer.GWViewer(   # type: ignore
@@ -406,8 +413,15 @@ class DrivingGenEnv(DrivingEnv):
                 )
             )
 
-            # self._viewer.display_img(env_img, agent_idx=None)   # type: ignore
-            for i, obs_img in enumerate(agent_obs_imgs):
-                self._viewer.display_img(obs_img, agent_idx=i)  # type: ignore
+            if mode == "human":
+                self._viewer.display_img(             # type: ignore
+                    env_img, agent_idx=None
+                )
+                for i, obs_img in enumerate(agent_obs_imgs):
+                    self._viewer.display_img(         # type: ignore
+                        obs_img, agent_idx=i
+                    )
+            else:
+                return (env_img, agent_obs_imgs)
         else:
             raise NotImplementedError
