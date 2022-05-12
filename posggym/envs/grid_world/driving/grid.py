@@ -6,11 +6,6 @@ from posggym.envs.grid_world.core import (
     Grid, Coord, Direction, DIRECTION_ASCII_REPR
 )
 
-# TODO
-# 1. function for generating a grid
-# 2. function which returns a collection of grids or a grid python generator
-#    which is deterministic given rng_key
-
 
 class DrivingGrid(Grid):
     """A grid for the Driving Problem."""
@@ -162,78 +157,193 @@ def parse_grid_str(grid_str: str, supported_num_agents: int) -> DrivingGrid:
     )
 
 
-def get_3x3_static_grid() -> DrivingGrid:
+def get_3x3_grid() -> DrivingGrid:
     """Generate a simple Driving 3-by-3 grid layout."""
     grid_str = (
         "a1.\n"
-        ".#b\n"
-        ".0.\n"
+        ".#.\n"
+        ".0b\n"
     )
     return parse_grid_str(grid_str, 2)
 
 
-def get_6x6_static_grid() -> DrivingGrid:
-    """Generate a static Driving 6-by-6 grid layout."""
-    grid_str = (
-        "+#+#+#\n"
-        ".#...+\n"
-        "...##.\n"
-        "#.....\n"
-        "-...#.\n"
-        "#-#-.-\n"
-    )
-    return parse_grid_str(grid_str, 4)
-
-
-def get_7x7_criss_cross_grid() -> DrivingGrid:
+def get_7x7_crisscross_grid() -> DrivingGrid:
     """Generate a 7-by-7 Criss-Cross grid layout."""
     grid_str = (
-        "#a#0#a#\n"
-        "b.....1\n"
+        "#-#-#-#\n"
+        "-.....+\n"
         "#.#.#.#\n"
-        "1.....b\n"
+        "-.....+\n"
         "#.#.#.#\n"
-        "b.....1\n"
-        "#0#a#0#\n"
-    )
-    return parse_grid_str(grid_str, 2)
-
-
-def get_7x7_criss_cross_grid_paired() -> DrivingGrid:
-    """Generate a 7-by-7 Criss-Cross grid layout."""
-    grid_str = (
-        "#c#0#e#\n"
-        "d.....3\n"
-        "#.#.#.#\n"
-        "1.....b\n"
-        "#.#.#.#\n"
-        "f.....5\n"
-        "#2#a#4#\n"
+        "-.....+\n"
+        "#+#+#+#\n"
     )
     return parse_grid_str(grid_str, 6)
 
 
-def get_7x7_criss_cross_grid_shared() -> DrivingGrid:
-    """Generate a 7-by-7 Criss-Cross grid layout."""
+def get_7x7_crisscross2_grid() -> DrivingGrid:
+    """Generate a 7-by-7 Criss-Cross v2 grid layout."""
     grid_str = (
-        "#-#+#-#\n"
+        "#-#-#-#\n"
         "-.....+\n"
-        "#.#.#.#\n"
-        "+.....-\n"
-        "#.#.#.#\n"
+        "#.###.#\n"
         "-.....+\n"
-        "#+#-#+#\n"
+        "#.###.#\n"
+        "-.....+\n"
+        "#+#+#+#\n"
     )
     return parse_grid_str(grid_str, 6)
+
+
+def get_7x7_crisscross3_grid() -> DrivingGrid:
+    """Generate a 7-by-7 Criss-Cross v3 grid layout."""
+    grid_str = (
+        "#-#-#-#\n"
+        "-.....+\n"
+        "#.#.#.#\n"
+        "-.#.#.+\n"
+        "#.#.#.#\n"
+        "-.....+\n"
+        "#+#+#+#\n"
+    )
+    return parse_grid_str(grid_str, 6)
+
+
+def get_7x7_crisscross4_grid() -> DrivingGrid:
+    """Generate a 7-by-7 Criss-Cross v4 grid layout."""
+    grid_str = (
+        "#-#-#-#\n"
+        "-.#.#.+\n"
+        "#.#.#.#\n"
+        "-.....+\n"
+        "#.#.#.#\n"
+        "-.#.#.+\n"
+        "#+#+#+#\n"
+    )
+    return parse_grid_str(grid_str, 6)
+
+
+def get_7x7_crisscross5_grid() -> DrivingGrid:
+    """Generate a 7-by-7 Criss-Cross v5 grid layout."""
+    grid_str = (
+        "#-#-#-#\n"
+        "-.....+\n"
+        "###.###\n"
+        "-.....+\n"
+        "###.###\n"
+        "-.....+\n"
+        "#+#+#+#\n"
+    )
+    return parse_grid_str(grid_str, 6)
+
+
+def get_7x7_blocks_grid() -> DrivingGrid:
+    """Generate a 7-by-7 blocks grid layout."""
+    grid_str = (
+        "#-.-.-#\n"
+        "-##.##+\n"
+        ".##.##.\n"
+        "-.....+\n"
+        ".##.##.\n"
+        "-##.##+\n"
+        "#+.+.+#\n"
+    )
+    return parse_grid_str(grid_str, 6)
+
+
+def get_7x7_roundabout_grid() -> DrivingGrid:
+    """Generate a 7-by-7 round-about grid layout."""
+    grid_str = (
+        "#-.-.-#\n"
+        "-##.##+\n"
+        ".#...#.\n"
+        "-..#..+\n"
+        ".#...#.\n"
+        "-##.##+\n"
+        "#+.+.+#\n"
+    )
+    return parse_grid_str(grid_str, 6)
+
+
+def get_15x15_crisscross_grid() -> DrivingGrid:
+    """Generate a 15-by-15 Criss-Cross grid layout."""
+    grid_str = (
+        "#-#-#-#-#-#-#-#\n"
+        "-.............+\n"
+        "#.#.#.#.#.#.#.#\n"
+        "-.............+\n"
+        "#.#.#.#.#.#.#.#\n"
+        "-.............+\n"
+        "#.#.#.#.#.#.#.#\n"
+        "-.............+\n"
+        "#.#.#.#.#.#.#.#\n"
+        "-.............+\n"
+        "#.#.#.#.#.#.#.#\n"
+        "-.............+\n"
+        "#.#.#.#.#.#.#.#\n"
+        "-.............+\n"
+        "#+#+#+#+#+#+#+#\n"
+    )
+    return parse_grid_str(grid_str, 14)
+
+
+def get_15x15_blocks_grid() -> DrivingGrid:
+    """Generate a 15-by-15 Blocks grid layout."""
+    grid_str = (
+        "#-.-.-.-.-.-.-#\n"
+        "-####.### ####+\n"
+        ".####.###.####.\n"
+        "-####.###.####+\n"
+        ".####.###.####.\n"
+        "-.............+\n"
+        ".####.### ####.\n"
+        "-####.###.####+\n"
+        ".####.###.####.\n"
+        "-.............+\n"
+        ".####.###.####.\n"
+        "-####.### ####+\n"
+        ".####.###.####.\n"
+        "-####.###.####+\n"
+        "#+.+.+.+.+.+.+#\n"
+    )
+    return parse_grid_str(grid_str, 14)
+
+
+def get_15x15_roundabout_grid() -> DrivingGrid:
+    """Generate a 15-by-15 Round About grid layout."""
+    grid_str = (
+        "#-.-.-.-.-.-.-#\n"
+        "-######.######+\n"
+        ".######.######.\n"
+        "-######.######+\n"
+        ".######.######.\n"
+        "-####.....####+\n"
+        ".####.### ####.\n"
+        "-.....###.....+\n"
+        ".####.###.####.\n"
+        "-####.....####+\n"
+        ".######.######.\n"
+        "-###### ######+\n"
+        ".######.######.\n"
+        "-######.######+\n"
+        "#+.+.+.+.+.+.+#\n"
+    )
+    return parse_grid_str(grid_str, 14)
 
 
 #  (grid_make_fn, finite horizon step_limit, infinite horizon step_limit)
 SUPPORTED_GRIDS = {
-    '3x3Static': (get_3x3_static_grid, 30, 100),
-    '6x6Static': (get_6x6_static_grid, 60, 100),
-    '7x7CrissCross': (get_7x7_criss_cross_grid, 70, 200),
-    '7x7CrissCrossPaired': (get_7x7_criss_cross_grid_paired, 70, 200),
-    '7x7CrissCrossShared': (get_7x7_criss_cross_grid_shared, 70, 200),
+    '3x3': (get_3x3_grid, 30, 100),
+    '7x7CrissCross1': (get_7x7_crisscross_grid, 50, 200),
+    '7x7CrissCross2': (get_7x7_crisscross2_grid, 50, 200),
+    '7x7CrissCross3': (get_7x7_crisscross3_grid, 50, 200),
+    '7x7CrissCross4': (get_7x7_crisscross4_grid, 50, 200),
+    '7x7CrissCross5': (get_7x7_crisscross5_grid, 50, 200),
+    '7x7Blocks': (get_7x7_blocks_grid, 50, 200),
+    '7x7RoundAbout': (get_7x7_roundabout_grid, 50, 200),
+    '15x15CrissCross': (get_15x15_crisscross_grid, 100, 200),
+    '15x15Blocks': (get_15x15_blocks_grid, 100, 200),
+    '15x15RoundAbout': (get_15x15_roundabout_grid, 100, 200),
 }
 
 

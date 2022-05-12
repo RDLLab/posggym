@@ -15,12 +15,16 @@ def main(env_name: str,
     """Run random agents."""
     env = posggym.make(env_name)
     action_spaces = env.action_spaces
+
     # set random seeds
     if seed is not None:
         env.reset(seed=seed)
         for i in range(len(action_spaces)):
             action_spaces[i].seed(seed+1+i)
 
+    dones = 0
+    episode_steps = []
+    episode_rewards = [[] for _ in range(env.n_agents)]   # type: ignore
     for i in range(num_episodes):
 
         env.reset()
@@ -32,9 +36,11 @@ def main(env_name: str,
             input("Press any key")
 
         t = 0
+        done = False
+        rewards = [0.0] * env.n_agents
         while episode_step_limit is None or t < episode_step_limit:
             a = tuple(a.sample() for a in action_spaces)
-            _, _, done, _ = env.step(a)
+            _, r, done, _ = env.step(a)
 
             if render:
                 env.render(render_mode)
@@ -47,7 +53,26 @@ def main(env_name: str,
                 break
             t += 1
 
+            for j in range(env.n_agents):
+                rewards[j] += r[j]
+
+        dones += int(done)
+        episode_steps.append(t)
+
+        for j in range(env.n_agents):
+            episode_rewards[j].append(rewards[j])
+
     env.close()
+
+    print("All episodes finished")
+    print(f"Episodes ending with 'done=True' = {dones} out of {num_episodes}")
+    mean_steps = sum(episode_steps) / len(episode_steps)
+    step_limit = env.spec.max_episode_steps      # type: ignore
+    if episode_step_limit is not None:
+        step_limit = min(step_limit, episode_step_limit)
+    print(f"Mean episode steps = {mean_steps:.2f} out of max {step_limit}")
+    mean_returns = [sum(r) / len(r) for r in episode_rewards]
+    print(f"Mean Episode returns {mean_returns}")
 
 
 if __name__ == "__main__":
