@@ -254,22 +254,36 @@ class GridGenerator:
                  height: int,
                  mask: Set[Coord],
                  max_obstacle_size: int,
+                 max_num_obstacles: int,
+                 ensure_grid_connected: bool,
                  seed: Optional[int] = None):
         assert max_obstacle_size > 0
         self.width = width
         self.height = height
         self.mask = mask
         self.max_obstacle_size = max_obstacle_size
+        self.max_num_obstacles = max_num_obstacles
+        self.ensure_grid_connected = ensure_grid_connected
         self._rng = random.Random(seed)
 
-    def generate(self, max_num_obstacles: int) -> Grid:
+    def generate(self) -> Grid:
         """Generate a new grid."""
         block_coords: Set[Coord] = set()
-        for _ in range(max_num_obstacles):
+        for _ in range(self.max_num_obstacles):
             obstacle = self._get_random_obstacle()
             if not self.mask.intersection(obstacle):
                 block_coords.update(obstacle)
-        return Grid(self.width, self.height, block_coords)
+
+        grid = Grid(self.width, self.height, block_coords)
+        if self.ensure_grid_connected:
+            grid = self.connect_grid_components(grid)
+
+        return grid
+
+    def generate_n(self, n: int) -> List[Grid]:
+        """Generate N new grids."""
+        grids = [self.generate() for _ in range(n)]
+        return grids
 
     def _get_random_obstacle(self) -> Set[Coord]:
         obstacle_height = self._rng.randint(1, self.max_obstacle_size)
@@ -285,6 +299,105 @@ class GridGenerator:
                     break
                 obstacle.add((x, y))
         return obstacle
+
+    def connect_grid_components(self, grid: Grid) -> Grid:
+        """Get grid with only a single conencted component.
+
+        Removes blocks along shortest path between components until there is
+        only a single connected component.
+        """
+        # make a copy of original grid
+        grid = Grid(grid.width, grid.height, set(grid.block_coords))
+
+        components = grid.get_connected_components()
+        if len(components) == 1:
+            return grid
+
+        # connect components in order of distance from (0, 0)
+        component_dists = [
+            (self._component_distance(grid, (0, 0), c), i)
+            for i, c in enumerate(components)
+        ]
+        component_dists.sort()
+
+        single_component = components[component_dists[0][1]]
+        for j in range(1, len(components)):
+            component_j = components[component_dists[j][1]]
+            closest_pair = self._get_closest_pair(
+                grid, single_component, component_j
+            )
+
+            path = self._get_shortest_direct_path(grid, *closest_pair)
+            for coord in path:
+                if coord in grid.block_coords:
+                    grid.block_coords.remove(coord)
+
+            single_component.update(component_j)
+            single_component.update(path)
+
+        return grid
+
+    def _component_distance(self,
+                            grid: Grid,
+                            origin: Coord,
+                            component: Set[Coord]) -> int:
+        return min([grid.manhattan_dist(origin, coord) for coord in component])
+
+    def _get_closest_pair(self,
+                          grid: Grid,
+                          component_0: Set[Coord],
+                          component_1: Set[Coord]) -> Tuple[Coord, Coord]:
+        min_dist = grid.width * grid.height
+        min_pair = ((0, 0), (0, 0))
+        for c0, c1 in itertools.product(component_0, component_1):
+            d = grid.manhattan_dist(c0, c1)
+            if d < min_dist:
+                min_dist = d
+                min_pair = (c0, c1)
+        return min_pair
+
+    def _get_shortest_direct_path(self,
+                                  grid: Grid,
+                                  start_coord: Coord,
+                                  goal_coord: Coord) -> List[Coord]:
+        """Get shortest direct path between two coords.
+
+        This will possibly include blocks in the path, but will greedily chose
+        paths that do not contain a block. There's no guarantee it'll be the
+        direct path with the least number of blocks.
+        """
+        path = [start_coord]
+
+        x_dir = 0
+        if start_coord[0] != goal_coord[0]:
+            x_dir = 1 if start_coord[0] < goal_coord[0] else -1
+
+        y_dir = 0
+        if start_coord[1] != goal_coord[1]:
+            y_dir = 1 if start_coord[1] < goal_coord[1] else -1
+
+        coord = start_coord
+        while coord != goal_coord:
+            next_coords = []
+            if coord[0] != goal_coord[0]:
+                next_coords.append((coord[0] + x_dir, coord[1]))
+            if coord[1] != goal_coord[1]:
+                next_coords.append((coord[0], coord[1] + y_dir))
+
+            if len(next_coords) == 1:
+                coord = next_coords[0]
+                path.append(coord)
+                continue
+
+            blocked = [c in grid.block_coords for c in next_coords]
+            if all(blocked) or not any(blocked):
+                coord = self._rng.choice(next_coords)
+            else:
+                # if [0] is blocked, choose [1], and vice versa
+                coord = next_coords[blocked[0]]
+            path.append(coord)
+
+        return path
 
     def get_grid_str(self, grid: Grid) -> str:
         """Get a str representation of a grid with mask applied."""
@@ -302,3 +415,28 @@ class GridGenerator:
             grid_repr.append(row_repr)
 
         return "\n".join(list(list((" ".join(r) for r in grid_repr))))
+
+
+class GridCycler:
+    """Class for handling cycling through a set of generated grids."""
+
+    def __init__(self,
+                 grids: List[Grid],
+                 shuffle_each_cycle: bool,
+                 seed: Optional[int] = None):
+        self.grids = grids
+        self.shuffle = shuffle_each_cycle
+        self._rng = random.Random(seed)
+
+        self._next_idx = 0
+
+    def next(self) -> Grid:
+        if self._next_idx >= len(self.grids):
+            self._next_idx = 0
+
+            if self.shuffle:
+                self._rng.shuffle(self.grids)
+
+        grid = self.grids[self._next_idx]
+        self._next_idx += 1
+        return grid

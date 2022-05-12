@@ -98,6 +98,8 @@ class DB0(M.Belief):
 
             dest_coords_i = self._grid.dest_coords[i]
             avail_dest_coords = dest_coords_i.difference(chosen_dest_coords)
+            if start_coord in avail_dest_coords:
+                avail_dest_coords.remove(start_coord)
             dest_coord = self._rng.choice(list(avail_dest_coords))
             chosen_dest_coords.add(dest_coord)
 
@@ -161,7 +163,7 @@ class DrivingModel(M.POSGModel):
         self._obstacle_collisions = obstacle_collisions
         self._infinite_horizon = infinite_horizon
 
-        self._rng = random.Random(None)
+        self._rng = random.Random(kwargs.get("seed", None))
 
     @property
     def state_space(self) -> spaces.Space:

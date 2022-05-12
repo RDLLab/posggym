@@ -1,14 +1,16 @@
 """Environment class for the Driving Grid World Problem."""
 import sys
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 
 from posggym import core
 import posggym.model as M
 
+import posggym.envs.grid_world.core as grid_lib
 import posggym.envs.grid_world.render as render_lib
 
 import posggym.envs.grid_world.driving.model as dmodel
 from posggym.envs.grid_world.driving.grid import DrivingGrid
+from posggym.envs.grid_world.driving.gen import DrivingGridGenerator
 
 
 class DrivingEnv(core.Env):
@@ -107,6 +109,7 @@ class DrivingEnv(core.Env):
             infinite_horizon,
             **kwargs
         )
+        self._obs_dim = obs_dim
 
         init_conds = self._model.sample_initial_state_and_obs()
         self._state, self._last_obs = init_conds
@@ -167,7 +170,9 @@ class DrivingEnv(core.Env):
                 # pylint: disable=[import-outside-toplevel]
                 from posggym.envs.grid_world import viewer
                 self._viewer = viewer.GWViewer(   # type: ignore
-                    "Driving Env", (grid.width, grid.height)
+                    "Driving Env",
+                    (min(grid.width, 9), min(grid.height, 9)),
+                    num_agent_displays=self.n_agents
                 )
                 self._viewer.show(block=False)   # type: ignore
 
@@ -206,14 +211,28 @@ class DrivingEnv(core.Env):
                         )
                     )
 
-            img = self._renderer.render(
+            env_img = self._renderer.render(
                 agent_coords,
                 agent_obs_coords,
                 agent_dirs=agent_dirs,
                 other_objs=other_objs,
                 agent_colors=None
             )
-            self._viewer.display_img(img)  # type: ignore
+            agent_obs_imgs = self._renderer.render_all_agent_obs(
+                env_img,
+                agent_coords,
+                agent_dirs,
+                agent_obs_dims=self._obs_dim,
+                out_of_bounds_obj=render_lib.GWObject(
+                    (0, 0), 'grey', render_lib.Shape.RECTANGLE
+                )
+            )
+
+            self._viewer.display_img(env_img, agent_idx=None)  # type: ignore
+            for i, obs_img in enumerate(agent_obs_imgs):
+                self._viewer.display_img(obs_img, agent_idx=i)  # type: ignore
+        else:
+            raise NotImplementedError
 
     @property
     def model(self) -> dmodel.DrivingModel:
@@ -223,3 +242,172 @@ class DrivingEnv(core.Env):
         if self._viewer is not None:
             self._viewer.close()   # type: ignore
             self._viewer = None
+
+
+class DrivingGenEnv(DrivingEnv):
+    """The Generated Driving Grid World Environment.
+
+    This is the same as the Driving Environment except that a new grid is
+    generated at each reset.
+
+    The generated Grids can be:
+
+    1. set to be from some list of grids, in which case the grids in the list
+       will be cycled through (in the same order or shuffled)
+    2. generated a new each reset. Depending on grid size and generator
+       parameters this will lead to possibly unique grids each episode.
+
+    The seed parameter can be used to ensure the same grids are used on
+    different runs.
+
+    """
+
+    def __init__(self,
+                 num_agents: int,
+                 obs_dim: Tuple[int, int, int],
+                 obstacle_collisions: bool,
+                 n_grids: Optional[int],
+                 generator_params: Dict[str, Any],
+                 infinite_horizon: bool = False,
+                 shuffle_grid_order: bool = True,
+                 seed: Optional[int] = None,
+                 **kwargs):
+        if "seed" not in generator_params:
+            generator_params["seed"] = seed
+
+        self._n_grids = n_grids
+        self._gen_params = generator_params
+        self._shuffle_grid_order = shuffle_grid_order
+        self._gen = DrivingGridGenerator(**generator_params)
+
+        if n_grids is not None:
+            grids = self._gen.generate_n(n_grids)
+            self._cycler = grid_lib.GridCycler(
+                grids, shuffle_grid_order, seed=seed
+            )
+            grid = grids[0]
+        else:
+            self._cycler = None     # type: ignore
+            grid = self._gen.generate()
+
+        super().__init__(
+            grid,                   # type: ignore
+            num_agents,
+            obs_dim,
+            obstacle_collisions=obstacle_collisions,
+            infinite_horizon=infinite_horizon,
+            seed=seed,
+            **kwargs
+        )
+
+        self._model_kwargs = {
+            "num_agents": num_agents,
+            "obs_dim": obs_dim,
+            "obstacle_collisions": obstacle_collisions,
+            "infinite_horizon": infinite_horizon,
+            **kwargs
+        }
+
+    def reset(self, *, seed: Optional[int] = None) -> M.JointObservation:
+        if seed is not None:
+            self._gen_params["seed"] = seed
+            self._gen = DrivingGridGenerator(**self._gen_params)
+
+            if self._n_grids is not None:
+                grids = self._gen.generate_n(self._n_grids)
+                self._cycler = grid_lib.GridCycler(
+                    grids, self._shuffle_grid_order, seed=seed
+                )
+
+        if self._n_grids:
+            grid = self._cycler.next()
+        else:
+            grid = self._gen.generate()
+
+        self._model = dmodel.DrivingModel(
+            grid,                   # type: ignore
+            **self._model_kwargs    # type: ignore
+        )
+
+        return super().reset(seed=seed)
+
+    def render(self, mode: str = "human") -> None:
+        if mode == "ascii":
+            super().render(mode)
+            return
+        elif mode == "human":
+            grid = self.model.grid
+            if self._viewer is None:
+                # pylint: disable=[import-outside-toplevel]
+                from posggym.envs.grid_world import viewer
+                self._viewer = viewer.GWViewer(   # type: ignore
+                    "Driving Env",
+                    (min(grid.width, 9), min(grid.height, 9)),
+                    num_agent_displays=self.n_agents
+                )
+                self._viewer.show(block=False)   # type: ignore
+
+            if self._renderer is None:
+                # Need to re-add blocks each time since these change by
+                # episode
+                self._renderer = render_lib.GWRenderer(
+                    self.n_agents, grid, [], render_blocks=False
+                )
+
+            agent_obs_coords = tuple(
+                self._model.get_obs_coords(vs.coord, vs.facing_dir)
+                for vs in self._state
+            )
+
+            agent_coords = tuple(vs.coord for vs in self._state)
+            agent_dirs = tuple(vs.facing_dir for vs in self._state)
+
+            # Add agent destination locations
+            other_objs = [
+                render_lib.GWObject(
+                    vs.dest_coord,
+                    render_lib.get_agent_color(i),
+                    render_lib.Shape.RECTANGLE,
+                    # make dest squares slightly different to vehicle color
+                    alpha=0.2
+                )
+                for i, vs in enumerate(self._state)
+            ]
+            # Add blocks
+            for block_coord in grid.block_coords:
+                other_objs.append(
+                    render_lib.GWObject(
+                        block_coord, 'grey', render_lib.Shape.RECTANGLE
+                    )
+                )
+            # Add visualization for crashed agents
+            for i, vs in enumerate(self._state):
+                if vs.crashed:
+                    other_objs.append(
+                        render_lib.GWObject(
+                            vs.coord, 'yellow', render_lib.Shape.CIRCLE
+                        )
+                    )
+
+            env_img = self._renderer.render(
+                agent_coords,
+                agent_obs_coords,
+                agent_dirs=agent_dirs,
+                other_objs=other_objs,
+                agent_colors=None
+            )
+            agent_obs_imgs = self._renderer.render_all_agent_obs(
+                env_img,
+                agent_coords,
+                agent_dirs,
+                agent_obs_dims=self._obs_dim,
+                out_of_bounds_obj=render_lib.GWObject(
+                    (0, 0), 'grey', render_lib.Shape.RECTANGLE
+                )
+            )
+
+            # self._viewer.display_img(env_img, agent_idx=None)   # type: ignore
+            for i, obs_img in enumerate(agent_obs_imgs):
+                self._viewer.display_img(obs_img, agent_idx=i)  # type: ignore
+        else:
+            raise NotImplementedError

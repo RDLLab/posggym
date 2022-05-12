@@ -1,4 +1,5 @@
 """Script for manually running and visualizing GridGenerator functionality."""
+import sys
 import random
 import argparse
 
@@ -32,10 +33,7 @@ def main(args):
     else:
         max_obstacle_size = args.max_obstacle_size
 
-    grid_gen = GridGenerator(
-        args.width, args.height, mask, max_obstacle_size, args.seed
-    )
-
+    seed = args.seed
     while True:
         n = -1
         while n < 0:
@@ -43,9 +41,33 @@ def main(args):
                 n = int(input("Select max_num_obstacles (Ctrl-C to exit): "))
             except ValueError:
                 pass
+            except KeyboardInterrupt:
+                print()
+                sys.exit(1)
 
-        grid = grid_gen.generate(n)
+        grid_gen = GridGenerator(
+            args.width,
+            args.height,
+            mask,
+            max_obstacle_size,
+            max_num_obstacles=n,
+            ensure_grid_connected=False,
+            seed=seed
+        )
+        seed += 1
+        grid = grid_gen.generate()
         print(grid_gen.get_grid_str(grid))
+
+        if args.check_grid_connectedness:
+            components = grid.get_connected_components()
+            if len(components) == 1:
+                print("Grid fully connected")
+            else:
+                print(f"Grid divided into {len(components)} seperate parts.")
+                print("Connecting grid")
+                grid = grid_gen.connect_grid_components(grid)
+                print("Et voila")
+                print(grid_gen.get_grid_str(grid))
 
 
 if __name__ == "__main__":
@@ -71,5 +93,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--seed", type=int, default=None,
         help="Random Seed"
+    )
+    parser.add_argument(
+        "--check_grid_connectedness", action='store_true',
+        help="Also check for grid connectedness"
     )
     main(parser.parse_args())

@@ -36,6 +36,7 @@ class Env(abc.ABC):
 
     # Set this in SOME subclasses
     metadata: Dict = {"render.modes": []}
+    spec = None
 
     @abc.abstractmethod
     def step(self,
@@ -268,7 +269,7 @@ class Wrapper(Env):
 class ObservationWrapper(Wrapper):
     """Wraps environment to allow modular transformations of observations.
 
-    Subclasses should atleast implement the observations function.
+    Subclasses should at least implement the observations function.
     """
 
     def reset(self, **kwargs):

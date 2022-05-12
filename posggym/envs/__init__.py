@@ -169,3 +169,64 @@ for grid_name in driving.grid.SUPPORTED_GRIDS:
             "infinite_horizon": True
         }
     )
+
+
+# Driving Gen
+for grid_name in driving.gen.SUPPORTED_GEN_PARAMS:
+    env_params = driving.gen.SUPPORTED_GEN_PARAMS[grid_name]
+    gen_params, finite_steps, inf_steps = env_params   # type: ignore
+    register(
+        env_id=f"DrivingGen{grid_name}-v0",
+        entry_point="posggym.envs.grid_world.driving:DrivingGenEnv",
+        max_episode_steps=finite_steps,
+        kwargs={
+            "num_agents": 2,
+            "obs_dim": (3, 1, 1),
+            "obstacle_collisions": False,
+            "n_grids": None,
+            "generator_params": gen_params,
+            "infinite_horizon": False
+        }
+    )
+
+    register(
+        env_id=f"DrivingGen{grid_name}-v1",
+        entry_point="posggym.envs.grid_world.driving:DrivingGenEnv",
+        max_episode_steps=inf_steps,
+        kwargs={
+            "num_agents": 2,
+            "obs_dim": (3, 1, 1),
+            "obstacle_collisions": False,
+            "n_grids": None,
+            "generator_params": gen_params,
+            "infinite_horizon": True
+        }
+    )
+
+    register(
+        env_id=f"DrivingGen{grid_name}-v2",
+        entry_point="posggym.envs.grid_world.driving:DrivingGenEnv",
+        max_episode_steps=finite_steps,
+        kwargs={
+            "num_agents": 2,
+            "obs_dim": (3, 1, 1),
+            "obstacle_collisions": True,
+            "n_grids": None,
+            "generator_params": gen_params,
+            "infinite_horizon": False
+        }
+    )
+
+    register(
+        env_id=f"DrivingGen{grid_name}-v3",
+        entry_point="posggym.envs.grid_world.driving:DrivingGenEnv",
+        max_episode_steps=inf_steps,
+        kwargs={
+            "num_agents": 2,
+            "obs_dim": (3, 1, 1),
+            "obstacle_collisions": True,
+            "n_grids": None,
+            "generator_params": gen_params,
+            "infinite_horizon": True
+        }
+    )
