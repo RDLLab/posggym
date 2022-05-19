@@ -159,6 +159,18 @@ class POSGModel(abc.ABC):
     def set_seed(self, seed: Optional[int] = None):
         """Set the seed for the model RNG."""
 
+    def is_absorbing(self, obs: Observation, agent_id: AgentID) -> bool:
+        """Check if observation indicates an absorbing state for a given agent.
+
+        By default, this function returns False. However, it may be useful to
+        overwrite this function in some environments. For example, in
+        environments where it is possible for an agent to enter a fully
+        observed absorbing state (where the agent's actions have no
+        effect) before the episode terminates due to other agents in the
+        environment still being active.
+        """
+        return False
+
 
 class POSGFullModel(POSGModel, abc.ABC):
     """A Fully definte Partially Observable Stochastic Game model.

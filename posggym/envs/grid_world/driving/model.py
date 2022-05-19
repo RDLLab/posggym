@@ -544,8 +544,14 @@ class DrivingModel(M.POSGModel):
     def set_seed(self, seed: Optional[int] = None):
         self._rng = random.Random(seed)
 
-    def _vehicle_state_is_terminal(self, vehicle_state: VehicleState) -> bool:
-        return bool(vehicle_state.dest_reached or vehicle_state.crashed)
+    def is_absorbing(self, obs: M.Observation, agent_id: M.AgentID) -> bool:
+        if self._infinite_horizon:
+            return False
+        # check dest_reached and crashed observations
+        return bool(obs[3] or obs[4])
 
     def _state_is_terminal(self, state: DState) -> bool:
         return all(self._vehicle_state_is_terminal(vs) for vs in state)
+
+    def _vehicle_state_is_terminal(self, vehicle_state: VehicleState) -> bool:
+        return bool(vehicle_state.dest_reached or vehicle_state.crashed)
