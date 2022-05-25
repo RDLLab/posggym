@@ -29,11 +29,12 @@ setup(
         'numpy>=1.20',
     ],
     extras_require=extras,
-    python_requires='>=3.9',
+    python_requires='>=3.8',
     classifiers=[
         'Development Status :: 3 - Alpha',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
     ],
     zip_safe=False
