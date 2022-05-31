@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 from gym import spaces
 
 import posggym
+import posggym.model as M
 
 
 def _random_action_selection(action_space):
@@ -34,6 +35,16 @@ def _get_action(env, keyboard_agent_ids):
     return tuple(action_list)
 
 
+def _get_outcome_counts(episode_outcomes, n_agents):
+    outcome_counts = {k: [0 for _ in range(n_agents)] for k in M.Outcome}
+    for outcome in episode_outcomes:
+        if outcome is None:
+            outcome = tuple(M.Outcome.NA for _ in range(n_agents))
+        for i in range(n_agents):
+            outcome_counts[outcome[i]][i] += 1
+    return outcome_counts
+
+
 def main(env_name: str,
          keyboard_agent_ids: List[int],
          num_episodes: int,
@@ -55,6 +66,10 @@ def main(env_name: str,
         for i in range(len(action_spaces)):
             action_spaces[i].seed(seed+1+i)
 
+    dones = 0
+    episode_steps = []
+    episode_rewards = [[] for _ in range(env.n_agents)]    # type: ignore
+    episode_outcomes = []   # type: ignore
     for i in range(num_episodes):
 
         env.reset()
@@ -66,9 +81,12 @@ def main(env_name: str,
             input("Press any key")
 
         t = 0
+        done = False
+        rewards = [0.0] * env.n_agents
         while episode_step_limit is None or t < episode_step_limit:
             a = _get_action(env, keyboard_agent_ids)
-            _, _, done, _ = env.step(a)
+            _, r, done, info = env.step(a)
+            t += 1
 
             if render:
                 env.render(render_mode)
@@ -79,9 +97,33 @@ def main(env_name: str,
             if done:
                 print(f"End episode {i}")
                 break
-            t += 1
+
+            for j in range(env.n_agents):
+                rewards[j] += r[j]
+
+        dones += int(done)
+        episode_steps.append(t)
+        episode_outcomes.append(info.get("outcome", None))
+
+        for j in range(env.n_agents):
+            episode_rewards[j].append(rewards[j])
 
     env.close()
+
+    print("All episodes finished")
+    print(f"Episodes ending with 'done=True' = {dones} out of {num_episodes}")
+    mean_steps = sum(episode_steps) / len(episode_steps)
+    step_limit = env.spec.max_episode_steps      # type: ignore
+    if episode_step_limit is not None:
+        step_limit = min(step_limit, episode_step_limit)
+    print(f"Mean episode steps = {mean_steps:.2f} out of max {step_limit}")
+    mean_returns = [sum(r) / len(r) for r in episode_rewards]
+    print(f"Mean Episode returns {mean_returns}")
+
+    outcome_counts = _get_outcome_counts(episode_outcomes, env.n_agents)
+    print("Outcomes")
+    for k, v in outcome_counts.items():
+        print(f"{k} = {v}")
 
 
 if __name__ == "__main__":

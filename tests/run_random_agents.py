@@ -3,6 +3,17 @@ import argparse
 from typing import Optional
 
 import posggym
+import posggym.model as M
+
+
+def _get_outcome_counts(episode_outcomes, n_agents):
+    outcome_counts = {k: [0 for _ in range(n_agents)] for k in M.Outcome}
+    for outcome in episode_outcomes:
+        if outcome is None:
+            outcome = tuple(M.Outcome.NA for _ in range(n_agents))
+        for i in range(n_agents):
+            outcome_counts[outcome[i]][i] += 1
+    return outcome_counts
 
 
 def main(env_name: str,
@@ -24,7 +35,8 @@ def main(env_name: str,
 
     dones = 0
     episode_steps = []
-    episode_rewards = [[] for _ in range(env.n_agents)]   # type: ignore
+    episode_rewards = [[] for _ in range(env.n_agents)]    # type: ignore
+    episode_outcomes = []   # type: ignore
     for i in range(num_episodes):
 
         env.reset()
@@ -40,7 +52,8 @@ def main(env_name: str,
         rewards = [0.0] * env.n_agents
         while episode_step_limit is None or t < episode_step_limit:
             a = tuple(a.sample() for a in action_spaces)
-            _, r, done, _ = env.step(a)
+            _, r, done, info = env.step(a)
+            t += 1
 
             if render:
                 env.render(render_mode)
@@ -51,13 +64,13 @@ def main(env_name: str,
             if done:
                 print(f"End episode {i}")
                 break
-            t += 1
 
             for j in range(env.n_agents):
                 rewards[j] += r[j]
 
         dones += int(done)
         episode_steps.append(t)
+        episode_outcomes.append(info.get("outcome", None))
 
         for j in range(env.n_agents):
             episode_rewards[j].append(rewards[j])
@@ -73,6 +86,11 @@ def main(env_name: str,
     print(f"Mean episode steps = {mean_steps:.2f} out of max {step_limit}")
     mean_returns = [sum(r) / len(r) for r in episode_rewards]
     print(f"Mean Episode returns {mean_returns}")
+
+    outcome_counts = _get_outcome_counts(episode_outcomes, env.n_agents)
+    print("Outcomes")
+    for k, v in outcome_counts.items():
+        print(f"{k} = {v}")
 
 
 if __name__ == "__main__":

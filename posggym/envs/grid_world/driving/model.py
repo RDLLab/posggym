@@ -251,7 +251,7 @@ class DrivingModel(M.POSGModel):
         next_state, collision_types = self._get_next_state(state, actions)
         rewards = self._get_rewards(state, next_state, collision_types)
         done = self.is_done(next_state)
-        outcomes = self.get_outcome(next_state) if done else None
+        outcomes = self.get_outcome(next_state)
         obs = self._get_obs(next_state)
         return M.JointTimestep(next_state, obs, rewards, done, outcomes)
 
@@ -537,7 +537,7 @@ class DrivingModel(M.POSGModel):
             elif state[i].crashed:
                 outcome_i = M.Outcome.LOSS
             else:
-                outcome_i = M.Outcome.DRAW
+                outcome_i = M.Outcome.NA
             outcomes.append(outcome_i)
         return tuple(outcomes)
 

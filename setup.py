@@ -1,10 +1,11 @@
-"""POMG package install info """
+"""POSGGym package install file."""
 from setuptools import setup, find_packages
 
 # Environment and test specific dependencies.
 extras = {
     "test": ["pytest>=6.2"],
-    "render": ["matplotlib>=3.5"]
+    "render": ["matplotlib>=3.5"],
+    "rware": ["rware==1.0.3"]
 }
 
 extras['all'] = [item for group in extras.values() for item in group]
