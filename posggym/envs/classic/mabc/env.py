@@ -5,7 +5,7 @@ from typing import Optional, Tuple
 from posggym import core
 import posggym.model as M
 
-import posggym.envs.full_model.mabc.model as mabc_model
+import posggym.envs.classic.mabc.model as mabc_model
 
 
 class MABCEnv(core.Env):

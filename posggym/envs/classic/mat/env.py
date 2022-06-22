@@ -5,7 +5,7 @@ from typing import Optional, Tuple
 from posggym import core
 import posggym.model as M
 
-import posggym.envs.full_model.mat.model as mat_model
+import posggym.envs.classic.mat.model as mat_model
 
 
 class MultiAgentTigerEnv(core.Env):

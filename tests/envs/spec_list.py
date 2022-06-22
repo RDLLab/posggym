@@ -1,4 +1,4 @@
-"""Contains list of all registered envs in POSG
+"""Contains list of all registered envs in POSG.
 
 Reference:
 - https://github.com/openai/gym/blob/master/tests/envs/spec_list.py

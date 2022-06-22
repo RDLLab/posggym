@@ -18,12 +18,17 @@ from posggym.envs.grid_world import driving
 
 register(
     env_id="MABC-v0",
-    entry_point="posggym.envs.full_model.mabc:MABCEnv"
+    entry_point="posggym.envs.classic.mabc:MABCEnv"
 )
 
 register(
     env_id="MultiAgentTiger-v0",
-    entry_point="posggym.envs.full_model.mat:MultiAgentTigerEnv"
+    entry_point="posggym.envs.classic.mat:MultiAgentTigerEnv"
+)
+
+register(
+    env_id="RockPaperScissors-v0",
+    entry_point="posggym.envs.classic.rps:RockPaperScissorsEnv"
 )
 
 

@@ -13,10 +13,11 @@ def _random_action_selection(action_space):
 
 
 def _keyboard_action_selection(agent_id, action_space):
-    print(f"Select action for agent {agent_id}")
     while True:
         try:
-            a = input(f"Select action (0, {action_space.n-1}): ")
+            a = input(
+                f"Select action for agent {agent_id} (0, {action_space.n-1}): "
+            )
             return int(a)
         except ValueError:
             print("Invalid selection. Try again.")
@@ -115,7 +116,10 @@ def main(env_name: str,
     mean_steps = sum(episode_steps) / len(episode_steps)
     step_limit = env.spec.max_episode_steps      # type: ignore
     if episode_step_limit is not None:
-        step_limit = min(step_limit, episode_step_limit)
+        if step_limit is None:
+            step_limit = episode_step_limit
+        else:
+            step_limit = min(step_limit, episode_step_limit)
     print(f"Mean episode steps = {mean_steps:.2f} out of max {step_limit}")
     mean_returns = [sum(r) / len(r) for r in episode_rewards]
     print(f"Mean Episode returns {mean_returns}")
