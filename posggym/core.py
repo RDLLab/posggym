@@ -28,6 +28,7 @@ class Env(abc.ABC):
 
         n_agents: the number of agents in the environment
         model: the POSG model of the environment (posggym.model.POSGModel)
+        state: the current state of the environment
         action_specs : the action space specs for each agent
         observation_spacs : the observation space specs for each agent
         reward_specs : the reward specs for each agent
@@ -117,6 +118,11 @@ class Env(abc.ABC):
         """Get the model for this environment."""
 
     @property
+    @abc.abstractmethod
+    def state(self) -> M.State:
+        """Get the current state for this environment."""
+
+    @property
     def n_agents(self) -> int:
         """Get the number of agents in this environment."""
         return self.model.n_agents
@@ -198,6 +204,10 @@ class Wrapper(Env):
     @property
     def model(self) -> M.POSGModel:
         return self.env.model
+
+    @property
+    def state(self) -> M.State:
+        return self.env.state
 
     @property
     def n_agents(self) -> int:

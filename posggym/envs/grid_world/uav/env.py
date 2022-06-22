@@ -1,7 +1,7 @@
 """Environment class for the Unmanned Aerial Vehicle Grid World Problem."""
 import sys
+import copy
 from typing import Optional, Tuple
-
 
 from posggym import core
 import posggym.model as M
@@ -166,6 +166,10 @@ class UAVEnv(core.Env):
     @property
     def model(self) -> uav_model.UAVModel:
         return self._model
+
+    @property
+    def state(self) -> M.State:
+        return copy.copy(self._state)
 
     def close(self) -> None:
         if self._viewer is not None:

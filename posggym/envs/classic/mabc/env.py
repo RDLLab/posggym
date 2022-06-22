@@ -1,5 +1,6 @@
 """The environment class for the Multi-Access Broadcast Channel Problem."""
 import sys
+import copy
 from typing import Optional, Tuple
 
 from posggym import core
@@ -131,3 +132,7 @@ class MABCEnv(core.Env):
     @property
     def model(self) -> M.POSGModel:
         return self._model
+
+    @property
+    def state(self) -> M.State:
+        return copy.copy(self._state)

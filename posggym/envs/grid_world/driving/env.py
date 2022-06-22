@@ -1,5 +1,6 @@
 """Environment class for the Driving Grid World Problem."""
 import sys
+import copy
 from typing import Optional, Tuple, Dict, Any
 
 from posggym import core
@@ -244,6 +245,10 @@ class DrivingEnv(core.Env):
     @property
     def model(self) -> dmodel.DrivingModel:
         return self._model
+
+    @property
+    def state(self) -> M.State:
+        return copy.copy(self._state)
 
     def close(self) -> None:
         if self._viewer is not None:

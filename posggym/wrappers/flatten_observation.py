@@ -4,7 +4,7 @@ from posggym import ObservationWrapper, Env
 
 
 class FlattenObservation(ObservationWrapper):
-    """Observation wrapper that flattens the observation. """
+    """Observation wrapper that flattens the observation."""
 
     def __init__(self, env: Env):
         super().__init__(env)

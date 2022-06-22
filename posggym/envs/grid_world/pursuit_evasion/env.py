@@ -1,5 +1,6 @@
 """Environment class for the Two-Paths Grid World Problem."""
 import sys
+import copy
 from typing import Optional, Tuple, Union
 
 from posggym import core
@@ -207,6 +208,10 @@ class PursuitEvasionEnv(core.Env):
     @property
     def model(self) -> pe_model.PursuitEvasionModel:
         return self._model
+
+    @property
+    def state(self) -> M.State:
+        return copy.copy(self._state)
 
     def close(self) -> None:
         if self._viewer is not None:
