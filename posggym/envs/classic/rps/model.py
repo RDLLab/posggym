@@ -98,7 +98,7 @@ class RockPaperScissorsModel(M.POSGFullModel):
              state: M.State,
              actions: M.JointAction
              ) -> M.JointTimestep:
-        obs = actions
+        obs = (actions[1], actions[0])
         rewards = self._get_reward(actions)
         done = self.is_done(STATE0)
 
