@@ -1,5 +1,4 @@
 """Environment class for the Driving Grid World Problem."""
-import sys
 import copy
 from typing import Optional, Tuple, Dict, Any
 
@@ -93,7 +92,7 @@ class DrivingEnv(core.Env):
     all agents have either crashed or reach their destination.
     """
 
-    metadata = {"render.modes": ['human', 'ascii', "rgb"]}
+    metadata = {"render.modes": ['human', 'ansi', 'rgb']}
 
     def __init__(self,
                  grid: DrivingGrid,
@@ -144,9 +143,7 @@ class DrivingEnv(core.Env):
         return self._last_obs
 
     def render(self, mode: str = "human"):
-        if mode == "ascii":
-            outfile = sys.stdout
-
+        if mode == "ansi":
             grid_str = self._model.grid.get_ascii_repr(
                 [vs.coord for vs in self._state],
                 [vs.facing_dir for vs in self._state],
@@ -164,7 +161,7 @@ class DrivingEnv(core.Env):
                 output.insert(1, f"Actions: <{action_str}>")
                 output.append(f"Rewards: <{self._last_rewards}>")
 
-            outfile.write("\n".join(output) + "\n")
+            return "\n".join(output) + "\n"
         elif mode in ("human", "rgb"):
             grid = self.model.grid
             if mode == "human" and self._viewer is None:
@@ -186,7 +183,6 @@ class DrivingEnv(core.Env):
                 self._model.get_obs_coords(vs.coord, vs.facing_dir)
                 for vs in self._state
             )
-
             agent_coords = tuple(vs.coord for vs in self._state)
             agent_dirs = tuple(vs.facing_dir for vs in self._state)
 
@@ -240,7 +236,7 @@ class DrivingEnv(core.Env):
             else:
                 return (env_img, agent_obs_imgs)
         else:
-            raise NotImplementedError
+            super().render(mode)
 
     @property
     def model(self) -> dmodel.DrivingModel:
@@ -344,9 +340,8 @@ class DrivingGenEnv(DrivingEnv):
         return super().reset(seed=seed)
 
     def render(self, mode: str = "human"):
-        if mode == "ascii":
-            super().render(mode)
-            return
+        if mode == "ansi":
+            return super().render(mode)
         elif mode in ("human", "rgb"):
             grid = self.model.grid
             if mode == "human" and self._viewer is None:

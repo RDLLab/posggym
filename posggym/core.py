@@ -15,6 +15,9 @@ import posggym.model as M
 class Env(abc.ABC):
     """The main POSG environment class.
 
+    The implementation is heavily inspired by the Open AI Gym API and
+    implementation: https://github.com/openai/gym
+
     It encapsulates an environment and POSG model.
 
     The main API methods that users of this class need to know are:
@@ -93,11 +96,30 @@ class Env(abc.ABC):
 
         """
 
-    @abc.abstractmethod
     def render(self, mode: str = "human") -> None:
         """Render the environment.
 
-        The set of supported modes varies per environment.
+        This function is based on conventions of gym.core.Env class and the
+        documentation from the original function is reproduced here for
+        convinience.
+
+        The set of supported modes varies per environment. (And some
+        environments do not support rendering at all.) By convention,
+        if mode is:
+        - human: render to the current display or terminal and
+          return nothing. Usually for human consumption.
+        - rgb_array: Return an numpy.ndarray with shape (x, y, 3),
+          representing RGB values for an x-by-y pixel image, suitable
+          for turning into a video.
+        - ansi: Return a string (str) or StringIO.StringIO containing a
+          terminal-style text representation. The text can include newlines
+          and ANSI escape sequences (e.g. for colors).
+
+        Note
+        ----
+        Make sure that your class's metadata 'render.modes' key includes
+          the list of supported modes. It's recommended to call super()
+          in implementations to use the functionality of this method.
 
         Arguments
         ---------
@@ -105,6 +127,7 @@ class Env(abc.ABC):
             the mode to render with (default='human')
 
         """
+        raise NotImplementedError
 
     def close(self) -> None:
         """Close environment and perform any necessary cleanup.

@@ -67,7 +67,7 @@ class MABCEnv(core.Env):
 
     """
 
-    metadata = {"render.modes": ['human']}
+    metadata = {"render.modes": ['human', 'ansi']}
 
     def __init__(self,
                  num_nodes: int = 2,
@@ -108,8 +108,10 @@ class MABCEnv(core.Env):
         self._step_num = 0
         return self._last_obs
 
-    def render(self, mode: str = "human") -> None:
-        outfile = sys.stdout
+    def render(self, mode: str = "human"):
+        if mode not in self.metadata["render.modes"]:
+            # raise exception
+            super().render(mode)
 
         state_str = ", ".join(
             [mabc_model.NODE_STATE_STR[s] for s in self._state]
@@ -127,7 +129,13 @@ class MABCEnv(core.Env):
             output.insert(1, f"Actions: <{action_str}>")
             output.append(f"Rewards: <{self._last_rewards}>")
 
-        outfile.write("\n".join(output) + "\n")
+        output_str = "\n".join(output) + "\n"
+
+        if mode == "human":
+            sys.stdout.write(output_str)
+        else:
+            # ansi mode
+            return output_str
 
     @property
     def model(self) -> M.POSGModel:

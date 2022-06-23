@@ -1,5 +1,4 @@
 """Environment class for the Unmanned Aerial Vehicle Grid World Problem."""
-import sys
 import copy
 from typing import Optional, Tuple
 
@@ -74,7 +73,7 @@ class UAVEnv(core.Env):
     Multi-Agent Systems 31 (4): 861–904.
     """
 
-    metadata = {"render.modes": ['human', 'ascii']}
+    metadata = {"render.modes": ['human', 'ansi', 'rgb']}
 
     def __init__(self,
                  grid_name: str,
@@ -114,9 +113,7 @@ class UAVEnv(core.Env):
         return self._last_obs
 
     def render(self, mode: str = "human") -> None:
-        if mode == "ascii":
-            outfile = sys.stdout
-
+        if mode == "ansi":
             grid_str = self._model.grid.get_ascii_repr(
                 self._state[0], self._state[1]
             )
@@ -132,14 +129,15 @@ class UAVEnv(core.Env):
                 output.insert(1, f"Actions: <{action_str}>")
                 output.append(f"Rewards: <{self._last_rewards}>")
 
-            outfile.write("\n".join(output) + "\n")
-        elif mode == "human":
+            return "\n".join(output) + "\n"
+        elif mode in ("human", "rgb"):
             grid = self.model.grid
-            if self._viewer is None:
+            if mode == "human" and self._viewer is None:
                 # pylint: disable=[import-outside-toplevel]
                 from posggym.envs.grid_world import viewer
                 self._viewer = viewer.GWViewer(   # type: ignore
-                    "Unmanned Aerial Vehicle Env", (grid.width, grid.height)
+                    "Unmanned Aerial Vehicle Env",
+                    (min(grid.width, 9), min(grid.height, 9))
                 )
                 self._viewer.show(block=False)   # type: ignore
 
@@ -148,20 +146,29 @@ class UAVEnv(core.Env):
                     grid.safe_house_coord, 'green', render_lib.Shape.RECTANGLE
                 )
                 self._renderer = render_lib.GWRenderer(
-                    self.n_agents,
-                    grid,
-                    [safe_house_obj],
-                    render_blocks=True
+                    self.n_agents, grid, [safe_house_obj], render_blocks=True
                 )
 
-            img = self._renderer.render(
-                self._state,
+            agent_coords = self._state
+            agent_dirs = tuple(Direction.NORTH for _ in range(self.n_agents))
+
+            env_img = self._renderer.render(
+                agent_coords,
                 agent_obs_coords=None,
-                agent_dirs=None,
+                agent_dirs=agent_dirs,
                 other_objs=None,
                 agent_colors=None
             )
-            self._viewer.display_img(img)  # type: ignore
+            # At the moment the UAV doesn't support agent centric rendering
+
+            if mode == "human":
+                self._viewer.display_img(        # type: ignore
+                    env_img, agent_idx=None
+                )
+            else:
+                return (env_img, [])
+        else:
+            super().render(mode)
 
     @property
     def model(self) -> uav_model.UAVModel:

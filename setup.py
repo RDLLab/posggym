@@ -26,7 +26,7 @@ setup(
         if package.startswith('posggym')
     ],
     install_requires=[
-        'gym>=0.21.0',
+        'gym<0.22',
         'numpy>=1.20',
     ],
     extras_require=extras,

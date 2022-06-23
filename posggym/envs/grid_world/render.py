@@ -262,6 +262,9 @@ class GWRenderer:
                                  Tuple[Tuple[int, int, int], ...]
                              ],
                              out_of_bounds_obj: GWObject,
+                             agent_obs_coords: Optional[
+                                 Tuple[List[Coord], ...]
+                             ] = None,
                              tile_size: int = TILE_PIXELS
                              ) -> Tuple[np.ndarray, ...]:
         """Generate seperate render for a each grid-world agent.
@@ -283,12 +286,18 @@ class GWRenderer:
             else:
                 obs_dims = agent_obs_dims    # type: ignore
 
+            if isinstance(agent_obs_coords, tuple):
+                obs_coords = agent_obs_coords[i]
+            else:
+                obs_coords = None     # type: ignore
+
             agent_img = self.render_agent_obs(
                 env_img,
                 agent_coords[i],
                 agent_dir,
                 obs_dims,                   # type: ignore
                 out_of_bounds_obj,
+                obs_coords,
                 tile_size
             )
             agent_obs_imgs.append(agent_img)
@@ -300,6 +309,7 @@ class GWRenderer:
                          agent_dir: Direction,
                          agent_obs_dims: Tuple[int, int, int],
                          out_of_bounds_obj: GWObject,
+                         agent_obs_coords: Optional[List[Coord]] = None,
                          tile_size: int = TILE_PIXELS) -> np.ndarray:
         """Generate render for a single grid-world agent.
 
@@ -319,6 +329,11 @@ class GWRenderer:
             Render object to use for cells in observation that are outside of
             environment grid (e.g. when agent is at the boundary of the
             environment)
+        agent_obs_coords: Optional[List[Coord]]
+            Optional list of environment coordinates for cells observed by
+            agent. If provided, then treats all unobserved cells as out of
+            bounds. If None, then assumes all coordinates in agents observation
+            dims are observed.
         tile_size: int
             Defines the resolution of the image.
 
@@ -350,8 +365,14 @@ class GWRenderer:
                 agent_obs_side_dim=agent_obs_dims[2]
             )
 
-            if not 0 <= env_x < env_width or not 0 <= env_y < env_height:
-                # obs out of bounds
+            cell_out_of_bounds = (
+                not 0 <= env_x < env_width or not 0 <= env_y < env_height
+            )
+            cell_observed = (
+                agent_obs_coords is None or (env_x, env_y) in agent_obs_coords
+            )
+
+            if cell_out_of_bounds or not cell_observed:
                 tile_img = self._render_obj_tile(
                     out_of_bounds_obj, False, tile_size
                 )

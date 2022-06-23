@@ -1,5 +1,4 @@
 """Environment class for the Two-Paths Grid World Problem."""
-import sys
 import copy
 from typing import Optional, Tuple, Union
 
@@ -55,7 +54,9 @@ class PursuitEvasionEnv(core.Env):
 
     1. whether there is a wall or not in the adjacent cells in the four
        cardinal directions,
-    2. whether they see the other agent in a cone in front of them,
+    2. whether they see the other agent in a cone in front of them. The cone
+       projects forward up to 'max_obs_distance' (default=12) cells in front of
+       the agent.
     3. whether they hear the other agent (whether the other agent is within
        distance 2 from the agent in any direction),
     4. the (x, y) coordinate of the evader's start location,
@@ -97,11 +98,12 @@ class PursuitEvasionEnv(core.Env):
 
     """
 
-    metadata = {"render.modes": ['human', 'ascii']}
+    metadata = {"render.modes": ['human', 'rgb', 'ansi']}
 
     def __init__(self,
                  grid_name: str,
                  action_probs: Union[float, Tuple[float, float]] = 1.0,
+                 max_obs_distance: int = 12,
                  **kwargs):
         self._model = pe_model.PursuitEvasionModel(
             grid_name, action_probs, **kwargs
@@ -113,6 +115,17 @@ class PursuitEvasionEnv(core.Env):
         self._last_actions: Optional[pe_model.PEJointAction] = None
         self._last_rewards: Optional[M.JointReward] = None
 
+        self._max_obs_distance = max_obs_distance
+        grid = self._model.grid
+        fov_width = grid.get_max_fov_width(
+            self._model.FOV_EXPANSION_INCR, max_obs_distance
+        )
+
+        self._obs_dims = (
+            min(max_obs_distance, max(grid.width, grid.height)),
+            0,
+            fov_width // 2
+        )
         self._viewer = None
         self._renderer: Optional[render_lib.GWRenderer] = None
 
@@ -145,9 +158,7 @@ class PursuitEvasionEnv(core.Env):
         pursuer_coord = self._state[2]
         goal_coord = self._state[6]
 
-        if mode == "ascii":
-            outfile = sys.stdout
-
+        if mode == "ansi":
             grid_str = self._model.grid.get_ascii_repr(
                 goal_coord, evader_coord, pursuer_coord
             )
@@ -163,47 +174,72 @@ class PursuitEvasionEnv(core.Env):
                 output.insert(1, f"Actions: <{action_str}>")
                 output.append(f"Rewards: <{self._last_rewards}>")
 
-            outfile.write("\n".join(output) + "\n")
-        elif mode == "human":
+            return "\n".join(output) + "\n"
+        elif mode in ("human", "rgb"):
             grid = self.model.grid
-            if self._viewer is None:
+            if mode == "human" and self._viewer is None:
                 # pylint: disable=[import-outside-toplevel]
                 from posggym.envs.grid_world import viewer
                 self._viewer = viewer.GWViewer(   # type: ignore
                     "Pursuit-Evasion Env",
-                    (min(grid.height, 8), min(grid.width, 8))
+                    (min(grid.height, 8), min(grid.width, 8)),
+                    num_agent_displays=self.n_agents
                 )
                 self._viewer.show(block=False)   # type: ignore
 
             if self._renderer is None:
-                static_objs = [
-                    render_lib.GWObject(
-                        goal_coord, 'green', render_lib.Shape.RECTANGLE
-                    )
-                ]
                 self._renderer = render_lib.GWRenderer(
-                    self.n_agents,
-                    grid,
-                    static_objs,
-                    render_blocks=True
+                    self.n_agents, grid, [], render_blocks=True
                 )
 
             agent_obs_coords = tuple(
                 list(grid.get_fov(
                     self._state[2*i],
                     self._state[2*i + 1],
-                    self.model.FOV_EXPANSION_INCR
+                    self.model.FOV_EXPANSION_INCR,
+                    self._max_obs_distance
                 )) for i in range(self.n_agents)
             )
+            agent_coords = (evader_coord, pursuer_coord)
+            agent_dirs = (self._state[1], self._state[3])
 
-            img = self._renderer.render(
-                (evader_coord, pursuer_coord),
+            other_objs = [
+                render_lib.GWObject(
+                    goal_coord, 'green', render_lib.Shape.RECTANGLE
+                )
+            ]
+
+            env_img = self._renderer.render(
+                agent_coords,
                 agent_obs_coords,
-                agent_dirs=(self._state[1], self._state[3]),
-                other_objs=None,
+                agent_dirs=agent_dirs,
+                other_objs=other_objs,
                 agent_colors=None
             )
-            self._viewer.display_img(img)  # type: ignore
+
+            agent_obs_imgs = self._renderer.render_all_agent_obs(
+                env_img,
+                agent_coords,
+                agent_dirs,
+                agent_obs_dims=self._obs_dims,
+                out_of_bounds_obj=render_lib.GWObject(
+                    (0, 0), 'grey', render_lib.Shape.RECTANGLE
+                ),
+                agent_obs_coords=agent_obs_coords
+            )
+
+            if mode == "human":
+                self._viewer.display_img(        # type: ignore
+                    env_img, agent_idx=None
+                )
+                for i, obs_img in enumerate(agent_obs_imgs):
+                    self._viewer.display_img(    # type: ignore
+                        obs_img, agent_idx=i
+                    )
+            else:
+                return (env_img, agent_obs_imgs)
+        else:
+            super().render(mode)
 
     @property
     def model(self) -> pe_model.PursuitEvasionModel:

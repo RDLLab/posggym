@@ -89,7 +89,8 @@ class PEGrid(Grid):
     def get_fov(self,
                 origin: Coord,
                 direction: Direction,
-                widening_increment: int) -> Set[Coord]:
+                widening_increment: int,
+                max_depth: int) -> Set[Coord]:
         """Get the Field of vision from origin looking in given direction.
 
         Uses BFS starting from origin and expanding in the direction, while
@@ -97,6 +98,7 @@ class PEGrid(Grid):
         to get the field of vision.
         """
         assert widening_increment > 0
+        assert max_depth > 0
         fov = set([origin])
 
         frontier_queue: deque[Coord] = deque([origin])
@@ -106,7 +108,7 @@ class PEGrid(Grid):
             coord = frontier_queue.pop()
 
             for next_coord in self._get_fov_successors(
-                    origin, direction, coord, widening_increment
+                    origin, direction, coord, widening_increment, max_depth
             ):
                 if next_coord not in visited:
                     visited.add(next_coord)
@@ -118,21 +120,24 @@ class PEGrid(Grid):
                             origin: Coord,
                             direction: Direction,
                             coord: Coord,
-                            widening_increment: int) -> List[Coord]:
-        successors = []
-
-        forward_successor = self._get_fov_successor(coord, direction)
-        if forward_successor is not None:
-            successors.append(forward_successor)
-        else:
-            return successors
-
-        # Expands FOV at depth 1 and then every widening_increment depth
+                            widening_increment: int,
+                            max_depth: int) -> List[Coord]:
         if direction in [Direction.NORTH, Direction.SOUTH]:
             depth = abs(origin[1] - coord[1])
         else:
             depth = abs(origin[0] - coord[0])
 
+        if depth >= max_depth:
+            return []
+
+        successors = []
+        forward_successor = self._get_fov_successor(coord, direction)
+        if forward_successor is None:
+            return []
+        else:
+            successors.append(forward_successor)
+
+        # Expands FOV at depth 1 and then every widening_increment depth
         if depth != 1 and depth % widening_increment != 0:
             # Don't expand sideways
             return successors
@@ -169,6 +174,16 @@ class PEGrid(Grid):
             # move in given direction is blocked or out-of-bounds
             return None
         return new_coord
+
+    def get_max_fov_width(self,
+                          widening_increment: int,
+                          max_depth: int) -> int:
+        """Get the maximum width of field of vision."""
+        max_width = 1
+        for d in range(max_depth):
+            if d == 1 or d % widening_increment == 0:
+                max_width += 2
+        return min(max_depth, min(self.width, self.height))
 
 
 def get_5x5_grid() -> PEGrid:

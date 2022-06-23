@@ -1,5 +1,4 @@
 """Environment class for the Two-Paths Grid World Problem."""
-import sys
 import copy
 from typing import Optional, Tuple, Union
 
@@ -80,7 +79,7 @@ class TwoPathsEnv(core.Env):
     start state once a terminal state is reached.
     """
 
-    metadata = {"render.modes": ['human', 'ascii']}
+    metadata = {"render.modes": ['human', 'ansi', 'rgb']}
 
     def __init__(self,
                  grid_name: str,
@@ -124,9 +123,7 @@ class TwoPathsEnv(core.Env):
         return self._last_obs
 
     def render(self, mode: str = "human") -> None:
-        if mode == "ascii":
-            outfile = sys.stdout
-
+        if mode == "ansi":
             grid_str = self._model.grid.get_ascii_repr(
                 self._state[0], self._state[1]
             )
@@ -142,14 +139,16 @@ class TwoPathsEnv(core.Env):
                 output.insert(1, f"Actions: <{action_str}>")
                 output.append(f"Rewards: <{self._last_rewards}>")
 
-            outfile.write("\n".join(output) + "\n")
-        elif mode == "human":
+            return "\n".join(output) + "\n"
+        elif mode in ("human", 'rgb'):
             grid = self.model.grid
-            if self._viewer is None:
+            if mode == 'human' and self._viewer is None:
                 # pylint: disable=[import-outside-toplevel]
                 from posggym.envs.grid_world import viewer
                 self._viewer = viewer.GWViewer(   # type: ignore
-                    "Two-Paths Env", (grid.width, grid.height)
+                    "Two-Paths Env",
+                    (min(grid.width, 9), min(grid.height, 9)),
+                    num_agent_displays=self.n_agents
                 )
                 self._viewer.show(block=False)   # type: ignore
 
@@ -166,19 +165,45 @@ class TwoPathsEnv(core.Env):
                     render_blocks=True
                 )
 
+            agent_coords = self._state
             agent_obs_coords = tuple(
                 grid.get_neighbours(self._state[i], True)
                 for i in range(self.n_agents)
             )
+            for i, coord in enumerate(agent_coords):
+                agent_obs_coords[i].append(coord)
+            agent_dirs = tuple(Direction.NORTH for _ in range(self.n_agents))
 
-            img = self._renderer.render(
+            env_img = self._renderer.render(
                 self._state,
                 agent_obs_coords,
-                agent_dirs=None,
+                agent_dirs,
                 other_objs=None,
                 agent_colors=None
             )
-            self._viewer.display_img(img)  # type: ignore
+            agent_obs_imgs = self._renderer.render_all_agent_obs(
+                env_img,
+                agent_coords,
+                agent_dirs,
+                agent_obs_dims=(1, 1, 1),
+                out_of_bounds_obj=render_lib.GWObject(
+                    (0, 0), 'grey', render_lib.Shape.RECTANGLE
+                ),
+                agent_obs_coords=agent_obs_coords,
+            )
+
+            if mode == "human":
+                self._viewer.display_img(        # type: ignore
+                    env_img, agent_idx=None
+                )
+                for i, obs_img in enumerate(agent_obs_imgs):
+                    self._viewer.display_img(    # type: ignore
+                        obs_img, agent_idx=i
+                    )
+            else:
+                return (env_img, agent_obs_imgs)
+        else:
+            super().render(mode)
 
     @property
     def model(self) -> tp_model.TwoPathsModel:

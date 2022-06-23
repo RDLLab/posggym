@@ -103,6 +103,7 @@ class PursuitEvasionModel(M.POSGModel):
     def __init__(self,
                  grid_name: str,
                  action_probs: Union[float, Tuple[float, float]] = 1.0,
+                 max_obs_distance: int = 12,
                  **kwargs):
         super().__init__(self.NUM_AGENTS, **kwargs)
         self._grid_name = grid_name
@@ -111,6 +112,8 @@ class PursuitEvasionModel(M.POSGModel):
         if isinstance(action_probs, float):
             action_probs = (action_probs, action_probs)
         self._action_probs = action_probs
+
+        self._max_obs_distance = max_obs_distance
 
         self._rng = random.Random(None)
 
@@ -296,7 +299,9 @@ class PursuitEvasionModel(M.POSGModel):
                            ego_coord: Coord,
                            ego_dir: Direction,
                            opp_coord: Coord) -> bool:
-        fov = self.grid.get_fov(ego_coord, ego_dir, self.FOV_EXPANSION_INCR)
+        fov = self.grid.get_fov(
+            ego_coord, ego_dir, self.FOV_EXPANSION_INCR, self._max_obs_distance
+        )
         return opp_coord in fov
 
     def _get_opponent_heard(self,
