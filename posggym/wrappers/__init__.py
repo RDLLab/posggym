@@ -1,1 +1,2 @@
 from posggym.wrappers.flatten_observation import FlattenObservation
+from posggym.wrappers.record_env import RecordVideo

@@ -1,9 +1,11 @@
 """Run a random agent on an environment."""
+import os
 import argparse
 from typing import Optional
 
 import posggym
 import posggym.model as M
+from posggym import wrappers
 
 
 def _get_outcome_counts(episode_outcomes, n_agents):
@@ -22,9 +24,16 @@ def main(env_name: str,
          seed: Optional[int],
          render: bool,
          render_mode: str,
-         pause_each_step: bool):
+         pause_each_step: bool,
+         record_env: bool):
     """Run random agents."""
     env = posggym.make(env_name)
+
+    if record_env:
+        video_save_dir = os.path.join(os.path.expanduser('~'), "posggym_video")
+        print(f"Saving video to {video_save_dir}")
+        env = wrappers.RecordVideo(env, video_save_dir)
+
     action_spaces = env.action_spaces
 
     # set random seeds
@@ -80,10 +89,7 @@ def main(env_name: str,
     print("All episodes finished")
     print(f"Episodes ending with 'done=True' = {dones} out of {num_episodes}")
     mean_steps = sum(episode_steps) / len(episode_steps)
-    step_limit = env.spec.max_episode_steps      # type: ignore
-    if episode_step_limit is not None:
-        step_limit = min(step_limit, episode_step_limit)
-    print(f"Mean episode steps = {mean_steps:.2f} out of max {step_limit}")
+    print(f"Mean episode steps = {mean_steps:.2f}")
     mean_returns = [sum(r) / len(r) for r in episode_rewards]
     print(f"Mean Episode returns {mean_returns}")
 
@@ -124,6 +130,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--pause_each_step", action='store_true',
         help="Pause execution after each step"
+    )
+    parser.add_argument(
+        "--record_env", action='store_true',
+        help="Record video of environment saved to ~/posggym_videos."
     )
     args = parser.parse_args()
     main(**vars(args))

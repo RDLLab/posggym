@@ -98,7 +98,7 @@ class PursuitEvasionEnv(core.Env):
 
     """
 
-    metadata = {"render.modes": ['human', 'rgb', 'ansi']}
+    metadata = {"render.modes": ['human', 'rgb_array', 'ansi']}
 
     def __init__(self,
                  grid_name: str,
@@ -175,7 +175,7 @@ class PursuitEvasionEnv(core.Env):
                 output.append(f"Rewards: <{self._last_rewards}>")
 
             return "\n".join(output) + "\n"
-        elif mode in ("human", "rgb"):
+        elif mode in ("human", "rgb_array"):
             grid = self.model.grid
             if mode == "human" and self._viewer is None:
                 # pylint: disable=[import-outside-toplevel]

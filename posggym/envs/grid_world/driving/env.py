@@ -92,7 +92,7 @@ class DrivingEnv(core.Env):
     all agents have either crashed or reach their destination.
     """
 
-    metadata = {"render.modes": ['human', 'ansi', 'rgb']}
+    metadata = {"render.modes": ['human', 'ansi', 'rgb_array']}
 
     def __init__(self,
                  grid: DrivingGrid,
@@ -162,7 +162,7 @@ class DrivingEnv(core.Env):
                 output.append(f"Rewards: <{self._last_rewards}>")
 
             return "\n".join(output) + "\n"
-        elif mode in ("human", "rgb"):
+        elif mode in ("human", "rgb_array"):
             grid = self.model.grid
             if mode == "human" and self._viewer is None:
                 # pylint: disable=[import-outside-toplevel]
@@ -342,7 +342,7 @@ class DrivingGenEnv(DrivingEnv):
     def render(self, mode: str = "human"):
         if mode == "ansi":
             return super().render(mode)
-        elif mode in ("human", "rgb"):
+        elif mode in ("human", "rgb_array"):
             grid = self.model.grid
             if mode == "human" and self._viewer is None:
                 # pylint: disable=[import-outside-toplevel]

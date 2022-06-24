@@ -73,7 +73,7 @@ class UAVEnv(core.Env):
     Multi-Agent Systems 31 (4): 861–904.
     """
 
-    metadata = {"render.modes": ['human', 'ansi', 'rgb']}
+    metadata = {"render.modes": ['human', 'ansi', 'rgb_array']}
 
     def __init__(self,
                  grid_name: str,
@@ -130,7 +130,7 @@ class UAVEnv(core.Env):
                 output.append(f"Rewards: <{self._last_rewards}>")
 
             return "\n".join(output) + "\n"
-        elif mode in ("human", "rgb"):
+        elif mode in ("human", "rgb_array"):
             grid = self.model.grid
             if mode == "human" and self._viewer is None:
                 # pylint: disable=[import-outside-toplevel]
