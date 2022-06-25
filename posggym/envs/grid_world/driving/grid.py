@@ -248,7 +248,7 @@ def get_7x7_blocks_grid() -> DrivingGrid:
         "-##.##+\n"
         "#+...+#\n"
     )
-    return parse_grid_str(grid_str, 6)
+    return parse_grid_str(grid_str, 4)
 
 
 def get_7x7_roundabout_grid() -> DrivingGrid:
