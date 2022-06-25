@@ -240,13 +240,13 @@ def get_7x7_crisscross5_grid() -> DrivingGrid:
 def get_7x7_blocks_grid() -> DrivingGrid:
     """Generate a 7-by-7 blocks grid layout."""
     grid_str = (
-        "#-.-.-#\n"
+        "#-...-#\n"
         "-##.##+\n"
         ".##.##.\n"
-        "-.....+\n"
+        ".......\n"
         ".##.##.\n"
         "-##.##+\n"
-        "#+.+.+#\n"
+        "#+...+#\n"
     )
     return parse_grid_str(grid_str, 6)
 
@@ -254,15 +254,15 @@ def get_7x7_blocks_grid() -> DrivingGrid:
 def get_7x7_roundabout_grid() -> DrivingGrid:
     """Generate a 7-by-7 round-about grid layout."""
     grid_str = (
-        "#-.-.-#\n"
+        "#-...-#\n"
         "-##.##+\n"
         ".#...#.\n"
-        "-..#..+\n"
+        "...#...\n"
         ".#...#.\n"
         "-##.##+\n"
-        "#+.+.+#\n"
+        "#+...+#\n"
     )
-    return parse_grid_str(grid_str, 6)
+    return parse_grid_str(grid_str, 4)
 
 
 def get_15x15_crisscross_grid() -> DrivingGrid:
@@ -290,45 +290,45 @@ def get_15x15_crisscross_grid() -> DrivingGrid:
 def get_15x15_blocks_grid() -> DrivingGrid:
     """Generate a 15-by-15 Blocks grid layout."""
     grid_str = (
-        "#-.-.-.-.-.-.-#\n"
+        "#-.....-.....-#\n"
         "-####.### ####+\n"
         ".####.###.####.\n"
-        "-####.###.####+\n"
         ".####.###.####.\n"
-        "-.............+\n"
+        ".####.###.####.\n"
+        "...............\n"
         ".####.### ####.\n"
         "-####.###.####+\n"
         ".####.###.####.\n"
-        "-.............+\n"
+        "...............\n"
         ".####.###.####.\n"
-        "-####.### ####+\n"
+        ".####.### ####.\n"
         ".####.###.####.\n"
         "-####.###.####+\n"
-        "#+.+.+.+.+.+.+#\n"
+        "#+.....+.....+#\n"
     )
-    return parse_grid_str(grid_str, 14)
+    return parse_grid_str(grid_str, 6)
 
 
 def get_15x15_roundabout_grid() -> DrivingGrid:
     """Generate a 15-by-15 Round About grid layout."""
     grid_str = (
-        "#-.-.-.-.-.-.-#\n"
+        "#-...........-#\n"
         "-######.######+\n"
         ".######.######.\n"
-        "-######.######+\n"
         ".######.######.\n"
-        "-####.....####+\n"
+        ".######.######.\n"
+        ".####.....####.\n"
         ".####.### ####.\n"
-        "-.....###.....+\n"
+        "......###......\n"
         ".####.###.####.\n"
-        "-####.....####+\n"
+        ".####.....####.\n"
         ".######.######.\n"
-        "-###### ######+\n"
+        ".###### ######.\n"
         ".######.######.\n"
         "-######.######+\n"
-        "#+.+.+.+.+.+.+#\n"
+        "#+...........+#\n"
     )
-    return parse_grid_str(grid_str, 14)
+    return parse_grid_str(grid_str, 4)
 
 
 #  (grid_make_fn, finite horizon step_limit, infinite horizon step_limit)
