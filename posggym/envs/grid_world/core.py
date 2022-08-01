@@ -187,15 +187,15 @@ class Grid:
         return dists
 
     def get_all_shortest_paths(self,
-                               origins: List[Coord]
-                               ) -> Dict[Coord, Dict[Coord, float]]:
+                               origins: Iterable[Coord]
+                               ) -> Dict[Coord, Dict[Coord, int]]:
         """Get shortest path distance from every origin to all other coords."""
         src_dists = {}
         for origin in origins:
             src_dists[origin] = self.dijkstra(origin)
         return src_dists
 
-    def dijkstra(self, origin: Coord) -> Dict[Coord, float]:
+    def dijkstra(self, origin: Coord) -> Dict[Coord, int]:
         """Get shortest path distance between origin and all other coords."""
         dist = {origin: 0.0}
         pq = PriorityQueue()   # type: ignore

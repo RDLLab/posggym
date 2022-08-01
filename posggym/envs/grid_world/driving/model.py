@@ -36,6 +36,7 @@ class VehicleState(NamedTuple):
     dest_coord: Coord
     dest_reached: int
     crashed: int
+    min_dest_dist: int
 
 
 DState = Tuple[VehicleState, ...]
@@ -78,15 +79,29 @@ class DB0(M.Belief):
                  n_agents: int,
                  grid: DrivingGrid,
                  rng: random.Random,
+                 ego_agent: Optional[M.AgentID] = None,
+                 ego_start_coords: Optional[List[Coord]] = None,
+                 ego_dest_coords: Optional[Coord] = None,
                  dist_res: int = 1000):
         assert n_agents <= grid.supported_num_agents
-        assert n_agents <= grid.supported_num_agents
+        if ego_start_coords is not None or ego_dest_coords is not None:
+            assert ego_agent is not None
+            assert ego_start_coords is not None
+            assert ego_dest_coords is not None
         self._n_agents = n_agents
         self._grid = grid
         self._rng = rng
+        self._ego_agent = ego_agent
+        self._ego_start_coords = ego_start_coords
+        self._ego_dest_coords = ego_dest_coords
         self._dist_res = dist_res
 
     def sample(self) -> M.State:
+        if self._ego_start_coords is None:
+            return self._sample()
+        return self._sample_with_initial_conds()
+
+    def _sample(self) -> M.State:
         state = []
         chosen_start_coords: Set[Coord] = set()
         chosen_dest_coords: Set[Coord] = set()
@@ -103,14 +118,62 @@ class DB0(M.Belief):
             dest_coord = self._rng.choice(list(avail_dest_coords))
             chosen_dest_coords.add(dest_coord)
 
-            # VehicleState = Tuple[Coord, Direction, Speed, Coord]
+            dest_dist = self._grid.get_shortest_path_distance(
+                start_coord, dest_coord
+            )
+
             state_i = VehicleState(
                 coord=start_coord,
                 facing_dir=INIT_DIR,
                 speed=INIT_SPEED,
                 dest_coord=dest_coord,
                 dest_reached=int(False),
-                crashed=int(False)
+                crashed=int(False),
+                min_dest_dist=dest_dist
+            )
+            state.append(state_i)
+        return tuple(state)
+
+    def _sample_with_initial_conds(self) -> M.State:
+        state = []
+        chosen_start_coords: Set[Coord] = set()
+        chosen_dest_coords: Set[Coord] = set()
+
+        ego_start_coord = self._rng.choice(self._ego_start_coords)
+        chosen_start_coords.add(ego_start_coord)
+        chosen_dest_coords.add(self._ego_dest_coords)
+
+        for i in range(self._n_agents):
+            if i == self._ego_agent:
+                start_coord = ego_start_coord
+            else:
+                start_coords_i = self._grid.start_coords[i]
+                avail_coords = start_coords_i.difference(chosen_start_coords)
+                start_coord = self._rng.choice(list(avail_coords))
+                chosen_start_coords.add(start_coord)
+
+            if i == self._ego_agent:
+                dest_coord = self._ego_dest_coords
+            else:
+                dest_coords_i = self._grid.dest_coords[i]
+                avail_coords = dest_coords_i.difference(chosen_dest_coords)
+                if start_coord in avail_coords:
+                    avail_coords.remove(start_coord)
+                dest_coord = self._rng.choice(list(avail_coords))
+                chosen_dest_coords.add(dest_coord)
+
+            dest_dist = self._grid.get_shortest_path_distance(
+                start_coord, dest_coord
+            )
+
+            state_i = VehicleState(
+                coord=start_coord,
+                facing_dir=INIT_DIR,
+                speed=INIT_SPEED,
+                dest_coord=dest_coord,
+                dest_reached=int(False),
+                crashed=int(False),
+                min_dest_dist=dest_dist
             )
             state.append(state_i)
         return tuple(state)
@@ -144,9 +207,10 @@ class DrivingModel(M.POSGModel):
     """
 
     R_ACTION = 0.00
-    R_CRASH_OBJECT = -0.5
+    R_CRASH_OBJECT = -0.05
     R_CRASH_VEHICLE = -1.0
     R_DESTINATION_REACHED = 1.0
+    R_PROGRESS = 0.05
 
     def __init__(self,
                  grid: DrivingGrid,
@@ -185,7 +249,9 @@ class DrivingModel(M.POSGModel):
             # destination reached
             spaces.Discrete(2),
             # crashed
-            spaces.Discrete(2)
+            spaces.Discrete(2),
+            # min distrance to destination
+            spaces.Discrete(self.grid.get_max_shortest_path_distance())
         ))
 
         return spaces.Tuple(
@@ -239,7 +305,34 @@ class DrivingModel(M.POSGModel):
     def get_agent_initial_belief(self,
                                  agent_id: int,
                                  obs: M.Observation) -> M.Belief:
-        return self.initial_belief
+        agent_start_coords = set()
+        agent_dest_coords = obs[2]
+
+        # Need to get start states for agent that are valid given initial obs
+        # Need to handle possible start states for other agents
+        for all_agent_start_coords in product(
+                *[list(s) for s in self.grid.start_coords[:self.n_agents]]
+        ):
+            if len(set(all_agent_start_coords)) != len(all_agent_start_coords):
+                # skip any sets of start coord that contain duplicates
+                continue
+            local_obs = self._get_local_cell__obs(
+                agent_id,
+                all_agent_start_coords,
+                INIT_DIR,
+                agent_dest_coords
+            )
+            if local_obs == obs[0]:
+                agent_start_coords.add(all_agent_start_coords[agent_id])
+
+        return DB0(
+            self.n_agents,
+            self.grid,
+            self._rng,
+            agent_id,
+            list(agent_start_coords),
+            agent_dest_coords
+        )
 
     def sample_initial_obs(self, state: M.State) -> M.JointObservation:
         return self._get_obs(state)
@@ -295,6 +388,13 @@ class DrivingModel(M.POSGModel):
                 state_i.coord, next_speed, move_dir, vehicle_coords
             )
 
+            min_dest_dist = min(
+                state_i.min_dest_dist,
+                self.grid.get_shortest_path_distance(
+                    next_coord, state_i.dest_coord
+                )
+            )
+
             crashed = False
             if collision_type == CollisionType.VEHICLE:
                 # update state of vehicle that was hit
@@ -310,14 +410,12 @@ class DrivingModel(M.POSGModel):
                             speed=next_state_j.speed,
                             dest_coord=next_state_j.dest_coord,
                             dest_reached=next_state_j.dest_reached,
-                            crashed=int(True)
+                            crashed=int(True),
+                            min_dest_dist=next_state_j.min_dest_dist
                         )
                         break
-            elif (
-                self._obstacle_collisions
-                and collision_type == CollisionType.OBSTACLE
-            ):
-                crashed = True
+            elif collision_type == CollisionType.OBSTACLE:
+                crashed = self._obstacle_collisions
                 collision_types[i] = collision_type
 
             next_state[i] = VehicleState(
@@ -326,7 +424,8 @@ class DrivingModel(M.POSGModel):
                 speed=next_speed,
                 dest_coord=state_i.dest_coord,
                 dest_reached=int(next_coord == state_i.dest_coord),
-                crashed=int(crashed)
+                crashed=int(crashed),
+                min_dest_dist=min_dest_dist
             )
 
             vehicle_coords.add(next_coord)
@@ -349,13 +448,17 @@ class DrivingModel(M.POSGModel):
 
         new_coord = self._rng.choice(list(avail_start_coords))
 
+        min_dest_dist = self.grid.manhattan_dist(new_coord, vs_i.dest_coord)
+
         new_vs_i = VehicleState(
             coord=new_coord,
             facing_dir=INIT_DIR,
             speed=INIT_SPEED,
             dest_coord=vs_i.dest_coord,
             dest_reached=int(False),
-            crashed=int(False)
+            crashed=int(False),
+            min_dest_dist=min_dest_dist
+
         )
         return new_vs_i
 
@@ -422,8 +525,13 @@ class DrivingModel(M.POSGModel):
         return agent_obs
 
     def _get_agent_obs(self, state: DState, agent_id: M.AgentID) -> DObs:
-        local_cell_obs = self._get_local_cell__obs(state, agent_id)
         state_i = state[agent_id]
+        local_cell_obs = self._get_local_cell__obs(
+            agent_id,
+            [vs.coord for vs in state],
+            state_i.facing_dir,
+            state_i.dest_coord
+        )
         return (
             local_cell_obs,
             state_i.speed,
@@ -433,17 +541,18 @@ class DrivingModel(M.POSGModel):
         )
 
     def _get_local_cell__obs(self,
-                             state: DState,
-                             agent_id: M.AgentID) -> Tuple[int, ...]:
-        state_i = state[agent_id]
+                             agent_id: M.AgentID,
+                             vehicle_coords: List[Coord],
+                             facing_dir: Direction,
+                             dest_coord: Coord) -> Tuple[int, ...]:
         obs_depth = self._obs_front + self._obs_back + 1
         obs_width = (2 * self._obs_side) + 1
-        vehicle_coords = set([vs.coord for vs in state])
+        agent_coord = vehicle_coords[agent_id]
 
         cell_obs: List[int] = []
         for col, row in product(range(obs_width), range(obs_depth)):
             obs_grid_coord = self._map_obs_to_grid_coord(
-                (col, row), state_i.coord, state_i.facing_dir
+                (col, row), agent_coord, facing_dir
             )
             if (
                 obs_grid_coord is None
@@ -452,7 +561,7 @@ class DrivingModel(M.POSGModel):
                 cell_obs.append(WALL)
             elif obs_grid_coord in vehicle_coords:
                 cell_obs.append(VEHICLE)
-            elif obs_grid_coord == state_i.dest_coord:
+            elif obs_grid_coord == dest_coord:
                 cell_obs.append(DESTINATION)
             else:
                 cell_obs.append(EMPTY)
@@ -510,13 +619,24 @@ class DrivingModel(M.POSGModel):
                 self._obstacle_collisions
                 and collision_types[i] == CollisionType.OBSTACLE
             ):
-                r_i = self.R_CRASH_OBJECT
+                # Treat as if crashed into a vehicle
+                r_i = self.R_CRASH_VEHICLE
             elif collision_types[i] == CollisionType.VEHICLE:
                 r_i = self.R_CRASH_VEHICLE
             elif next_state[i].dest_reached:
                 r_i = self.R_DESTINATION_REACHED
             else:
                 r_i = self.R_ACTION
+
+            if state[i].min_dest_dist > next_state[i].min_dest_dist:
+                r_i += self.R_PROGRESS
+
+            if (
+                not self._obstacle_collisions
+                and collision_types[i] == CollisionType.OBSTACLE
+            ):
+                r_i += self.R_CRASH_OBJECT
+
             rewards.append(r_i)
 
         return tuple(rewards)

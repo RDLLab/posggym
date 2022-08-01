@@ -21,10 +21,22 @@ class DrivingGrid(Grid):
         self.start_coords = start_coords
         self.dest_coords = dest_coords
 
+        self.shortest_paths = self.get_all_shortest_paths(
+            set.union(*dest_coords)
+        )
+
     @property
     def supported_num_agents(self) -> int:
         """Get the number of agents supported by this grid."""
         return len(self.start_coords)
+
+    def get_shortest_path_distance(self, coord: Coord, dest: Coord) -> int:
+        """Get the shortest path distance from coord to destination."""
+        return self.shortest_paths[dest][coord]
+
+    def get_max_shortest_path_distance(self) -> int:
+        """Get the longest shortest path distance to any distanation."""
+        return max([max(d.values()) for d in self.shortest_paths.values()])
 
     def get_ascii_repr(self,
                        vehicle_coords: List[Coord],
