@@ -206,7 +206,7 @@ class DrivingModel(M.POSGModel):
 
     """
 
-    R_ACTION = 0.00
+    R_STEP_COST = 0.00
     R_CRASH_OBJECT = -0.05
     R_CRASH_VEHICLE = -1.0
     R_DESTINATION_REACHED = 1.0
@@ -626,7 +626,7 @@ class DrivingModel(M.POSGModel):
             elif next_state[i].dest_reached:
                 r_i = self.R_DESTINATION_REACHED
             else:
-                r_i = self.R_ACTION
+                r_i = self.R_STEP_COST
 
             if state[i].min_dest_dist > next_state[i].min_dest_dist:
                 r_i += self.R_PROGRESS
