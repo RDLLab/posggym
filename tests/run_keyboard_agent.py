@@ -87,6 +87,8 @@ def main(env_name: str,
         while episode_step_limit is None or t < episode_step_limit:
             a = _get_action(env, keyboard_agent_ids)
             _, r, done, info = env.step(a)
+            print(f"{r=}")
+            print(f"{done=}")
             t += 1
 
             if render:

@@ -628,8 +628,8 @@ class DrivingModel(M.POSGModel):
             else:
                 r_i = self.R_STEP_COST
 
-            if state[i].min_dest_dist > next_state[i].min_dest_dist:
-                r_i += self.R_PROGRESS
+            progress = state[i].min_dest_dist - next_state[i].min_dest_dist
+            r_i += max(0, progress) * self.R_PROGRESS
 
             if (
                 not self._obstacle_collisions

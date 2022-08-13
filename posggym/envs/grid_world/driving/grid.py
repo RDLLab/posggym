@@ -343,7 +343,29 @@ def get_15x15_roundabout_grid() -> DrivingGrid:
     return parse_grid_str(grid_str, 4)
 
 
+def get_14x14_roundabout_wide_grid() -> DrivingGrid:
+    """Generate a 14-by-14 Round About grid layout with wide roads."""
+    grid_str = (
+        "#-..........-#\n"
+        "-#####..#####+\n"
+        ".#####..#####.\n"
+        ".#####..#####.\n"
+        ".###......###.\n"
+        ".###......###.\n"
+        "......##......\n"
+        "......##......\n"
+        ".###......###.\n"
+        ".###......###.\n"
+        ".#####..#####.\n"
+        ".#####..#####.\n"
+        "-#####..#####+\n"
+        "#+..........+#\n"
+    )
+    return parse_grid_str(grid_str, 4)
+
+
 #  (grid_make_fn, finite horizon step_limit, infinite horizon step_limit)
+# inifinite horizon = cars reset when goal reached rather than epsidoe ends
 SUPPORTED_GRIDS = {
     '3x3': (get_3x3_grid, 30, 100),
     '7x7CrissCross1': (get_7x7_crisscross_grid, 50, 200),
@@ -353,6 +375,7 @@ SUPPORTED_GRIDS = {
     '7x7CrissCross5': (get_7x7_crisscross5_grid, 50, 200),
     '7x7Blocks': (get_7x7_blocks_grid, 50, 200),
     '7x7RoundAbout': (get_7x7_roundabout_grid, 50, 200),
+    '14x14WideRoundAbout': (get_14x14_roundabout_wide_grid, 50, 200),
     '15x15CrissCross': (get_15x15_crisscross_grid, 100, 200),
     '15x15Blocks': (get_15x15_blocks_grid, 100, 200),
     '15x15RoundAbout': (get_15x15_roundabout_grid, 100, 200),
