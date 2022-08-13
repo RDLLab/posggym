@@ -32,11 +32,13 @@ class DrivingGrid(Grid):
 
     def get_shortest_path_distance(self, coord: Coord, dest: Coord) -> int:
         """Get the shortest path distance from coord to destination."""
-        return self.shortest_paths[dest][coord]
+        return int(self.shortest_paths[dest][coord])
 
     def get_max_shortest_path_distance(self) -> int:
         """Get the longest shortest path distance to any distanation."""
-        return max([max(d.values()) for d in self.shortest_paths.values()])
+        return int(
+            max([max(d.values()) for d in self.shortest_paths.values()])
+        )
 
     def get_ascii_repr(self,
                        vehicle_coords: List[Coord],

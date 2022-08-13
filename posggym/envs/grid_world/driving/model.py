@@ -251,7 +251,9 @@ class DrivingModel(M.POSGModel):
             # crashed
             spaces.Discrete(2),
             # min distrance to destination
-            spaces.Discrete(self.grid.get_max_shortest_path_distance())
+            # set this to upper bound of min shortest path distance, so state
+            # space works for generated grids as well
+            spaces.Discrete(self.grid.width * self.grid.height)
         ))
 
         return spaces.Tuple(
