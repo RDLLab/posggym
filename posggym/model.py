@@ -31,7 +31,8 @@ class JointTimestep(NamedTuple):
     state: State
     observations: JointObservation
     rewards: JointReward
-    done: bool
+    dones: Tuple[bool, ...]
+    all_done: bool
     outcomes: Optional[Tuple[Outcome, ...]]
 
 
@@ -70,19 +71,35 @@ class POSGModel(abc.ABC):
     """A Partially Observable Stochastic Game model.
 
     This class defines functions and attributes necessary for a generative POSG
-    model for use in simulation-based planners (e.g. POMCP).
+    model for use in simulation-based planners (e.g. MCTS).
 
-    The API includes implementions of the following,
+    The API includes the following,
 
     Attributes
     ----------
-        n_agents : the number of agents in the environment
-        action_spaces : the list of actions for each agent (A_0, ..., A_n)
-        b_0 : the initial belief over states
+    n_agents : the number of agents in the environment
+    state_space : the space of all possible environment states (not needed by
+                  many simulation-based algorithms and can be hard to define
+                  so it is optional and should raise a NotImplementedError in
+                  subclasses where it is not implemented.)
+    observation_first : whether the environment is observation (True) or action
+                        (False) first. See the POSGModel.observation_first
+                        property function for details.
+    initial_belief : the initial belief over states
+    action_spaces : the list of action space for each agent (A_0, ..., A_n)
+    observation_spaces : the list of observation space for each agent
+                         (O_0, ..., O_n)
+    reward_ranges : the minimum and maximim possible step reward for each agent
 
     Functions
     ---------
-        step : the generative step function G(s, a) -> (s', o, r, done)
+    step : the generative step function
+           G(s, a) -> (s', o, r, dones, all_done, outcomes)
+    set_seed : set the seed for the model's RNG
+    sample_initial_state : samples an initial state from the initial belief.
+    sample_initial_obs : samples an initial observation from a state. This
+                         function should only be used in observation first
+                         models.
 
     """
 
@@ -92,8 +109,25 @@ class POSGModel(abc.ABC):
 
     @property
     @abc.abstractmethod
+    def observation_first(self) -> bool:
+        """Get whether model is observation (True) or action (False) first.
+
+        Observation first environments start by providing the agents with an
+        observation from the initial belief before any action is taken.
+
+        Action first environment expect the agents to take an action from the
+        initial belief before providing an observation.
+
+        Note: Observation first environment are equivalent to action first
+        environments where all agents know when they are performing the first
+        action and there is only a single first action available.
+        """
+
+    @property
+    @abc.abstractmethod
     def state_space(self) -> spaces.Space:
         """Get the state space."""
+        raise NotImplementedError
 
     @property
     @abc.abstractmethod
@@ -115,61 +149,27 @@ class POSGModel(abc.ABC):
     def initial_belief(self) -> Belief:
         """Get the initial belief over states."""
 
-    @abc.abstractmethod
-    def get_agent_initial_belief(self,
-                                 agent_id: AgentID,
-                                 obs: Observation) -> Belief:
-        """Get the initial obs conditioned belief for a given agent."""
-
     def sample_initial_state(self) -> State:
         """Sample an initial state from initial belief."""
         return self.initial_belief.sample()
-
-    @abc.abstractmethod
-    def sample_initial_obs(self, state: State) -> JointObservation:
-        """Sample an initial observation given initial state."""
-
-    def sample_initial_state_and_obs(self) -> Tuple[State, JointObservation]:
-        """Sample initial state and observations for an episode.
-
-        Returns an initial state, sampled from the initial belief, and an
-        initial joint observation, sampled from initial state.
-        """
-        state = self.sample_initial_state()
-        joint_obs = self.sample_initial_obs(state)
-        return state, joint_obs
 
     @abc.abstractmethod
     def step(self, state: State, actions: JointAction) -> JointTimestep:
         """Perform generative step."""
 
     @abc.abstractmethod
-    def is_done(self, state: State) -> bool:
-        """Check if state is a terminal episode state."""
-
-    @abc.abstractmethod
-    def get_outcome(self, state: State) -> Tuple[Outcome, ...]:
-        """Get outcome for each agent for given state.
-
-        This function can be used to determine if an episode ended in a
-        win, draw, loss, or undefined (for models with no winning or losing).
-        """
-
-    @abc.abstractmethod
     def set_seed(self, seed: Optional[int] = None):
         """Set the seed for the model RNG."""
 
-    def is_absorbing(self, obs: Observation, agent_id: AgentID) -> bool:
-        """Check if observation indicates an absorbing state for a given agent.
-
-        By default, this function returns False. However, it may be useful to
-        overwrite this function in some environments. For example, in
-        environments where it is possible for an agent to enter a fully
-        observed absorbing state (where the agent's actions have no
-        effect) before the episode terminates due to other agents in the
-        environment still being active.
-        """
-        return False
+    def sample_initial_obs(self, state: State) -> JointObservation:
+        """Sample an initial observation given initial state."""
+        if self.observation_first:
+            raise NotImplementedError
+        raise AssertionError(
+            "Model is action_first so expects agents to perform an action "
+            "before the initial observations are generated. This is done "
+            "using the step() function."
+        )
 
 
 class POSGFullModel(POSGModel, abc.ABC):

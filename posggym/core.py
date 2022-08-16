@@ -76,7 +76,9 @@ class Env(abc.ABC):
         """
 
     @abc.abstractmethod
-    def reset(self, *, seed: Optional[int] = None) -> M.JointObservation:
+    def reset(self,
+              *,
+              seed: Optional[int] = None) -> Optional[M.JointObservation]:
         """Reset the environment returns the initial observations.
 
         Arguments
@@ -92,7 +94,9 @@ class Env(abc.ABC):
         -------
         observations : object
             the joint observation containing one observation per agent in the
-            environment
+            environment. Note in environments that are not observation first
+            (i.e. they expect an action before the first observation) this
+            function should reset the state and return None.
 
         """
 
@@ -154,6 +158,11 @@ class Env(abc.ABC):
     def n_agents(self) -> int:
         """Get the number of agents in this environment."""
         return self.model.n_agents
+
+    @property
+    def observation_first(self) -> bool:
+        """Get whether environment is observation or action first."""
+        return self.model.observation_first
 
     @property
     def action_spaces(self) -> Tuple[spaces.Space, ...]:
