@@ -5,6 +5,7 @@ https://github.com/openai/gym
 
 """
 import abc
+import copy
 from typing import Tuple, Optional, Dict
 
 from gym import spaces
@@ -26,13 +27,15 @@ class Env(abc.ABC):
         reset
         render
         close
+        unwrapped
 
     And the main attributes:
 
-        n_agents: the number of agents in the environment
-        model: the POSG model of the environment (posggym.model.POSGModel)
-        state: the current state of the environment
-        action_specs : the action space specs for each agent
+        n_agents : the number of agents in the environment
+        model : the POSG model of the environment (posggym.model.POSGModel)
+        state : the current state of the environment
+        observation_first : whether environment is observation or action first
+        action_spaces : the action space specs for each agent
         observation_spaces : the observation space specs for each agent
         reward_specs : the reward specs for each agent
 
@@ -205,6 +208,78 @@ class Env(abc.ABC):
         return False
 
 
+class DefaultEnv(Env):
+    """Default Environment implementation from environment model.
+
+    This class implements some of the main environment functions using the
+    environment model in a default manner.
+
+    Specifically it implements the following functions and attributes:
+
+        step
+        reset
+        state
+
+    Users will need to implement:
+
+        model
+
+    and optionally implement:
+
+        render
+        close
+
+    """
+
+    def __init__(self):
+        assert self.model, (
+            "self.model property must be initialized before calling init "
+            "function of parent class"
+        )
+        self._state = self.model.sample_initial_state()
+        if self.model.observation_first:
+            self._last_obs = self.model.sample_initial_obs(self._state)
+        else:
+            self._last_obs = None
+        self._step_num = 0
+        self._last_actions: Optional[M.JointAction] = None
+        self._last_rewards: Optional[M.JointReward] = None
+
+    def step(self,
+             actions: M.JointAction
+             ) -> Tuple[M.JointObservation, M.JointReward, bool, dict]:
+        step = self.model.step(self._state, actions)
+        self._step_num += 1
+        self._state = step.state
+        self._last_obs = step.observations
+        self._last_actions = actions
+        self._last_rewards = step.rewards
+        aux = {
+            "dones": step.dones,
+            "outcome": step.outcomes
+        }
+        return (step.observations, step.rewards, step.all_done, aux)
+
+    def reset(self,
+              *,
+              seed: Optional[int] = None) -> Optional[M.JointObservation]:
+        if seed is not None:
+            self.model.set_seed(seed)
+        self._state = self.model.sample_initial_state()
+        if self.model.observation_first:
+            self._last_obs = self.model.sample_initial_obs(self._state)
+        else:
+            self._last_obs = None
+        self._last_actions = None
+        self._last_rewards = None
+        self._step_num = 0
+        return self._last_obs
+
+    @property
+    def state(self) -> M.State:
+        return copy.copy(self._state)
+
+
 class Wrapper(Env):
     """Wraps the environment to allow a modular transformation.
 
@@ -293,7 +368,7 @@ class Wrapper(Env):
         return self.env.step(actions)
 
     # pylint: disable=[arguments-differ]
-    def reset(self, **kwargs) -> M.JointObservation:    # type: ignore
+    def reset(self, **kwargs) -> Optional[M.JointObservation]:   # type: ignore
         return self.env.reset(**kwargs)
 
     def render(self, mode="human"):

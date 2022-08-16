@@ -92,6 +92,10 @@ class TwoPathsModel(M.POSGModel):
         self._rng = random.Random(None)
 
     @property
+    def observation_first(self) -> bool:
+        return True
+
+    @property
     def state_space(self) -> spaces.Space:
         return spaces.Tuple(
             tuple(
@@ -147,17 +151,24 @@ class TwoPathsModel(M.POSGModel):
              ) -> M.JointTimestep:
         next_state = self._get_next_state(state, actions)
         rewards = self._get_rewards(next_state)
-        done = terminal_obs = self._state_is_terminal(next_state)
+        terminal = self._state_is_terminal(next_state)
 
-        outcomes = self.get_outcome(next_state) if done else None
+        if terminal:
+            outcomes = self._get_outcome(next_state)
+            dones = (True,) * self.n_agents
+        else:
+            outcomes = (M.Outcome.NA, ) * self.n_agents
+            dones = (False,) * self.n_agents
 
-        if self._infinite_horizon and done:
+        if self._infinite_horizon and terminal:
             next_state = self.sample_initial_state()   # type: ignore
-            done = False
+            dones = (False,) * self.n_agents
 
-        obs = self._get_obs(next_state, terminal_obs)
+        obs = self._get_obs(next_state, terminal)
 
-        return M.JointTimestep(next_state, obs, rewards, done, outcomes)
+        return M.JointTimestep(
+            next_state, obs, rewards, dones, all(dones), outcomes
+        )
 
     def _get_next_state(self,
                         state: TPState,
@@ -229,12 +240,7 @@ class TwoPathsModel(M.POSGModel):
             return (self.R_CAPTURE, -self.R_CAPTURE)
         return (self.R_ACTION, self.R_ACTION)
 
-    def is_done(self, state: M.State) -> bool:
-        if self._infinite_horizon:
-            return False
-        return self._state_is_terminal(state)
-
-    def get_outcome(self, state: M.State) -> Tuple[M.Outcome, ...]:
+    def _get_outcome(self, state: M.State) -> Tuple[M.Outcome, ...]:
         if self._infinite_horizon:
             return (M.Outcome.NA, M.Outcome.NA)
 

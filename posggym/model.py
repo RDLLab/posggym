@@ -77,29 +77,48 @@ class POSGModel(abc.ABC):
 
     Attributes
     ----------
-    n_agents : the number of agents in the environment
-    state_space : the space of all possible environment states (not needed by
-                  many simulation-based algorithms and can be hard to define
-                  so it is optional and should raise a NotImplementedError in
-                  subclasses where it is not implemented.)
-    observation_first : whether the environment is observation (True) or action
-                        (False) first. See the POSGModel.observation_first
-                        property function for details.
-    initial_belief : the initial belief over states
-    action_spaces : the list of action space for each agent (A_0, ..., A_n)
-    observation_spaces : the list of observation space for each agent
-                         (O_0, ..., O_n)
-    reward_ranges : the minimum and maximim possible step reward for each agent
+    n_agents : int
+        the number of agents in the environment
+    observation_first : bool
+        whether the environment is observation (True) or action (False) first.
+        See the POSGModel.observation_first property function for details.
+    state_space : gym.space.Space
+        the space of all possible environment states. Note that an explicit
+        state space definition is not needed by many simulation-based
+        algorithms (including RL and MCTS) and can be hard to define so
+        implementing this property should be seen as optional. In cases where
+        it is not implemented it should raise a NotImplementedError.
+    initial_belief : Belief
+        the initial belief over states
+    action_spaces : Tuple[gym.space.Space, ...]
+        the action space for each agent (A_0, ..., A_n)
+    observation_spaces : Tuple[gym.space.Space, ...]
+        the observation space for each agent (O_0, ..., O_n)
+    reward_ranges : Tuple[Tuple[Reward, Reward], ...]
+        the minimum and maximim possible step reward for each agent
 
     Functions
     ---------
-    step : the generative step function
-           G(s, a) -> (s', o, r, dones, all_done, outcomes)
-    set_seed : set the seed for the model's RNG
-    sample_initial_state : samples an initial state from the initial belief.
-    sample_initial_obs : samples an initial observation from a state. This
-                         function should only be used in observation first
-                         models.
+    step :
+        the generative step function
+        G(s, a) -> (s', o, r, dones, all_done, outcomes)
+    set_seed :
+        set the seed for the model's RNG
+    sample_initial_state :
+        samples an initial state from the initial belief.
+    sample_initial_obs :
+        samples an initial observation from a state. This function should only
+        be used in observation first environments.
+
+    Optional Functions and Attributes
+    ---------------------------------
+    get_agent_initial_belief :
+        get the initial belief for an agent given an initial observation. This
+        function is only applicable in observation first environments and is
+        optional, since the initial agent belief can be generated from the
+        sample_initial_state and sample_initial_obs functions. However,
+        implementing this function can speed up the initial belief update for
+        problems with a large number of possible starting states.
 
     """
 
@@ -169,6 +188,21 @@ class POSGModel(abc.ABC):
             "Model is action_first so expects agents to perform an action "
             "before the initial observations are generated. This is done "
             "using the step() function."
+        )
+
+    def get_agent_initial_belief(self,
+                                 agent_id: AgentID,
+                                 obs: Observation) -> Belief:
+        """Get the initial belief for an agent given it's initial observation.
+
+        Only applicable in observation first environments and is optional.
+        """
+        if self.observation_first:
+            raise NotImplementedError
+        raise AssertionError(
+            "get_agent_initial_belief is not supported for action first "
+            "environments. Instead get initial belief using the initial_belief"
+            " property."
         )
 
 

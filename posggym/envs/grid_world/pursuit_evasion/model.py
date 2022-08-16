@@ -118,6 +118,10 @@ class PursuitEvasionModel(M.POSGModel):
         self._rng = random.Random(None)
 
     @property
+    def observation_first(self) -> bool:
+        return True
+
+    @property
     def state_space(self) -> spaces.Space:
         # s = Tuple[Coord, Direction, Coord, Direction, Coord, Coord, Coord]
         return spaces.Tuple((
@@ -211,8 +215,7 @@ class PursuitEvasionModel(M.POSGModel):
             )
 
     def sample_initial_obs(self, state: M.State) -> M.JointObservation:
-        obs, _ = self._get_obs(state)
-        return obs
+        return self._get_obs(state)[0]
 
     def step(self,
              state: M.State,
@@ -220,10 +223,18 @@ class PursuitEvasionModel(M.POSGModel):
              ) -> M.JointTimestep:
         next_state = self._get_next_state(state, actions)  # type: ignore
         obs, evader_detected = self._get_obs(next_state)
-        reward = self._get_reward(next_state, evader_detected)
-        done = self.is_done(next_state)
-        outcomes = self.get_outcome(next_state) if done else None
-        return M.JointTimestep(next_state, obs, reward, done, outcomes)
+        rewards = self._get_reward(next_state, evader_detected)
+        dones = self._is_done(next_state)
+        all_done = all(dones)
+
+        if all_done:
+            outcomes = self._get_outcome(next_state)
+        else:
+            outcomes = (M.Outcome.NA, ) * self.n_agents
+
+        return M.JointTimestep(
+            next_state, obs, rewards, dones, all_done, outcomes
+        )
 
     def _get_next_state(self,
                         state: PEState,
@@ -321,16 +332,18 @@ class PursuitEvasionModel(M.POSGModel):
 
         return (self.R_EVADER_ACTION, self.R_PURSUER_ACTION)
 
-    def is_done(self, state: M.State) -> bool:
+    def _is_done(self, state: M.State) -> Tuple[bool, ...]:
         evader_coord, pursuer_coord = state[0], state[2]
         evader_goal_coord = state[6]
-        if evader_coord == pursuer_coord:
-            return True
-        if evader_coord == evader_goal_coord:
-            return True
-        return self._get_opponent_seen(pursuer_coord, state[3], evader_coord)
+        if (
+            evader_coord == pursuer_coord
+            or evader_coord == evader_goal_coord
+            or self._get_opponent_seen(pursuer_coord, state[3], evader_coord)
+        ):
+            return (True, True)
+        return (False, False)
 
-    def get_outcome(self, state: M.State) -> Tuple[M.Outcome, ...]:
+    def _get_outcome(self, state: M.State) -> Tuple[M.Outcome, ...]:
         # Assuming this method is called on final timestep
         evader_coord, pursuer_coord = state[0], state[2]
         evader_goal_coord = state[6]

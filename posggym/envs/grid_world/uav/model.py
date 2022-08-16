@@ -172,6 +172,10 @@ class UAVModel(M.POSGModel):
         self._rng = random.Random(None)
 
     @property
+    def observation_first(self) -> bool:
+        return True
+
+    @property
     def state_space(self) -> spaces.Space:
         return spaces.Tuple(
             tuple(
@@ -229,7 +233,6 @@ class UAVModel(M.POSGModel):
         rewards = self._get_reward(next_state)
 
         uav_coord, fug_coord = next_state
-
         if fug_coord in (uav_coord, self.grid.safe_house_coord):
             # fug caught or fug safe
             fug_coord = self._sample_fug_coord(uav_coord)
@@ -237,8 +240,11 @@ class UAVModel(M.POSGModel):
 
         outcomes = None
         obs = self._sample_obs(next_state)
-        done = self.is_done(next_state)
-        return M.JointTimestep(next_state, obs, rewards, done, outcomes)
+        dones = (False,) * self.n_agents
+        outcomes = (M.Outcome.NA,) * self.n_agents
+        return M.JointTimestep(
+            next_state, obs, rewards, dones, all(dones), outcomes
+        )
 
     def _sample_next_state(self,
                            state: UAVState,
@@ -322,12 +328,6 @@ class UAVModel(M.POSGModel):
             rewards[self.UAV_IDX] = self.R_CAPTURE
             rewards[self.FUG_IDX] = -self.R_CAPTURE
         return tuple(rewards)
-
-    def is_done(self, state: M.State) -> bool:
-        return False
-
-    def get_outcome(self, state: M.State) -> Tuple[M.Outcome, ...]:
-        return (M.Outcome.NA, M.Outcome.NA)
 
     def set_seed(self, seed: Optional[int] = None):
         self._rng = random.Random(seed)

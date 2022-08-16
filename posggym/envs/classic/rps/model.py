@@ -63,6 +63,10 @@ class RockPaperScissorsModel(M.POSGFullModel):
         self._obs_map = self._construct_obs_func()
 
     @property
+    def observation_first(self) -> bool:
+        return False
+
+    @property
     def state_space(self) -> spaces.Space:
         return spaces.Discrete(len(STATES))
 
@@ -100,26 +104,18 @@ class RockPaperScissorsModel(M.POSGFullModel):
              ) -> M.JointTimestep:
         obs = (actions[1], actions[0])
         rewards = self._get_reward(actions)
-        done = self.is_done(STATE0)
-
-        if done:
-            outcomes = self.get_outcome(STATE0)
-        else:
-            outcomes = None   # type: ignore
-
-        return M.JointTimestep(STATE0, obs, rewards, done, outcomes)
+        dones = (False,) * self.n_agents
+        all_done = False
+        outcomes = tuple(M.Outcome.NA for _ in range(self.n_agents))
+        return M.JointTimestep(
+            STATE0, obs, rewards, dones, all_done, outcomes
+        )
 
     def _get_reward(self, actions: RPSJointAction) -> M.JointReward:
         return (
             self.R_MATRIX[actions[0]][actions[1]],
             self.R_MATRIX[actions[1]][actions[0]]
         )
-
-    def is_done(self, state: M.State) -> bool:
-        return False
-
-    def get_outcome(self, state: M.State) -> Tuple[M.Outcome, ...]:
-        return tuple(M.Outcome.NA for _ in range(self.n_agents))
 
     def set_seed(self, seed: Optional[int] = None):
         self._rng = random.Random(seed)

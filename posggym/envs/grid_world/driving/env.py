@@ -1,5 +1,3 @@
-"""Environment class for the Driving Grid World Problem."""
-import copy
 from typing import Optional, Tuple, Dict, Any
 
 from posggym import core
@@ -13,7 +11,7 @@ from posggym.envs.grid_world.driving.grid import DrivingGrid
 from posggym.envs.grid_world.driving.gen import DrivingGridGenerator
 
 
-class DrivingEnv(core.Env):
+class DrivingEnv(core.DefaultEnv):
     """The Driving Grid World Environment.
 
     An general-sum 2D grid world problem involving multiple agents. Each agent
@@ -110,40 +108,9 @@ class DrivingEnv(core.Env):
             **kwargs
         )
         self._obs_dim = obs_dim
-
-        self._state = self._model.sample_initial_state()
-        self._last_obs = self._model.sample_initial_obs(self._state)
-        self._step_num = 0
-        self._last_actions: Optional[dmodel.DJointAction] = None
-        self._last_rewards: Optional[M.JointReward] = None
-
         self._viewer = None
         self._renderer: Optional[render_lib.GWRenderer] = None
-
-    def step(self,
-             actions: M.JointAction
-             ) -> Tuple[M.JointObservation, M.JointReward, bool, dict]:
-        step = self._model.step(self._state, actions)
-        self._step_num += 1
-        self._state = step.state
-        self._last_obs = step.observations
-        self._last_actions = actions
-        self._last_rewards = step.rewards
-        aux = {
-            "dones": step.dones,
-            "outcome": step.outcomes
-        }
-        return (step.observations, step.rewards, step.all_done, aux)
-
-    def reset(self, *, seed: Optional[int] = None) -> M.JointObservation:
-        if seed is not None:
-            self._model.set_seed(seed)
-        self._state = self._model.sample_initial_state()
-        self._last_obs = self._model.sample_initial_obs(self._state)
-        self._last_actions = None
-        self._last_rewards = None
-        self._step_num = 0
-        return self._last_obs
+        super().__init__()
 
     def render(self, mode: str = "human"):
         if mode == "ansi":
@@ -245,10 +212,6 @@ class DrivingEnv(core.Env):
     def model(self) -> dmodel.DrivingModel:
         return self._model
 
-    @property
-    def state(self) -> M.State:
-        return copy.copy(self._state)
-
     def close(self) -> None:
         if self._viewer is not None:
             self._viewer.close()   # type: ignore
@@ -301,6 +264,14 @@ class DrivingGenEnv(DrivingEnv):
             self._cycler = None     # type: ignore
             grid = self._gen.generate()
 
+        self._model_kwargs = {
+            "num_agents": num_agents,
+            "obs_dim": obs_dim,
+            "obstacle_collisions": obstacle_collisions,
+            "infinite_horizon": infinite_horizon,
+            **kwargs
+        }
+
         super().__init__(
             grid,                   # type: ignore
             num_agents,
@@ -311,15 +282,9 @@ class DrivingGenEnv(DrivingEnv):
             **kwargs
         )
 
-        self._model_kwargs = {
-            "num_agents": num_agents,
-            "obs_dim": obs_dim,
-            "obstacle_collisions": obstacle_collisions,
-            "infinite_horizon": infinite_horizon,
-            **kwargs
-        }
-
-    def reset(self, *, seed: Optional[int] = None) -> M.JointObservation:
+    def reset(self,
+              *,
+              seed: Optional[int] = None) -> Optional[M.JointObservation]:
         if seed is not None:
             self._gen_params["seed"] = seed
             self._gen = DrivingGridGenerator(**self._gen_params)

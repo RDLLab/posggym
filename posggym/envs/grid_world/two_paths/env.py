@@ -1,16 +1,13 @@
-"""Environment class for the Two-Paths Grid World Problem."""
-import copy
 from typing import Optional, Tuple, Union
 
 from posggym import core
-import posggym.model as M
 
 from posggym.envs.grid_world.core import Direction
 import posggym.envs.grid_world.render as render_lib
 import posggym.envs.grid_world.two_paths.model as tp_model
 
 
-class TwoPathsEnv(core.Env):
+class TwoPathsEnv(core.DefaultEnv):
     """The Two-Paths Grid World Environment.
 
     An adversarial 2D grid world problem involving two agents, a runner and
@@ -89,38 +86,9 @@ class TwoPathsEnv(core.Env):
         self._model = tp_model.TwoPathsModel(
             grid_name, action_probs, infinite_horizon, **kwargs
         )
-
-        init_conds = self._model.sample_initial_state_and_obs()
-        self._state, self._last_obs = init_conds
-        self._step_num = 0
-        self._last_actions: Optional[tp_model.TPJointAction] = None
-        self._last_rewards: Optional[M.JointReward] = None
-
         self._viewer = None
         self._renderer: Optional[render_lib.GWRenderer] = None
-
-    def step(self,
-             actions: M.JointAction
-             ) -> Tuple[M.JointObservation, M.JointReward, bool, dict]:
-        step = self._model.step(self._state, actions)
-        self._step_num += 1
-        self._state = step.state
-        self._last_obs = step.observations
-        self._last_actions = actions
-        self._last_rewards = step.rewards
-        aux = {"outcome": step.outcomes}
-        return (step.observations, step.rewards, step.done, aux)
-
-    def reset(self, *, seed: Optional[int] = None) -> M.JointObservation:
-        if seed is not None:
-            self._model.set_seed(seed)
-
-        init_conds = self._model.sample_initial_state_and_obs()
-        self._state, self._last_obs = init_conds
-        self._last_actions = None
-        self._last_rewards = None
-        self._step_num = 0
-        return self._last_obs
+        super().__init__()
 
     def render(self, mode: str = "human"):
         if mode == "ansi":
@@ -208,10 +176,6 @@ class TwoPathsEnv(core.Env):
     @property
     def model(self) -> tp_model.TwoPathsModel:
         return self._model
-
-    @property
-    def state(self) -> M.State:
-        return copy.copy(self._state)
 
     def close(self) -> None:
         if self._viewer is not None:

@@ -119,6 +119,10 @@ class MABCModel(M.POSGFullModel):
         self._obs_map = self._construct_obs_func()
 
     @property
+    def observation_first(self) -> bool:
+        return False
+
+    @property
     def state_space(self) -> spaces.Space:
         return spaces.Tuple(
             tuple(
@@ -149,36 +153,23 @@ class MABCModel(M.POSGFullModel):
             self.n_agents, self._init_buffer_dist, self._state_space, self._rng
         )
 
-    def get_agent_initial_belief(self,
-                                 agent_id: M.AgentID,
-                                 obs: M.Observation) -> M.Belief:
-        return self.initial_belief
-
-    def sample_initial_obs(self, state: M.State) -> M.JointObservation:
-        return tuple(NOCOLLISION for _ in range(self.n_agents))
-
     def step(self,
              state: M.State,
              actions: M.JointAction
              ) -> M.JointTimestep:
         assert all(isinstance(a, MABCAction) for a in actions)
-
         next_state = self._sample_next_state(state, actions)
         obs = self._sample_obs(actions)
-
         rewards = tuple(
             float(self._message_sent(state, actions)) * self.R_SEND
             for _ in range(self.n_agents)
         )
-
-        done = self.is_done(next_state)
-
-        if done:
-            outcomes = self.get_outcome(next_state)
-        else:
-            outcomes = None   # type: ignore
-
-        return M.JointTimestep(next_state, obs, rewards, done, outcomes)
+        dones = (False,) * self.n_agents
+        all_done = False
+        outcomes = tuple(M.Outcome.NA for _ in range(self.n_agents))
+        return M.JointTimestep(
+            next_state, obs, rewards, dones, all_done, outcomes
+        )
 
     def _sample_next_state(self,
                            state: MABCState,
@@ -208,12 +199,6 @@ class MABCModel(M.POSGFullModel):
             else:
                 obs_list.append(wrong_obs)
         return tuple(obs_list)
-
-    def is_done(self, state: M.State) -> bool:
-        return False
-
-    def get_outcome(self, state: M.State) -> Tuple[M.Outcome, ...]:
-        return tuple(M.Outcome.NA for _ in range(self.n_agents))
 
     def set_seed(self, seed: Optional[int] = None):
         self._rng = random.Random(seed)

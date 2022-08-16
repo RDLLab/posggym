@@ -8,20 +8,19 @@ import posggym.envs.grid_world.driving.grid as dgrid
 import posggym.envs.grid_world.driving.model as dmodel
 
 
-@pytest.mark.parametrize(
-    "grid, num_agents",
-    [
-        (dgrid.get_3x3_grid(), 2),
-        (dgrid.get_7x7_crisscross_grid(), 2),
-        (dgrid.get_7x7_crisscross2_grid(), 6),
-        (dgrid.get_7x7_crisscross3_grid(), 2),
-        (dgrid.get_7x7_crisscross4_grid(), 6),
-        (dgrid.get_7x7_crisscross5_grid(), 2),
-    ])
+@pytest.mark.parametrize("grid_name", list(dgrid.SUPPORTED_GRIDS.keys()))
+@pytest.mark.parametrize("num_agents", ["min", "max"])
 @pytest.mark.parametrize("obs_dim", [(1, 1, 1), (2, 1, 0), (1, 0, 0)])
 @pytest.mark.parametrize("infinite_horizon", [False])
-def test_single_step(grid, num_agents, obs_dim, infinite_horizon):
+def test_single_step(grid_name, num_agents, obs_dim, infinite_horizon):
     """Run a single test step and reset for model with different params."""
+    grid_fn = dgrid.SUPPORTED_GRIDS[grid_name][0]
+    grid = grid_fn()
+    if num_agents == "min":
+        num_agents = 2
+    else:
+        num_agents = grid.supported_num_agents
+
     model = dmodel.DrivingModel(grid, num_agents, obs_dim, infinite_horizon)
 
     state_space = model.state_space
@@ -45,10 +44,6 @@ def test_single_step(grid, num_agents, obs_dim, infinite_horizon):
     obs_0 = model.sample_initial_obs(s_0)
     check_obs(obs_0)
 
-    s_0, obs_0 = model.sample_initial_state_and_obs()
-    assert state_space.contains(s_0)
-    check_obs(obs_0)
-
     a = tuple(action_spaces[i].sample() for i in range(model.n_agents))
     timestep = model.step(s_0, a)
 
@@ -60,12 +55,14 @@ def test_single_step(grid, num_agents, obs_dim, infinite_horizon):
         assert np.isscalar(r_i), f"{r_i} is not a scalar for {model}"
         assert model.reward_ranges[i][0] <= r_i <= model.reward_ranges[i][1]
 
-    done, outcomes = timestep.done, timestep.outcomes
-    assert isinstance(done, bool), f"Expected {done} to be a bool for {model}"
-    assert done == model.is_done(timestep.state)
+    dones, all_done = timestep.dones, timestep.all_done
+    assert len(dones) == model.n_agents
+    assert all(isinstance(d, bool) for d in dones), \
+        f"Expected {dones=} to be tuple of bools for {model}"
+    assert isinstance(all_done, bool), \
+        f"Expected {all_done=} to be a bool for {model}"
 
-    if outcomes is not None:
-        assert len(outcomes) == model.n_agents
-        for outcome_i in outcomes:
-            assert outcome_i in M.Outcome
-        assert outcomes == model.get_outcome(timestep.state)
+    outcomes = timestep.outcomes
+    assert len(outcomes) == model.n_agents
+    for outcome_i in outcomes:
+        assert outcome_i in M.Outcome

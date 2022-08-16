@@ -1,7 +1,4 @@
-"""The environment class for the Multi-Agent Tiger Problem."""
 import sys
-import copy
-from typing import Optional, Tuple
 
 from posggym import core
 import posggym.model as M
@@ -9,7 +6,7 @@ import posggym.model as M
 import posggym.envs.classic.rps.model as rps_model
 
 
-class RockPaperScissorsEnv(core.Env):
+class RockPaperScissorsEnv(core.DefaultEnv):
     """The Rock Paper Scissors Environment.
 
     This is the classic game of rock, paper, scissors (RPS).
@@ -54,37 +51,9 @@ class RockPaperScissorsEnv(core.Env):
 
     def __init__(self, **kwargs):
         self._model = rps_model.RockPaperScissorsModel(**kwargs)
+        super().__init__()
 
-        init_conds = self._model.sample_initial_state_and_obs()
-        self._state, self._last_obs = init_conds
-        self._step_num = 0
-        self._last_actions: Optional[rps_model.RPSJointAction] = None
-        self._last_rewards: Optional[M.JointReward] = None
-
-    def step(self,
-             actions: M.JointAction
-             ) -> Tuple[M.JointObservation, M.JointReward, bool, dict]:
-        step = self._model.step(self._state, actions)
-        self._step_num += 1
-        self._state = step.state
-        self._last_obs = step.observations
-        self._last_actions = actions
-        self._last_rewards = step.rewards
-        aux = {"outcomes": step.outcomes}
-        return (step.observations, step.rewards, step.done, aux)
-
-    def reset(self, *, seed: Optional[int] = None) -> M.JointObservation:
-        if seed is not None:
-            self._model.set_seed(seed)
-
-        init_conds = self._model.sample_initial_state_and_obs()
-        self._state, self._last_obs = init_conds
-        self._last_actions = None
-        self._last_rewards = None
-        self._step_num = 0
-        return self._last_obs
-
-    def render(self, mode: str = "human") -> None:
+    def render(self, mode: str = "human"):
         if mode not in self.metadata["render.modes"]:
             # raise exception
             super().render(mode)
@@ -114,7 +83,3 @@ class RockPaperScissorsEnv(core.Env):
     @property
     def model(self) -> M.POSGModel:
         return self._model
-
-    @property
-    def state(self) -> M.State:
-        return copy.copy(self._state)

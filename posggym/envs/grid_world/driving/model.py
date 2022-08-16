@@ -79,14 +79,29 @@ class DB0(M.Belief):
                  n_agents: int,
                  grid: DrivingGrid,
                  rng: random.Random,
+                 ego_agent: Optional[M.AgentID] = None,
+                 ego_start_coords: Optional[List[Coord]] = None,
+                 ego_dest_coords: Optional[Coord] = None,
                  dist_res: int = 1000):
         assert n_agents <= grid.supported_num_agents
+        if ego_start_coords is not None or ego_dest_coords is not None:
+            assert ego_agent is not None
+            assert ego_start_coords is not None
+            assert ego_dest_coords is not None
         self._n_agents = n_agents
         self._grid = grid
         self._rng = rng
+        self._ego_agent = ego_agent
+        self._ego_start_coords = ego_start_coords
+        self._ego_dest_coords = ego_dest_coords
         self._dist_res = dist_res
 
     def sample(self) -> M.State:
+        if self._ego_start_coords is None:
+            return self._sample()
+        return self._sample_with_initial_conds()
+
+    def _sample(self) -> M.State:
         state = []
         chosen_start_coords: Set[Coord] = set()
         chosen_dest_coords: Set[Coord] = set()
@@ -102,6 +117,52 @@ class DB0(M.Belief):
                 avail_dest_coords.remove(start_coord)
             dest_coord = self._rng.choice(list(avail_dest_coords))
             chosen_dest_coords.add(dest_coord)
+
+            dest_dist = self._grid.get_shortest_path_distance(
+                start_coord, dest_coord
+            )
+
+            state_i = VehicleState(
+                coord=start_coord,
+                facing_dir=INIT_DIR,
+                speed=INIT_SPEED,
+                dest_coord=dest_coord,
+                dest_reached=int(False),
+                crashed=int(False),
+                min_dest_dist=dest_dist
+            )
+            state.append(state_i)
+        return tuple(state)
+
+    def _sample_with_initial_conds(self) -> M.State:
+        assert isinstance(self._ego_start_coords, list)
+        assert isinstance(self._ego_dest_coords, list)
+        state = []
+        chosen_start_coords: Set[Coord] = set()
+        chosen_dest_coords: Set[Coord] = set()
+
+        ego_start_coord = self._rng.choice(self._ego_start_coords)
+        chosen_start_coords.add(ego_start_coord)
+        chosen_dest_coords.add(self._ego_dest_coords)
+
+        for i in range(self._n_agents):
+            if i == self._ego_agent:
+                start_coord = ego_start_coord
+            else:
+                start_coords_i = self._grid.start_coords[i]
+                avail_coords = start_coords_i.difference(chosen_start_coords)
+                start_coord = self._rng.choice(list(avail_coords))
+                chosen_start_coords.add(start_coord)
+
+            if i == self._ego_agent:
+                dest_coord = self._ego_dest_coords
+            else:
+                dest_coords_i = self._grid.dest_coords[i]
+                avail_coords = dest_coords_i.difference(chosen_dest_coords)
+                if start_coord in avail_coords:
+                    avail_coords.remove(start_coord)
+                dest_coord = self._rng.choice(list(avail_coords))
+                chosen_dest_coords.add(dest_coord)
 
             dest_dist = self._grid.get_shortest_path_distance(
                 start_coord, dest_coord
@@ -167,7 +228,6 @@ class DrivingModel(M.POSGModel):
         self._obs_front, self._obs_back, self._obs_side = obs_dim
         self._obstacle_collisions = obstacle_collisions
         self._infinite_horizon = infinite_horizon
-
         self._rng = random.Random(kwargs.get("seed", None))
 
     @property
@@ -249,6 +309,38 @@ class DrivingModel(M.POSGModel):
     def initial_belief(self) -> M.Belief:
         return DB0(self.n_agents, self.grid, self._rng)
 
+    def get_agent_initial_belief(self,
+                                 agent_id: int,
+                                 obs: M.Observation) -> M.Belief:
+        agent_start_coords = set()
+        agent_dest_coords = obs[2]
+
+        # Need to get start states for agent that are valid given initial obs
+        # Need to handle possible start states for other agents
+        for all_agent_start_coords in product(
+                *[list(s) for s in self.grid.start_coords[:self.n_agents]]
+        ):
+            if len(set(all_agent_start_coords)) != len(all_agent_start_coords):
+                # skip any sets of start coord that contain duplicates
+                continue
+            local_obs = self._get_local_cell__obs(
+                agent_id,
+                all_agent_start_coords,
+                INIT_DIR,
+                agent_dest_coords
+            )
+            if local_obs == obs[0]:
+                agent_start_coords.add(all_agent_start_coords[agent_id])
+
+        return DB0(
+            self.n_agents,
+            self.grid,
+            self._rng,
+            agent_id,
+            list(agent_start_coords),
+            agent_dest_coords
+        )
+
     def sample_initial_obs(self, state: M.State) -> M.JointObservation:
         return self._get_obs(state)
 
@@ -257,10 +349,10 @@ class DrivingModel(M.POSGModel):
              actions: M.JointAction
              ) -> M.JointTimestep:
         next_state, collision_types = self._get_next_state(state, actions)
+        obs = self._get_obs(next_state)
         rewards = self._get_rewards(state, next_state, collision_types)
         dones, all_done = self._is_done(next_state)
         outcomes = self._get_outcome(next_state)
-        obs = self._get_obs(next_state)
         return M.JointTimestep(
             next_state, obs, rewards, dones, all_done, outcomes
         )

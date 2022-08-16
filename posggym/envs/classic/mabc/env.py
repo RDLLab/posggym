@@ -1,6 +1,4 @@
-"""The environment class for the Multi-Access Broadcast Channel Problem."""
 import sys
-import copy
 from typing import Optional, Tuple
 
 from posggym import core
@@ -9,7 +7,7 @@ import posggym.model as M
 import posggym.envs.classic.mabc.model as mabc_model
 
 
-class MABCEnv(core.Env):
+class MABCEnv(core.DefaultEnv):
     """The Multi-Access Broadcast Channel Environment.
 
     A cooperative game involving control of a multi-access broadcast channel.
@@ -78,35 +76,7 @@ class MABCEnv(core.Env):
         self._model = mabc_model.MABCModel(
             num_nodes, fill_probs, observation_prob, init_buffer_dist, **kwargs
         )
-
-        init_conds = self._model.sample_initial_state_and_obs()
-        self._state, self._last_obs = init_conds
-        self._step_num = 0
-        self._last_actions: Optional[mabc_model.MABCJointAction] = None
-        self._last_rewards: Optional[M.JointReward] = None
-
-    def step(self,
-             actions: M.JointAction
-             ) -> Tuple[M.JointObservation, M.JointReward, bool, dict]:
-        step = self._model.step(self._state, actions)
-        self._step_num += 1
-        self._state = step.state
-        self._last_obs = step.observations
-        self._last_actions = actions
-        self._last_rewards = step.rewards
-        aux = {"outcomes": step.outcomes}
-        return (step.observations, step.rewards, step.done, aux)
-
-    def reset(self, *, seed: Optional[int] = None) -> M.JointObservation:
-        if seed is not None:
-            self._model.set_seed(seed)
-
-        init_conds = self._model.sample_initial_state_and_obs()
-        self._state, self._last_obs = init_conds
-        self._last_actions = None
-        self._last_rewards = None
-        self._step_num = 0
-        return self._last_obs
+        super().__init__()
 
     def render(self, mode: str = "human"):
         if mode not in self.metadata["render.modes"]:
@@ -140,7 +110,3 @@ class MABCEnv(core.Env):
     @property
     def model(self) -> M.POSGModel:
         return self._model
-
-    @property
-    def state(self) -> M.State:
-        return copy.copy(self._state)

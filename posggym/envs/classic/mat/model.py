@@ -89,6 +89,10 @@ class MultiAgentTigerModel(M.POSGFullModel):
         self._obs_map = self._construct_obs_func()
 
     @property
+    def observation_first(self) -> bool:
+        return False
+
+    @property
     def state_space(self) -> spaces.Space:
         return spaces.Discrete(len(STATES))
 
@@ -117,14 +121,6 @@ class MultiAgentTigerModel(M.POSGFullModel):
     def initial_belief(self) -> M.Belief:
         return MATB0(self._rng)
 
-    def get_agent_initial_belief(self,
-                                 agent_id: M.AgentID,
-                                 obs: M.Observation) -> M.Belief:
-        return self.initial_belief
-
-    def sample_initial_obs(self, state: M.State) -> M.JointObservation:
-        return tuple(self._rng.choice(OBS_SPACE) for _ in range(self.n_agents))
-
     def step(self,
              state: M.State,
              actions: M.JointAction
@@ -132,14 +128,12 @@ class MultiAgentTigerModel(M.POSGFullModel):
         next_state = self._sample_next_state(state, actions)
         obs = self._sample_obs(state, actions)
         rewards = self._get_reward(state, actions)
-        done = self.is_done(next_state)
-
-        if done:
-            outcomes = self.get_outcome(next_state)
-        else:
-            outcomes = None   # type: ignore
-
-        return M.JointTimestep(next_state, obs, rewards, done, outcomes)
+        dones = (False,) * self.n_agents
+        all_done = False
+        outcomes = tuple(M.Outcome.NA for _ in range(self.n_agents))
+        return M.JointTimestep(
+            next_state, obs, rewards, dones, all_done, outcomes
+        )
 
     def _sample_next_state(self,
                            state: MATState,
@@ -198,12 +192,6 @@ class MultiAgentTigerModel(M.POSGFullModel):
             else:
                 rewards.append(self.OPEN_GOOD_R)
         return tuple(rewards)
-
-    def is_done(self, state: M.State) -> bool:
-        return False
-
-    def get_outcome(self, state: M.State) -> Tuple[M.Outcome, ...]:
-        return tuple(M.Outcome.NA for _ in range(self.n_agents))
 
     def set_seed(self, seed: Optional[int] = None):
         self._rng = random.Random(seed)
