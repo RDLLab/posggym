@@ -54,10 +54,10 @@ class MultiAgentTigerEnv(core.Env):
     }
 
     If an agent uses the `LISTEN` action they will perceive the correct
-    current position of the tiger with probability obs_prob=0.85, independent
-    of if the other agent opens a door or listens. Furthermore, they will
-    perceive the correct door opening or not with probability
-    creak_obs_prob=0.9.
+    current position of the tiger with probability observation_prob=0.85,
+    independent of if the other agent opens a door or listens. Furthermore,
+    they will perceive the correct door opening or not with probability
+    creak_observation_prob=0.9.
 
     If an agent opens either door they will recieve an observation uniformly at
     random.
@@ -90,11 +90,11 @@ class MultiAgentTigerEnv(core.Env):
     metadata = {"render.modes": ['human', 'ansi']}
 
     def __init__(self,
-                 obs_prob: float = 0.85,
-                 creak_obs_prob: float = 0.9,
+                 observation_prob: float = 0.85,
+                 creak_observation_prob: float = 0.9,
                  **kwargs):
         self._model = mat_model.MultiAgentTigerModel(
-            obs_prob, creak_obs_prob, **kwargs
+            observation_prob, creak_observation_prob, **kwargs
         )
 
         init_conds = self._model.sample_initial_state_and_obs()

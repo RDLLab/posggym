@@ -72,11 +72,11 @@ class MABCEnv(core.Env):
     def __init__(self,
                  num_nodes: int = 2,
                  fill_probs: Optional[Tuple[float, ...]] = None,
-                 obs_prob: float = 0.9,
+                 observation_prob: float = 0.9,
                  init_buffer_dist: Optional[Tuple[float, ...]] = None,
                  **kwargs):
         self._model = mabc_model.MABCModel(
-            num_nodes, fill_probs, obs_prob, init_buffer_dist, **kwargs
+            num_nodes, fill_probs, observation_prob, init_buffer_dist, **kwargs
         )
 
         init_conds = self._model.sample_initial_state_and_obs()

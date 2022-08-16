@@ -33,7 +33,7 @@ class Env(abc.ABC):
         model: the POSG model of the environment (posggym.model.POSGModel)
         state: the current state of the environment
         action_specs : the action space specs for each agent
-        observation_spacs : the observation space specs for each agent
+        observation_spaces : the observation space specs for each agent
         reward_specs : the reward specs for each agent
 
     """
@@ -96,7 +96,7 @@ class Env(abc.ABC):
 
         """
 
-    def render(self, mode: str = "human") -> None:
+    def render(self, mode: str = "human"):
         """Render the environment.
 
         This function is based on conventions of gym.core.Env class and the
@@ -125,6 +125,11 @@ class Env(abc.ABC):
         ---------
         mode : str, optional
             the mode to render with (default='human')
+
+        Returns
+        -------
+        Value :  Any
+            the return value depends on the mode.
 
         """
         raise NotImplementedError
@@ -156,9 +161,9 @@ class Env(abc.ABC):
         return self.model.action_spaces
 
     @property
-    def obs_spaces(self) -> Tuple[spaces.Space, ...]:
+    def observation_spaces(self) -> Tuple[spaces.Space, ...]:
         """Get the observation space for each agent."""
-        return self.model.obs_spaces
+        return self.model.observation_spaces
 
     @property
     def reward_ranges(self) -> Tuple[Tuple[M.Reward, M.Reward], ...]:
@@ -206,7 +211,7 @@ class Wrapper(Env):
         self.env = env
 
         self._action_spaces: Optional[Tuple[spaces.Space, ...]] = None
-        self._obs_spaces: Optional[Tuple[spaces.Space, ...]] = None
+        self._observation_spaces: Optional[Tuple[spaces.Space, ...]] = None
         self._reward_ranges: Optional[
             Tuple[Tuple[M.Reward, M.Reward], ...]
         ] = None
@@ -247,14 +252,14 @@ class Wrapper(Env):
         self._action_spaces = action_spaces
 
     @property
-    def obs_spaces(self) -> Tuple[spaces.Space, ...]:
-        if self._obs_spaces is None:
-            return self.env.obs_spaces
-        return self._obs_spaces
+    def observation_spaces(self) -> Tuple[spaces.Space, ...]:
+        if self._observation_spaces is None:
+            return self.env.observation_spaces
+        return self._observation_spaces
 
-    @obs_spaces.setter
-    def obs_spaces(self, obs_spaces: Tuple[spaces.Space, ...]):
-        self._obs_spaces = obs_spaces
+    @observation_spaces.setter
+    def observation_spaces(self, observation_spaces: Tuple[spaces.Space, ...]):
+        self._observation_spaces = observation_spaces
 
     @property
     def reward_ranges(self) -> Tuple[Tuple[M.Reward, M.Reward], ...]:

@@ -109,7 +109,7 @@ class TwoPathsModel(M.POSGModel):
         )
 
     @property
-    def obs_spaces(self) -> Tuple[spaces.Space, ...]:
+    def observation_spaces(self) -> Tuple[spaces.Space, ...]:
         return tuple(
             spaces.Tuple((
                 spaces.Tuple((

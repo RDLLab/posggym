@@ -1,6 +1,4 @@
-import pytest
-
-from posggym.envs.grid_world.core import Grid, GridGenerator, Coord, Direction
+from posggym.envs.grid_world.core import Grid, Direction
 
 
 class TestGrid:

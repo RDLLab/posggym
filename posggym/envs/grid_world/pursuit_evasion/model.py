@@ -159,7 +159,7 @@ class PursuitEvasionModel(M.POSGModel):
         )
 
     @property
-    def obs_spaces(self) -> Tuple[spaces.Space, ...]:
+    def observation_spaces(self) -> Tuple[spaces.Space, ...]:
         # Tuple[WallObs, seen , heard]
         env_obs_space = spaces.Tuple(
             tuple(spaces.Discrete(2) for _ in range(6))

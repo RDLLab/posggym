@@ -189,7 +189,7 @@ class UAVModel(M.POSGModel):
         )
 
     @property
-    def obs_spaces(self) -> Tuple[spaces.Space, ...]:
+    def observation_spaces(self) -> Tuple[spaces.Space, ...]:
         coord_space = spaces.Tuple((
             spaces.Discrete(self.grid.width),
             spaces.Discrete(self.grid.height)

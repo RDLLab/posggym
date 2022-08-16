@@ -73,7 +73,7 @@ class RockPaperScissorsModel(M.POSGFullModel):
         )
 
     @property
-    def obs_spaces(self) -> Tuple[spaces.Space, ...]:
+    def observation_spaces(self) -> Tuple[spaces.Space, ...]:
         return tuple(
             spaces.Discrete(len(OBS_SPACE)) for _ in range(self.n_agents)
         )
@@ -136,10 +136,10 @@ class RockPaperScissorsModel(M.POSGFullModel):
             trans_map[(STATE0, a, STATE0)] = 1.0
         return trans_map
 
-    def obs_fn(self,
-               obs: M.JointObservation,
-               next_state: M.State,
-               actions: M.JointAction) -> float:
+    def observation_fn(self,
+                       obs: M.JointObservation,
+                       next_state: M.State,
+                       actions: M.JointAction) -> float:
         return self._obs_map[(next_state, actions, obs)]
 
     def _construct_obs_func(self) -> Dict:

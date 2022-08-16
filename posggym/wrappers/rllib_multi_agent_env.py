@@ -40,9 +40,10 @@ class RllibMultiAgentEnv(MultiAgentEnv):
 
         This is a dictionary mapping agent IDs to the agent's observation space
         """
-        return spaces.Dict(
-            {str(i): self.env.obs_spaces[i] for i in range(self.env.n_agents)}
-        )
+        return spaces.Dict({
+            str(i): self.env.observation_spaces[i]
+            for i in range(self.env.n_agents)
+        })
 
     @property
     def action_space(self):

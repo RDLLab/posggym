@@ -11,15 +11,12 @@ import posggym.envs.grid_world.driving.model as dmodel
 @pytest.mark.parametrize(
     "grid, num_agents",
     [
-        (dgrid.get_3x3_static_grid(), 2),
-        (dgrid.get_6x6_static_grid(), 2),
-        (dgrid.get_6x6_static_grid(), 3),
-        (dgrid.get_6x6_static_grid(), 4),
-        (dgrid.get_7x7_criss_cross_grid_v1(), 2),
-        (dgrid.get_7x7_criss_cross_grid_v1(), 6),
-        (dgrid.get_7x7_criss_cross_grid_v2(), 2),
-        (dgrid.get_7x7_criss_cross_grid_v1(), 6),
-        (dgrid.get_7x7_criss_cross_grid_v3(), 2),
+        (dgrid.get_3x3_grid(), 2),
+        (dgrid.get_7x7_crisscross_grid(), 2),
+        (dgrid.get_7x7_crisscross2_grid(), 6),
+        (dgrid.get_7x7_crisscross3_grid(), 2),
+        (dgrid.get_7x7_crisscross4_grid(), 6),
+        (dgrid.get_7x7_crisscross5_grid(), 2),
     ])
 @pytest.mark.parametrize("obs_dim", [(1, 1, 1), (2, 1, 0), (1, 0, 0)])
 @pytest.mark.parametrize("infinite_horizon", [False])
@@ -28,7 +25,7 @@ def test_single_step(grid, num_agents, obs_dim, infinite_horizon):
     model = dmodel.DrivingModel(grid, num_agents, obs_dim, infinite_horizon)
 
     state_space = model.state_space
-    obs_spaces = model.obs_spaces
+    obs_spaces = model.observation_spaces
     action_spaces = model.action_spaces
 
     assert len(obs_spaces) == model.n_agents

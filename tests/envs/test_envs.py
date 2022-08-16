@@ -21,7 +21,7 @@ def test_env(spec):
     for warning_msg in warnings:
         assert "autodetected dtype" not in str(warning_msg.message)
 
-    obs_spaces = env.obs_spaces
+    obs_spaces = env.observation_spaces
     action_spaces = env.action_spaces
 
     assert len(obs_spaces) == env.n_agents
@@ -70,7 +70,7 @@ def test_random_rollout(spec):
     obs = env.reset()
     for _ in range(step_limit):
         for i, o_i in enumerate(obs):
-            assert env.obs_spaces[i].contains(o_i)
+            assert env.observation_spaces[i].contains(o_i)
 
         a = tuple(a.sample() for a in env.action_spaces)
         obs, _, done, _ = env.step(a)
@@ -126,7 +126,7 @@ def test_model(spec):
     assert isinstance(model, M.POSGModel)
 
     state_space = model.state_space
-    obs_spaces = model.obs_spaces
+    obs_spaces = model.observation_spaces
     action_spaces = model.action_spaces
 
     assert len(obs_spaces) == model.n_agents

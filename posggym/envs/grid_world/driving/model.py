@@ -135,6 +135,8 @@ class DB0(M.Belief):
         return tuple(state)
 
     def _sample_with_initial_conds(self) -> M.State:
+        assert isinstance(self._ego_start_coords, list)
+        assert isinstance(self._ego_dest_coords, list)
         state = []
         chosen_start_coords: Set[Coord] = set()
         chosen_dest_coords: Set[Coord] = set()
@@ -267,7 +269,7 @@ class DrivingModel(M.POSGModel):
         )
 
     @property
-    def obs_spaces(self) -> Tuple[spaces.Space, ...]:
+    def observation_spaces(self) -> Tuple[spaces.Space, ...]:
         obs_depth = self._obs_front + self._obs_back + 1
         obs_width = (2 * self._obs_side) + 1
         local_cell_obs = spaces.Tuple(tuple(
@@ -544,7 +546,7 @@ class DrivingModel(M.POSGModel):
 
     def _get_local_cell__obs(self,
                              agent_id: M.AgentID,
-                             vehicle_coords: List[Coord],
+                             vehicle_coords: Sequence[Coord],
                              facing_dir: Direction,
                              dest_coord: Coord) -> Tuple[int, ...]:
         obs_depth = self._obs_front + self._obs_back + 1

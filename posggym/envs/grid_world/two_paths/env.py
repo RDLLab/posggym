@@ -122,7 +122,7 @@ class TwoPathsEnv(core.Env):
         self._step_num = 0
         return self._last_obs
 
-    def render(self, mode: str = "human") -> None:
+    def render(self, mode: str = "human"):
         if mode == "ansi":
             grid_str = self._model.grid.get_ascii_repr(
                 self._state[0], self._state[1]

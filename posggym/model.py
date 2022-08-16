@@ -102,7 +102,7 @@ class POSGModel(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def obs_spaces(self) -> Tuple[spaces.Space, ...]:
+    def observation_spaces(self) -> Tuple[spaces.Space, ...]:
         """Get the observation space for each agent."""
 
     @property
@@ -180,17 +180,17 @@ class POSGFullModel(POSGModel, abc.ABC):
 
     Attributes
     ----------
-        n_agents : the number of agents in the environment
-        state_space : the list of all states, S
-        action_spaces : the list of actions for each agent (A_0, ..., A_n)
-        obs_spaces: the list of observations for each agent (O_0, ..., O_n)
-        b_0 : the initial belief over states
+    n_agents : the number of agents in the environment
+    state_space : the list of all states, S
+    action_spaces : the list of actions for each agent (A_0, ..., A_n)
+    observation_spaces: the list of observations for each agent (O_0, ..., O_n)
+    b_0 : the initial belief over states
 
     Functions
     ---------
-        transition_fn : the trainsition function T(s, a, s')
-        obs_fn : the observation function Z(o, s', a)
-        reward_fn : the reward function R(s, a)
+    transition_fn : the trainsition function T(s, a, s')
+    observation_fn : the observation function Z(o, s', a)
+    reward_fn : the reward function R(s, a)
 
     This is in addition to the functions and properties defined in the
     POSGModel class.
@@ -205,10 +205,10 @@ class POSGFullModel(POSGModel, abc.ABC):
         """Transition function Pr(next_state | state, action)."""
 
     @abc.abstractmethod
-    def obs_fn(self,
-               obs: JointObservation,
-               next_state: State,
-               actions: JointAction) -> float:
+    def observation_fn(self,
+                       obs: JointObservation,
+                       next_state: State,
+                       actions: JointAction) -> float:
         """Observation function Pr(obs | next_state, action)."""
 
     @abc.abstractmethod

@@ -153,7 +153,7 @@ class PursuitEvasionEnv(core.Env):
         self._step_num = 0
         return self._last_obs
 
-    def render(self, mode: str = "human") -> None:
+    def render(self, mode: str = "human"):
         evader_coord = self._state[0]
         pursuer_coord = self._state[2]
         goal_coord = self._state[6]
@@ -239,7 +239,7 @@ class PursuitEvasionEnv(core.Env):
             else:
                 return (env_img, agent_obs_imgs)
         else:
-            super().render(mode)
+            return super().render(mode)
 
     @property
     def model(self) -> pe_model.PursuitEvasionModel:

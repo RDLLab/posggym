@@ -86,7 +86,7 @@ class MABCModel(M.POSGFullModel):
     def __init__(self,
                  num_nodes: int = 2,
                  fill_probs: Optional[Tuple[float, ...]] = None,
-                 obs_prob: float = 0.9,
+                 observation_prob: float = 0.9,
                  init_buffer_dist: Optional[Tuple[float, ...]] = None,
                  **kwargs):
         super().__init__(num_nodes, **kwargs)
@@ -98,7 +98,7 @@ class MABCModel(M.POSGFullModel):
 
         assert len(fill_probs) == num_nodes
         assert all(0 <= x <= 1 for x in fill_probs)
-        assert 0 <= obs_prob <= 1
+        assert 0 <= observation_prob <= 1
         assert len(init_buffer_dist) == num_nodes
         assert all(0 <= x <= 1 for x in init_buffer_dist)
 
@@ -106,10 +106,10 @@ class MABCModel(M.POSGFullModel):
             product(*[list(NODE_STATES) for _ in range(self.n_agents)])
         )
         self._action_spaces = tuple([*ACTIONS] for _ in range(self.n_agents))
-        self._obs_spaces = tuple([*OBS] for _ in range(self.n_agents))
+        self._observation_spaces = tuple([*OBS] for _ in range(self.n_agents))
 
         self._fill_probs = fill_probs
-        self._obs_prob = obs_prob
+        self._obs_prob = observation_prob
         self._init_buffer_dist = init_buffer_dist
 
         self._rng = random.Random(None)
@@ -134,7 +134,7 @@ class MABCModel(M.POSGFullModel):
         )
 
     @property
-    def obs_spaces(self) -> Tuple[spaces.Space, ...]:
+    def observation_spaces(self) -> Tuple[spaces.Space, ...]:
         return tuple(spaces.Discrete(len(OBS)) for _ in range(self.n_agents))
 
     @property
@@ -246,10 +246,10 @@ class MABCModel(M.POSGFullModel):
             trans_map[(s, a, s_next)] = trans_prob
         return trans_map
 
-    def obs_fn(self,
-               obs: M.JointObservation,
-               next_state: M.State,
-               actions: M.JointAction) -> float:
+    def observation_fn(self,
+                       obs: M.JointObservation,
+                       next_state: M.State,
+                       actions: M.JointAction) -> float:
         return self._obs_map[(next_state, actions, obs)]
 
     def _construct_obs_func(self) -> Dict:
@@ -257,7 +257,7 @@ class MABCModel(M.POSGFullModel):
         for (s_next, a, o) in product(
                 self._state_space,
                 product(*self._action_spaces),
-                product(*self._obs_spaces)
+                product(*self._observation_spaces)
         ):
             senders = sum(int(a_i == SEND) for a_i in a)
             if senders > 1:

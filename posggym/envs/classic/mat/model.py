@@ -71,12 +71,12 @@ class MultiAgentTigerModel(M.POSGFullModel):
     LISTEN_R = -1.0
 
     def __init__(self,
-                 obs_prob: float = 0.85,
-                 creak_obs_prob: float = 0.9,
+                 observation_prob: float = 0.85,
+                 creak_observation_prob: float = 0.9,
                  **kwargs):
         super().__init__(self.NUM_AGENTS, **kwargs)
-        self._obs_prob = obs_prob
-        self._creak_obs_prob = creak_obs_prob
+        self._obs_prob = observation_prob
+        self._creak_obs_prob = creak_observation_prob
 
         self._state_space = STATES
         self._action_spaces = tuple([*ACTIONS] for _ in range(self.n_agents))
@@ -99,7 +99,7 @@ class MultiAgentTigerModel(M.POSGFullModel):
         )
 
     @property
-    def obs_spaces(self) -> Tuple[spaces.Space, ...]:
+    def observation_spaces(self) -> Tuple[spaces.Space, ...]:
         return tuple(
             spaces.Tuple((
                 spaces.Discrete(len(OBS_PARTS[0])),
@@ -229,10 +229,10 @@ class MultiAgentTigerModel(M.POSGFullModel):
             trans_map[(s, a, s_next)] = p
         return trans_map
 
-    def obs_fn(self,
-               obs: M.JointObservation,
-               next_state: M.State,
-               actions: M.JointAction) -> float:
+    def observation_fn(self,
+                       obs: M.JointObservation,
+                       next_state: M.State,
+                       actions: M.JointAction) -> float:
         return self._obs_map[(next_state, actions, obs)]
 
     def _construct_obs_func(self) -> Dict:
