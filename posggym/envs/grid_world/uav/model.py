@@ -105,11 +105,6 @@ class UAVB0(M.Belief):
         house_adj_coords = self._grid.get_neighbours(
             self._grid.safe_house_coord, ignore_blocks=False
         )
-        # Doesn't work for 3x3 grid
-        assert len(house_adj_coords) == 4, (
-            "Fugitive observation conditioned belief is only supported for "
-            "maps where safe house can be reached from all directions."
-        )
 
         if obs == OBSNONE:
             valid_fug_coords = set(self._grid.init_fug_coords)
@@ -220,6 +215,16 @@ class UAVModel(M.POSGModel):
                                  obs: M.Observation) -> M.Belief:
         if agent_id == self.UAV_IDX:
             return UAVB0(self.grid, self._rng, uav_obs=obs)
+
+        house_adj_coords = self.grid.get_neighbours(
+            self.grid.safe_house_coord, ignore_blocks=False
+        )
+        if len(house_adj_coords) != 4:
+            # Doesn't work for 3x3 grid
+            raise NotImplementedError(
+                "Fugitive observation conditioned belief is only supported "
+                "for maps where safe house can be reached from all directions."
+            )
         return UAVB0(self.grid, self._rng, fug_obs=obs)
 
     def sample_initial_obs(self, state: M.State) -> M.JointObservation:

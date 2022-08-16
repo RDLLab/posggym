@@ -136,14 +136,13 @@ class DB0(M.Belief):
 
     def _sample_with_initial_conds(self) -> M.State:
         assert isinstance(self._ego_start_coords, list)
-        assert isinstance(self._ego_dest_coords, list)
         state = []
         chosen_start_coords: Set[Coord] = set()
         chosen_dest_coords: Set[Coord] = set()
 
         ego_start_coord = self._rng.choice(self._ego_start_coords)
         chosen_start_coords.add(ego_start_coord)
-        chosen_dest_coords.add(self._ego_dest_coords)
+        chosen_dest_coords.add(self._ego_dest_coords)   # type: ignore
 
         for i in range(self._n_agents):
             if i == self._ego_agent:

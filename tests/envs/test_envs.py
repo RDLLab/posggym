@@ -142,27 +142,34 @@ def test_model(spec):
             assert obs_spaces[i].contains(o_i), \
                 f"Reset agent {i} observation: {o_i} not in space for {env}"
 
+    def check_state(state):
+        try:
+            state_space = model.state_space
+            assert state_space.contains(state)
+        except NotImplementedError:
+            pass
+
     b_0 = model.initial_belief
     s_0 = b_0.sample()
 
-    try:
-        state_space = model.state_space
-        assert state_space.contains(s_0)
-    except NotImplementedError:
-        pass
+    check_state(s_0)
 
     if model.observation_first:
         obs_0 = model.sample_initial_obs(s_0)
         check_obs(obs_0)
 
+        try:
+            for i in range(model.n_agents):
+                b_i_0 = model.get_agent_initial_belief(i, obs_0[i])
+                s_i_0 = b_i_0.sample()
+                check_state(s_i_0)
+        except NotImplementedError:
+            pass
+
     a = tuple(action_spaces[i].sample() for i in range(model.n_agents))
     timestep = model.step(s_0, a)
 
-    try:
-        state_space = model.state_space
-        assert state_space.contains(timestep.state)
-    except NotImplementedError:
-        pass
+    check_state(timestep.state)
 
     check_obs(timestep.observations)
     assert len(timestep.rewards) == model.n_agents
