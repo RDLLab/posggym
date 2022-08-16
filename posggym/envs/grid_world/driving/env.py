@@ -111,8 +111,8 @@ class DrivingEnv(core.Env):
         )
         self._obs_dim = obs_dim
 
-        init_conds = self._model.sample_initial_state_and_obs()
-        self._state, self._last_obs = init_conds
+        self._state = self._model.sample_initial_state()
+        self._last_obs = self._model.sample_initial_obs(self._state)
         self._step_num = 0
         self._last_actions: Optional[dmodel.DJointAction] = None
         self._last_rewards: Optional[M.JointReward] = None
@@ -129,14 +129,17 @@ class DrivingEnv(core.Env):
         self._last_obs = step.observations
         self._last_actions = actions
         self._last_rewards = step.rewards
-        aux = {"outcome": step.outcomes}
-        return (step.observations, step.rewards, step.done, aux)
+        aux = {
+            "dones": step.dones,
+            "outcome": step.outcomes
+        }
+        return (step.observations, step.rewards, step.all_done, aux)
 
     def reset(self, *, seed: Optional[int] = None) -> M.JointObservation:
         if seed is not None:
             self._model.set_seed(seed)
-        init_conds = self._model.sample_initial_state_and_obs()
-        self._state, self._last_obs = init_conds
+        self._state = self._model.sample_initial_state()
+        self._last_obs = self._model.sample_initial_obs(self._state)
         self._last_actions = None
         self._last_rewards = None
         self._step_num = 0
