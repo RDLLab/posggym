@@ -136,6 +136,7 @@ class DB0(M.Belief):
 
     def _sample_with_initial_conds(self) -> M.State:
         assert isinstance(self._ego_start_coords, list)
+        assert isinstance(self._ego_dest_coords, tuple)
         state = []
         chosen_start_coords: Set[Coord] = set()
         chosen_dest_coords: Set[Coord] = set()

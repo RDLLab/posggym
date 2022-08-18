@@ -8,9 +8,15 @@ import posggym.model as M
 from tests.envs.spec_list import spec_list
 
 
+def _has_prefix(spec, env_name_prefix):
+    return spec.id.startswith(env_name_prefix)
+
+
 @pytest.mark.parametrize("spec", spec_list)
-def test_env(spec, test_render):
+def test_env(spec, test_render, env_name_prefix):
     """Run single test step and reset for each registered environment """
+    if env_name_prefix is not None and not _has_prefix(spec, env_name_prefix):
+        return
 
     # Capture warnings
     with pytest.warns(None) as warnings:
@@ -59,12 +65,15 @@ def test_env(spec, test_render):
 
 
 @pytest.mark.parametrize("spec", spec_list)
-def test_random_rollout(spec):
+def test_random_rollout(spec, env_name_prefix):
     """Tests a random rollout in each environment
 
     N.B. May need to be more selective of the environments to test in the
     future.
     """
+    if env_name_prefix is not None and not _has_prefix(spec, env_name_prefix):
+        return
+
     step_limit = 100
 
     env = spec.make()
@@ -85,22 +94,27 @@ def test_random_rollout(spec):
 
 
 @pytest.mark.parametrize("spec", spec_list)
-def test_random_seeding(spec):
+def test_random_seeding(spec, env_name_prefix):
     """Test random seeding using random rollouts in each environment
 
     N.B. May need to be more selective of the environments to test in the
     future.
     """
+    if env_name_prefix is not None and not _has_prefix(spec, env_name_prefix):
+        return
+
     step_limit = 50
     seed = 42
 
     trajectories = [[], []]
+    states = [[], []]
 
     for i in range(2):
         env = spec.make()
         action_spaces = env.action_spaces
 
         obs = env.reset(seed=seed)
+        states[i].append(env.state)
         for j in range(len(action_spaces)):
             action_spaces[j].seed(seed + 1 + j)
 
@@ -114,15 +128,21 @@ def test_random_seeding(spec):
 
     assert len(trajectories[0]) == len(trajectories[1])
     for ts0, ts1 in zip(trajectories[0], trajectories[1]):
-        assert ts0[0] == ts1[0]
-        assert ts0[1] == ts1[1]
-        assert ts0[2] == ts1[2]
-        assert ts0[3] == ts1[3]
+        assert ts0[0] == ts1[0], f"{ts0[0]} != {ts1[0]}"
+        for o0, o1 in zip(ts0[1], ts1[1]):
+            if isinstance(o0, np.ndarray):
+                assert (o0 == o1).all(), f"{o0} != {o1}"
+            else:
+                assert o0 == o1, f"{o0} != {o1}"
+        assert ts0[2] == ts1[2], f"{ts0[2]} != {ts1[2]}"
+        assert ts0[3] == ts1[3], f"{ts0[3]} != {ts1[3]}"
 
 
 @pytest.mark.parametrize("spec", spec_list)
-def test_model(spec):
+def test_model(spec, env_name_prefix):
     """Run single test step and reset for model of each registered env """
+    if env_name_prefix is not None and not _has_prefix(spec, env_name_prefix):
+        return
 
     with pytest.warns(None):
         env = spec.make()

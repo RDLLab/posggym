@@ -43,15 +43,16 @@ class Belief(abc.ABC):
     def sample(self) -> State:
         """Return a state from the belief."""
 
-    @abc.abstractmethod
     def sample_k(self, k: int) -> Sequence[State]:
         """Sample k states from the belief."""
+        return [self.sample() for _ in range(k)]
 
-    @abc.abstractmethod
     def get_dist(self) -> Dict[State, float]:
         """Get belief as a distribution: S -> prob map."""
+        return self.sample_belief_dist()
 
-    def sample_belief_dist(self, num_samples: int) -> Dict[State, float]:
+    def sample_belief_dist(self,
+                           num_samples: int = 1000) -> Dict[State, float]:
         """Construct a belief distribution via Monte-Carlo sampling.
 
         Requires that the State objects for the given belief are hashable.

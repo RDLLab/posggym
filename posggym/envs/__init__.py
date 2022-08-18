@@ -2,6 +2,8 @@
 
 Utilizes the OpenAI Gym env registration functionality.
 """
+from itertools import product
+
 from posggym.envs.registration import register
 from posggym.envs.registration import make
 from posggym.envs.registration import spec
@@ -234,4 +236,50 @@ for grid_name in driving.gen.SUPPORTED_GEN_PARAMS:
             "generator_params": gen_params,
             "infinite_horizon": True
         }
+    )
+
+
+# Level-Based Foraging
+# -------------------------------------------
+# Ref: github.com/semitable/lb-foraging/blob/master/lbforaging/__init__.py
+
+sizes = range(5, 10, 5)
+players = range(2, 8, 2)   # reduced
+foods = range(1, 5)
+coop = [True, False]
+
+for s, p, f, c in product(sizes, players, foods, coop):
+    coop_str = "-coop" if c else ""
+    register(
+        env_id=f"LBF{s}x{s}-{p}p-{f}f{coop_str}-v2",
+        entry_point="posggym.envs.lbf:LBFEnv",
+        kwargs={
+            "num_agents": p,
+            "max_agent_level": 3,
+            "field_size": (s, s),
+            "max_food": f,
+            "sight": 2,
+            "max_episode_steps": 50,
+            "force_coop": c,
+            "normalize_reward": True,
+            "grid_observation": False,
+            "penalty": 0.0
+        },
+    )
+
+    register(
+        env_id=f"LBFGrid{s}x{s}-{p}p-{f}f{coop_str}-v2",
+        entry_point="posggym.envs.lbf:LBFEnv",
+        kwargs={
+            "num_agents": p,
+            "max_agent_level": 3,
+            "field_size": (s, s),
+            "max_food": f,
+            "sight": 2,
+            "max_episode_steps": 50,
+            "force_coop": c,
+            "normalize_reward": True,
+            "grid_observation": True,
+            "penalty": 0.0
+        },
     )
