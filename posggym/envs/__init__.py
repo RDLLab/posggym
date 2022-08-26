@@ -133,7 +133,7 @@ for grid_name in driving.grid.SUPPORTED_GRIDS:
             max_episode_steps=finite_steps,
             kwargs={
                 "grid": grid_fn(),
-                "num_agents": 2,
+                "num_agents": n,
                 "obs_dim": (3, 1, 1),
                 "obstacle_collisions": False,
                 "infinite_horizon": False
@@ -146,7 +146,7 @@ for grid_name in driving.grid.SUPPORTED_GRIDS:
             max_episode_steps=inf_steps,
             kwargs={
                 "grid": grid_fn(),
-                "num_agents": 2,
+                "num_agents": n,
                 "obs_dim": (3, 1, 1),
                 "obstacle_collisions": False,
                 "infinite_horizon": True
@@ -159,7 +159,7 @@ for grid_name in driving.grid.SUPPORTED_GRIDS:
             max_episode_steps=finite_steps,
             kwargs={
                 "grid": grid_fn(),
-                "num_agents": 2,
+                "num_agents": n,
                 "obs_dim": (3, 1, 1),
                 "obstacle_collisions": True,
                 "infinite_horizon": False
@@ -172,7 +172,7 @@ for grid_name in driving.grid.SUPPORTED_GRIDS:
             max_episode_steps=inf_steps,
             kwargs={
                 "grid": grid_fn(),
-                "num_agents": 2,
+                "num_agents": n,
                 "obs_dim": (3, 1, 1),
                 "obstacle_collisions": True,
                 "infinite_horizon": True

@@ -86,7 +86,7 @@ class DB0(M.Belief):
         assert n_agents <= grid.supported_num_agents
         if ego_start_coords is not None or ego_dest_coords is not None:
             assert ego_agent is not None
-            assert ego_start_coords is not None
+            assert ego_start_coords is not None and len(ego_start_coords) > 0
             assert ego_dest_coords is not None
         self._n_agents = n_agents
         self._grid = grid

@@ -184,10 +184,10 @@ def get_3x3_grid() -> DrivingGrid:
 def get_4x4_intersection_grid() -> DrivingGrid:
     """Generate a 4-by-4 intersection grid layout."""
     grid_str = (
-        "#1b#\n"
+        "#0b#\n"
         "d..3\n"
         "2..c\n"
-        "#a0#\n"
+        "#a1#\n"
     )
     return parse_grid_str(grid_str, 4)
 
@@ -195,12 +195,12 @@ def get_4x4_intersection_grid() -> DrivingGrid:
 def get_6x6_intersection_grid() -> DrivingGrid:
     """Generate a 6-by-6 intersection grid layout."""
     grid_str = (
-        "##1b##\n"
+        "##0b##\n"
         "##..##\n"
         "d....3\n"
         "2....c\n"
         "##..##\n"
-        "##a0##\n"
+        "##a1##\n"
     )
     return parse_grid_str(grid_str, 4)
 

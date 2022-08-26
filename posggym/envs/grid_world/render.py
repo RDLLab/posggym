@@ -23,19 +23,25 @@ COLORS = {
     'green': np.array([0, 255, 0]),
     'purple': np.array([112, 39, 195]),
     'yellow': np.array([255, 255, 0]),
-    'grey': np.array([100, 100, 100])
+    'grey': np.array([100, 100, 100]),
+    'white': np.array([255, 255, 255]),
+    'cyan': np.array([0, 195, 195]),
 }
 
 COLOR_TO_IDX = {
     'red': 0,
-    'green': 1,
-    'blue': 2,
+    'blue': 1,
+    'green': 2,
     'purple': 3,
     'yellow': 4,
-    'grey': 5
+    'grey': 5,
+    "white": 6,
+    "cyan": 7
 }
 
-AGENT_COLORS = ['red', 'blue', 'purple', 'yellow']
+AGENT_COLORS = [
+    'red', 'blue', 'green', 'purple', 'yellow', 'white', 'cyan'
+]
 
 
 def get_agent_color(agent_id: int) -> str:
@@ -218,7 +224,7 @@ class GWRenderer:
             agent_dirs = tuple(Direction.NORTH for _ in range(self._n_agents))
 
         if agent_colors is None:
-            assert self._n_agents < len(AGENT_COLORS), (
+            assert self._n_agents <= len(AGENT_COLORS), (
                 "Agent colors must be specified when rendering envs with "
                 f"more than {len(AGENT_COLORS)-1} agents."
             )
