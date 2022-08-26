@@ -181,6 +181,30 @@ def get_3x3_grid() -> DrivingGrid:
     return parse_grid_str(grid_str, 2)
 
 
+def get_4x4_intersection_grid() -> DrivingGrid:
+    """Generate a 4-by-4 intersection grid layout."""
+    grid_str = (
+        "#1b#\n"
+        "d..3\n"
+        "2..c\n"
+        "#a0#\n"
+    )
+    return parse_grid_str(grid_str, 4)
+
+
+def get_6x6_intersection_grid() -> DrivingGrid:
+    """Generate a 6-by-6 intersection grid layout."""
+    grid_str = (
+        "##1b##\n"
+        "##..##\n"
+        "d....3\n"
+        "2....c\n"
+        "##..##\n"
+        "##a0##\n"
+    )
+    return parse_grid_str(grid_str, 4)
+
+
 def get_7x7_crisscross_grid() -> DrivingGrid:
     """Generate a 7-by-7 Criss-Cross grid layout."""
     grid_str = (
@@ -370,6 +394,8 @@ def get_14x14_roundabout_wide_grid() -> DrivingGrid:
 # inifinite horizon = cars reset when goal reached rather than epsidoe ends
 SUPPORTED_GRIDS = {
     '3x3': (get_3x3_grid, 30, 100),
+    '4x4Intersection': (get_4x4_intersection_grid, 20, 100),
+    '6x6Intersection': (get_6x6_intersection_grid, 20, 100),
     '7x7CrissCross1': (get_7x7_crisscross_grid, 50, 200),
     '7x7CrissCross2': (get_7x7_crisscross2_grid, 50, 200),
     '7x7CrissCross3': (get_7x7_crisscross3_grid, 50, 200),
