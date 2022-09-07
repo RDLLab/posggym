@@ -85,9 +85,8 @@ class DrivingEnv(core.DefaultEnv):
     variable is updated. Once a vehicle reaches it's destination it is stuck.
 
     Episodes ends when all agents have either reached their destination or
-    crashed, or the episode step limit is reached. If using infinite_horizon
-    mode then vehicles reset to a randomly chosen start location each time
-    all agents have either crashed or reach their destination.
+    crashed, or the episode step limit is reached.
+
     """
 
     metadata = {"render.modes": ['human', 'ansi', 'rgb_array']}
@@ -97,14 +96,12 @@ class DrivingEnv(core.DefaultEnv):
                  num_agents: int,
                  obs_dim: Tuple[int, int, int],
                  obstacle_collisions: bool,
-                 infinite_horizon: bool = False,
                  **kwargs):
         self._model = dmodel.DrivingModel(
             grid,
             num_agents,
             obs_dim,
             obstacle_collisions,
-            infinite_horizon,
             **kwargs
         )
         self._obs_dim = obs_dim
@@ -242,7 +239,6 @@ class DrivingGenEnv(DrivingEnv):
                  obstacle_collisions: bool,
                  n_grids: Optional[int],
                  generator_params: Dict[str, Any],
-                 infinite_horizon: bool = False,
                  shuffle_grid_order: bool = True,
                  seed: Optional[int] = None,
                  **kwargs):
@@ -268,7 +264,6 @@ class DrivingGenEnv(DrivingEnv):
             "num_agents": num_agents,
             "obs_dim": obs_dim,
             "obstacle_collisions": obstacle_collisions,
-            "infinite_horizon": infinite_horizon,
             **kwargs
         }
 
@@ -277,7 +272,6 @@ class DrivingGenEnv(DrivingEnv):
             num_agents,
             obs_dim,
             obstacle_collisions=obstacle_collisions,
-            infinite_horizon=infinite_horizon,
             seed=seed,
             **kwargs
         )

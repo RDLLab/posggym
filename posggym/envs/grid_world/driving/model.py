@@ -202,9 +202,6 @@ class DrivingModel(M.POSGModel):
     obstacle_collisions : bool
         whether cars can crash into wall and other obstacles, on top of
         crashing into other vehicles
-    infinite_horizon : bool
-        whether problem should terminate once a terminal state is reached
-        (default, False) or reset to start position and continue (True).
 
     """
 
@@ -219,7 +216,6 @@ class DrivingModel(M.POSGModel):
                  num_agents: int,
                  obs_dim: Tuple[int, int, int],
                  obstacle_collisions: bool,
-                 infinite_horizon: bool = False,
                  **kwargs):
         assert 0 < num_agents <= grid.supported_num_agents
         assert obs_dim[0] > 0 and obs_dim[1] >= 0 and obs_dim[2] >= 0
@@ -227,7 +223,6 @@ class DrivingModel(M.POSGModel):
         self.grid = grid
         self._obs_front, self._obs_back, self._obs_side = obs_dim
         self._obstacle_collisions = obstacle_collisions
-        self._infinite_horizon = infinite_horizon
         self._rng = random.Random(kwargs.get("seed", None))
 
     @property
@@ -372,16 +367,7 @@ class DrivingModel(M.POSGModel):
             action_i = actions[i]
             state_i = state[i]
             next_state_i = next_state[i]
-            if (
-                self._infinite_horizon
-                and (state_i.dest_reached or state_i.crashed)
-            ):
-                # vehicle reached terminal state in previous step so reset
-                vehicle_coords.remove(state_i.coord)
-                next_state[i] = self._reset_vehicle(i, state_i, vehicle_coords)
-                vehicle_coords.add(next_state[i].coord)
-                continue
-            elif state_i.dest_reached or next_state_i.crashed:
+            if state_i.dest_reached or next_state_i.crashed:
                 # already at destination or crashed, or was crashed into this
                 # step
                 continue
@@ -651,15 +637,10 @@ class DrivingModel(M.POSGModel):
         return tuple(rewards)
 
     def _is_done(self, state: M.State) -> Tuple[Tuple[bool, ...], bool]:
-        if self._infinite_horizon:
-            return (False, ) * self.n_agents, False
         dones = tuple(self._vehicle_state_is_terminal(vs) for vs in state)
         return dones, all(dones)
 
     def _get_outcome(self, state: M.State) -> Tuple[M.Outcome, ...]:
-        if self._infinite_horizon:
-            return (M.Outcome.NA, M.Outcome.NA)
-
         outcomes = []
         for i in range(self.n_agents):
             if state[i].dest_reached:

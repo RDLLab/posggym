@@ -13,23 +13,24 @@ from posggym.envs.grid_world import pursuit_evasion
 from posggym.envs.grid_world import two_paths
 from posggym.envs.grid_world import uav
 from posggym.envs.grid_world import driving
+from posggym.envs.highway_env.scenarios import HWSCENARIOS
 
 
 # Full Model
 # -------------------------------------------
 
 register(
-    env_id="MABC-v0",
+    id="MABC-v0",
     entry_point="posggym.envs.classic.mabc:MABCEnv"
 )
 
 register(
-    env_id="MultiAgentTiger-v0",
+    id="MultiAgentTiger-v0",
     entry_point="posggym.envs.classic.mat:MultiAgentTigerEnv"
 )
 
 register(
-    env_id="RockPaperScissors-v0",
+    id="RockPaperScissors-v0",
     entry_point="posggym.envs.classic.rps:RockPaperScissorsEnv"
 )
 
@@ -40,7 +41,7 @@ register(
 # Two Paths
 for grid_name in two_paths.grid.SUPPORTED_GRIDS:
     register(
-        env_id=f"TwoPaths{grid_name}-v0",
+        id=f"TwoPaths{grid_name}-v0",
         entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
         max_episode_steps=two_paths.grid.SUPPORTED_GRIDS[grid_name][1],
         kwargs={
@@ -51,7 +52,7 @@ for grid_name in two_paths.grid.SUPPORTED_GRIDS:
     )
 
     register(
-        env_id=f"TwoPaths{grid_name}Stochastic-v0",
+        id=f"TwoPaths{grid_name}Stochastic-v0",
         entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
         max_episode_steps=two_paths.grid.SUPPORTED_GRIDS[grid_name][1],
         kwargs={
@@ -62,7 +63,7 @@ for grid_name in two_paths.grid.SUPPORTED_GRIDS:
     )
 
     register(
-        env_id=f"TwoPaths{grid_name}-v1",
+        id=f"TwoPaths{grid_name}-v1",
         entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
         max_episode_steps=two_paths.grid.SUPPORTED_GRIDS[grid_name][2],
         kwargs={
@@ -73,7 +74,7 @@ for grid_name in two_paths.grid.SUPPORTED_GRIDS:
     )
 
     register(
-        env_id=f"TwoPaths{grid_name}Stochastic-v1",
+        id=f"TwoPaths{grid_name}Stochastic-v1",
         entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
         max_episode_steps=two_paths.grid.SUPPORTED_GRIDS[grid_name][2],
         kwargs={
@@ -87,7 +88,7 @@ for grid_name in two_paths.grid.SUPPORTED_GRIDS:
 # Pursuit-Evasion
 for grid_name in pursuit_evasion.grid.SUPPORTED_GRIDS:
     register(
-        env_id=f"PursuitEvasion{grid_name}-v0",
+        id=f"PursuitEvasion{grid_name}-v0",
         entry_point=(
             "posggym.envs.grid_world.pursuit_evasion:PursuitEvasionEnv"
         ),
@@ -99,7 +100,7 @@ for grid_name in pursuit_evasion.grid.SUPPORTED_GRIDS:
     )
 
     register(
-        env_id=f"PursuitEvasion{grid_name}Stochastic-v0",
+        id=f"PursuitEvasion{grid_name}Stochastic-v0",
         entry_point=(
             "posggym.envs.grid_world.pursuit_evasion:PursuitEvasionEnv"
         ),
@@ -114,7 +115,7 @@ for grid_name in pursuit_evasion.grid.SUPPORTED_GRIDS:
 # Unmanned Aerial Vehicle (UAV)
 for grid_name in uav.grid.SUPPORTED_GRIDS:
     register(
-        env_id=f"UAV{grid_name}-v0",
+        id=f"UAV{grid_name}-v0",
         entry_point="posggym.envs.grid_world.uav:UAVEnv",
         kwargs={
             "grid_name": grid_name,
@@ -128,7 +129,7 @@ for grid_name in driving.grid.SUPPORTED_GRIDS:
     for n in range(2, grid_fn().supported_num_agents+1):
         env_name_prefix = f"Driving{grid_name}-n{n}"
         register(
-            env_id=f"{env_name_prefix}-v0",
+            id=f"{env_name_prefix}-v0",
             entry_point="posggym.envs.grid_world.driving:DrivingEnv",
             max_episode_steps=finite_steps,
             kwargs={
@@ -141,7 +142,7 @@ for grid_name in driving.grid.SUPPORTED_GRIDS:
         )
 
         register(
-            env_id=f"{env_name_prefix}-v1",
+            id=f"{env_name_prefix}-v1",
             entry_point="posggym.envs.grid_world.driving:DrivingEnv",
             max_episode_steps=inf_steps,
             kwargs={
@@ -154,7 +155,7 @@ for grid_name in driving.grid.SUPPORTED_GRIDS:
         )
 
         register(
-            env_id=f"{env_name_prefix}-v2",
+            id=f"{env_name_prefix}-v2",
             entry_point="posggym.envs.grid_world.driving:DrivingEnv",
             max_episode_steps=finite_steps,
             kwargs={
@@ -167,7 +168,7 @@ for grid_name in driving.grid.SUPPORTED_GRIDS:
         )
 
         register(
-            env_id=f"{env_name_prefix}-v3",
+            id=f"{env_name_prefix}-v3",
             entry_point="posggym.envs.grid_world.driving:DrivingEnv",
             max_episode_steps=inf_steps,
             kwargs={
@@ -185,7 +186,7 @@ for grid_name in driving.gen.SUPPORTED_GEN_PARAMS:
     env_params = driving.gen.SUPPORTED_GEN_PARAMS[grid_name]
     gen_params, finite_steps, inf_steps = env_params   # type: ignore
     register(
-        env_id=f"DrivingGen{grid_name}-v0",
+        id=f"DrivingGen{grid_name}-v0",
         entry_point="posggym.envs.grid_world.driving:DrivingGenEnv",
         max_episode_steps=finite_steps,
         kwargs={
@@ -195,48 +196,6 @@ for grid_name in driving.gen.SUPPORTED_GEN_PARAMS:
             "n_grids": None,
             "generator_params": gen_params,
             "infinite_horizon": False
-        }
-    )
-
-    register(
-        env_id=f"DrivingGen{grid_name}-v1",
-        entry_point="posggym.envs.grid_world.driving:DrivingGenEnv",
-        max_episode_steps=inf_steps,
-        kwargs={
-            "num_agents": 2,
-            "obs_dim": (3, 1, 1),
-            "obstacle_collisions": False,
-            "n_grids": None,
-            "generator_params": gen_params,
-            "infinite_horizon": True
-        }
-    )
-
-    register(
-        env_id=f"DrivingGen{grid_name}-v2",
-        entry_point="posggym.envs.grid_world.driving:DrivingGenEnv",
-        max_episode_steps=finite_steps,
-        kwargs={
-            "num_agents": 2,
-            "obs_dim": (3, 1, 1),
-            "obstacle_collisions": True,
-            "n_grids": None,
-            "generator_params": gen_params,
-            "infinite_horizon": False
-        }
-    )
-
-    register(
-        env_id=f"DrivingGen{grid_name}-v3",
-        entry_point="posggym.envs.grid_world.driving:DrivingGenEnv",
-        max_episode_steps=inf_steps,
-        kwargs={
-            "num_agents": 2,
-            "obs_dim": (3, 1, 1),
-            "obstacle_collisions": True,
-            "n_grids": None,
-            "generator_params": gen_params,
-            "infinite_horizon": True
         }
     )
 
@@ -253,7 +212,7 @@ coop = [True, False]
 for s, n, f, c in product(sizes, players, foods, coop):
     coop_str = "-coop" if c else ""
     register(
-        env_id=f"LBF{s}x{s}-n{n}-f{f}{coop_str}-v2",
+        id=f"LBF{s}x{s}-n{n}-f{f}{coop_str}-v2",
         entry_point="posggym.envs.lbf:LBFEnv",
         kwargs={
             "num_agents": n,
@@ -270,7 +229,7 @@ for s, n, f, c in product(sizes, players, foods, coop):
     )
 
     register(
-        env_id=f"LBFGrid{s}x{s}-n{n}-f{f}{coop_str}-v2",
+        id=f"LBFGrid{s}x{s}-n{n}-f{f}{coop_str}-v2",
         entry_point="posggym.envs.lbf:LBFEnv",
         kwargs={
             "num_agents": n,

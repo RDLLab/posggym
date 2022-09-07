@@ -303,68 +303,65 @@ def get_7x7_roundabout_grid() -> DrivingGrid:
     return parse_grid_str(grid_str, 4)
 
 
-def get_15x15_crisscross_grid() -> DrivingGrid:
-    """Generate a 15-by-15 Criss-Cross grid layout."""
+def get_14x14_crisscross_grid() -> DrivingGrid:
+    """Generate a 14-by-14 Criss-Cross grid layout."""
     grid_str = (
-        "#-#-#-#-#-#-#-#\n"
-        "-.............+\n"
-        "#.#.#.#.#.#.#.#\n"
-        "-.............+\n"
-        "#.#.#.#.#.#.#.#\n"
-        "-.............+\n"
-        "#.#.#.#.#.#.#.#\n"
-        "-.............+\n"
-        "#.#.#.#.#.#.#.#\n"
-        "-.............+\n"
-        "#.#.#.#.#.#.#.#\n"
-        "-.............+\n"
-        "#.#.#.#.#.#.#.#\n"
-        "-.............+\n"
-        "#+#+#+#+#+#+#+#\n"
+        "##-##-##-##-##\n"
+        "##.##.##.##.##\n"
+        "-............+\n"
+        "##.##.##.##.##\n"
+        "##.##.##.##.##\n"
+        "-............+\n"
+        "##.##.##.##.##\n"
+        "##.##.##.##.##\n"
+        "-............+\n"
+        "##.##.##.##.##\n"
+        "##.##.##.##.##\n"
+        "-............+\n"
+        "##.##.##.##.##\n"
+        "##+##+##+##+##\n"
     )
-    return parse_grid_str(grid_str, 14)
+    return parse_grid_str(grid_str, 4)
 
 
-def get_15x15_blocks_grid() -> DrivingGrid:
-    """Generate a 15-by-15 Blocks grid layout."""
+def get_14x14_blocks_grid() -> DrivingGrid:
+    """Generate a 14-by-14 Blocks grid layout."""
     grid_str = (
-        "#-.....-.....-#\n"
-        "-####.### ####+\n"
-        ".####.###.####.\n"
-        ".####.###.####.\n"
-        ".####.###.####.\n"
-        "...............\n"
-        ".####.### ####.\n"
-        "-####.###.####+\n"
-        ".####.###.####.\n"
-        "...............\n"
-        ".####.###.####.\n"
-        ".####.### ####.\n"
-        ".####.###.####.\n"
-        "-####.###.####+\n"
-        "#+.....+.....+#\n"
+        "#-..........-#\n"
+        "-###.####.###+\n"
+        ".###.####.###.\n"
+        ".###.####.###.\n"
+        "..............\n"
+        ".###.####.###.\n"
+        ".###.####.###.\n"
+        ".###.####.###.\n"
+        ".###.####.###.\n"
+        "..............\n"
+        ".###.####.###.\n"
+        ".###.####.###.\n"
+        "-###.####.###+\n"
+        "#+..........+#\n"
     )
-    return parse_grid_str(grid_str, 6)
+    return parse_grid_str(grid_str, 4)
 
 
-def get_15x15_roundabout_grid() -> DrivingGrid:
-    """Generate a 15-by-15 Round About grid layout."""
+def get_14x14_roundabout_grid() -> DrivingGrid:
+    """Generate a 14-by-14 Round About grid layout."""
     grid_str = (
-        "#-...........-#\n"
-        "-######.######+\n"
-        ".######.######.\n"
-        ".######.######.\n"
-        ".######.######.\n"
-        ".####.....####.\n"
-        ".####.### ####.\n"
-        "......###......\n"
-        ".####.###.####.\n"
-        ".####.....####.\n"
-        ".######.######.\n"
-        ".###### ######.\n"
-        ".######.######.\n"
-        "-######.######+\n"
-        "#+...........+#\n"
+        "#-..........-#\n"
+        "-######.#####+\n"
+        ".######.#####.\n"
+        ".######.#####.\n"
+        ".######.#####.\n"
+        ".####.....###.\n"
+        ".####.### ###.\n"
+        "......###.....\n"
+        ".####.###.###.\n"
+        ".####.....###.\n"
+        ".######.#####.\n"
+        ".###### #####.\n"
+        "-######.#####+\n"
+        "#+..........+#\n"
     )
     return parse_grid_str(grid_str, 4)
 
@@ -403,10 +400,10 @@ SUPPORTED_GRIDS = {
     '7x7CrissCross5': (get_7x7_crisscross5_grid, 50, 200),
     '7x7Blocks': (get_7x7_blocks_grid, 50, 200),
     '7x7RoundAbout': (get_7x7_roundabout_grid, 50, 200),
+    '14x14Blocks': (get_14x14_blocks_grid, 100, 200),
+    '14x14CrissCross': (get_14x14_crisscross_grid, 100, 200),
+    '14x14RoundAbout': (get_14x14_roundabout_grid, 100, 200),
     '14x14WideRoundAbout': (get_14x14_roundabout_wide_grid, 50, 200),
-    '15x15CrissCross': (get_15x15_crisscross_grid, 100, 200),
-    '15x15Blocks': (get_15x15_blocks_grid, 100, 200),
-    '15x15RoundAbout': (get_15x15_roundabout_grid, 100, 200),
 }
 
 
