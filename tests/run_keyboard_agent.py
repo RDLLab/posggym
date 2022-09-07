@@ -91,6 +91,9 @@ def main(env_name: str,
             print(f"{done=}")
             t += 1
 
+            for j in range(env.n_agents):
+                rewards[j] += r[j]
+
             if render:
                 env.render(render_mode)
 
@@ -100,9 +103,6 @@ def main(env_name: str,
             if done:
                 print(f"End episode {i}")
                 break
-
-            for j in range(env.n_agents):
-                rewards[j] += r[j]
 
         dones += int(done)
         episode_steps.append(t)

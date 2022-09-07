@@ -363,7 +363,7 @@ class Wrapper(Env):
         self._metadata = value
 
     def step(self,
-             actions: Tuple[M.Action, ...]
+             actions: M.JointAction
              ) -> Tuple[M.JointObservation, M.JointReward, bool, Dict]:
         return self.env.step(actions)
 

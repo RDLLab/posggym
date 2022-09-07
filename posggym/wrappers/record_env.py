@@ -1,62 +1,18 @@
 import os
 from typing import Callable, Optional, Tuple, Dict
 
-from gym import logger
-from gym import wrappers
-from gym.wrappers.monitoring import video_recorder
-
 import posggym.model as M
+from posggym import logger
 from posggym.core import Env, Wrapper
+from posggym.wrappers.monitoring.video_recorder import VideoRecorder
 
 
-class POSGGYMVideoRecorder(video_recorder.VideoRecorder):
-    """VideoRecorder for rendering videos of trajectories.
-
-    This implementation is the same as the parent class but makes it compatible
-    with posggym.env.render function which returns rgb arrays for the whole
-    environment as well as (optionally) each agent.
-
-    """
-
-    def capture_frame(self):
-        if not self.functional:
-            return
-        if self._closed:
-            logger.warn(
-                "The video recorder has been closed and no frames will be "
-                "captured anymore."
-            )
-            return
-        logger.debug("Capturing video frame: path=%s", self.path)
-
-        render_mode = "ansi" if self.ansi_mode else "rgb_array"
-        if self.ansi_mode:
-            frame = self.env.render(mode=render_mode)
-        else:
-            (env_frame, agent_frames) = self.env.render(mode=render_mode)
-            # TODO combine env_frame and agent_frames
-            frame = env_frame
-
-        if frame is None:
-            if self._async:
-                return
-            else:
-                # Indicates a bug in the environment: don't want to raise
-                # an error here.
-                logger.warn(
-                    "Env returned None on render(). Disabling further "
-                    "rendering for video recorder by marking as disabled: "
-                    "path=%s metadata_path=%s",
-                    self.path,
-                    self.metadata_path,
-                )
-                self.broken = True
-        else:
-            self.last_frame = frame
-            if self.ansi_mode:
-                self._encode_ansi_frame(frame)
-            else:
-                self._encode_image_frame(frame)
+def capped_cubic_video_schedule(episode_id: int) -> bool:
+    """Get cubic schedule."""
+    if episode_id < 1000:
+        return int(round(episode_id ** (1.0 / 3))) ** 3 == episode_id
+    else:
+        return episode_id % 1000 == 0
 
 
 class RecordVideo(Wrapper):
@@ -65,7 +21,7 @@ class RecordVideo(Wrapper):
     It is based on the gym.wrappers.RecordVideo (version gym>0.22) wrapper.
     Adapted here to work with posggym's multiagent environment.
 
-    ref: https://github.com/openai/gym/blob/master/gym/wrappers/record_video.py
+    https://github.com/openai/gym/blob/0.22.0/gym/wrappers/record_video.py
 
     """
 
@@ -79,7 +35,7 @@ class RecordVideo(Wrapper):
         super().__init__(env)
 
         if episode_trigger is None and step_trigger is None:
-            episode_trigger = wrappers.capped_cubic_video_schedule
+            episode_trigger = capped_cubic_video_schedule
 
         trigger_count = sum(
             x is not None for x in [episode_trigger, step_trigger]
@@ -129,7 +85,7 @@ class RecordVideo(Wrapper):
             video_name = f"{self.name_prefix}-episode-{self.episode_id}"
 
         base_path = os.path.join(self.video_folder, video_name)
-        self.video_recorder = POSGGYMVideoRecorder(
+        self.video_recorder = VideoRecorder(
             env=self.env,
             base_path=base_path,
             metadata={"step_id": self.step_id, "episode_id": self.episode_id},
@@ -183,4 +139,3 @@ class RecordVideo(Wrapper):
 
     def __del__(self):
         self.close_video_recorder()
-

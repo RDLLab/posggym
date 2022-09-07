@@ -25,7 +25,7 @@ def get_env_state(env: lbf.ForagingEnv) -> LBFState:
 
 
 def set_env_state(env: lbf.ForagingEnv, state: LBFState):
-    """Get state of ForagingEnv."""
+    """Set state of ForagingEnv."""
     env.field = state[0]
     env.players = list(state[1])
     env.current_step = state[2]

@@ -1,4 +1,3 @@
-"""Initializes POSG Gym library """
 from posggym.core import Env
 from posggym.core import Wrapper
 from posggym.core import ActionWrapper
