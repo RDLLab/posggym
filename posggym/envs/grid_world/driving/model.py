@@ -230,6 +230,10 @@ class DrivingModel(M.POSGModel):
         return True
 
     @property
+    def is_symmetric(self) -> bool:
+        return True
+
+    @property
     def state_space(self) -> spaces.Space:
         vehicle_state_space = spaces.Tuple((
             # coord

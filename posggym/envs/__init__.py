@@ -5,9 +5,9 @@ Utilizes the OpenAI Gym env registration functionality.
 from itertools import product
 
 from posggym.envs.registration import register
-from posggym.envs.registration import make
-from posggym.envs.registration import spec
-from posggym.envs.registration import registry
+from posggym.envs.registration import make       # noqa
+from posggym.envs.registration import spec       # noqa
+from posggym.envs.registration import registry   # noqa
 
 from posggym.envs.grid_world import pursuit_evasion
 from posggym.envs.grid_world import two_paths

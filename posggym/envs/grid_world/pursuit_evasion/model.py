@@ -122,6 +122,10 @@ class PursuitEvasionModel(M.POSGModel):
         return True
 
     @property
+    def is_symmetric(self) -> bool:
+        return False
+
+    @property
     def state_space(self) -> spaces.Space:
         # s = Tuple[Coord, Direction, Coord, Direction, Coord, Coord, Coord]
         return spaces.Tuple((

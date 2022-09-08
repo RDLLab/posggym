@@ -89,10 +89,11 @@ class EnvSpec:
             cls = load(self.entry_point)
             env = cls(**_kwargs)
 
-        # Make the environment aware of which spec it came from.
+        # Make the environment and model aware of which spec they came from.
         spec = copy.deepcopy(self)
         spec._kwargs = _kwargs
         env.unwrapped.spec = spec
+        env.unwrapped.model.spec = spec
         if env.spec.max_episode_steps is not None:
             from posggym.wrappers.time_limit import TimeLimit
 
@@ -173,7 +174,7 @@ class EnvRegistry:
                 )
             id = f"{self._ns}/{id}"
         if id in self.env_specs:
-            logger.warn("Overriding environment {}".format(id))
+            logger.warn(f"Overriding environment {id}")
         self.env_specs[id] = EnvSpec(id, **kwargs)
 
     @contextlib.contextmanager
@@ -184,7 +185,7 @@ class EnvRegistry:
 
 
 # Global registry that all implemented environments are added too
-# Environments are registered when posg library is loaded
+# Environments are registered when posggym library is loaded
 registry = EnvRegistry()
 
 

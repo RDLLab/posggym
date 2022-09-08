@@ -6,11 +6,14 @@ https://github.com/openai/gym
 """
 import abc
 import copy
-from typing import Tuple, Optional, Dict
+from typing import Tuple, Optional, Dict, TYPE_CHECKING
 
 from gym import spaces
 
 import posggym.model as M
+
+if TYPE_CHECKING:
+    from posggym.envs.registration import EnvSpec
 
 
 class Env(abc.ABC):
@@ -43,7 +46,10 @@ class Env(abc.ABC):
 
     # Set this in SOME subclasses
     metadata: Dict = {"render.modes": []}
-    spec = None
+
+    # EnvSpec used to instantiate env instance
+    # This is set when env is made using posggym.make function
+    spec: "EnvSpec" = None
 
     @abc.abstractmethod
     def step(self,
@@ -166,6 +172,11 @@ class Env(abc.ABC):
     def observation_first(self) -> bool:
         """Get whether environment is observation or action first."""
         return self.model.observation_first
+
+    @property
+    def is_symmetric(self) -> bool:
+        """Get whether environment is symmetric."""
+        return self.model.is_symmetric
 
     @property
     def action_spaces(self) -> Tuple[spaces.Space, ...]:
@@ -361,6 +372,11 @@ class Wrapper(Env):
     @metadata.setter
     def metadata(self, value):
         self._metadata = value
+
+    @property
+    def spec(self):
+        """Returns the environment specification."""
+        return self.env.spec
 
     def step(self,
              actions: M.JointAction

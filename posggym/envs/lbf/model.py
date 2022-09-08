@@ -101,6 +101,10 @@ class LBFModel(M.POSGModel):
         return True
 
     @property
+    def is_symmetric(self) -> bool:
+        return True
+
+    @property
     def state_space(self) -> spaces.Space:
         raise NotImplementedError
 

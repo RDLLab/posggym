@@ -123,6 +123,10 @@ class MABCModel(M.POSGFullModel):
         return False
 
     @property
+    def is_symmetric(self) -> bool:
+        return True
+
+    @property
     def state_space(self) -> spaces.Space:
         return spaces.Tuple(
             tuple(

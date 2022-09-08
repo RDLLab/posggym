@@ -2,8 +2,12 @@
 import abc
 import enum
 from typing import Tuple, NamedTuple, Optional, Any, Sequence, Dict
+from typing import TYPE_CHECKING
 
 from gym import spaces
+
+if TYPE_CHECKING:
+    from posggym.envs.registration import EnvSpec
 
 AgentID = int
 State = Any
@@ -97,6 +101,10 @@ class POSGModel(abc.ABC):
         the observation space for each agent (O_0, ..., O_n)
     reward_ranges : Tuple[Tuple[Reward, Reward], ...]
         the minimum and maximim possible step reward for each agent
+    is_symmetric : bool
+        whether the environment is symmetric, that is whether all agents are
+        identical irrespective of their ID (i.e. same actions, observation, and
+        reward spaces and dynamics)
 
     Functions
     ---------
@@ -123,6 +131,10 @@ class POSGModel(abc.ABC):
 
     """
 
+    # EnvSpec used to instantiate env instance this model is for
+    # This is set when env is made using posggym.make function
+    spec: "EnvSpec" = None
+
     # pylint: disable=unused-argument
     def __init__(self, n_agents: int, **kwargs):
         self.n_agents = n_agents
@@ -141,6 +153,16 @@ class POSGModel(abc.ABC):
         Note: Observation first environment are equivalent to action first
         environments where all agents know when they are performing the first
         action and there is only a single first action available.
+        """
+
+    @property
+    @abc.abstractmethod
+    def is_symmetric(self) -> bool:
+        """Get swhether the environment is symmetric.
+
+        In symmetric environments all agents are identical irrespective of
+        their ID (i.e. same actions, observation, and reward spaces and
+        dynamics)
         """
 
     @property
