@@ -204,9 +204,9 @@ for grid_name in driving.gen.SUPPORTED_GEN_PARAMS:
 # -------------------------------------------
 # Ref: github.com/semitable/lb-foraging/blob/master/lbforaging/__init__.py
 
-sizes = [5, 10]
+sizes = [5, 10, 15, 20]
 players = [2, 3, 4, 6, 8]   # reduced
-foods = range(1, 6)
+foods = [1, 2, 3, 5, 7, 10]
 coop = [True, False]
 
 for s, n, f, c in product(sizes, players, foods, coop):

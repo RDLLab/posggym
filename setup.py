@@ -5,7 +5,8 @@ from setuptools import setup, find_packages
 extras = {
     "test": ["pytest>=6.2"],
     "render": ["matplotlib>=3.5"],
-    "highwayenv": ["highway-env==1.6"]
+    "highwayenv": ["highway-env==1.5"],
+    "lbf": ["lbforaging==1.1.1"]
 }
 
 extras['all'] = [item for group in extras.values() for item in group]
@@ -26,7 +27,7 @@ setup(
         if package.startswith('posggym')
     ],
     install_requires=[
-        'gym>=0.21',
+        'gym==0.21',
         'numpy>=1.20',
     ],
     extras_require=extras,

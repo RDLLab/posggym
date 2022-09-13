@@ -8,6 +8,7 @@ import copy
 import importlib
 import contextlib
 
+from posggym.core import Env
 from posggym import error, logger
 
 
@@ -72,7 +73,7 @@ class EnvSpec:
             )
         self._env_name = match.group(1)
 
-    def make(self, **kwargs):
+    def make(self, **kwargs) -> Env:
         """Instantiates an instance of environment with appropriate kwargs."""
         if self.entry_point is None:
             raise error.Error(
@@ -123,7 +124,7 @@ class EnvRegistry:
         self.env_specs = {}
         self._ns = None
 
-    def make(self, path, **kwargs):
+    def make(self, path: str, **kwargs) -> Env:
         if len(kwargs) > 0:
             logger.info("Making new env: %s (%s)", path, kwargs)
         else:
@@ -135,7 +136,7 @@ class EnvRegistry:
     def all(self):
         return self.env_specs.values()
 
-    def spec(self, path):
+    def spec(self, path: str) -> EnvSpec:
         if ":" in path:
             mod_name, _, id = path.partition(":")
             try:
@@ -160,7 +161,7 @@ class EnvRegistry:
         try:
             return self.env_specs[id]
         except KeyError:
-            raise error.UnregisteredEnv("No registered env with id: {id}")
+            raise error.UnregisteredEnv(f"No registered env with id: {id}")
 
     def register(self, id, **kwargs):
         if self._ns is not None:
@@ -194,12 +195,12 @@ def register(id, **kwargs):
     return registry.register(id, **kwargs)
 
 
-def make(id, **kwargs):
+def make(id, **kwargs) -> Env:
     """Create an environment according to the given ID."""
     return registry.make(id, **kwargs)
 
 
-def spec(id):
+def spec(id) -> EnvSpec:
     """Get the specification of the environment with given ID."""
     return registry.spec(id)
 

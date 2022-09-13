@@ -5,7 +5,7 @@ https://github.com/semitable/lb-foraging
 
 """
 import copy
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 
 import numpy as np
 from gym import spaces
@@ -95,6 +95,8 @@ class LBFModel(M.POSGModel):
             penalty
         )
         self._env.seed(kwargs.get("seed", None))
+        self.grid_observation = grid_observation
+        self.field_size = field_size
 
     @property
     def observation_first(self) -> bool:
@@ -111,7 +113,7 @@ class LBFModel(M.POSGModel):
     @property
     def action_spaces(self) -> Tuple[spaces.Space, ...]:
         return tuple(
-            spaces.Discrete(len(lbf.Action)) for _ in range(self.n_agents)
+            spaces.Discrete(len(lbf.LBFAction)) for _ in range(self.n_agents)
         )
 
     @property
@@ -155,3 +157,61 @@ class LBFModel(M.POSGModel):
                                  agent_id: M.AgentID,
                                  obs: M.Observation) -> M.Belief:
         raise NotImplementedError
+
+    def parse_obs(self,
+                  obs: np.ndarray
+                  ) -> Tuple[
+                      List[Tuple[int, int, int]], List[Tuple[int, int, int]]
+                  ]:
+        """Parse observation into (x, y, level) agent and food triplets.
+
+        Agent obs are ordered so the observing agent is first, then the
+        remaining observations are by agent order.
+
+        On triplet of [-1, -1, 0] means no observation for the given agent or
+        food.
+        """
+        if self.grid_observation:
+            return self.parse_grid_obs(obs)
+        return self.parse_vector_obs(obs)
+
+    def parse_grid_obs(self,
+                       obs: np.ndarray
+                       ) -> Tuple[
+                           List[Tuple[int, int, int]],
+                           List[Tuple[int, int, int]]
+                       ]:
+        """Parse grid observation int (x, y, level) agent and food triplets.
+
+        Agent obs are ordered so the observing agent is first, then the
+        remaining observations are by agent order.
+
+        On triplet of [-1, -1, 0] means no observation for the given agent or
+        food.
+        """
+        raise NotImplementedError
+
+    def parse_vector_obs(self,
+                         obs: np.ndarray
+                         ) -> Tuple[
+                             List[Tuple[int, int, int]],
+                             List[Tuple[int, int, int]]
+                         ]:
+        """Parse vector obs into (x, y, level) agent and food triplets.
+
+        Agent obs are ordered so the observing agent is first, then the
+        remaining observations are by agent order.
+
+        On triplet of [-1, -1, 0] means no observation for the given agent or
+        food.
+        """
+        assert obs.shape[0] == 3 * (self.n_agents + self._env.max_food)
+        agent_obs = []
+        food_obs = []
+        for i in range(0, obs.shape[0], 3):
+            triplet = tuple(int(x) for x in obs[i:i+3])
+            if i < self._env.max_food * 3:
+                food_obs.append(triplet)
+            else:
+                agent_obs.append(triplet)
+        return agent_obs, food_obs

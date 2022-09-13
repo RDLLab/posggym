@@ -15,7 +15,7 @@ import gym
 import numpy as np
 
 
-class Action(Enum):
+class LBFAction(Enum):
     """Level-Based Foraging Actions."""
     NONE = 0
     NORTH = 1
@@ -74,7 +74,11 @@ class ForagingEnv(gym.Env):
     metadata = {"render.modes": ["human"]}
 
     action_set = [
-        Action.NORTH, Action.SOUTH, Action.WEST, Action.EAST, Action.LOAD
+        LBFAction.NORTH,
+        LBFAction.SOUTH,
+        LBFAction.WEST,
+        LBFAction.EAST,
+        LBFAction.LOAD
     ]
     Observation = namedtuple(
         "Observation",
@@ -144,16 +148,16 @@ class ForagingEnv(gym.Env):
             field_x = self.field.shape[1]
             field_y = self.field.shape[0]
             # field_size = field_x * field_y
+            n_players = len(self.players)
 
             max_food = self.max_food
-            max_food_level = self.max_player_level * len(self.players)
+            max_food_level = self.max_player_level * n_players
 
-            min_obs = [-1, -1, 0] * max_food + [-1, -1, 0] * len(self.players)
-            max_obs = [field_x-1, field_y-1, max_food_level] * max_food + [
-                field_x-1,
-                field_y-1,
-                self.max_player_level,
-            ] * len(self.players)
+            min_obs = [-1, -1, 0] * max_food + [-1, -1, 0] * n_players
+            max_obs = (
+                [field_x-1, field_y-1, max_food_level] * max_food
+                + [field_x-1, field_y-1, self.max_player_level] * n_players
+            )
         else:
             # grid observation space
             grid_shape = (1 + 2 * self.sight, 1 + 2 * self.sight)
@@ -217,7 +221,7 @@ class ForagingEnv(gym.Env):
     def _gen_valid_moves(self):
         self._valid_actions = {
             player: [
-                action for action in Action
+                action for action in LBFAction
                 if self._is_valid_action(player, action)
             ]
             for player in self.players
@@ -334,29 +338,29 @@ class ForagingEnv(gym.Env):
         return players
 
     def _is_valid_action(self, player, action):
-        if action == Action.NONE:
+        if action == LBFAction.NONE:
             return True
-        elif action == Action.NORTH:
+        elif action == LBFAction.NORTH:
             return (
                 player.position[0] > 0
                 and self.field[player.position[0] - 1, player.position[1]] == 0
             )
-        elif action == Action.SOUTH:
+        elif action == LBFAction.SOUTH:
             return (
                 player.position[0] < self.rows - 1
                 and self.field[player.position[0] + 1, player.position[1]] == 0
             )
-        elif action == Action.WEST:
+        elif action == LBFAction.WEST:
             return (
                 player.position[1] > 0
                 and self.field[player.position[0], player.position[1] - 1] == 0
             )
-        elif action == Action.EAST:
+        elif action == LBFAction.EAST:
             return (
                 player.position[1] < self.cols - 1
                 and self.field[player.position[0], player.position[1] + 1] == 0
             )
-        elif action == Action.LOAD:
+        elif action == LBFAction.LOAD:
             return self.adjacent_food(*player.position) > 0
 
         self.logger.error(f"Undefined action {action} from {player.name}")
@@ -374,34 +378,31 @@ class ForagingEnv(gym.Env):
         )
 
     def _make_obs(self, player):
-        return self.Observation(
-            actions=self._valid_actions[player],
-            players=[
-                self.PlayerObservation(
-                    position=self._transform_to_neighborhood(
-                        player.position, self.sight, a.position
-                    ),
+        player_obs_pos = self._transform_to_neighborhood(
+            player.position, self.sight, player.position
+        )
+        # Need to correct for player obs position being off-center due to
+        # being too close to 0th row or column
+        player_obs = []
+        for a in self.players:
+            a_pos = self._transform_to_neighborhood(
+                player.position, self.sight, a.position
+            )
+            if (
+                abs(a_pos[0] - player_obs_pos[0]) <= self.sight
+                and abs(a_pos[1] - player_obs_pos[1]) <= self.sight
+            ):
+                player_obs.append(self.PlayerObservation(
+                    position=a_pos,
                     level=a.level,
                     is_self=a == player,
                     history=a.history,
                     reward=a.reward if a == player else None,
-                )
-                for a in self.players
-                if (
-                    min(
-                        self._transform_to_neighborhood(
-                            player.position, self.sight, a.position
-                        )
-                    )
-                    >= 0
-                )
-                and max(
-                    self._transform_to_neighborhood(
-                        player.position, self.sight, a.position
-                    )
-                )
-                <= 2 * self.sight
-            ],
+                ))
+
+        return self.Observation(
+            actions=self._valid_actions[player],
+            players=player_obs,
             # todo also check max?
             field=np.copy(self.neighborhood(*player.position, self.sight)),
             game_over=self._game_over,
@@ -414,9 +415,10 @@ class ForagingEnv(gym.Env):
             obs = np.zeros(self.observation_space[0].shape, dtype=np.float32)
             # obs[: observation.field.size] = observation.field.flatten()
             # self player is always first
-            seen_players = [p for p in observation.players if p.is_self] + [
-                p for p in observation.players if not p.is_self
-            ]
+            seen_players = (
+                [p for p in observation.players if p.is_self]
+                + [p for p in observation.players if not p.is_self]
+            )
 
             for i in range(self.max_food):
                 obs[3 * i] = -1
@@ -500,6 +502,7 @@ class ForagingEnv(gym.Env):
             )
         else:
             nobs = tuple(make_obs_array(obs) for obs in observations)
+
         nreward = tuple(get_player_reward(obs) for obs in observations)
         ndone = tuple(obs.game_over for obs in observations)
         # ninfo = [{'observation': obs} for obs in observations]
@@ -536,7 +539,8 @@ class ForagingEnv(gym.Env):
             p.reward = 0
 
         actions = [
-            Action(a) if Action(a) in self._valid_actions[p] else Action.NONE
+            LBFAction(a)
+            if LBFAction(a) in self._valid_actions[p] else LBFAction.NONE
             for p, a in zip(self.players, actions)
         ]
 
@@ -548,7 +552,7 @@ class ForagingEnv(gym.Env):
                         player.name, player.position, action
                     )
                 )
-                actions[i] = Action.NONE
+                actions[i] = LBFAction.NONE
 
         loading_players = set()
 
@@ -558,25 +562,25 @@ class ForagingEnv(gym.Env):
 
         # so check for collisions
         for player, action in zip(self.players, actions):
-            if action == Action.NONE:
+            if action == LBFAction.NONE:
                 collisions[player.position].append(player)
-            elif action == Action.NORTH:
+            elif action == LBFAction.NORTH:
                 collisions[
                     (player.position[0] - 1, player.position[1])
                 ].append(player)
-            elif action == Action.SOUTH:
+            elif action == LBFAction.SOUTH:
                 collisions[
                     (player.position[0] + 1, player.position[1])
                 ].append(player)
-            elif action == Action.WEST:
+            elif action == LBFAction.WEST:
                 collisions[
                     (player.position[0], player.position[1] - 1)
                 ].append(player)
-            elif action == Action.EAST:
+            elif action == LBFAction.EAST:
                 collisions[
                     (player.position[0], player.position[1] + 1)
                 ].append(player)
-            elif action == Action.LOAD:
+            elif action == LBFAction.LOAD:
                 collisions[player.position].append(player)
                 loading_players.add(player)
 
