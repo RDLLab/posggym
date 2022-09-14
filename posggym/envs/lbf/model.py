@@ -16,19 +16,41 @@ import posggym.envs.lbf.core as lbf
 LBFState = Tuple[np.ndarray, Tuple[lbf.Player, ...], int]
 
 
+class LBFState:
+    """State in Level-Based Foraging environment."""
+
+    def __init__(self,
+                 field: np.ndarray,
+                 players: Tuple[lbf.Player, ...],
+                 step: int):
+        self.field = field
+        self.players = players
+        self.step = step
+
+    def __eq__(self, o):
+        return (
+            (self.field == o.field).all()
+            and self.players == o.players
+            and self.step == o.step
+        )
+
+    def __hash__(self):
+        return hash((self.field.tostring(), self.players, self.step))
+
+
 def get_env_state(env: lbf.ForagingEnv) -> LBFState:
     """Get state of ForagingEnv."""
     field = np.array(env.field)
     players = tuple(copy.deepcopy(env.players))
     step = env.current_step
-    return (field, players, step)
+    return LBFState(field, players, step)
 
 
 def set_env_state(env: lbf.ForagingEnv, state: LBFState):
     """Set state of ForagingEnv."""
-    env.field = state[0]
-    env.players = list(state[1])
-    env.current_step = state[2]
+    env.field = state.field
+    env.players = list(state.players)
+    env.current_step = state.step
 
 
 class LBFBelief(M.Belief):
@@ -61,13 +83,23 @@ class LBFModel(M.POSGModel):
         whether to force cooperation or not
     normalize_reward : bool, optional
         whether to normalize the reward or not (default=True)
-    grid_observation : bool, optional
-        whether agents observations are multiple 2D grids (True) or a vector
-        (False) (default=False)
+    observation_mode : str, optional
+        The observation mode for agent (default='tuple')
+          - 'grid' - observations are multiple 2D grids (3D np.ndarray)
+          - 'vector' - observations are vector (1D np.ndarray)
+          - 'tuple' - observations are a tuple with same format as 'vector'
+                      observations but as a hashable Python tuple object
+                      containing integers instead of floats
+
     penalty : float, optional
         the penalty for failing to load food (default=0.0)
 
     """
+
+    OBSERVATION_MODES = [
+        "grid", "vector", "tuple"
+    ]
+
     # pylint: disable=unused-argument
     def __init__(self,
                  num_agents: int,
@@ -77,10 +109,13 @@ class LBFModel(M.POSGModel):
                  sight: int,
                  max_episode_steps: int,
                  force_coop: bool,
+                 static_layout: bool,
                  normalize_reward: bool = True,
-                 grid_observation: bool = False,
+                 observation_mode: str = "tuple",
                  penalty: float = 0.0,
                  **kwargs):
+        assert observation_mode in self.OBSERVATION_MODES
+
         super().__init__(num_agents, **kwargs)
         self._env = lbf.ForagingEnv(
             num_agents,
@@ -90,12 +125,13 @@ class LBFModel(M.POSGModel):
             sight,
             max_episode_steps,
             force_coop,
+            static_layout,
             normalize_reward,
-            grid_observation,
-            penalty
+            grid_observation=observation_mode not in ('vector', 'tuple'),
+            penalty=penalty
         )
         self._env.seed(kwargs.get("seed", None))
-        self.grid_observation = grid_observation
+        self.observation_mode = observation_mode
         self.field_size = field_size
 
     @property
@@ -141,6 +177,11 @@ class LBFModel(M.POSGModel):
         next_state = get_env_state(self._env)
         all_done = all(dones)
         outcomes = (M.Outcome.NA,) * self.n_agents
+
+        if self.observation_mode == "tuple":
+            # convert from vector obs to tuple obs
+            obs = tuple(tuple(int(x) for x in o) for o in obs)
+
         return M.JointTimestep(
             next_state, obs, rewards, dones, all_done, outcomes
         )
@@ -151,6 +192,11 @@ class LBFModel(M.POSGModel):
     def sample_initial_obs(self, state: M.State) -> M.JointObservation:
         set_env_state(self._env, state)
         obs, _, _, _ = self._env._make_gym_obs()
+
+        if self.observation_mode == "tuple":
+            # convert from vector obs to tuple obs
+            obs = tuple(tuple(int(x) for x in o) for o in obs)
+
         return obs
 
     def get_agent_initial_belief(self,
@@ -171,9 +217,11 @@ class LBFModel(M.POSGModel):
         On triplet of [-1, -1, 0] means no observation for the given agent or
         food.
         """
-        if self.grid_observation:
+        if self.observation_mode == "grid":
             return self.parse_grid_obs(obs)
-        return self.parse_vector_obs(obs)
+        elif self.observation_mode == "vector":
+            return self.parse_vector_obs(obs)
+        return self.parse_tuple_obs(obs)
 
     def parse_grid_obs(self,
                        obs: np.ndarray
@@ -210,6 +258,31 @@ class LBFModel(M.POSGModel):
         food_obs = []
         for i in range(0, obs.shape[0], 3):
             triplet = tuple(int(x) for x in obs[i:i+3])
+            if i < self._env.max_food * 3:
+                food_obs.append(triplet)
+            else:
+                agent_obs.append(triplet)
+        return agent_obs, food_obs
+
+    def parse_tuple_obs(self,
+                        obs: Tuple[int, ...]
+                        ) -> Tuple[
+                            List[Tuple[int, int, int]],
+                            List[Tuple[int, int, int]]
+                        ]:
+        """Parse tuple obs into (x, y, level) agent and food triplets.
+
+        Agent obs are ordered so the observing agent is first, then the
+        remaining observations are by agent order.
+
+        On triplet of [-1, -1, 0] means no observation for the given agent or
+        food.
+        """
+        assert len(obs) == 3 * (self.n_agents + self._env.max_food)
+        agent_obs = []
+        food_obs = []
+        for i in range(0, len(obs), 3):
+            triplet = obs[i:i+3]
             if i < self._env.max_food * 3:
                 food_obs.append(triplet)
             else:

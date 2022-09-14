@@ -5,9 +5,10 @@ https://github.com/semitable/lb-foraging/blob/master/lbforaging/foraging/environ
 
 Mainly to make some small changes to adapt to the POSGGym API.
 """
+import math
 import random
 import logging
-from enum import Enum
+from enum import IntEnum
 from itertools import product
 from collections import namedtuple, defaultdict
 
@@ -15,7 +16,17 @@ import gym
 import numpy as np
 
 
-class LBFAction(Enum):
+def sorted_from_middle(lst):
+    """Sorts list from middle out."""
+    left = lst[len(lst)//2-1::-1]
+    right = lst[len(lst)//2:]
+    output = [right.pop(0)] if len(lst) % 2 else []
+    for t in zip(left, right):
+        output += sorted(t)
+    return output
+
+
+class LBFAction(IntEnum):
     """Level-Based Foraging Actions."""
     NONE = 0
     NORTH = 1
@@ -25,7 +36,7 @@ class LBFAction(Enum):
     LOAD = 5
 
 
-class CellEntity(Enum):
+class CellEntity(IntEnum):
     """Entity encodings for grid observations."""
     OUT_OF_BOUNDS = 0
     EMPTY = 1
@@ -98,6 +109,7 @@ class ForagingEnv(gym.Env):
         sight,
         max_episode_steps,
         force_coop,
+        static_layout,
         normalize_reward=True,
         grid_observation=False,
         penalty=0.0,
@@ -133,6 +145,68 @@ class ForagingEnv(gym.Env):
         )
 
         self.viewer = None
+
+        self._static_layout = static_layout
+        if static_layout:
+            assert self.rows == self.cols, \
+                "static layout only supported for square grids"
+            self._food_locations = self._generate_food_locations(max_food)
+            self._player_locations = self._generate_player_locations(
+                num_players
+            )
+        else:
+            self._food_locations = None
+            self._player_locations = None
+
+    def _generate_food_locations(self, max_food):
+        """Generate food locations for static layout.
+
+        Number and location of food is the same for given pairing of
+        (field size, max_food).
+        """
+        assert self.rows == self.cols
+        # must be enough space to surround each food with free cells
+        assert max_food <= math.floor((self.rows-1) / 2)**2
+
+        food_grid_size = math.floor((self.rows-1) / 2)
+        available_food_locs = sorted_from_middle(
+            list(product(range(food_grid_size), repeat=2))
+        )
+
+        food_locs = []
+        for f in range(max_food):
+            row = available_food_locs[f][0]*2 + 1
+            col = available_food_locs[f][1]*2 + 1
+            food_locs.append((row, col))
+        return food_locs
+
+    def _generate_player_locations(self, num_players):
+        """Generate player start locations for static layout.
+
+        Players always start around edge of field.
+        """
+        assert self.rows == self.cols
+        assert num_players <= math.ceil(self.rows/2)*4 - 4
+
+        idxs = [
+            i*2 if i < self.rows/4 else i*2+((self.rows+1) % 2)
+            for i in range(math.ceil(self.rows/2))
+        ]
+        idxs_reverse = list(reversed(idxs))
+
+        # set it so locations are chosen from corners first then
+        # alternating sides
+        sides = [
+            product([0], idxs[:-1]),
+            product([self.rows-1], idxs_reverse[:-1]),
+            product(idxs_reverse[:-1], [0]),
+            product(idxs[:-1], [self.rows-1])
+        ]
+        available_locations = []
+        for locs in zip(*sides):
+            available_locations.extend(locs)
+
+        return available_locations[:num_players]
 
     def seed(self, seed=None):
         self._rng = random.Random(seed)
@@ -274,6 +348,29 @@ class ForagingEnv(gym.Env):
         ]
 
     def spawn_food(self, max_food, max_level):
+        if self._static_layout:
+            self._spawn_food_static(max_level)
+        else:
+            self._spawn_food_generative(max_food, max_level)
+
+    def _spawn_food_static(self, max_level):
+        """Spawn food in static layout.
+
+        Number and location of food is the same for given pairing of
+        (field size, max_food), only the levels of each food will change.
+        """
+        assert max_level >= 1
+        min_level = max_level if self.force_coop else 1
+
+        for (row, col) in self._food_locations:
+            self.field[row, col] = (
+                min_level
+                if min_level == max_level
+                else self._rng.randint(min_level, max_level-1)
+            )
+        self._food_spawned = self.field.sum()
+
+    def _spawn_food_generative(self, max_food, max_level):
         assert max_level >= 1
         food_count = 0
         attempts = 0
@@ -311,6 +408,24 @@ class ForagingEnv(gym.Env):
         return True
 
     def spawn_players(self, field, max_player_level):
+        if self._static_layout:
+            return self._spawn_players_static(field, max_player_level)
+        return self._spawn_players_generative(field, max_player_level)
+
+    def _spawn_players_static(self, field, max_player_level):
+        players = []
+        for i in range(self.n_agents):
+            player = Player(i)
+            (row, col) = self._player_locations[i]
+            player.setup(
+                (row, col),
+                self._rng.randint(1, max_player_level-1),
+                self.field_size,
+            )
+            players.append(player)
+        return players
+
+    def _spawn_players_generative(self, field, max_player_level):
         players = []
         player_positions = set()
 
@@ -538,20 +653,28 @@ class ForagingEnv(gym.Env):
         for p in self.players:
             p.reward = 0
 
-        actions = [
-            LBFAction(a)
-            if LBFAction(a) in self._valid_actions[p] else LBFAction.NONE
-            for p, a in zip(self.players, actions)
-        ]
+        # actions = [
+        #     LBFAction(a)
+        #     if LBFAction(a) in self._valid_actions[p] else LBFAction.NONE
+        #     for p, a in zip(self.players, actions)
+        # ]
+        # check if actions are valid
+        # for i, (player, action) in enumerate(zip(self.players, actions)):
+        #     if action not in self._valid_actions[player]:
+        #         self.logger.info(
+        #             "{}{} attempted invalid action {}.".format(
+        #                 player.name, player.position, action
+        #             )
+        #         )
+        #         actions[i] = LBFAction.NONE
 
         # check if actions are valid
+        actions = list(actions)
         for i, (player, action) in enumerate(zip(self.players, actions)):
-            if action not in self._valid_actions[player]:
-                self.logger.info(
-                    "{}{} attempted invalid action {}.".format(
-                        player.name, player.position, action
-                    )
-                )
+            try:
+                if not self._is_valid_action(player, action):
+                    actions[i] = LBFAction.NONE
+            except ValueError:
                 actions[i] = LBFAction.NONE
 
         loading_players = set()

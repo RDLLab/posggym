@@ -39,7 +39,7 @@ class LBFEnv(core.DefaultEnv):
     field of vision, which is the grid `sight` distance away from the agent in
     all directions.
 
-    There are two observation modes:
+    There are three observation modes:
 
     1. grid_observation
        The agent recieves a three 2D layers of size (1+2*`sight`, 1+2*`sight`).
@@ -60,6 +60,9 @@ class LBFEnv(core.DefaultEnv):
        The ordering of the triplets for the other agents is consistent, while
        the food obs triplets can change based on how many are visible and their
        relative position to the observing agent.
+    3. tuple observation
+       This is the same as the vector observation except observations are
+       Python tuples of integers instead of numpy arrays of floats.
 
     """
 
@@ -73,34 +76,37 @@ class LBFEnv(core.DefaultEnv):
                  sight: int,
                  max_episode_steps: int,
                  force_coop: bool,
+                 static_layout: bool,
                  normalize_reward: bool = True,
-                 grid_observation: bool = False,
+                 observation_mode: str = "tuple",
                  penalty: float = 0.0,
                  **kwargs):
         self._model = lbfmodel.LBFModel(
             num_agents,
             max_agent_level,
-            field_size,
-            max_food,
-            sight,
-            max_episode_steps,
-            force_coop,
-            normalize_reward,
-            grid_observation,
-            penalty,
+            field_size=field_size,
+            max_food=max_food,
+            sight=sight,
+            max_episode_steps=max_episode_steps,
+            force_coop=force_coop,
+            static_layout=static_layout,
+            normalize_reward=normalize_reward,
+            observation_mode=observation_mode,
+            penalty=penalty,
             **kwargs
         )
         self._env = lbf.ForagingEnv(
             num_agents,
             max_agent_level,
-            field_size,
-            max_food,
-            sight,
-            max_episode_steps,
-            force_coop,
-            normalize_reward,
-            grid_observation,
-            penalty
+            field_size=field_size,
+            max_food=max_food,
+            sight=sight,
+            max_episode_steps=max_episode_steps,
+            force_coop=force_coop,
+            static_layout=static_layout,
+            normalize_reward=normalize_reward,
+            grid_observation=observation_mode not in ('vector', 'tuple'),
+            penalty=penalty
         )
         super().__init__()
 

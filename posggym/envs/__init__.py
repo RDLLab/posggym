@@ -2,6 +2,8 @@
 
 Utilizes the OpenAI Gym env registration functionality.
 """
+import math
+import warnings
 from itertools import product
 
 from posggym.envs.registration import register
@@ -206,13 +208,19 @@ for grid_name in driving.gen.SUPPORTED_GEN_PARAMS:
 
 sizes = [5, 10, 15, 20]
 players = [2, 3, 4, 6, 8]   # reduced
-foods = [1, 2, 3, 5, 7, 10]
+foods = [1, 3, 5, 7, 10]
 coop = [True, False]
+static_layout = [True, False]
 
-for s, n, f, c in product(sizes, players, foods, coop):
+for s, n, f, c, sl in product(sizes, players, foods, coop, static_layout):
+    if sl and f > math.floor((s-1)/2)**2 or n > math.ceil(s/2)*4 - 4:
+        continue
+
     coop_str = "-coop" if c else ""
+    static_layout_str = "-static" if sl else ""
+    suffix = f"{s}x{s}-n{n}-f{f}{coop_str}{static_layout_str}-v2"
     register(
-        id=f"LBF{s}x{s}-n{n}-f{f}{coop_str}-v2",
+        id=f"LBF{suffix}",
         entry_point="posggym.envs.lbf:LBFEnv",
         kwargs={
             "num_agents": n,
@@ -222,14 +230,15 @@ for s, n, f, c in product(sizes, players, foods, coop):
             "sight": 2,
             "max_episode_steps": 50,
             "force_coop": c,
+            "static_layout": sl,
             "normalize_reward": True,
-            "grid_observation": False,
+            "observation_mode": 'tuple',
             "penalty": 0.0
         },
     )
 
     register(
-        id=f"LBFGrid{s}x{s}-n{n}-f{f}{coop_str}-v2",
+        id=f"LBFVector{suffix}",
         entry_point="posggym.envs.lbf:LBFEnv",
         kwargs={
             "num_agents": n,
@@ -239,8 +248,27 @@ for s, n, f, c in product(sizes, players, foods, coop):
             "sight": 2,
             "max_episode_steps": 50,
             "force_coop": c,
+            "static_layout": sl,
             "normalize_reward": True,
-            "grid_observation": True,
+            "observation_mode": 'vector',
+            "penalty": 0.0
+        },
+    )
+
+    register(
+        id=f"LBFGrid{suffix}",
+        entry_point="posggym.envs.lbf:LBFEnv",
+        kwargs={
+            "num_agents": n,
+            "max_agent_level": 3,
+            "field_size": (s, s),
+            "max_food": f,
+            "sight": 2,
+            "max_episode_steps": 50,
+            "force_coop": c,
+            "static_layout": sl,
+            "normalize_reward": True,
+            "observation_mode": 'grid',
             "penalty": 0.0
         },
     )
@@ -249,6 +277,9 @@ for s, n, f, c in product(sizes, players, foods, coop):
 # Highway Env
 # -------------------------------------------
 # Ref: https://github.com/eleurent/highway-env
+
+# suppress pandas warning to do with Highway Env obs space
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 num_agents = [2, 3, 4, 6, 8]
 
