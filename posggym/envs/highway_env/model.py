@@ -3,6 +3,7 @@
 Ref: https://github.com/eleurent/highway-env
 
 """
+import math
 from typing import Tuple, NamedTuple, Optional
 
 from gym import spaces
@@ -22,6 +23,45 @@ class HWVehicleState(NamedTuple):
     hit: bool
     impact: Optional[Vector]
     on_road: bool
+
+    def __eq__(self, o):
+        if self.impact is None:
+            impact_equal = o.impact is None
+        elif o.impact is None:
+            impact_equal = False
+        else:
+            impact_equal = all(
+                math.isclose(self.impact[i], o.impact[i])
+                for i in range(len(self.impact))
+            )
+
+        if not impact_equal:
+            return False
+
+        return (
+            math.isclose(self.pos[0], o.pos[0])
+            and math.isclose(self.pos[1], o.pos[1])
+            and math.isclose(self.heading, o.heading)
+            and math.isclose(self.speed, o.speed)
+            and self.crashed == o.crashed
+            and self.hit == o.hit
+            and self.on_road == o.on_road
+        )
+
+    def __hash__(self):
+        # need to ensure Vector values are not numpy arrays
+        impact = (
+            None if self.impact is None else (self.impact[0], self.impact[1])
+        )
+        return hash((
+            (self.pos[0], self.pos[1]),
+            self.heading,
+            self.speed,
+            self.crashed,
+            self.hit,
+            self.on_road,
+            impact
+        ))
 
 
 HWState = Tuple[HWVehicleState, ...]

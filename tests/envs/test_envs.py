@@ -163,6 +163,7 @@ def test_model(spec, env_name_prefix):
                 f"Reset agent {i} observation: {o_i} not in space for {env}"
 
     def check_state(state):
+        hash(state)
         try:
             state_space = model.state_space
             assert state_space.contains(state)
