@@ -4,7 +4,6 @@ Ref:
 https://github.com/semitable/lb-foraging
 
 """
-import copy
 from typing import Tuple, Optional, List
 
 import numpy as np
@@ -41,15 +40,15 @@ class LBFState:
 def get_env_state(env: lbf.ForagingEnv) -> LBFState:
     """Get state of ForagingEnv."""
     field = np.array(env.field)
-    players = tuple(copy.deepcopy(env.players))
+    players = tuple(p.copy() for p in env.players)
     step = env.current_step
     return LBFState(field, players, step)
 
 
 def set_env_state(env: lbf.ForagingEnv, state: LBFState):
     """Set state of ForagingEnv."""
-    env.field = state.field
-    env.players = list(state.players)
+    env.field = np.array(state.field)
+    env.players = list(p.copy() for p in state.players)
     env.current_step = state.step
 
 
