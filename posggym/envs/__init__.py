@@ -222,6 +222,7 @@ for s, n, f, c, sl in product(sizes, players, foods, coop, static_layout):
     register(
         id=f"LBF{suffix}",
         entry_point="posggym.envs.lbf:LBFEnv",
+        max_episode_steps=50,
         kwargs={
             "num_agents": n,
             "max_agent_level": 3,
@@ -240,6 +241,7 @@ for s, n, f, c, sl in product(sizes, players, foods, coop, static_layout):
     register(
         id=f"LBFVector{suffix}",
         entry_point="posggym.envs.lbf:LBFEnv",
+        max_episode_steps=50,
         kwargs={
             "num_agents": n,
             "max_agent_level": 3,
@@ -258,6 +260,7 @@ for s, n, f, c, sl in product(sizes, players, foods, coop, static_layout):
     register(
         id=f"LBFGrid{suffix}",
         entry_point="posggym.envs.lbf:LBFEnv",
+        max_episode_steps=50,
         kwargs={
             "num_agents": n,
             "max_agent_level": 3,
