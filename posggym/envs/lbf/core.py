@@ -266,8 +266,6 @@ class ForagingEnv(gym.Env):
         env.field = np.copy(obs.field)
         env.current_step = obs.current_step
         env.sight = obs.sight
-        # env._gen_valid_moves()
-
         return env
 
     @property
