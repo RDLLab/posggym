@@ -504,7 +504,7 @@ class ForagingEnv(gym.Env):
         return self.Observation(
             players=player_obs,
             # todo also check max?
-            field=np.copy(self.neighborhood(*player.position, self.sight)),
+            field=self.neighborhood(*player.position, self.sight),
             game_over=self._game_over,
             sight=self.sight,
             current_step=self.current_step,
@@ -513,34 +513,38 @@ class ForagingEnv(gym.Env):
     def _make_obs_array(self, observation):
         obs = np.zeros(self.observation_space[0].shape, dtype=np.float32)
         # obs[: observation.field.size] = observation.field.flatten()
-        # self player is always first
-        seen_players = (
-            [p for p in observation.players if p is not None and p.is_self]
-            + [
-                p for p in observation.players
-                if p is not None and not p.is_self
-            ]
-        )
 
         for i in range(self.max_food):
-            obs[3 * i] = -1
-            obs[3 * i + 1] = -1
-            obs[3 * i + 2] = 0
+            f_idx = 3 * i
+            obs[f_idx] = -1
+            obs[f_idx + 1] = -1
+            obs[f_idx + 2] = 0
 
         for i, (y, x) in enumerate(zip(*np.nonzero(observation.field))):
-            obs[3 * i] = y
-            obs[3 * i + 1] = x
-            obs[3 * i + 2] = observation.field[y, x]
+            f_idx = 3 * i
+            obs[f_idx] = y
+            obs[f_idx + 1] = x
+            obs[f_idx + 2] = observation.field[y, x]
 
-        for i in range(len(self.players)):
-            obs[self.max_food * 3 + 3 * i] = -1
-            obs[self.max_food * 3 + 3 * i + 1] = -1
-            obs[self.max_food * 3 + 3 * i + 2] = 0
-
-        for i, p in enumerate(seen_players):
-            obs[self.max_food * 3 + 3 * i] = p.position[0]
-            obs[self.max_food * 3 + 3 * i + 1] = p.position[1]
-            obs[self.max_food * 3 + 3 * i + 2] = p.level
+        p_seen_num = 1
+        p_unseen_num = len(self.players)-1
+        p_start_idx = self.max_food * 3
+        for p in observation.players:
+            if p is None:
+                p_idx = p_start_idx + 3 * p_unseen_num
+                p_unseen_num -= 1
+                pos, level = (-1, -1), 0
+            elif p.is_self:
+                # self player is always first
+                p_idx = p_start_idx
+                pos, level = p.position, p.level
+            else:
+                p_idx = p_start_idx + 3 * p_seen_num
+                p_seen_num += 1
+                pos, level = p.position, p.level
+            obs[p_idx] = pos[0]
+            obs[p_idx + 1] = pos[1]
+            obs[p_idx + 2] = level
 
         return obs
 
@@ -630,21 +634,6 @@ class ForagingEnv(gym.Env):
 
         for p in self.players:
             p.reward = 0
-
-        # actions = [
-        #     LBFAction(a)
-        #     if LBFAction(a) in self._valid_actions[p] else LBFAction.NONE
-        #     for p, a in zip(self.players, actions)
-        # ]
-        # check if actions are valid
-        # for i, (player, action) in enumerate(zip(self.players, actions)):
-        #     if action not in self._valid_actions[player]:
-        #         self.logger.info(
-        #             "{}{} attempted invalid action {}.".format(
-        #                 player.name, player.position, action
-        #             )
-        #         )
-        #         actions[i] = LBFAction.NONE
 
         # check if actions are valid
         actions = list(actions)
