@@ -20,6 +20,10 @@ class PEGrid(Grid):
         self.evader_start_coords = evader_start_coords
         self.pursuer_start_coords = pursuer_start_coords
 
+        self.shortest_paths = self.get_all_shortest_paths(
+            set(evader_start_coords)
+        )
+
     @property
     def all_goal_coords(self) -> List[Coord]:
         """The list of all evader goal locations."""
@@ -31,6 +35,23 @@ class PEGrid(Grid):
     def get_goal_coords(self, evader_start_coord: Coord) -> List[Coord]:
         """Get list of possible evader goal coords for given start coords."""
         return self._goal_coords_map[evader_start_coord]
+
+    def get_shortest_path_distance(self, coord: Coord, dest: Coord) -> int:
+        """Get the shortest path distance from coord to destination."""
+        return int(self.shortest_paths[dest][coord])
+
+    def get_max_shortest_path_distance(self) -> int:
+        """Get max shortest path distance between any start and goal coords."""
+        max_dist = 0
+        for start_coord, dest_coords in self._goal_coords_map.items():
+            max_dist = max(
+                max_dist,
+                int(max([
+                    self.get_shortest_path_distance(start_coord, dest)
+                    for dest in dest_coords
+                ]))
+            )
+        return max_dist
 
     def get_ascii_repr(self,
                        goal_coord: Union[None, Coord, List[Coord]],

@@ -43,8 +43,9 @@ class PursuitEvasionEnv(core.DefaultEnv):
 
     Actions
     -------
-    Each agent has 4 actions corresponding to moving in the 4 cardinal
-    directions (NORTH=0, EAST=1, SOUTH=2, WEST=3).
+    Each agent has 4 actions corresponding to moving in the 4 available
+    directions w.r.t the direction the agent is currently faction
+    (FORWARD=0, BACKWARDS=1, LEFT=2, RIGHT=3).
 
     Observation
     -----------
@@ -67,14 +68,17 @@ class PursuitEvasionEnv(core.DefaultEnv):
 
     Reward
     ------
-    Both agents receive a penalty of -0.01 for each step.
-    If the evader reaches the goal then the evader recieves a reward of 1,
-    while the pursuer recieves a penalty of -1.
-    If the evader is observed by the pursuer, then the evader recieves a
-    penalty of -1, while the pursuer recieves a penalty of 1.
+    The environment is zero-sum with the pursuer recieving the negative of the
+    evader reward. Additionally, rewards are by default normalized so that
+    returns are bounded between -1 and 1 (this can be disabled by the
+    `normalize_reward` parameter).
 
-    The rewards make the environment adversarial, but not strictly zero-sum,
-    due to the small penalty each step.
+    The evader recieves a reward of 1 for reaching it's goal location and a
+    reward of -1 if it gets captured. Additionally, the evader recieves a small
+    reward of 0.01 each time it's minumum distance to it's goal along the
+    shortest path decreases. This is to make it so the environment is no
+    longer sparesely rewarded and to help with exploration and learning (it
+    can be disabled by the `use_progress_reward` parameter.)
 
     Transition Dynamics
     -------------------
@@ -82,13 +86,13 @@ class PursuitEvasionEnv(core.DefaultEnv):
     evader is caught, the evader reaches a goal, or the step limit is reached.
 
     The environment can also be run in stochastic mode by changing the
-    action_probs parameter at initialization. This controls the probability
+    `action_probs` parameter at initialization. This controls the probability
     the agent will move in the desired direction each step, otherwise moving
     randomly in one of the other 3 possible directions.
 
     References
     ----------
-    This Pursuit-Evasion implementation is a discrete version of the problem
+    This Pursuit-Evasion implementation is directly inspired by the problem
     presented in the paper:
     - Seaman, Iris Rubi, Jan-Willem van de Meent, and David Wingate. 2018.
       “Nested Reasoning About Autonomous Agents Using Probabilistic Programs.”
@@ -102,9 +106,16 @@ class PursuitEvasionEnv(core.DefaultEnv):
                  grid_name: str,
                  action_probs: Union[float, Tuple[float, float]] = 1.0,
                  max_obs_distance: int = 12,
+                 normalize_reward: bool = True,
+                 use_progress_reward: bool = True,
                  **kwargs):
         self._model = pe_model.PursuitEvasionModel(
-            grid_name, action_probs, **kwargs
+            grid_name,
+            action_probs=action_probs,
+            max_obs_distance=max_obs_distance,
+            normalize_reward=normalize_reward,
+            use_progress_reward=use_progress_reward,
+            **kwargs
         )
 
         self._max_obs_distance = max_obs_distance

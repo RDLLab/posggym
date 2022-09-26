@@ -35,7 +35,7 @@ class DrivingGrid(Grid):
         return int(self.shortest_paths[dest][coord])
 
     def get_max_shortest_path_distance(self) -> int:
-        """Get the longest shortest path distance to any distanation."""
+        """Get the longest shortest path distance to any destination."""
         return int(
             max([max(d.values()) for d in self.shortest_paths.values()])
         )

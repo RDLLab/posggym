@@ -98,6 +98,9 @@ for grid_name in pursuit_evasion.grid.SUPPORTED_GRIDS:
         kwargs={
             "grid_name": grid_name,
             "action_probs": 1.0,
+            "max_obs_distance": 12,
+            "normalize_reward": True,
+            "use_progress_reward": True
         }
     )
 
@@ -110,6 +113,9 @@ for grid_name in pursuit_evasion.grid.SUPPORTED_GRIDS:
         kwargs={
             "grid_name": grid_name,
             "action_probs": 0.9,
+            "max_obs_distance": 12,
+            "normalize_reward": True,
+            "use_progress_reward": True
         }
     )
 

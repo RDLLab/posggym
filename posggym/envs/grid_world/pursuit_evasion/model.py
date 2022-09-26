@@ -1,6 +1,6 @@
 """The POSG Model for the Discrete Pursuit Evasion Problem."""
 import random
-from typing import Optional, Tuple, Union, Sequence, Dict
+from typing import Optional, Tuple, Union, Sequence, Dict, NamedTuple
 
 from gym import spaces
 
@@ -11,11 +11,35 @@ import posggym.envs.grid_world.pursuit_evasion.grid as grid_lib
 
 # State = (e_coord, e_dir, p_coord, p_dir, e_0_coord, p_0_coord, e_goal_coord)
 INITIAL_DIR = Direction.NORTH
-PEState = Tuple[Coord, Direction, Coord, Direction, Coord, Coord, Coord]
 
-# Action = Direction
+
+class PEState(NamedTuple):
+    """Environment state in Pursuit Evastion problem."""
+    evader_coord: Coord
+    evader_dir: Direction
+    pursuer_coord: Coord
+    pursuer_dir: Direction
+    evader_start_coord: Coord
+    pursuer_start_coord: Coord
+    evader_goal_coord: Coord
+    min_goal_dist: int
+
+
+# Action = Direction of movement
+# 0 = Forward, 1 = Backward, 2 = Left, 3 = Right
 PEAction = int
 PEJointAction = Tuple[PEAction, PEAction]
+
+ACTION_TO_DIR = [
+    # Forward
+    [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST],
+    # Backward
+    [Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.EAST],
+    # Left
+    [Direction.WEST, Direction.NORTH, Direction.EAST, Direction.SOUTH],
+    # Right
+    [Direction.EAST, Direction.SOUTH, Direction.WEST, Direction.NORTH]
+]
 
 # E Obs = Tuple[WallObs, seen, heard, e_0_coord, p_0_coord, goal_coord]
 #       = Tuple[Tuple[int, int, int, int, int, int], Coord, Coord, Coord]
@@ -67,7 +91,7 @@ class PEB0(M.Belief):
         else:
             goal_coord = self._goal_coord
 
-        return (
+        return PEState(
             evader_start_coord,
             INITIAL_DIR,
             pursuer_start_coord,
@@ -75,6 +99,9 @@ class PEB0(M.Belief):
             evader_start_coord,
             pursuer_start_coord,
             goal_coord,
+            self._grid.get_shortest_path_distance(
+                evader_start_coord, goal_coord
+            )
         )
 
     def sample_k(self, k: int) -> Sequence[M.State]:
@@ -92,10 +119,12 @@ class PursuitEvasionModel(M.POSGModel):
     EVADER_IDX = 0
     PURSUER_IDX = 1
 
+    # Evader-centric rewards
+    R_PROGRESS = 0.01              # Reward making progress toward goal
     R_EVADER_ACTION = -0.01        # Reward each step for evader
     R_PURSUER_ACTION = -0.01       # Reward each step for pursuer
-    R_CAPTURE = 1.0                # Pursuer reward for capturing evader
-    R_EVASION = 1.0                # Evader reward for reaching goal
+    R_CAPTURE = -1.0               # Reward for being captured
+    R_EVASION = 1.0                # Reward for reaching goal
 
     FOV_EXPANSION_INCR = 3
     HEARING_DIST = 2
@@ -104,6 +133,8 @@ class PursuitEvasionModel(M.POSGModel):
                  grid_name: str,
                  action_probs: Union[float, Tuple[float, float]] = 1.0,
                  max_obs_distance: int = 12,
+                 normalize_reward: bool = True,
+                 use_progress_reward: bool = True,
                  **kwargs):
         super().__init__(self.NUM_AGENTS, **kwargs)
         self._grid_name = grid_name
@@ -114,6 +145,14 @@ class PursuitEvasionModel(M.POSGModel):
         self._action_probs = action_probs
 
         self._max_obs_distance = max_obs_distance
+        self._normalize_reward = normalize_reward
+        self._use_progress_reward = use_progress_reward
+
+        self._max_sp_distance = self.grid.get_max_shortest_path_distance()
+        self._max_raw_return = self.R_EVASION
+        if self._use_progress_reward:
+            self._max_raw_return += (self._max_sp_distance+1) * self.R_PROGRESS
+        self._min_raw_return = -self._max_raw_return
 
         self._rng = random.Random(None)
 
@@ -158,6 +197,8 @@ class PursuitEvasionModel(M.POSGModel):
                 spaces.Discrete(self.grid.width),
                 spaces.Discrete(self.grid.height)
             )),
+            # Max shortest path distance
+            spaces.Discrete(self._max_sp_distance)
         ))
 
     @property
@@ -191,9 +232,12 @@ class PursuitEvasionModel(M.POSGModel):
 
     @property
     def reward_ranges(self) -> Tuple[Tuple[M.Reward, M.Reward], ...]:
-        return tuple(
-            (-self.R_CAPTURE, self.R_CAPTURE) for _ in range(self.n_agents)
-        )
+        max_reward = self.R_CAPTURE
+        if self._use_progress_reward:
+            max_reward += self.R_PROGRESS
+        if self._normalize_reward:
+            max_reward = self._get_normalized_reward(max_reward)
+        return tuple((-max_reward, max_reward) for _ in range(self.n_agents))
 
     @property
     def initial_belief(self) -> M.Belief:
@@ -227,7 +271,7 @@ class PursuitEvasionModel(M.POSGModel):
              ) -> M.JointTimestep:
         next_state = self._get_next_state(state, actions)  # type: ignore
         obs, evader_detected = self._get_obs(next_state)
-        rewards = self._get_reward(next_state, evader_detected)
+        rewards = self._get_reward(state, next_state, evader_detected)
         dones = self._is_done(next_state)
         all_done = all(dones)
 
@@ -246,34 +290,52 @@ class PursuitEvasionModel(M.POSGModel):
         evader_a = actions[self.EVADER_IDX]
         pursuer_a = actions[self.PURSUER_IDX]
 
-        if self._rng.random() > self._action_probs[self.EVADER_IDX]:
-            other_as = [a for a in Direction if a != evader_a]
+        if (
+            self._action_probs[self.EVADER_IDX] < 1.0
+            and self._rng.random() > self._action_probs[self.EVADER_IDX]
+        ):
+            other_as = [a for a in range(len(Direction)) if a != evader_a]
             evader_a = self._rng.choice(other_as)
 
-        if self._rng.random() > self._action_probs[self.PURSUER_IDX]:
-            other_as = [a for a in Direction if a != pursuer_a]
+        if (
+            self._action_probs[self.PURSUER_IDX]
+            and self._rng.random() > self._action_probs[self.PURSUER_IDX]
+        ):
+            other_as = [a for a in range(len(Direction)) if a != pursuer_a]
             pursuer_a = self._rng.choice(other_as)
 
-        pursuer_next_dir = Direction(pursuer_a)
+        pursuer_next_dir = Direction(
+            ACTION_TO_DIR[pursuer_a][state.pursuer_dir]
+        )
         pursuer_next_coord = self.grid.get_next_coord(
-            state[2], pursuer_next_dir, ignore_blocks=False
+            state.pursuer_coord, pursuer_next_dir, ignore_blocks=False
         )
 
-        evader_next_coord = state[0]
-        evader_next_dir = Direction(evader_a)
-        if pursuer_next_coord != state[0]:
+        evader_next_coord = state.evader_coord
+        evader_next_dir = Direction(
+            ACTION_TO_DIR[evader_a][state.evader_dir]
+        )
+        if pursuer_next_coord != state.evader_coord:
             evader_next_coord = self.grid.get_next_coord(
-                state[0], evader_next_dir, ignore_blocks=False
+                state.evader_coord, evader_next_dir, ignore_blocks=False
             )
 
-        return (
+        min_sp_distance = min(
+            state.min_goal_dist,
+            self.grid.get_shortest_path_distance(
+                evader_next_coord, state.evader_goal_coord
+            )
+        )
+
+        return PEState(
             evader_next_coord,
             evader_next_dir,
             pursuer_next_coord,
             pursuer_next_dir,
-            state[4],   # evader start coord
-            state[5],   # pursuer start coord
-            state[6]    # goal coord
+            state.evader_start_coord,
+            state.pursuer_start_coord,
+            state.evader_goal_coord,
+            min_sp_distance
         )
 
     def _get_obs(self, state: PEState) -> Tuple[PEJointObs, bool]:
@@ -282,12 +344,28 @@ class PursuitEvasionModel(M.POSGModel):
         return (evader_obs, pursuer_obs), seen
 
     def _get_evader_obs(self, state: PEState) -> PEEvaderObs:
-        walls, seen, heard = self._get_agent_obs(state[0], state[1], state[2])
-        return ((*walls, seen, heard), state[4], state[5], state[6])
+        walls, seen, heard = self._get_agent_obs(
+            state.evader_coord, state.evader_dir, state.pursuer_coord
+        )
+        return (
+            (*walls, seen, heard),
+            state.evader_start_coord,
+            state.pursuer_start_coord,
+            state.evader_goal_coord
+        )
 
     def _get_pursuer_obs(self, state: PEState) -> Tuple[PEPursuerObs, bool]:
-        walls, seen, heard = self._get_agent_obs(state[2], state[3], state[0])
-        return ((*walls, seen, heard), state[4], state[5], (0, 0)), bool(seen)
+        walls, seen, heard = self._get_agent_obs(
+            state.pursuer_coord, state.pursuer_dir, state.evader_coord
+        )
+        obs = (
+            (*walls, seen, heard),
+            state.evader_start_coord,
+            state.pursuer_start_coord,
+            # pursuer doesn't observe evader goal coord
+            (0, 0)
+        )
+        return obs, bool(seen)
 
     def _get_agent_obs(self,
                        agent_coord: Coord,
@@ -325,32 +403,50 @@ class PursuitEvasionModel(M.POSGModel):
         dist = self.grid.manhattan_dist(ego_coord, opp_coord)
         return dist <= self.HEARING_DIST
 
-    def _get_reward(self, state: PEState, evader_seen: bool) -> M.JointReward:
-        evader_coord, pursuer_coord = state[0], state[2]
-        evader_goal_coord = state[6]
+    def _get_reward(self,
+                    state: PEState,
+                    next_state: PEState,
+                    evader_seen: bool) -> M.JointReward:
+        evader_coord = next_state.evader_coord
+        pursuer_coord = next_state.pursuer_coord
+        evader_goal_coord = next_state.evader_goal_coord
+
+        evader_reward = 0
+        if (
+            self._use_progress_reward
+            and next_state.min_goal_dist < state.min_goal_dist
+        ):
+            evader_reward += self.R_PROGRESS
 
         if evader_coord == pursuer_coord or evader_seen:
-            return (-self.R_CAPTURE, self.R_CAPTURE)
-        if evader_coord == evader_goal_coord:
-            return (self.R_EVASION, -self.R_EVASION)
+            evader_reward += self.R_CAPTURE
+        elif evader_coord == evader_goal_coord:
+            evader_reward += self.R_EVASION
 
-        return (self.R_EVADER_ACTION, self.R_PURSUER_ACTION)
+        if self._normalize_reward:
+            evader_reward = self._get_normalized_reward(evader_reward)
+
+        return (evader_reward, -evader_reward)
 
     def _is_done(self, state: M.State) -> Tuple[bool, ...]:
-        evader_coord, pursuer_coord = state[0], state[2]
-        evader_goal_coord = state[6]
+        evader_coord, pursuer_coord = state.evader_coord, state.pursuer_coord
+        evader_goal_coord = state.evader_goal_coord
+        pursuer_dir = state.pursuer_dir
         if (
             evader_coord == pursuer_coord
             or evader_coord == evader_goal_coord
-            or self._get_opponent_seen(pursuer_coord, state[3], evader_coord)
+            or self._get_opponent_seen(
+                pursuer_coord, pursuer_dir, evader_coord
+            )
         ):
             return (True, True)
         return (False, False)
 
     def _get_outcome(self, state: M.State) -> Tuple[M.Outcome, ...]:
         # Assuming this method is called on final timestep
-        evader_coord, pursuer_coord = state[0], state[2]
-        evader_goal_coord = state[6]
+        evader_coord, pursuer_coord = state.evader_coord, state.pursuer_coord
+        evader_goal_coord = state.evader_goal_coord
+        pursuer_dir = state.pursuer_dir
 
         # check this first before relatively expensive detection check
         if evader_coord == pursuer_coord:
@@ -358,9 +454,14 @@ class PursuitEvasionModel(M.POSGModel):
         if evader_coord == evader_goal_coord:
             return (M.Outcome.WIN, M.Outcome.LOSS)
 
-        if self._get_opponent_seen(pursuer_coord, state[3], evader_coord):
+        if self._get_opponent_seen(pursuer_coord, pursuer_dir, evader_coord):
             return (M.Outcome.LOSS, M.Outcome.WIN)
         return (M.Outcome.DRAW, M.Outcome.DRAW)
 
     def set_seed(self, seed: Optional[int] = None):
         self._rng = random.Random(seed)
+
+    def _get_normalized_reward(self, reward: float) -> float:
+        """Normalize reward in [-1, 1] interval."""
+        diff = (self._max_raw_return - self._min_raw_return)
+        return 2 * (reward - self._min_raw_return) / diff - 1
