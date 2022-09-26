@@ -47,7 +47,7 @@ class DrivingEnv(core.DefaultEnv):
 
     Actions
     -------
-    Each agent has 5 actions: DO_NOTHING=0, ACCELERATE=1, DECELERATE=3,
+    Each agent has 5 actions: DO_NOTHING=0, ACCELERATE=1, DECELERATE=2,
     TURN_RIGHT=3, TURN_LEFT=4
 
     Observation
@@ -55,7 +55,7 @@ class DrivingEnv(core.DefaultEnv):
     Each agent observes their current speed along with the cells in their local
     area. The size of the local area observed is controlled by the `obs_dims`
     parameter. For each cell in the observed are the agent observes whether
-    they are one of three things: VEHICLE=0, WALL=1, EMPTY=2, DESTINATION=3.
+    they are one of four things: VEHICLE=0, WALL=1, EMPTY=2, DESTINATION=3.
     Each agent also observes the (x, y) coordinates of their destination,
     whether they have reached the destination, and whether they have crashed.
 
