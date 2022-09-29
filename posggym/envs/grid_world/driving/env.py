@@ -14,7 +14,7 @@ from posggym.envs.grid_world.driving.gen import DrivingGridGenerator
 class DrivingEnv(core.DefaultEnv):
     """The Driving Grid World Environment.
 
-    An general-sum 2D grid world problem involving multiple agents. Each agent
+    A general-sum 2D grid world problem involving multiple agents. Each agent
     controls a vehicle and is tasked with driving the vehicle from it's start
     location to a destination location while avoiding crashing into obstacles
     or other vehicles.
