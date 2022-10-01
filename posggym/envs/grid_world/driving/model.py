@@ -548,7 +548,7 @@ class DrivingModel(M.POSGModel):
         obs_width = (2 * self._obs_side) + 1
         agent_coord = vehicle_coords[agent_id]
 
-        cell_obs: List[int] = []
+        cell_obs = []
         for col, row in product(range(obs_width), range(obs_depth)):
             obs_grid_coord = self._map_obs_to_grid_coord(
                 (col, row), agent_coord, facing_dir

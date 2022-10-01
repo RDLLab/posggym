@@ -11,10 +11,11 @@ from posggym.envs.registration import make       # noqa
 from posggym.envs.registration import spec       # noqa
 from posggym.envs.registration import registry   # noqa
 
+from posggym.envs.grid_world import driving
+from posggym.envs.grid_world import predator_prey
 from posggym.envs.grid_world import pursuit_evasion
 from posggym.envs.grid_world import two_paths
 from posggym.envs.grid_world import uav
-from posggym.envs.grid_world import driving
 from posggym.envs.highway_env.scenarios import HWSCENARIOS
 
 
@@ -204,6 +205,40 @@ for grid_name in driving.gen.SUPPORTED_GEN_PARAMS:
             "n_grids": None,
             "generator_params": gen_params,
             "infinite_horizon": False
+        }
+    )
+
+
+# Predator-Prey
+coop = [True, False]
+prey_strength = [1, 2, 3, 4]   # min is 1, max is 4 (since 4 adjacent cells)
+num_prey = [1, 2, 3, 4]        # could be more, depending on grid size
+num_predators = [2, 3, 4]      # max is 8 for default grids
+
+for grid_name, c, s, n_prey, n_pred in product(
+        predator_prey.grid.SUPPORTED_GRIDS,
+        coop,
+        prey_strength,
+        num_prey,
+        num_predators
+):
+    if s > n_pred:
+        continue
+
+    grid_fn, finite_steps = predator_prey.grid.SUPPORTED_GRIDS[grid_name]
+    coop_str = "-coop" if c else ""
+    env_name_suffix = f"{grid_name}-P{n_pred}-p{n_prey}-s{s}{coop_str}-v0"
+    register(
+        id=f"PredatorPrey{env_name_suffix}",
+        entry_point="posggym.envs.grid_world.predator_prey:PPEnv",
+        max_episode_steps=finite_steps,
+        kwargs={
+            "grid": grid_fn(),
+            "num_predators": n_pred,
+            "num_prey": n_prey,
+            "cooperative": c,
+            "prey_strength": s,
+            "obs_dim": 2,
         }
     )
 

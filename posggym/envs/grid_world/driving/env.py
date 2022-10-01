@@ -302,9 +302,7 @@ class DrivingGenEnv(DrivingEnv):
         return super().reset(seed=seed)
 
     def render(self, mode: str = "human"):
-        if mode == "ansi":
-            return super().render(mode)
-        elif mode in ("human", "rgb_array"):
+        if mode in ("human", "rgb_array"):
             grid = self.model.grid
             if mode == "human" and self._viewer is None:
                 # pylint: disable=[import-outside-toplevel]
@@ -386,4 +384,4 @@ class DrivingGenEnv(DrivingEnv):
             else:
                 return (env_img, agent_obs_imgs)
         else:
-            raise NotImplementedError
+            super().render(mode)
