@@ -79,6 +79,12 @@ class PPGrid(Grid):
 
         return list(coords)
 
+    def num_unblocked_neighbours(self, coord: Coord) -> int:
+        """Get number of neighbouring coords that are unblocked."""
+        return len(self.get_neighbours(
+            coord, ignore_blocks=False, include_out_of_bounds=False
+        ))
+
 
 def parse_grid_str(grid_str: str) -> PPGrid:
     """Parse a str representation of a grid into a grid object.

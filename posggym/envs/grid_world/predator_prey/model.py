@@ -336,7 +336,10 @@ class PPModel(M.POSGModel):
         for (d, c) in reversed(neighbours):
             if c == prey_coord:
                 return prey_coord
-            elif c not in occupied_coords:
+            elif (
+                c not in occupied_coords
+                and self.grid.num_unblocked_neighbours(c) >= self.prey_strength
+            ):
                 return c
 
         raise AssertionError("Something has gone wrong, please investigate.")
@@ -374,7 +377,10 @@ class PPModel(M.POSGModel):
         for (d, c) in reversed(neighbours):
             if c == prey_coord:
                 return prey_coord
-            elif c not in occupied_coords:
+            elif (
+                c not in occupied_coords
+                and self.grid.num_unblocked_neighbours(c) >= self.prey_strength
+            ):
                 return c
 
         raise AssertionError("Something has gone wrong, please investigate.")

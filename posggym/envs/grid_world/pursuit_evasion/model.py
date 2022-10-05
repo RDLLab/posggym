@@ -22,7 +22,7 @@ class PEState(NamedTuple):
     evader_start_coord: Coord
     pursuer_start_coord: Coord
     evader_goal_coord: Coord
-    min_goal_dist: int
+    min_goal_dist: int    # for evader
 
 
 # Action = Direction of movement

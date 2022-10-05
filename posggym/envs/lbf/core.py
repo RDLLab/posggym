@@ -78,7 +78,7 @@ class Player:
 class ForagingEnv(gym.Env):
     """A class that contains rules/actions for level-based foraging."""
 
-    metadata = {"render.modes": ["human"]}
+    metadata = {"render.modes": ["human", "rgb_array"]}
 
     action_set = [
         LBFAction.NORTH,
@@ -727,10 +727,13 @@ class ForagingEnv(gym.Env):
         self._rendering_initialized = True
 
     def render(self, mode="human"):
+        if mode not in self.metadata["render.modes"]:
+            super().render(mode)
+
         if not self._rendering_initialized:
             self._init_render()
 
-        return self.viewer.render(self, return_rgb_array=mode == "rgb_array")
+        return self.viewer.render(self, return_rgb_array=(mode == "rgb_array"))
 
     def close(self):
         if self.viewer:
