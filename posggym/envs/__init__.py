@@ -16,7 +16,6 @@ from posggym.envs.grid_world import predator_prey
 from posggym.envs.grid_world import pursuit_evasion
 from posggym.envs.grid_world import two_paths
 from posggym.envs.grid_world import uav
-from posggym.envs.highway_env.scenarios import HWSCENARIOS
 
 
 # Full Model
@@ -322,18 +321,23 @@ for s, n, f, c, sl in product(sizes, players, foods, coop, static_layout):
 # -------------------------------------------
 # Ref: https://github.com/eleurent/highway-env
 
-# suppress pandas warning to do with Highway Env obs space
-warnings.simplefilter(action='ignore', category=FutureWarning)
+try:
+    from posggym.envs.highway_env.scenarios import HWSCENARIOS
 
-num_agents = [2, 3, 4, 6, 8]
+    # suppress pandas warning to do with Highway Env obs space
+    warnings.simplefilter(action='ignore', category=FutureWarning)
 
-for scenario_name, scenario_fn in HWSCENARIOS.items():
-    for n in num_agents:
-        register(
-            id=f"HW{scenario_name}-n{n}-v0",
-            entry_point="posggym.envs.highway_env:HWEnv",
-            kwargs={
-                "n_agents": n,
-                "env": scenario_fn(n)
-            },
-        )
+    num_agents = [2, 3, 4, 6, 8]
+
+    for scenario_name, scenario_fn in HWSCENARIOS.items():
+        for n in num_agents:
+            register(
+                id=f"HW{scenario_name}-n{n}-v0",
+                entry_point="posggym.envs.highway_env:HWEnv",
+                kwargs={
+                    "n_agents": n,
+                    "env": scenario_fn(n)
+                },
+            )
+except ModuleNotFoundError:
+    pass
