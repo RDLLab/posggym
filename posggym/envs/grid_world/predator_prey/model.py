@@ -266,6 +266,7 @@ class PPModel(M.POSGModel):
             # handle moving away from other prey
             for i in range(self.num_prey):
                 if next_prey_coords[i] is not None:
+                    # already moved or caught
                     continue
 
                 prey_coord = state.prey_coords[i]
@@ -334,11 +335,9 @@ class PPModel(M.POSGModel):
         )
         neighbours.sort()
         for (d, c) in reversed(neighbours):
-            if c == prey_coord:
-                return prey_coord
-            elif (
-                c not in occupied_coords
-                and self.grid.num_unblocked_neighbours(c) >= self.prey_strength
+            if (
+                c == prey_coord
+                or self._coord_available_for_prey(c, occupied_coords)
             ):
                 return c
 
@@ -375,15 +374,26 @@ class PPModel(M.POSGModel):
         )
         neighbours.sort()
         for (d, c) in reversed(neighbours):
-            if c == prey_coord:
-                return prey_coord
-            elif (
-                c not in occupied_coords
-                and self.grid.num_unblocked_neighbours(c) >= self.prey_strength
+            if (
+                c == prey_coord
+                or self._coord_available_for_prey(c, occupied_coords)
             ):
                 return c
 
         raise AssertionError("Something has gone wrong, please investigate.")
+
+    def _coord_available_for_prey(self,
+                                  coord: Coord,
+                                  occupied_coords: Set[Coord]) -> bool:
+        if coord in occupied_coords:
+            return False
+        neighbours = self.grid.get_neighbours(
+            coord, ignore_blocks=False, include_out_of_bounds=False
+        )
+        for c in neighbours:
+            if c in occupied_coords:
+                neighbours.remove(c)
+        return len(neighbours) >= self.prey_strength
 
     def _get_next_predator_state(self,
                                  state: PPState,
