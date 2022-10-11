@@ -12,7 +12,7 @@ import posggym.envs.grid_world.predator_prey.model as ppmodel
 class PPEnv(core.DefaultEnv):
     """The Predator-Prey Grid World Environment.
 
-    An co-operative 2D grid world problem involving multiple predator agents
+    A co-operative 2D grid world problem involving multiple predator agents
     working together to catch prey agent/s in the environment.
 
     Agents
