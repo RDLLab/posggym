@@ -218,7 +218,7 @@ class PPModel(M.POSGModel):
         obs = self._get_obs(state, next_state)
         rewards = self._get_rewards(state, next_state)
         dones, all_done = self._is_done(next_state)
-        outcomes = self._get_outcome(next_state)
+        outcomes = self._get_outcome(all_done)
         return M.JointTimestep(
             next_state, obs, rewards, dones, all_done, outcomes
         )
