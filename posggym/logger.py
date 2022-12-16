@@ -28,7 +28,7 @@ color2num = dict(
 )
 
 
-def colorize(string, color, bold=False, highlight=False):
+def colorize(string: str, color: str, bold: bool = False, highlight: bool = False):
     """Return string surrounded by terminal color codes to print colorized text.
 
     Valid colors: gray, red, green, yellow, blue, magenta, cyan, white, crimson
@@ -47,31 +47,31 @@ def colorize(string, color, bold=False, highlight=False):
     return "\x1b[%sm%s\x1b[0m" % (attrs, string)
 
 
-def set_level(level):
+def set_level(level: int):
     """Set logging threshold on current logger."""
     global MIN_LEVEL
     MIN_LEVEL = level
 
 
-def debug(msg, *args):
+def debug(msg: str, *args):
     """Log debug message."""
     if MIN_LEVEL <= DEBUG:
         print("%s: %s" % ("DEBUG", msg % args))
 
 
-def info(msg, *args):
+def info(msg: str, *args):
     """Log info message."""
     if MIN_LEVEL <= INFO:
         print("%s: %s" % ("INFO", msg % args))
 
 
-def warn(msg, *args):
+def warn(msg: str, *args):
     """Log warning message."""
     if MIN_LEVEL <= WARN:
         warnings.warn(colorize("%s: %s" % ("WARN", msg % args), "yellow"))
 
 
-def error(msg, *args):
+def error(msg: str, *args):
     """Log error message."""
     if MIN_LEVEL <= ERROR:
         print(colorize("%s: %s" % ("ERROR", msg % args), "red"))

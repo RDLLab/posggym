@@ -49,7 +49,7 @@ class Env(abc.ABC):
 
     # EnvSpec used to instantiate env instance
     # This is set when env is made using posggym.make function
-    spec: "EnvSpec" = None
+    spec: Optional["EnvSpec"] = None
 
     @abc.abstractmethod
     def step(self,
@@ -83,6 +83,9 @@ class Env(abc.ABC):
             contains auxiliary diagnostic information (helpful for debugging)
 
         """
+
+    def foo(self):
+        """Test thing."""
 
     @abc.abstractmethod
     def reset(self,
@@ -242,16 +245,15 @@ class DefaultEnv(Env):
 
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         assert self.model, (
             "self.model property must be initialized before calling init "
             "function of parent class"
         )
         self._state = self.model.sample_initial_state()
+        self._last_obs: Optional[M.JointObservation] = None
         if self.model.observation_first:
             self._last_obs = self.model.sample_initial_obs(self._state)
-        else:
-            self._last_obs = None
         self._step_num = 0
         self._last_actions: Optional[M.JointAction] = None
         self._last_rewards: Optional[M.JointReward] = None

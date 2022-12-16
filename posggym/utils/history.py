@@ -12,7 +12,6 @@ class AgentHistory:
 
     def __init__(self, history: Tuple[Tuple[M.Action, M.Observation], ...]):
         self.history = history
-        # pylint: disable=invalid-name
         self.t = len(history) - 1
 
     def extend(self, action: M.Action, obs: M.Observation) -> "AgentHistory":

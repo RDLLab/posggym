@@ -133,7 +133,7 @@ class POSGModel(abc.ABC):
 
     # EnvSpec used to instantiate env instance this model is for
     # This is set when env is made using posggym.make function
-    spec: "EnvSpec" = None
+    spec: Optional["EnvSpec"] = None
 
     # pylint: disable=unused-argument
     def __init__(self, n_agents: int, **kwargs):
