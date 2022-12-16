@@ -1,7 +1,7 @@
 """The POSG Model for the Multi-Access Broadcast problem."""
 import random
 from itertools import product
-from typing import Optional, List, Dict, Tuple, Sequence
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from gym import spaces
 
@@ -32,11 +32,13 @@ OBS_STR = ["C", "NC"]
 class MABCInitialBelief(M.Belief):
     """The initial belief in a MABC problem."""
 
-    def __init__(self,
-                 n_agents: int,
-                 init_buffer_dist: Tuple[float, ...],
-                 state_space: List[MABCState],
-                 rng: random.Random):
+    def __init__(
+        self,
+        n_agents: int,
+        init_buffer_dist: Tuple[float, ...],
+        state_space: List[MABCState],
+        rng: random.Random,
+    ):
         self._n_agents = n_agents
         self._init_buffer_dist = init_buffer_dist
         self._state_space = state_space
@@ -63,7 +65,7 @@ class MABCInitialBelief(M.Belief):
                 if s[i] == FULL:
                     s_prob *= self._init_buffer_dist[i]
                 else:
-                    s_prob *= (1 - self._init_buffer_dist[i])
+                    s_prob *= 1 - self._init_buffer_dist[i]
             b_map[s] = s_prob
             s_prob_sum += s_prob
 
@@ -83,12 +85,14 @@ class MABCModel(M.POSGFullModel):
     R_SEND = 1.0
     R_NO_SEND = 0.0
 
-    def __init__(self,
-                 num_nodes: int = 2,
-                 fill_probs: Optional[Tuple[float, ...]] = None,
-                 observation_prob: float = 0.9,
-                 init_buffer_dist: Optional[Tuple[float, ...]] = None,
-                 **kwargs):
+    def __init__(
+        self,
+        num_nodes: int = 2,
+        fill_probs: Optional[Tuple[float, ...]] = None,
+        observation_prob: float = 0.9,
+        init_buffer_dist: Optional[Tuple[float, ...]] = None,
+        **kwargs
+    ):
         super().__init__(num_nodes, **kwargs)
 
         if fill_probs is None:
@@ -129,17 +133,12 @@ class MABCModel(M.POSGFullModel):
     @property
     def state_space(self) -> spaces.Space:
         return spaces.Tuple(
-            tuple(
-                spaces.Discrete(len(NODE_STATES))
-                for _ in range(self.n_agents)
-            )
+            tuple(spaces.Discrete(len(NODE_STATES)) for _ in range(self.n_agents))
         )
 
     @property
     def action_spaces(self) -> Tuple[spaces.Space, ...]:
-        return tuple(
-            spaces.Discrete(len(ACTIONS)) for _ in range(self.n_agents)
-        )
+        return tuple(spaces.Discrete(len(ACTIONS)) for _ in range(self.n_agents))
 
     @property
     def observation_spaces(self) -> Tuple[spaces.Space, ...]:
@@ -147,9 +146,7 @@ class MABCModel(M.POSGFullModel):
 
     @property
     def reward_ranges(self) -> Tuple[Tuple[M.Reward, M.Reward], ...]:
-        return tuple(
-            (self.R_NO_SEND, self.R_SEND) for _ in range(self.n_agents)
-        )
+        return tuple((self.R_NO_SEND, self.R_SEND) for _ in range(self.n_agents))
 
     @property
     def initial_belief(self) -> M.Belief:
@@ -157,10 +154,7 @@ class MABCModel(M.POSGFullModel):
             self.n_agents, self._init_buffer_dist, self._state_space, self._rng
         )
 
-    def step(self,
-             state: M.State,
-             actions: M.JointAction
-             ) -> M.JointTimestep:
+    def step(self, state: M.State, actions: M.JointAction) -> M.JointTimestep:
         assert all(isinstance(a, MABCAction) for a in actions)
         next_state = self._sample_next_state(state, actions)
         obs = self._sample_obs(actions)
@@ -171,13 +165,11 @@ class MABCModel(M.POSGFullModel):
         dones = (False,) * self.n_agents
         all_done = False
         outcomes = tuple(M.Outcome.NA for _ in range(self.n_agents))
-        return M.JointTimestep(
-            next_state, obs, rewards, dones, all_done, outcomes
-        )
+        return M.JointTimestep(next_state, obs, rewards, dones, all_done, outcomes)
 
-    def _sample_next_state(self,
-                           state: MABCState,
-                           actions: MABCJointAction) -> MABCState:
+    def _sample_next_state(
+        self, state: MABCState, actions: MABCJointAction
+    ) -> MABCState:
         next_node_states = list(state)
         for i, a_i in enumerate(actions):
             if a_i == SEND:
@@ -207,18 +199,15 @@ class MABCModel(M.POSGFullModel):
     def set_seed(self, seed: Optional[int] = None):
         self._rng = random.Random(seed)
 
-    def transition_fn(self,
-                      state: M.State,
-                      actions: M.JointAction,
-                      next_state: M.State) -> float:
+    def transition_fn(
+        self, state: M.State, actions: M.JointAction, next_state: M.State
+    ) -> float:
         return self._trans_map[(state, actions, next_state)]
 
     def _construct_trans_func(self) -> Dict:
         trans_map = {}
         for (s, a, s_next) in product(
-                self._state_space,
-                product(*self._action_spaces),
-                self._state_space
+            self._state_space, product(*self._action_spaces), self._state_space
         ):
             trans_prob = 1.0
             for i in range(self.n_agents):
@@ -230,23 +219,22 @@ class MABCModel(M.POSGFullModel):
                 if s_next[i] == FULL:
                     trans_prob *= self._fill_probs[i]
                 else:
-                    trans_prob *= (1 - self._fill_probs[i])
+                    trans_prob *= 1 - self._fill_probs[i]
 
             trans_map[(s, a, s_next)] = trans_prob
         return trans_map
 
-    def observation_fn(self,
-                       obs: M.JointObservation,
-                       next_state: M.State,
-                       actions: M.JointAction) -> float:
+    def observation_fn(
+        self, obs: M.JointObservation, next_state: M.State, actions: M.JointAction
+    ) -> float:
         return self._obs_map[(next_state, actions, obs)]
 
     def _construct_obs_func(self) -> Dict:
         obs_map = {}
         for (s_next, a, o) in product(
-                self._state_space,
-                product(*self._action_spaces),
-                product(*self._observation_spaces)
+            self._state_space,
+            product(*self._action_spaces),
+            product(*self._observation_spaces),
         ):
             senders = sum(int(a_i == SEND) for a_i in a)
             if senders > 1:
@@ -259,13 +247,11 @@ class MABCModel(M.POSGFullModel):
                 if o[i] == correct_obs:  # type: ignore
                     o_prob *= self._obs_prob
                 else:
-                    o_prob *= (1 - self._obs_prob)
+                    o_prob *= 1 - self._obs_prob
             obs_map[(s_next, a, o)] = o_prob
         return obs_map
 
-    def reward_fn(self,
-                  state: M.State,
-                  actions: M.JointAction) -> M.JointReward:
+    def reward_fn(self, state: M.State, actions: M.JointAction) -> M.JointReward:
         return self._rew_map[(state, actions)]
 
     def _construct_rew_func(self) -> Dict:

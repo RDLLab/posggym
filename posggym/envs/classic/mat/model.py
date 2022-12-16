@@ -1,7 +1,7 @@
-"""The POSG Model for the Multi-Access Broadcast problem."""
+"""Model for the Multi-Access Broadcast problem."""
 import random
 from itertools import product
-from typing import Tuple, Sequence, Dict, Optional
+from typing import Dict, Optional, Sequence, Tuple
 
 from gym import spaces
 
@@ -36,7 +36,7 @@ OBS_SPACE = [
     (GROWLLEFT, SILENCE),
     (GROWLRIGHT, CREAKLEFT),
     (GROWLRIGHT, CREAKRIGHT),
-    (GROWLRIGHT, SILENCE)
+    (GROWLRIGHT, SILENCE),
 ]
 OBS_STR = [("GL", "GR"), ("CL", "CR", "S")]
 
@@ -70,10 +70,12 @@ class MultiAgentTigerModel(M.POSGFullModel):
     OPEN_BAD_R = -100.0
     LISTEN_R = -1.0
 
-    def __init__(self,
-                 observation_prob: float = 0.85,
-                 creak_observation_prob: float = 0.9,
-                 **kwargs):
+    def __init__(
+        self,
+        observation_prob: float = 0.85,
+        creak_observation_prob: float = 0.9,
+        **kwargs
+    ):
         super().__init__(self.NUM_AGENTS, **kwargs)
         self._obs_prob = observation_prob
         self._creak_obs_prob = creak_observation_prob
@@ -102,54 +104,41 @@ class MultiAgentTigerModel(M.POSGFullModel):
 
     @property
     def action_spaces(self) -> Tuple[spaces.Space, ...]:
-        return tuple(
-            spaces.Discrete(len(ACTIONS)) for _ in range(self.n_agents)
-        )
+        return tuple(spaces.Discrete(len(ACTIONS)) for _ in range(self.n_agents))
 
     @property
     def observation_spaces(self) -> Tuple[spaces.Space, ...]:
         return tuple(
-            spaces.Tuple((
-                spaces.Discrete(len(OBS_PARTS[0])),
-                spaces.Discrete(len(OBS_PARTS[1]))
-            )) for _ in range(self.n_agents)
+            spaces.Tuple(
+                (spaces.Discrete(len(OBS_PARTS[0])), spaces.Discrete(len(OBS_PARTS[1])))
+            )
+            for _ in range(self.n_agents)
         )
 
     @property
     def reward_ranges(self) -> Tuple[Tuple[M.Reward, M.Reward], ...]:
-        return tuple(
-            (self.OPEN_BAD_R, self.OPEN_GOOD_R) for _ in range(self.n_agents)
-        )
+        return tuple((self.OPEN_BAD_R, self.OPEN_GOOD_R) for _ in range(self.n_agents))
 
     @property
     def initial_belief(self) -> M.Belief:
         return MATB0(self._rng)
 
-    def step(self,
-             state: M.State,
-             actions: M.JointAction
-             ) -> M.JointTimestep:
+    def step(self, state: M.State, actions: M.JointAction) -> M.JointTimestep:
         next_state = self._sample_next_state(state, actions)
         obs = self._sample_obs(state, actions)
         rewards = self._get_reward(state, actions)
         dones = (False,) * self.n_agents
         all_done = False
         outcomes = tuple(M.Outcome.NA for _ in range(self.n_agents))
-        return M.JointTimestep(
-            next_state, obs, rewards, dones, all_done, outcomes
-        )
+        return M.JointTimestep(next_state, obs, rewards, dones, all_done, outcomes)
 
-    def _sample_next_state(self,
-                           state: MATState,
-                           actions: MATJointAction) -> MATState:
+    def _sample_next_state(self, state: MATState, actions: MATJointAction) -> MATState:
         next_state = state
         if any(a != LISTEN for a in actions):
             next_state = self._rng.choice(STATES)
         return next_state
 
-    def _sample_obs(self,
-                    state: MATState,
-                    actions: MATJointAction) -> MATJointObs:
+    def _sample_obs(self, state: MATState, actions: MATJointAction) -> MATJointObs:
         obs_list = []
         for agent_id, a in enumerate(actions):
             if a != LISTEN:
@@ -184,9 +173,7 @@ class MultiAgentTigerModel(M.POSGFullModel):
             return self._rng.choice([CREAKRIGHT, SILENCE])
         return self._rng.choice([CREAKRIGHT, SILENCE])
 
-    def _get_reward(self,
-                    state: MATState,
-                    actions: MATJointAction) -> M.JointReward:
+    def _get_reward(self, state: MATState, actions: MATJointAction) -> M.JointReward:
         rewards = []
         for a in actions:
             if a == LISTEN:
@@ -200,19 +187,16 @@ class MultiAgentTigerModel(M.POSGFullModel):
     def set_seed(self, seed: Optional[int] = None):
         self._rng = random.Random(seed)
 
-    def transition_fn(self,
-                      state: M.State,
-                      actions: M.JointAction,
-                      next_state: M.State) -> float:
+    def transition_fn(
+        self, state: M.State, actions: M.JointAction, next_state: M.State
+    ) -> float:
         return self._trans_map[(state, actions, next_state)]
 
     def _construct_trans_func(self) -> Dict:
         trans_map = {}
         uniform_prob = 1.0 / len(STATES)
         for (s, a, s_next) in product(
-                self._state_space,
-                product(*self._action_spaces),
-                self._state_space
+            self._state_space, product(*self._action_spaces), self._state_space
         ):
             if any(a_i != LISTEN for a_i in a):
                 p = uniform_prob
@@ -221,19 +205,16 @@ class MultiAgentTigerModel(M.POSGFullModel):
             trans_map[(s, a, s_next)] = p
         return trans_map
 
-    def observation_fn(self,
-                       obs: M.JointObservation,
-                       next_state: M.State,
-                       actions: M.JointAction) -> float:
+    def observation_fn(
+        self, obs: M.JointObservation, next_state: M.State, actions: M.JointAction
+    ) -> float:
         return self._obs_map[(next_state, actions, obs)]
 
     def _construct_obs_func(self) -> Dict:
         obs_func = {}
         uniform_o_prob = 1.0 / len(OBS_SPACE)
         for (s_next, a, o) in product(
-                self._state_space,
-                product(*self._action_spaces),
-                product(*self._obs_spaces)
+            self._state_space, product(*self._action_spaces), product(*self._obs_spaces)
         ):
             o_prob = 1.0
 
@@ -247,7 +228,7 @@ class MultiAgentTigerModel(M.POSGFullModel):
                     if o_k[0] == correct_pos:
                         o_prob *= self._obs_prob
                     else:
-                        o_prob *= (1.0 - self._obs_prob)
+                        o_prob *= 1.0 - self._obs_prob
 
                     if o_k[1] == SILENCE:
                         o_prob *= self._creak_obs_prob
@@ -266,7 +247,7 @@ class MultiAgentTigerModel(M.POSGFullModel):
                 if o_k[0] == correct_pos:
                     o_prob *= self._obs_prob
                 else:
-                    o_prob *= (1.0 - self._obs_prob)
+                    o_prob *= 1.0 - self._obs_prob
 
                 if o_k[1] == correct_creak:
                     o_prob *= self._creak_obs_prob
@@ -280,9 +261,7 @@ class MultiAgentTigerModel(M.POSGFullModel):
 
         return obs_func
 
-    def reward_fn(self,
-                  state: M.State,
-                  actions: M.JointAction) -> M.JointReward:
+    def reward_fn(self, state: M.State, actions: M.JointAction) -> M.JointReward:
         return self._rew_map[(state, actions)]
 
     def _construct_rew_func(self) -> Dict:

@@ -95,37 +95,21 @@ outcomes = joint_step.outcomes   # e.g. winner and loser agents if applicable
 ```
 
 
+## Model Types
+
+POSGGym supports two types of models:
+
+- *Full* (`POSGFullModel` Class) - models which are fully defined, in the sense they include implementations of every component of the POSG model (including state space, transition, observation, and reward functions)
+- *Generative* (`POSGModel` Class) - models which only include implementation of a generative function which takes in a state and joint action and returns the next state, joint observation, joint reward, and terminal information.
+
+*Full* models implement a superset of the generative model functionallity.
+
 ## Implemented Environments
 
-POSGGym supports two types of models: full models and generative only models.
+POSGGym includes the following families of environments along with some third-party environments. The code for implemented environments are located in the `posggym/envs/` subdirectory.
 
-### Full Model Environments
-
-These environments include model which are fully defined, in the sense they include implementations of every component of the POSG model (including transition, observation, and reward functions), as opposed to only a generative black-box function.
-
-The code for most of these environments is located in the `posggym/envs/full_model` subdirectory.
-
-- **Multi-Access Broadcast Channel (MABC)**
-
-  - Ooi, J. M., and Wornell, G. W. 1996. Decentralized control of a multiple access broadcast channel: Performance bounds. In Proceedings of the 35th Conference on Decision and Control, 293–298.
-  - Hansen, Eric A., Daniel S. Bernstein, and Shlomo Zilberstein. 2004. “Dynamic Programming for Partially Observable Stochastic Games.” In Proceedings of the 19th National Conference on Artifical Intelligence, 709–715. AAAI’04.
-
-- **Multi-Agent Tiger**
-
-  - Gmytrasiewicz, Piotr J., and Prashant Doshi. “A Framework for Sequential Planning in Multi-Agent Settings.” Journal of Artificial Intelligence Research 24 (2005): 49–79.
-
-### Generative Model Environments
-
-The code for most of these environments is located in the various `posggym/envs` subdirectories.
-
-- **Two-Path**
-- **Pursuit Evasion**
-
-  - Seaman, Iris Rubi, Jan-Willem van de Meent, and David Wingate. 2018. “Nested Reasoning About Autonomous Agents Using Probabilistic Programs.” ArXiv Preprint ArXiv:1812.01569.
-
-- **Unmanned Aerial Vehicle (UAV)**
-
-  - Panella, Alessandro, and Piotr Gmytrasiewicz. 2017. “Interactive POMDPs with Finite-State Models of Other Agents.” Autonomous Agents and Multi-Agent Systems 31 (4): 861–904.
+- *Classic* - These are classic POSG problems.
+- *Grid-World* - These environments are all based in a 2D Gridworld.
 
 
 ## Authors

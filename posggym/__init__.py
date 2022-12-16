@@ -1,16 +1,10 @@
 """Root '__init__' of the posggym package."""
 
-from posggym.core import Env
-from posggym.core import Wrapper
-from posggym.core import ActionWrapper
-from posggym.core import RewardWrapper
-from posggym.core import ObservationWrapper
-from posggym.model import POSGModel
-from posggym.model import POSGFullModel
-from posggym.envs import make
-from posggym.envs import register
-from posggym.envs import spec
-from posggym import envs, utils, wrappers, error, logger
+from posggym import envs, error, logger, utils, wrappers
+from posggym.core import ActionWrapper, Env, ObservationWrapper, RewardWrapper, Wrapper
+from posggym.envs import make, register, spec
+from posggym.model import POSGFullModel, POSGModel
+
 
 __all__ = [
     # core classes

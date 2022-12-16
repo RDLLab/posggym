@@ -1,10 +1,10 @@
 """The model data structure."""
 import abc
 import enum
-from typing import Tuple, NamedTuple, Optional, Any, Sequence, Dict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, NamedTuple, Optional, Sequence, Tuple
 
 from gym import spaces
+
 
 if TYPE_CHECKING:
     from posggym.envs.registration import EnvSpec
@@ -21,6 +21,7 @@ JointObservation = Tuple[Observation, ...]
 
 class Outcome(enum.Enum):
     """Final POSG episode Outcome for an agent."""
+
     LOSS = -1
     DRAW = 0
     WIN = 1
@@ -32,6 +33,7 @@ class Outcome(enum.Enum):
 
 class JointTimestep(NamedTuple):
     """Values returned by model after a single step."""
+
     state: State
     observations: JointObservation
     rewards: JointReward
@@ -55,8 +57,7 @@ class Belief(abc.ABC):
         """Get belief as a distribution: S -> prob map."""
         return self.sample_belief_dist()
 
-    def sample_belief_dist(self,
-                           num_samples: int = 1000) -> Dict[State, float]:
+    def sample_belief_dist(self, num_samples: int = 1000) -> Dict[State, float]:
         """Construct a belief distribution via Monte-Carlo sampling.
 
         Requires that the State objects for the given belief are hashable.
@@ -213,9 +214,7 @@ class POSGModel(abc.ABC):
             "using the step() function."
         )
 
-    def get_agent_initial_belief(self,
-                                 agent_id: AgentID,
-                                 obs: Observation) -> Belief:
+    def get_agent_initial_belief(self, agent_id: AgentID, obs: Observation) -> Belief:
         """Get the initial belief for an agent given it's initial observation.
 
         Only applicable in observation first environments and is optional.
@@ -255,21 +254,17 @@ class POSGFullModel(POSGModel, abc.ABC):
     """
 
     @abc.abstractmethod
-    def transition_fn(self,
-                      state: State,
-                      actions: JointAction,
-                      next_state: State) -> float:
+    def transition_fn(
+        self, state: State, actions: JointAction, next_state: State
+    ) -> float:
         """Transition function Pr(next_state | state, action)."""
 
     @abc.abstractmethod
-    def observation_fn(self,
-                       obs: JointObservation,
-                       next_state: State,
-                       actions: JointAction) -> float:
+    def observation_fn(
+        self, obs: JointObservation, next_state: State, actions: JointAction
+    ) -> float:
         """Observation function Pr(obs | next_state, action)."""
 
     @abc.abstractmethod
-    def reward_fn(self,
-                  state: State,
-                  actions: JointAction) -> JointReward:
+    def reward_fn(self, state: State, actions: JointAction) -> JointReward:
         """Reward Function R: S X (a_0, ..., a_n) -> (r_0, ..., r_n)."""

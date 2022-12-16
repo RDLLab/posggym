@@ -1,10 +1,10 @@
+"""Classic Multi-Agent Broadcast Channel environment."""
 import sys
 from typing import Optional, Tuple
 
-from posggym import core
-import posggym.model as M
-
 import posggym.envs.classic.mabc.model as mabc_model
+import posggym.model as M
+from posggym import core
 
 
 class MABCEnv(core.DefaultEnv):
@@ -65,32 +65,33 @@ class MABCEnv(core.DefaultEnv):
 
     """
 
-    metadata = {"render.modes": ['human', 'ansi']}
+    metadata = {"render.modes": ["human", "ansi"]}
 
-    def __init__(self,
-                 num_nodes: int = 2,
-                 fill_probs: Optional[Tuple[float, ...]] = None,
-                 observation_prob: float = 0.9,
-                 init_buffer_dist: Optional[Tuple[float, ...]] = None,
-                 **kwargs):
+    def __init__(
+        self,
+        num_nodes: int = 2,
+        fill_probs: Optional[Tuple[float, ...]] = None,
+        observation_prob: float = 0.9,
+        init_buffer_dist: Optional[Tuple[float, ...]] = None,
+        **kwargs,
+    ):
         self._model = mabc_model.MABCModel(
             num_nodes, fill_probs, observation_prob, init_buffer_dist, **kwargs
         )
         super().__init__()
 
     def render(self, mode: str = "human"):
+        assert self._last_obs is not None
         if mode not in self.metadata["render.modes"]:
             # raise exception
             super().render(mode)
 
-        state_str = ", ".join(
-            [mabc_model.NODE_STATE_STR[s] for s in self._state]
-        )
+        state_str = ", ".join([mabc_model.NODE_STATE_STR[s] for s in self._state])
         obs_str = ", ".join([mabc_model.OBS_STR[o] for o in self._last_obs])
         output = [
             f"Step: {self._step_num}",
             f"State: <{state_str}>",
-            f"Obs: <{obs_str}>"
+            f"Obs: <{obs_str}>",
         ]
         if self._last_actions is not None:
             action_str = ", ".join(

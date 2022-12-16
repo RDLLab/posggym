@@ -1,10 +1,9 @@
-"""The environment class for the Multi-Agent Tiger Problem."""
+"""Classic Multi-Agent Tiger Problem."""
 import sys
 
-from posggym import core
-import posggym.model as M
-
 import posggym.envs.classic.mat.model as mat_model
+import posggym.model as M
+from posggym import core
 
 
 class MultiAgentTigerEnv(core.DefaultEnv):
@@ -85,31 +84,36 @@ class MultiAgentTigerEnv(core.DefaultEnv):
 
     """
 
-    metadata = {"render.modes": ['human', 'ansi']}
+    metadata = {"render.modes": ["human", "ansi"]}
 
-    def __init__(self,
-                 observation_prob: float = 0.85,
-                 creak_observation_prob: float = 0.9,
-                 **kwargs):
+    def __init__(
+        self,
+        observation_prob: float = 0.85,
+        creak_observation_prob: float = 0.9,
+        **kwargs,
+    ):
         self._model = mat_model.MultiAgentTigerModel(
             observation_prob, creak_observation_prob, **kwargs
         )
         super().__init__()
 
     def render(self, mode: str = "human"):
+        assert self._last_obs is not None
         if mode not in self.metadata["render.modes"]:
             # raise exception
             super().render(mode)
 
         state_str = mat_model.STATE_STRS[self._state]
-        obs_str = ", ".join([
-            str((mat_model.OBS_STR[0][o[0]], mat_model.OBS_STR[1][o[1]]))
-            for o in self._last_obs
-        ])
+        obs_str = ", ".join(
+            [
+                str((mat_model.OBS_STR[0][o[0]], mat_model.OBS_STR[1][o[1]]))
+                for o in self._last_obs
+            ]
+        )
         output = [
             f"Step: {self._step_num}",
             f"State: <{state_str}>",
-            f"Obs: <{obs_str}>"
+            f"Obs: <{obs_str}>",
         ]
         if self._last_actions is not None:
             action_str = ", ".join(

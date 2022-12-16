@@ -1,9 +1,9 @@
+"""Classic Rock, Paper, Scissors problem."""
 import sys
 
-from posggym import core
-import posggym.model as M
-
 import posggym.envs.classic.rps.model as rps_model
+import posggym.model as M
+from posggym import core
 
 
 class RockPaperScissorsEnv(core.DefaultEnv):
@@ -47,28 +47,24 @@ class RockPaperScissorsEnv(core.DefaultEnv):
 
     """
 
-    metadata = {"render.modes": ['human', 'ansi']}
+    metadata = {"render.modes": ["human", "ansi"]}
 
     def __init__(self, **kwargs):
         self._model = rps_model.RockPaperScissorsModel(**kwargs)
         super().__init__()
 
     def render(self, mode: str = "human"):
+        assert self._last_obs is not None
         if mode not in self.metadata["render.modes"]:
             # raise exception
             super().render(mode)
 
-        obs_str = ", ".join([
-            rps_model.OBS_STR[o] for o in self._last_obs
-        ])
-        output = [
-            f"Step: {self._step_num}",
-            f"Obs: <{obs_str}>"
-        ]
+        obs_str = ", ".join([rps_model.OBS_STR[o] for o in self._last_obs])
+        output = [f"Step: {self._step_num}", f"Obs: <{obs_str}>"]
         if self._last_actions is not None:
-            action_str = ", ".join([
-                rps_model.ACTION_STR[a] for a in self._last_actions
-            ])
+            action_str = ", ".join(
+                [rps_model.ACTION_STR[a] for a in self._last_actions]
+            )
             output.insert(1, f"Actions: <{action_str}>")
             output.append(f"Rewards: <{self._last_rewards}>")
 

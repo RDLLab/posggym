@@ -6,11 +6,12 @@ https://github.com/openai/gym
 """
 import abc
 import copy
-from typing import Tuple, Optional, Dict, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 from gym import spaces
 
 import posggym.model as M
+
 
 if TYPE_CHECKING:
     from posggym.envs.registration import EnvSpec
@@ -19,8 +20,8 @@ if TYPE_CHECKING:
 class Env(abc.ABC):
     """The main POSG environment class.
 
-    The implementation is heavily inspired by the Open AI Gym API and
-    implementation: https://github.com/openai/gym
+    The implementation is heavily inspired by the Open AI Gym API and implementation:
+    https://github.com/openai/gym
 
     It encapsulates an environment and POSG model.
 
