@@ -1,15 +1,14 @@
-"""Initializes posg implemented environments.
+"""Registers the internal POSGGym environments.
 
-Utilizes the OpenAI Gym env registration functionality.
+Based on the Farama Foundation Gymnasium API:
+https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/envs/__init__.py
+
 """
 import math
 import warnings
 from itertools import product
 
-from posggym.envs.registration import register
-from posggym.envs.registration import make       # noqa
-from posggym.envs.registration import spec       # noqa
-from posggym.envs.registration import registry   # noqa
+from posggym.envs.registration import register, make, spec, registry, pprint_registry
 
 from posggym.envs.grid_world import driving
 from posggym.envs.grid_world import predator_prey
@@ -18,7 +17,7 @@ from posggym.envs.grid_world import two_paths
 from posggym.envs.grid_world import uav
 
 
-# Full Model
+# Classic
 # -------------------------------------------
 
 register(

@@ -1,22 +1,32 @@
 """The model data structure."""
+from __future__ import annotations
+
 import abc
 import enum
-from typing import TYPE_CHECKING, Any, Dict, NamedTuple, Optional, Sequence, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Generic,
+    NamedTuple,
+    Optional,
+    Sequence,
+    SupportsFloat,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
-from gym import spaces
+from gymnasium import spaces
 
 
 if TYPE_CHECKING:
     from posggym.envs.registration import EnvSpec
 
-AgentID = int
-State = Any
-Action = Any
-JointAction = Tuple[Action, ...]
-Reward = float
-JointReward = Tuple[Reward, ...]
-Observation = Any
-JointObservation = Tuple[Observation, ...]
+
+AgentID = Union[int, str]
+StateType = TypeVar("StateType")
+ActType = TypeVar("ActType")
+ObsType = TypeVar("ObsType")
 
 
 class Outcome(enum.Enum):
@@ -31,38 +41,40 @@ class Outcome(enum.Enum):
         return self.name
 
 
-class JointTimestep(NamedTuple):
+class JointTimestep(NamedTuple, Generic[StateType, ObsType]):
     """Values returned by model after a single step."""
 
-    state: State
-    observations: JointObservation
-    rewards: JointReward
-    dones: Tuple[bool, ...]
+    state: StateType
+    observations: Dict[AgentID, ObsType]
+    rewards: Dict[AgentID, SupportsFloat]
+    terminated: Dict[AgentID, bool]
+    truncated: Dict[AgentID, bool]
     all_done: bool
-    outcomes: Optional[Tuple[Outcome, ...]]
+    outcomes: Dict[AgentID, Outcome] | None
+    info: Dict[AgentID, Dict]
 
 
-class Belief(abc.ABC):
+class Belief(abc.ABC, Generic[StateType]):
     """An abstract belief class."""
 
     @abc.abstractmethod
-    def sample(self) -> State:
+    def sample(self) -> StateType:
         """Return a state from the belief."""
 
-    def sample_k(self, k: int) -> Sequence[State]:
+    def sample_k(self, k: int) -> Sequence[StateType]:
         """Sample k states from the belief."""
         return [self.sample() for _ in range(k)]
 
-    def get_dist(self) -> Dict[State, float]:
+    def get_dist(self) -> Dict[StateType, float]:
         """Get belief as a distribution: S -> prob map."""
         return self.sample_belief_dist()
 
-    def sample_belief_dist(self, num_samples: int = 1000) -> Dict[State, float]:
+    def sample_belief_dist(self, num_samples: int = 1000) -> Dict[StateType, float]:
         """Construct a belief distribution via Monte-Carlo sampling.
 
         Requires that the State objects for the given belief are hashable.
         """
-        b_map: Dict[State, float] = {}
+        b_map: Dict[StateType, float] = {}
 
         s_prob = 1.0 / num_samples
         for s in (self.sample() for _ in range(num_samples)):
@@ -73,7 +85,7 @@ class Belief(abc.ABC):
         return b_map
 
 
-class POSGModel(abc.ABC):
+class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
     """A Partially Observable Stochastic Game model.
 
     This class defines functions and attributes necessary for a generative POSG
@@ -143,27 +155,54 @@ class POSGModel(abc.ABC):
     @property
     @abc.abstractmethod
     def observation_first(self) -> bool:
-        """Get whether model is observation (True) or action (False) first.
+        """Get whether environment is observation or action first.
 
-        Observation first environments start by providing the agents with an
-        observation from the initial belief before any action is taken.
+        "Observation first" environments start by providing the agents with an
+        observation from the initial belief before any action is taken. Most
+        Reinforcement Learning algorithms typically assume this setting.
 
-        Action first environment expect the agents to take an action from the
-        initial belief before providing an observation.
+        "Action first" environments expect the agents to take an action from the initial
+        belief before providing an observation. Many planning algorithms use this
+        paradigm.
 
-        Note: Observation first environment are equivalent to action first
-        environments where all agents know when they are performing the first
-        action and there is only a single first action available.
+        Note
+        ----
+        "Action first" environments can always be converted into "Observation first"
+          by introducing a dummy initial observation. Similarly, "Action first"
+          algorithms can be made compatible with "Observation first" environments by
+          introducing a single dummy action for the first step only.
+
+        Returns
+        -------
+        bool
+          ``True`` if environment is observation first, ``False`` if environment is
+          action first.
+
         """
 
     @property
     @abc.abstractmethod
     def is_symmetric(self) -> bool:
-        """Get swhether the environment is symmetric.
+        """Get whether environment is symmetric.
 
-        In symmetric environments all agents are identical irrespective of
-        their ID (i.e. same actions, observation, and reward spaces and
-        dynamics)
+        An environment is "symmetric" if the ID of an agent in the environment does not
+        affect the agent in anyway (i.e. all agents have the same action and observation
+        spaces, same reward functions, and there are no differences in initial
+        conditions all things considered). Classic examples include Rock-Paper-Scissors,
+        Chess, Poker. In "symmetric" environments the same "policy" should do equally
+        well independent of the ID of the agent the policy is used for.
+
+        If an environment is not "symmetric" then it is "asymmetric", meaning that
+        there are differences in agent properties based on the agent's ID. In
+        "asymmetric" environments there is no guarantee that the same "policy" will
+        work for different agent IDs. Examples include Pursuit-Evasion games, any
+        environments where action and/or observation space differs by agent ID.
+
+        Returns
+        -------
+        bool
+          ``True`` if environment is symmetric, ``False`` if environment is asymmetric.
+
         """
 
     @property
@@ -174,17 +213,17 @@ class POSGModel(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def action_spaces(self) -> Tuple[spaces.Space, ...]:
+    def action_spaces(self) -> Dict[AgentID, spaces.Space]:
         """Get the action space for each agent."""
 
     @property
     @abc.abstractmethod
-    def observation_spaces(self) -> Tuple[spaces.Space, ...]:
+    def observation_spaces(self) -> Dict[AgentID, spaces.Space]:
         """Get the observation space for each agent."""
 
     @property
     @abc.abstractmethod
-    def reward_ranges(self) -> Tuple[Tuple[Reward, Reward], ...]:
+    def reward_ranges(self) -> Dict[AgentID, Tuple[SupportsFloat, SupportsFloat]]:
         """Get the minimum and maximum  possible rewards for each agent."""
 
     @property
@@ -192,19 +231,21 @@ class POSGModel(abc.ABC):
     def initial_belief(self) -> Belief:
         """Get the initial belief over states."""
 
-    def sample_initial_state(self) -> State:
+    def sample_initial_state(self) -> StateType:
         """Sample an initial state from initial belief."""
         return self.initial_belief.sample()
 
     @abc.abstractmethod
-    def step(self, state: State, actions: JointAction) -> JointTimestep:
+    def step(
+        self, state: StateType, actions: Dict[AgentID, ActType]
+    ) -> JointTimestep[StateType, ObsType]:
         """Perform generative step."""
 
     @abc.abstractmethod
     def set_seed(self, seed: Optional[int] = None):
         """Set the seed for the model RNG."""
 
-    def sample_initial_obs(self, state: State) -> JointObservation:
+    def sample_initial_obs(self, state: StateType) -> Dict[AgentID, ObsType]:
         """Sample an initial observation given initial state."""
         if self.observation_first:
             raise NotImplementedError
@@ -214,7 +255,9 @@ class POSGModel(abc.ABC):
             "using the step() function."
         )
 
-    def get_agent_initial_belief(self, agent_id: AgentID, obs: Observation) -> Belief:
+    def get_agent_initial_belief(
+        self, agent_id: AgentID, obs: ObsType
+    ) -> Belief[StateType]:
         """Get the initial belief for an agent given it's initial observation.
 
         Only applicable in observation first environments and is optional.
@@ -228,7 +271,7 @@ class POSGModel(abc.ABC):
         )
 
 
-class POSGFullModel(POSGModel, abc.ABC):
+class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
     """A Fully definte Partially Observable Stochastic Game model.
 
     This class includes implementions for all components of a POSG, including
@@ -255,16 +298,21 @@ class POSGFullModel(POSGModel, abc.ABC):
 
     @abc.abstractmethod
     def transition_fn(
-        self, state: State, actions: JointAction, next_state: State
+        self, state: StateType, actions: Dict[AgentID, ActType], next_state: StateType
     ) -> float:
         """Transition function Pr(next_state | state, action)."""
 
     @abc.abstractmethod
     def observation_fn(
-        self, obs: JointObservation, next_state: State, actions: JointAction
+        self,
+        obs: Dict[AgentID, ObsType],
+        next_state: StateType,
+        actions: Dict[AgentID, ActType],
     ) -> float:
         """Observation function Pr(obs | next_state, action)."""
 
     @abc.abstractmethod
-    def reward_fn(self, state: State, actions: JointAction) -> JointReward:
+    def reward_fn(
+        self, state: StateType, actions: Dict[AgentID, ActType]
+    ) -> Dict[AgentID, SupportsFloat]:
         """Reward Function R: S X (a_0, ..., a_n) -> (r_0, ..., r_n)."""
