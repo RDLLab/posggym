@@ -1,9 +1,10 @@
 """Root '__init__' of the posggym package."""
-
-from posggym import envs, error, logger, utils, wrappers
-from posggym.core import ActionWrapper, Env, ObservationWrapper, RewardWrapper, Wrapper
-from posggym.envs import make, register, spec
+# isort: skip_file
+# Need to import model and core before other modules
 from posggym.model import POSGFullModel, POSGModel
+from posggym.core import ActionWrapper, Env, ObservationWrapper, RewardWrapper, Wrapper
+from posggym import envs, error, logger, utils, wrappers
+from posggym.envs import make, pprint_registry, register, registry, spec
 
 
 __all__ = [
@@ -17,8 +18,10 @@ __all__ = [
     "POSGFullModel",
     # registration
     "make",
-    "spec",
+    "pprint_registry",
     "register",
+    "registry",
+    "spec",
     # module folders
     "envs",
     "utils",

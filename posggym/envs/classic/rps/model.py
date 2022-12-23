@@ -3,7 +3,7 @@ import random
 from itertools import product
 from typing import Dict, Optional, Sequence, Tuple
 
-from gym import spaces
+from gymnasium import spaces
 
 import posggym.model as M
 

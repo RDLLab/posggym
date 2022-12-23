@@ -28,7 +28,10 @@ else:
     import importlib.metadata as metadata
 
 
-ENV_ID_RE: re.Pattern = re.compile(r"^(?:[\w:-]+\/)?([\w:.-]+)-v(\d+)$")
+# ENV_ID_RE: re.Pattern = re.compile(r"^(?:[\w:-]+\/)?([\w:.-]+)-v(\d+)$")
+ENV_ID_RE = re.compile(
+    r"^(?:(?P<namespace>[\w:-]+)\/)?(?:(?P<name>[\w:.-]+?))(?:-v(?P<version>\d+))?$"
+)
 
 
 def load(name: str) -> Callable:
@@ -72,9 +75,8 @@ def parse_env_id(env_id: str) -> Tuple[str | None, str, int | None]:
     match = ENV_ID_RE.fullmatch(env_id)
     if not match:
         raise error.Error(
-            f"Malformed environment ID: {env_id}."
-            "(Currently all IDs must be of the form [namespace/](env-name)-v(version) "
-            " (namespace is optional))."
+            f"Malformed environment ID: {env_id}. (Currently all IDs must be of the "
+            "form [namespace/](env-name)-v(version) (namespace is optional))."
         )
     namespace, name, version = match.group("namespace", "name", "version")
     if version is not None:
@@ -183,14 +185,18 @@ def _check_namespace_exists(ns: str | None):
 def _check_name_exists(ns: str | None, name: str):
     """Check if env exists in namespace. If it doesn't, print helpful error message."""
     _check_namespace_exists(ns)
-    names = {spec_.name for spec_ in registry.values() if spec_.namespace == ns}
+    names = {
+        spec_.name.lower(): spec_.name
+        for spec_ in registry.values()
+        if spec_.namespace == ns
+    }
 
-    if name in names:
+    if name in names.values():
         return
 
-    suggestion = difflib.get_close_matches(name, names, n=1)
+    suggestion = difflib.get_close_matches(name.lower(), names, n=1)
     namespace_msg = f" in namespace {ns}" if ns else ""
-    suggestion_msg = f"Did you mean: `{suggestion[0]}`?" if suggestion else ""
+    suggestion_msg = f"Did you mean: `{names[suggestion[0]]}`?" if suggestion else ""
 
     raise error.NameNotFound(
         f"Environment {name} doesn't exist{namespace_msg}. {suggestion_msg}"

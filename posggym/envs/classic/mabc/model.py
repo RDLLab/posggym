@@ -1,9 +1,11 @@
-"""The POSG Model for the Multi-Access Broadcast problem."""
+"""POSG Model for the Multi-Access Broadcast problem."""
+from __future__ import annotations
+
 import random
 from itertools import product
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, SupportsFloat, Tuple, Union
 
-from gym import spaces
+from gymnasium import spaces
 
 import posggym.model as M
 
@@ -15,21 +17,19 @@ NODE_STATES = [EMPTY, FULL]
 NODE_STATE_STR = ["E", "F"]
 
 MABCAction = int
-MABCJointAction = Tuple[MABCAction, ...]
 SEND = 0
 NOSEND = 1
 ACTIONS = [SEND, NOSEND]
 ACTION_STR = ["S", "NS"]
 
 MABCObs = int
-MABCJointObs = Tuple[MABCObs, ...]
 COLLISION = 0
 NOCOLLISION = 1
 OBS = [COLLISION, NOCOLLISION]
 OBS_STR = ["C", "NC"]
 
 
-class MABCInitialBelief(M.Belief):
+class MABCB0(M.Belief[MABCState]):
     """The initial belief in a MABC problem."""
 
     def __init__(
@@ -44,7 +44,7 @@ class MABCInitialBelief(M.Belief):
         self._state_space = state_space
         self._rng = rng
 
-    def sample(self) -> M.State:
+    def sample(self) -> MABCState:
         node_states = []
         for i in range(self._n_agents):
             if self._rng.random() <= self._init_buffer_dist[i]:
@@ -53,10 +53,7 @@ class MABCInitialBelief(M.Belief):
                 node_states.append(EMPTY)
         return tuple(node_states)
 
-    def sample_k(self, k: int) -> Sequence[M.State]:
-        return [self.sample() for _ in range(k)]
-
-    def get_dist(self) -> Dict[M.State, float]:
+    def get_dist(self) -> Dict[MABCState, float]:
         b_map: Dict[MABCState, float] = {}
         s_prob_sum = 0.0
         for s in self._state_space:
@@ -75,7 +72,7 @@ class MABCInitialBelief(M.Belief):
         return b_map
 
 
-class MABCModel(M.POSGFullModel):
+class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
     """POSG Model for the Multi-Access Broadcast Channel problem."""
 
     DEFAULT_FILL_PROBS = (0.9, 0.1)
@@ -88,12 +85,12 @@ class MABCModel(M.POSGFullModel):
     def __init__(
         self,
         num_nodes: int = 2,
-        fill_probs: Optional[Tuple[float, ...]] = None,
+        fill_probs: Tuple[float, ...] | None = None,
         observation_prob: float = 0.9,
-        init_buffer_dist: Optional[Tuple[float, ...]] = None,
-        **kwargs
+        init_buffer_dist: Tuple[float, ...] | None = None,
+        **kwargs,
     ):
-        super().__init__(num_nodes, **kwargs)
+        assert num_nodes >= 2
 
         if fill_probs is None:
             fill_probs = self.DEFAULT_FILL_PROBS
@@ -106,11 +103,13 @@ class MABCModel(M.POSGFullModel):
         assert len(init_buffer_dist) == num_nodes
         assert all(0 <= x <= 1 for x in init_buffer_dist)
 
+        self.possible_agents = tuple(range(num_nodes))
+
         self._state_space = list(
-            product(*[list(NODE_STATES) for _ in range(self.n_agents)])
+            product(*[list(NODE_STATES) for i in self.possible_agents])
         )
-        self._action_spaces = tuple([*ACTIONS] for _ in range(self.n_agents))
-        self._observation_spaces = tuple([*OBS] for _ in range(self.n_agents))
+        self._action_spaces = tuple([*ACTIONS] for i in self.possible_agents)
+        self._observation_spaces = tuple([*OBS] for i in self.possible_agents)
 
         self._fill_probs = fill_probs
         self._obs_prob = observation_prob
@@ -133,42 +132,53 @@ class MABCModel(M.POSGFullModel):
     @property
     def state_space(self) -> spaces.Space:
         return spaces.Tuple(
-            tuple(spaces.Discrete(len(NODE_STATES)) for _ in range(self.n_agents))
+            tuple(spaces.Discrete(len(NODE_STATES)) for i in self.possible_agents)
         )
 
     @property
-    def action_spaces(self) -> Tuple[spaces.Space, ...]:
-        return tuple(spaces.Discrete(len(ACTIONS)) for _ in range(self.n_agents))
+    def action_spaces(self) -> Dict[M.AgentID, spaces.Space]:
+        return {i: spaces.Discrete(len(ACTIONS)) for i in self.possible_agents}
 
     @property
-    def observation_spaces(self) -> Tuple[spaces.Space, ...]:
-        return tuple(spaces.Discrete(len(OBS)) for _ in range(self.n_agents))
+    def observation_spaces(self) -> Dict[M.AgentID, spaces.Space]:
+        return {i: spaces.Discrete(len(OBS)) for i in self.possible_agents}
 
     @property
-    def reward_ranges(self) -> Tuple[Tuple[M.Reward, M.Reward], ...]:
-        return tuple((self.R_NO_SEND, self.R_SEND) for _ in range(self.n_agents))
+    def reward_ranges(self) -> Dict[M.AgentID, Tuple[SupportsFloat, SupportsFloat]]:
+        return {i: (self.R_NO_SEND, self.R_SEND) for i in self.possible_agents}
 
     @property
-    def initial_belief(self) -> M.Belief:
-        return MABCInitialBelief(
-            self.n_agents, self._init_buffer_dist, self._state_space, self._rng
+    def initial_belief(self) -> MABCB0:
+        return MABCB0(
+            len(self.possible_agents),
+            self._init_buffer_dist,
+            self._state_space,
+            self._rng,
         )
 
-    def step(self, state: M.State, actions: M.JointAction) -> M.JointTimestep:
-        assert all(isinstance(a, MABCAction) for a in actions)
+    def get_agents(self, state: MABCState) -> List[M.AgentID]:
+        return list(self.possible_agents)
+
+    def step(
+        self, state: MABCState, actions: Dict[M.AgentID, MABCAction]
+    ) -> M.JointTimestep:
         next_state = self._sample_next_state(state, actions)
         obs = self._sample_obs(actions)
-        rewards = tuple(
-            float(self._message_sent(state, actions)) * self.R_SEND
-            for _ in range(self.n_agents)
-        )
-        dones = (False,) * self.n_agents
+        agent_reward = float(self._message_sent(state, actions)) * self.R_SEND
+        rewards: Dict[M.AgentID, SupportsFloat] = {
+            i: agent_reward for i in self.possible_agents
+        }
+        terminated = {i: False for i in self.possible_agents}
+        truncated = {i: False for i in self.possible_agents}
         all_done = False
-        outcomes = tuple(M.Outcome.NA for _ in range(self.n_agents))
-        return M.JointTimestep(next_state, obs, rewards, dones, all_done, outcomes)
+        outcomes = {i: M.Outcome.NA for i in self.possible_agents}
+        info: Dict[M.AgentID, Dict] = {i: {} for i in self.possible_agents}
+        return M.JointTimestep[M.StateType, M.ObsType](
+            next_state, obs, rewards, terminated, truncated, all_done, outcomes, info
+        )
 
     def _sample_next_state(
-        self, state: MABCState, actions: MABCJointAction
+        self, state: MABCState, actions: Dict[M.AgentID, MABCAction]
     ) -> MABCState:
         next_node_states = list(state)
         for i, a_i in enumerate(actions):
@@ -179,7 +189,9 @@ class MABCModel(M.POSGFullModel):
                 next_node_states[i] = FULL
         return tuple(next_node_states)
 
-    def _sample_obs(self, actions: MABCJointAction) -> MABCJointObs:
+    def _sample_obs(
+        self, actions: Dict[M.AgentID, MABCAction]
+    ) -> Dict[M.AgentID, MABCObs]:
         senders = sum(int(a_i == SEND) for a_i in actions)
         if senders > 1:
             correct_obs = COLLISION
@@ -188,29 +200,34 @@ class MABCModel(M.POSGFullModel):
             correct_obs = NOCOLLISION
             wrong_obs = COLLISION
 
-        obs_list = []
-        for _ in range(self.n_agents):
+        obs = {}
+        for i in self.possible_agents:
             if self._rng.random() <= self._obs_prob:
-                obs_list.append(correct_obs)
+                obs[i] = correct_obs
             else:
-                obs_list.append(wrong_obs)
-        return tuple(obs_list)
+                obs[i] = wrong_obs
+        return obs
 
     def set_seed(self, seed: Optional[int] = None):
         self._rng = random.Random(seed)
 
     def transition_fn(
-        self, state: M.State, actions: M.JointAction, next_state: M.State
+        self,
+        state: MABCState,
+        actions: Dict[M.AgentID, MABCAction],
+        next_state: MABCState,
     ) -> float:
-        return self._trans_map[(state, actions, next_state)]
+        action_tuple = tuple(actions[i] for i in self.possible_agents)
+        return self._trans_map[(state, action_tuple, next_state)]
 
     def _construct_trans_func(self) -> Dict:
         trans_map = {}
+        agent_ids = [int(i) for i in self.possible_agents]
         for (s, a, s_next) in product(
             self._state_space, product(*self._action_spaces), self._state_space
         ):
             trans_prob = 1.0
-            for i in range(self.n_agents):
+            for i in agent_ids:
                 if a[i] == NOSEND and s[i] == FULL:
                     if not s_next[i] == FULL:
                         trans_prob *= 0.0
@@ -225,12 +242,18 @@ class MABCModel(M.POSGFullModel):
         return trans_map
 
     def observation_fn(
-        self, obs: M.JointObservation, next_state: M.State, actions: M.JointAction
+        self,
+        obs: Dict[M.AgentID, MABCObs],
+        next_state: MABCState,
+        actions: Dict[M.AgentID, MABCAction],
     ) -> float:
-        return self._obs_map[(next_state, actions, obs)]
+        obs_tuple = tuple(obs[i] for i in self.possible_agents)
+        action_tuple = tuple(actions[i] for i in self.possible_agents)
+        return self._obs_map[(next_state, action_tuple, obs_tuple)]
 
     def _construct_obs_func(self) -> Dict:
         obs_map = {}
+        agent_ids = [int(i) for i in self.possible_agents]
         for (s_next, a, o) in product(
             self._state_space,
             product(*self._action_spaces),
@@ -243,38 +266,42 @@ class MABCModel(M.POSGFullModel):
                 correct_obs = NOCOLLISION
 
             o_prob = 1.0
-            for i in range(self.n_agents):
-                if o[i] == correct_obs:  # type: ignore
+            for i in agent_ids:
+                if o[i] == correct_obs:
                     o_prob *= self._obs_prob
                 else:
                     o_prob *= 1 - self._obs_prob
             obs_map[(s_next, a, o)] = o_prob
         return obs_map
 
-    def reward_fn(self, state: M.State, actions: M.JointAction) -> M.JointReward:
-        return self._rew_map[(state, actions)]
+    def reward_fn(
+        self, state: MABCState, actions: Dict[M.AgentID, MABCAction]
+    ) -> Dict[M.AgentID, SupportsFloat]:
+        action_tuple = tuple(actions[i] for i in self.possible_agents)
+        return self._rew_map[(state, action_tuple)]
 
     def _construct_rew_func(self) -> Dict:
         rew_map = {}
         joint_actions_space = product(*self._action_spaces)
         for (s, a) in product(self._state_space, joint_actions_space):
-            rew_map[(s, a)] = [
-                float(self._message_sent(s, a)) * self.R_SEND
-                for _ in range(self.n_agents)
-            ]
+            reward = float(self._message_sent(s, a)) * self.R_SEND
+            rew_map[(s, a)] = tuple(reward for _ in self.possible_agents)
         return rew_map
 
-    @staticmethod
-    def _message_sent(state: MABCState, actions: MABCJointAction) -> bool:
-        senders = sum(int(a_i == SEND) for a_i in actions)
+    def _message_sent(
+        self,
+        state: MABCState,
+        actions: Union[Dict[M.AgentID, MABCAction], Tuple[MABCAction, ...]],
+    ) -> bool:
+        senders = sum(int(actions[int(i)] == SEND) for i in self.possible_agents)
         if senders != 1:
             return False
 
         message_sent = False
-        for i, a_i in enumerate(actions):
-            if a_i == NOSEND:
+        for i in self.possible_agents:
+            if actions[int(i)] == NOSEND:
                 continue
-            if state[i] == FULL:
+            if state[int(i)] == FULL:
                 message_sent = True
             break
 

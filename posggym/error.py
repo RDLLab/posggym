@@ -46,12 +46,47 @@ class RegistrationError(Error):
     """
 
 
+class UnseedableEnv(Error):
+    """Raised when the user tries to seed an env that does not support seeding."""
+
+
+class DependencyNotInstalled(Error):
+    """Raised when the user has not installed a dependency."""
+
+
 class UnsupportedMode(Error):
     """Raised when user requests rendering mode not supported by the environment."""
 
 
 class InvalidMetadata(Error):
     """Raised when the metadata of an environment is not valid."""
+
+
+class ResetNeeded(Error):
+    """Raised when the user attempts to step environment before a reset."""
+
+
+class ResetNotAllowed(Error):
+    """Raised when user tries to reset an environment that's not done.
+
+    Applicable when monitor is active.
+    """
+
+
+class InvalidAction(Error):
+    """Raised when the user performs an action not contained within the action space."""
+
+
+class MissingArgument(Error):
+    """Raised when a required argument in the initializer is missing."""
+
+
+class InvalidProbability(Error):
+    """Raised when given an invalid value for a probability."""
+
+
+class InvalidBound(Error):
+    """Raised when the clipping an array with invalid upper and/or lower bound."""
 
 
 # Video errors

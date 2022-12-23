@@ -5,9 +5,10 @@ from typing import Optional, Tuple
 import posggym.envs.classic.mabc.model as mabc_model
 import posggym.model as M
 from posggym import core
+from posggym.envs.classic.mabc.model import MABCAction, MABCModel, MABCObs, MABCState
 
 
-class MABCEnv(core.DefaultEnv):
+class MABCEnv(core.DefaultEnv[MABCState, MABCObs, MABCAction]):
     """The Multi-Access Broadcast Channel Environment.
 
     A cooperative game involving control of a multi-access broadcast channel.
@@ -65,7 +66,7 @@ class MABCEnv(core.DefaultEnv):
 
     """
 
-    metadata = {"render.modes": ["human", "ansi"]}
+    metadata = {"render_modes": ["human", "ansi"]}
 
     def __init__(
         self,
@@ -73,18 +74,17 @@ class MABCEnv(core.DefaultEnv):
         fill_probs: Optional[Tuple[float, ...]] = None,
         observation_prob: float = 0.9,
         init_buffer_dist: Optional[Tuple[float, ...]] = None,
+        render_mode: Optional[str] = None,
         **kwargs,
     ):
-        self._model = mabc_model.MABCModel(
+        self._model = MABCModel(
             num_nodes, fill_probs, observation_prob, init_buffer_dist, **kwargs
         )
+        self.render_mode = render_mode
         super().__init__()
 
-    def render(self, mode: str = "human"):
+    def render(self):
         assert self._last_obs is not None
-        if mode not in self.metadata["render.modes"]:
-            # raise exception
-            super().render(mode)
 
         state_str = ", ".join([mabc_model.NODE_STATE_STR[s] for s in self._state])
         obs_str = ", ".join([mabc_model.OBS_STR[o] for o in self._last_obs])
@@ -102,7 +102,7 @@ class MABCEnv(core.DefaultEnv):
 
         output_str = "\n".join(output) + "\n"
 
-        if mode == "human":
+        if self.render_mode == "human":
             sys.stdout.write(output_str)
         else:
             # ansi mode

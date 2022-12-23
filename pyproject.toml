@@ -45,7 +45,7 @@ all = [
 	# lbforaging
 	"lbforaging ==1.1.1"
 ]
-testing = ["pytest ==6.2"]
+testing = ["pytest >=7.2"]
 
 [project.urls]
 Homepage = "https://github.com/RDLLab/posggym"

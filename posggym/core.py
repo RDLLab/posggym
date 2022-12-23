@@ -1,7 +1,10 @@
 """Contains the main POSG environment class and functions.
 
-The implementation is heavily inspired by the Open AI Gym
+The implementation is heavily inspired by Open AI Gym
 https://github.com/openai/gym
+
+And, the more recent, Farama Foundation Gymnasium
+https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/core.py
 
 """
 from __future__ import annotations
@@ -17,7 +20,7 @@ from typing import (
     Optional,
     SupportsFloat,
     Tuple,
-    TypeVar
+    TypeVar,
 )
 
 from gymnasium import spaces
@@ -54,7 +57,8 @@ class Env(abc.ABC, Generic[M.StateType, M.ObsType, M.ActType]):
     And the main attributes:
 
     - :attr:`model` - the POSG model of the environment (:py:class:`posggym.POSGModel`)
-    - :attr:`n_agents` - the number of agents in the environment
+    - :attr:`possible_agents` - all agents that may appear in the environment
+    - :attr:`agents` - the agents currently active in the environment
     - :attr:`action_spaces` - the action space specs for each agent
     - :attr:`observation_spaces` - the observation space specs for each agent
     - :attr:`state` - the current state of the environment
@@ -77,11 +81,6 @@ class Env(abc.ABC, Generic[M.StateType, M.ObsType, M.ActType]):
     # EnvSpec used to instantiate env instance
     # This is set when env is made using posggym.make function
     spec: EnvSpec | None = None
-
-    # All agents that may appear in the environment
-    possible_agents: List[M.AgentID]
-    # Agents currently active
-    agents: List[M.AgentID]
 
     @abc.abstractmethod
     def step(
@@ -218,9 +217,23 @@ class Env(abc.ABC, Generic[M.StateType, M.ObsType, M.ActType]):
         """Get the current state for this environment."""
 
     @property
-    def n_agents(self) -> int:
-        """Get the number of agents in this environment."""
-        return self.model.n_agents
+    def possible_agents(self) -> Tuple[M.AgentID, ...]:
+        """Get list of agents that may appear in the environment."""
+        return self.model.possible_agents
+
+    @property
+    def agents(self) -> List[M.AgentID]:
+        """Get list of agents active in the environment for current state.
+
+        This will be :attr:`possible_agents`, independent of state, for any environment
+        where the number of agents remains constant during and across episodes.
+
+        Returns
+        -------
+        agents: List of IDs of agents currently active in the environment.
+
+        """
+        return self.model.get_agents(self.state)
 
     @property
     def observation_first(self) -> bool:
@@ -427,14 +440,17 @@ WrapperActType = TypeVar("WrapperActType")
 
 
 class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
-    """Wraps the environment to allow a modular transformation.
+    """Wraps a :class:`posggym.Env` to allow a modular transformation.
 
     This class is the base class for all wrappers. The subclass could override
     some methods to change the bahavior of the original environment without
     touching the original code.
 
+    Note
+    ----
     Don't forget to call ``super().__init__(env)`` if the subclass overrides
     the `__init__` method.
+
     """
 
     def __init__(self, env: Env[M.StateType, M.ObsType, M.ActType]):
@@ -463,11 +479,15 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
 
     @property
     def state(self) -> WrapperStateType:
-        return self.env.state
+        return self.env.state  # type: ignore
 
     @property
-    def n_agents(self) -> int:
-        return self.env.n_agents
+    def possible_agents(self) -> Tuple[M.AgentID, ...]:
+        return self.env.possible_agents
+
+    @property
+    def agents(self) -> List[M.AgentID]:
+        return self.env.agents
 
     @property
     def action_spaces(self) -> Dict[M.AgentID, spaces.Space]:
@@ -512,27 +532,35 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         """Return the :attr:`Env` :attr:`spec` attribute."""
         return self.env.spec
 
+    @spec.setter
+    def spec(self, env_spec: EnvSpec):
+        self.env.spec = env_spec
+
     @property
     def render_mode(self) -> str | None:
         """Return the :attr:`Env` :attr:`render_mode`."""
         return self.env.render_mode
 
+    @render_mode.setter
+    def render_mode(self, render_mode: str | None):
+        self.env.render_mode = render_mode
+
     def step(
-        self, actions: Dict[M.AgentID, M.ActType]
+        self, actions: Dict[M.AgentID, WrapperActType]
     ) -> Tuple[
-        Dict[M.AgentID, M.ObsType],
+        Dict[M.AgentID, WrapperObsType],
         Dict[M.AgentID, SupportsFloat],
         Dict[M.AgentID, bool],
         Dict[M.AgentID, bool],
         bool,
         Dict[M.AgentID, Dict],
     ]:
-        return self.env.step(actions)
+        return self.env.step(actions)  # type: ignore
 
     def reset(
         self, *, seed: int | None = None, options: Dict[str, Any] | None = None
     ) -> Tuple[Optional[Dict[M.AgentID, WrapperObsType]], Dict[M.AgentID, Dict]]:
-        return self.env.reset(seed=seed, options=options)
+        return self.env.reset(seed=seed, options=options)  # type: ignore
 
     def render(
         self,
@@ -544,6 +572,11 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
 
     @property
     def unwrapped(self) -> Env:
+        """Returns the base environment of the wrapper.
+
+        This will be the bare :class:`posggym.Env` environment, underneath all layers
+        of wrappers.
+        """
         return self.env.unwrapped
 
     def __str__(self):
@@ -553,64 +586,95 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         return str(self)
 
 
-class ObservationWrapper(Wrapper):
+class ObservationWrapper(Wrapper[M.StateType, WrapperObsType, M.ActType]):
     """Wraps environment to allow modular transformations of observations.
 
     Subclasses should at least implement the observations function.
     """
 
-    def reset(self, **kwargs):
-        observations = self.env.reset(**kwargs)
-        return self.observations(observations)
+    def __init__(self, env: Env[M.StateType, M.ObsType, M.ActType]):
+        super().__init__(env)
 
-    def step(self, actions):
-        observations, reward, done, info = self.env.step(actions)
-        return self.observations(observations), reward, done, info
+    def reset(
+        self, *, seed: int | None = None, options: Dict[str, Any] | None = None
+    ) -> Tuple[Optional[Dict[M.AgentID, WrapperObsType]], Dict[M.AgentID, Dict]]:
+        obs, info = self.env.reset(seed=seed, options=options)
+        if obs is None:
+            return obs, info
+        return self.observations(obs), info
 
-    @abc.abstractmethod
-    def observations(self, observations):
+    def step(
+        self, actions: Dict[M.AgentID, M.ActType]
+    ) -> Tuple[
+        Dict[M.AgentID, WrapperObsType],
+        Dict[M.AgentID, SupportsFloat],
+        Dict[M.AgentID, bool],
+        Dict[M.AgentID, bool],
+        bool,
+        Dict[M.AgentID, Dict],
+    ]:
+        obs, reward, term, trunc, done, info = self.env.step(actions)  # type: ignore
+        return self.observations(obs), reward, term, trunc, done, info
+
+    def observations(
+        self, obs: Dict[M.AgentID, M.ObsType]
+    ) -> Dict[M.AgentID, WrapperObsType]:
         """Transforms observations recieved from wrapped environment."""
         raise NotImplementedError
 
 
-class RewardWrapper(Wrapper):
+class RewardWrapper(Wrapper[M.StateType, M.ObsType, M.ActType]):
     """Wraps environment to allow modular transformations of rewards.
 
     Subclasses should atleast implement the rewards function.
     """
 
-    def reset(self, **kwargs):
-        return self.env.reset(**kwargs)
+    def __init__(self, env: Env[M.StateType, M.ObsType, M.ActType]):
+        super().__init__(env)
 
-    def step(self, actions):
-        observations, reward, done, info = self.env.step(actions)
-        return observations, self.rewards(reward), done, info
+    def step(
+        self, actions: Dict[M.AgentID, M.ActType]
+    ) -> Tuple[
+        Dict[M.AgentID, M.ObsType],
+        Dict[M.AgentID, SupportsFloat],
+        Dict[M.AgentID, bool],
+        Dict[M.AgentID, bool],
+        bool,
+        Dict[M.AgentID, Dict],
+    ]:
+        obs, reward, term, trunc, done, info = self.env.step(actions)  # type: ignore
+        return obs, self.rewards(reward), term, trunc, done, info  # type: ignore
 
-    @abc.abstractmethod
-    def rewards(self, rewards):
+    def rewards(
+        self, rewards: Dict[M.AgentID, SupportsFloat]
+    ) -> Dict[M.AgentID, SupportsFloat]:
         """Transforms rewards recieved from wrapped environment."""
         raise NotImplementedError
 
 
-class ActionWrapper(Wrapper):
+class ActionWrapper(Wrapper[M.StateType, M.ObsType, WrapperActType]):
     """Wraps environment to allow modular transformations of actions.
 
-    Subclasses should atleast implement the actions and reverse_actions
-    functions.
+    Subclasses should atleast implement the actions function.
     """
 
-    def reset(self, **kwargs):
-        return self.env.reset(**kwargs)
+    def __init__(self, env: Env[M.StateType, M.ObsType, M.ActType]):
+        super().__init__(env)
 
-    def step(self, actions):
-        return self.env.step(self.actions(actions))
+    def step(
+        self, actions: Dict[M.AgentID, M.ActType]
+    ) -> Tuple[
+        Dict[M.AgentID, M.ObsType],
+        Dict[M.AgentID, SupportsFloat],
+        Dict[M.AgentID, bool],
+        Dict[M.AgentID, bool],
+        bool,
+        Dict[M.AgentID, Dict],
+    ]:
+        return self.env.step(self.actions(actions))  # type: ignore
 
-    @abc.abstractmethod
-    def actions(self, action):
+    def actions(
+        self, actions: Dict[M.AgentID, M.ActType]
+    ) -> Dict[M.AgentID, WrapperActType]:
         """Transform actions for wrapped environment."""
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def reverse_actions(self, actions):
-        """Revers transformation of actions."""
         raise NotImplementedError

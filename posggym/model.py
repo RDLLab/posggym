@@ -7,6 +7,8 @@ from typing import (
     TYPE_CHECKING,
     Dict,
     Generic,
+    List,
+    Mapping,
     NamedTuple,
     Optional,
     Sequence,
@@ -95,8 +97,8 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
 
     Attributes
     ----------
-    n_agents : int
-        the number of agents in the environment
+    possible_agents : List[AgentID]
+        All agents that may appear in the environment
     observation_first : bool
         whether the environment is observation (True) or action (False) first.
         See the POSGModel.observation_first property function for details.
@@ -119,8 +121,10 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
         identical irrespective of their ID (i.e. same actions, observation, and
         reward spaces and dynamics)
 
-    Functions
-    ---------
+    Methods
+    -------
+    get_agents :
+        returns the IDs of agents currently active for a given state
     step :
         the generative step function
         G(s, a) -> (s', o, r, dones, all_done, outcomes)
@@ -148,9 +152,8 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
     # This is set when env is made using posggym.make function
     spec: Optional["EnvSpec"] = None
 
-    # pylint: disable=unused-argument
-    def __init__(self, n_agents: int, **kwargs):
-        self.n_agents = n_agents
+    # All agents that may appear in the environment
+    possible_agents: Tuple[AgentID, ...]
 
     @property
     @abc.abstractmethod
@@ -234,6 +237,14 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
     def sample_initial_state(self) -> StateType:
         """Sample an initial state from initial belief."""
         return self.initial_belief.sample()
+
+    @abc.abstractmethod
+    def get_agents(self, state: StateType) -> List[AgentID]:
+        """Get list of IDs for agents that are active in given state.
+
+        This will be :attr:`possible_agents`, independent of state, for any environment
+        where the number of agents remains constant during and across episodes.
+        """
 
     @abc.abstractmethod
     def step(
