@@ -28,7 +28,7 @@ else:
     import importlib.metadata as metadata
 
 
-# ENV_ID_RE: re.Pattern = re.compile(r"^(?:[\w:-]+\/)?([\w:.-]+)-v(\d+)$")
+# [namespace/](env-name)-v(version)
 ENV_ID_RE = re.compile(
     r"^(?:(?P<namespace>[\w:-]+)\/)?(?:(?P<name>[\w:.-]+?))(?:-v(?P<version>\d+))?$"
 )

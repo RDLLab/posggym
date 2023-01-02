@@ -162,6 +162,7 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
     def step(
         self, state: MABCState, actions: Dict[M.AgentID, MABCAction]
     ) -> M.JointTimestep:
+        assert all(a_i in ACTIONS for a_i in actions.values())
         next_state = self._sample_next_state(state, actions)
         obs = self._sample_obs(actions)
         agent_reward = float(self._message_sent(state, actions)) * self.R_SEND
@@ -173,8 +174,15 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
         all_done = False
         outcomes = {i: M.Outcome.NA for i in self.possible_agents}
         info: Dict[M.AgentID, Dict] = {i: {} for i in self.possible_agents}
-        return M.JointTimestep[M.StateType, M.ObsType](
-            next_state, obs, rewards, terminated, truncated, all_done, outcomes, info
+        return M.JointTimestep(
+            next_state,
+            obs,
+            rewards,
+            terminated,
+            truncated,
+            all_done,
+            outcomes,
+            info
         )
 
     def _sample_next_state(

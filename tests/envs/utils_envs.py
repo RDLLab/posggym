@@ -9,6 +9,24 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/utils_env
 import posggym
 
 
+class DummyEnv(posggym.Env):
+    """Dummy env for use in environment registration and make tests ."""
+
+    def step(self, actions):
+        return {}, {}, {}, {}, True, {}
+
+    def reset(self, *, seed=None, options=None):
+        return None, {}
+
+    @property
+    def model(self):
+        return None
+
+    @property
+    def state(self):
+        return None
+
+
 class RegisterDuringMakeEnv(posggym.Env):
     """For `test_registration.py` to check `env.make` can import and register env."""
 
