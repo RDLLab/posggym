@@ -129,11 +129,23 @@ class Env(abc.ABC, Generic[M.StateType, M.ObsType, M.ActType]):
 
         """
 
-    @abc.abstractmethod
     def reset(
         self, *, seed: int | None = None, options: Dict[str, Any] | None = None
     ) -> Tuple[Optional[Dict[M.AgentID, M.ObsType]], Dict[M.AgentID, Dict]]:
         """Resets the environment and returns an initial observations and info.
+
+        This method generates a new starting state often with some randomness. This
+        randomness can be controlled with the ``seed`` parameter otherwise if the
+        environment already has a random number generator and :meth:`reset` is called
+        with ``seed=None``, the RNG is not reset. Note, that the RNG is handled by the
+        environment :attr:``model``, rather than the environment class itself, which
+        is just a wrapper of a model.
+
+        Therefore, :meth:`reset` should (in the typical use case) be called with a seed
+        right after initialization and then never again.
+
+        For Custom environments, the first line of :meth:`reset` should be
+        ``super().reset(seed=seed)`` which implements the seeding correctly.
 
         Arguments
         ---------
@@ -160,6 +172,10 @@ class Env(abc.ABC, Generic[M.StateType, M.ObsType, M.ActType]):
           returned by :meth:`step()`
 
         """
+        # initialize the RNG if the seed is manually passed
+        if seed is not None:
+            self.model.seed(seed)
+        return None, {}
 
     def render(
         self,
@@ -415,8 +431,7 @@ class DefaultEnv(Env[M.StateType, M.ObsType, M.ActType]):
     def reset(
         self, *, seed: int | None = None, options: Dict[str, Any] | None = None
     ) -> Tuple[Optional[Dict[M.AgentID, M.ObsType]], Dict[M.AgentID, Dict]]:
-        if seed is not None:
-            self.model.set_seed(seed)
+        super().reset(seed=seed)
 
         self._state = self.model.sample_initial_state()
         if self.model.observation_first:

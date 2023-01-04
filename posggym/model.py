@@ -3,21 +3,25 @@ from __future__ import annotations
 
 import abc
 import enum
+import dataclasses
 from typing import (
     TYPE_CHECKING,
     Dict,
     Generic,
     List,
-    NamedTuple,
     Optional,
-    Sequence,
     SupportsFloat,
     Tuple,
     TypeVar,
     Union,
 )
+import random
 
+import numpy as np
 from gymnasium import spaces
+
+from posggym import error
+from posggym.utils import seeding
 
 
 if TYPE_CHECKING:
@@ -42,9 +46,16 @@ class Outcome(enum.Enum):
         return self.name
 
 
-class JointTimestep(NamedTuple, Generic[StateType, ObsType]):
-    """Values returned by model after a single step."""
+@dataclasses.dataclass(order=True)
+class JointTimestep(Generic[StateType, ObsType]):
+    """Stores values returned by model after a single step.
 
+    Supports iteration.
+
+    A dataclass is used instead of a Namedtuple so that generic typing is seamlessly
+    supported.
+
+    """
     state: StateType
     observations: Dict[AgentID, ObsType]
     rewards: Dict[AgentID, SupportsFloat]
@@ -54,36 +65,9 @@ class JointTimestep(NamedTuple, Generic[StateType, ObsType]):
     outcomes: Dict[AgentID, Outcome] | None
     info: Dict[AgentID, Dict]
 
-
-class Belief(abc.ABC, Generic[StateType]):
-    """An abstract belief class."""
-
-    @abc.abstractmethod
-    def sample(self) -> StateType:
-        """Return a state from the belief."""
-
-    def sample_k(self, k: int) -> Sequence[StateType]:
-        """Sample k states from the belief."""
-        return [self.sample() for _ in range(k)]
-
-    def get_dist(self) -> Dict[StateType, float]:
-        """Get belief as a distribution: S -> prob map."""
-        return self.sample_belief_dist()
-
-    def sample_belief_dist(self, num_samples: int = 1000) -> Dict[StateType, float]:
-        """Construct a belief distribution via Monte-Carlo sampling.
-
-        Requires that the State objects for the given belief are hashable.
-        """
-        b_map: Dict[StateType, float] = {}
-
-        s_prob = 1.0 / num_samples
-        for s in (self.sample() for _ in range(num_samples)):
-            if s not in b_map:
-                b_map[s] = 0.0
-            b_map[s] += s_prob
-
-        return b_map
+    def __iter__(self):
+        for field in dataclasses.fields(self):
+            yield getattr(self, field.name)
 
 
 class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
@@ -94,6 +78,8 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
 
     The API includes the following,
 
+    TODO Update this
+
     Attributes
     ----------
     possible_agents : List[AgentID]
@@ -101,24 +87,24 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
     observation_first : bool
         whether the environment is observation (True) or action (False) first.
         See the POSGModel.observation_first property function for details.
-    state_space : gym.space.Space
+    is_symmetric : bool
+        whether the environment is symmetric, that is whether all agents are
+        identical irrespective of their ID (i.e. same actions, observation, and
+        reward spaces and dynamics)
+    state_space : gym.space.Space | None
         the space of all possible environment states. Note that an explicit
         state space definition is not needed by many simulation-based
         algorithms (including RL and MCTS) and can be hard to define so
         implementing this property should be seen as optional. In cases where
-        it is not implemented it should raise a NotImplementedError.
-    initial_belief : Belief
-        the initial belief over states
+        it is not implemented it should be None.
     action_spaces : Tuple[gym.space.Space, ...]
         the action space for each agent (A_0, ..., A_n)
     observation_spaces : Tuple[gym.space.Space, ...]
         the observation space for each agent (O_0, ..., O_n)
     reward_ranges : Tuple[Tuple[Reward, Reward], ...]
         the minimum and maximim possible step reward for each agent
-    is_symmetric : bool
-        whether the environment is symmetric, that is whether all agents are
-        identical irrespective of their ID (i.e. same actions, observation, and
-        reward spaces and dynamics)
+    rng : posggym.utils.seeding.RNG
+        the model's internal random number generator (RNG).
 
     Methods
     -------
@@ -127,7 +113,7 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
     step :
         the generative step function
         G(s, a) -> (s', o, r, dones, all_done, outcomes)
-    set_seed :
+    seed :
         set the seed for the model's RNG
     sample_initial_state :
         samples an initial state from the initial belief.
@@ -137,13 +123,14 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
 
     Optional Functions and Attributes
     ---------------------------------
-    get_agent_initial_belief :
-        get the initial belief for an agent given an initial observation. This
-        function is only applicable in observation first environments and is
-        optional, since the initial agent belief can be generated from the
-        sample_initial_state and sample_initial_obs functions. However,
-        implementing this function can speed up the initial belief update for
-        problems with a large number of possible starting states.
+    sample_agent_initial_state :
+        sample an initial state for an agent given the agent's initial observation.
+        This function is only applicable in observation first environments. It is
+        also optional to implement, since agent observation conditioned initial states
+        can be generated by filtering the outputs from the sample_initial_state and
+        sample_initial_obs methods. However, implementing this method can speed up an
+        agent's initial belief update for problems with a large number of possible
+        starting states.
 
     """
 
@@ -153,6 +140,15 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
 
     # All agents that may appear in the environment
     possible_agents: Tuple[AgentID, ...]
+    # State space
+    state_space: spaces.Space | None = None
+    # Action space for each agent
+    action_spaces: Dict[AgentID, spaces.Space]
+    # Observation space for each agent
+    observation_spaces: Dict[AgentID, spaces.Space]
+
+    # Random number generator, created as needed.
+    _rng: seeding.RNG | None = None
 
     @property
     @abc.abstractmethod
@@ -209,33 +205,8 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
 
     @property
     @abc.abstractmethod
-    def state_space(self) -> spaces.Space:
-        """Get the state space."""
-        raise NotImplementedError
-
-    @property
-    @abc.abstractmethod
-    def action_spaces(self) -> Dict[AgentID, spaces.Space]:
-        """Get the action space for each agent."""
-
-    @property
-    @abc.abstractmethod
-    def observation_spaces(self) -> Dict[AgentID, spaces.Space]:
-        """Get the observation space for each agent."""
-
-    @property
-    @abc.abstractmethod
     def reward_ranges(self) -> Dict[AgentID, Tuple[SupportsFloat, SupportsFloat]]:
         """Get the minimum and maximum  possible rewards for each agent."""
-
-    @property
-    @abc.abstractmethod
-    def initial_belief(self) -> Belief:
-        """Get the initial belief over states."""
-
-    def sample_initial_state(self) -> StateType:
-        """Sample an initial state from initial belief."""
-        return self.initial_belief.sample()
 
     @abc.abstractmethod
     def get_agents(self, state: StateType) -> List[AgentID]:
@@ -246,17 +217,74 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
         """
 
     @abc.abstractmethod
+    def sample_initial_state(self) -> StateType:
+        """Sample an initial state."""
+
+    @abc.abstractmethod
     def step(
         self, state: StateType, actions: Dict[AgentID, ActType]
     ) -> JointTimestep[StateType, ObsType]:
         """Perform generative step."""
 
+    @property
     @abc.abstractmethod
-    def set_seed(self, seed: Optional[int] = None):
-        """Set the seed for the model RNG."""
+    def rng(self) -> seeding.RNG:
+        """Return the model's internal random number generator (RNG).
+
+        Initializes RNG with a random seed if not yet initialized.
+
+        `posggym` models and environments support the use of both the python built-in
+        random library and the numpy library, unlike `gymnasium` which only explicitly
+        supports the numpy library. Support for the built-in library is included as it
+        can be 2-3X faster than the numpy library when drawing single samples, providing
+        a significant speed-up for many environments.
+
+        Theres also nothing stopping users from using other RNG libraries so long as
+        they implement the model API. However, explicit support in the form of tests
+        and type hints is only provided for the random and numpy libraries.
+
+        Returns
+        -------
+        rng : model's internal random number generator.
+
+        """
+
+    @rng.setter
+    def rng(self, value: seeding.RNG):
+        self._rng = value
+
+    def seed(self, seed: Optional[int] = None):
+        """Set the seed for the model RNG.
+
+        Also handles seed for the action, observation, and (if it exists) state spaces.
+
+        """
+        if isinstance(self.rng, random.Random):
+            self.rng, seed = seeding.std_random(seed)
+        elif isinstance(self.rng, np.random.Generator):
+            self.rng, seed = seeding.np_random(seed)
+        else:
+            raise error.UnseedableEnv(
+                "{self.__class__.__name__} unseedable. Please ensure the model has "
+                "implemented the rng property. The model class must also overwrite "
+                "the `seed` method if it uses a RNG not from the `random` or "
+                "`numpy.random` libraries."
+            )
+
+        seed += 1
+        for act_space in self.action_spaces.values():
+            act_space.seed(seed)
+            seed += 1
+
+        for obs_space in self.observation_spaces.values():
+            obs_space.seed(seed)
+            seed += 1
+
+        if self.state_space is not None:
+            self.state_space.seed(seed)
 
     def sample_initial_obs(self, state: StateType) -> Dict[AgentID, ObsType]:
-        """Sample an initial observation given initial state."""
+        """Sample initial agent observations given an initial state."""
         if self.observation_first:
             raise NotImplementedError
         raise AssertionError(
@@ -265,39 +293,32 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
             "using the step() function."
         )
 
-    def get_agent_initial_belief(
-        self, agent_id: AgentID, obs: ObsType
-    ) -> Belief[StateType]:
-        """Get the initial belief for an agent given it's initial observation.
+    def sample_agent_initial_state(self, agent_id: AgentID, obs: ObsType) -> StateType:
+        """Sample an initial state for an agent given it's initial observation.
 
-        Only applicable in observation first environments and is optional.
+        Only applicable in observation first environments.
+
+        It is optional to implement but can helpful in environments that are used for
+        planning where there are a huge number of possible initial states.
+
         """
         if self.observation_first:
             raise NotImplementedError
         raise AssertionError(
-            "get_agent_initial_belief is not supported for action first "
-            "environments. Instead get initial belief using the initial_belief"
-            " property."
+            "The `sample_agent_initial_state` method is not supported for action first "
+            "environments. Use the `sample_initial_state` method instead."
         )
 
 
 class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
     """A Fully definte Partially Observable Stochastic Game model.
 
-    This class includes implementions for all components of a POSG, including
-    the
-
-    Attributes
-    ----------
-    n_agents : the number of agents in the environment
-    state_space : the list of all states, S
-    action_spaces : the list of actions for each agent (A_0, ..., A_n)
-    observation_spaces: the list of observations for each agent (O_0, ..., O_n)
-    b_0 : the initial belief over states
+    This class includes implementions for all components of a POSG, including:
 
     Functions
     ---------
-    transition_fn : the trainsition function T(s, a, s')
+    get_initial_belief_dist : the initial belief distribution
+    transition_fn : the transition function T(s, a, s')
     observation_fn : the observation function Z(o, s', a)
     reward_fn : the reward function R(s, a)
 
@@ -305,6 +326,10 @@ class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
     POSGModel class.
 
     """
+
+    @abc.abstractmethod
+    def get_initial_belief_dist(self) -> Dict[StateType, float]:
+        """Get initial belief distribution: S -> prob map."""
 
     @abc.abstractmethod
     def transition_fn(

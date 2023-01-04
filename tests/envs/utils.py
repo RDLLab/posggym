@@ -5,9 +5,15 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/utils.py
 """
 from typing import List, Optional
 
+import numpy as np
+
 import posggym
 from posggym import logger
 from posggym.envs.registration import EnvSpec
+
+
+def _has_prefix(spec, env_name_prefix):
+    return spec.id.startswith(env_name_prefix)
 
 
 def try_make_env(env_spec: EnvSpec) -> Optional[posggym.Env]:
@@ -55,3 +61,29 @@ gym_testing_env_specs: List[EnvSpec] = [
         for ep in ["classic", "grid_world"]
     )
 ]
+
+
+def assert_equals(a, b, prefix=None):
+    """Assert equality of data structures `a` and `b`.
+
+    Arguments
+    ---------
+    a: first data structure
+    b: second data structure
+    prefix: prefix for failed assertion message for types and dicts
+
+    """
+    assert type(a) == type(b), f"{prefix}Differing types: {a} and {b}"
+    if isinstance(a, dict):
+        assert list(a.keys()) == list(b.keys()), f"{prefix}Key sets differ: {a} and {b}"
+        for k in a.keys():
+            v_a = a[k]
+            v_b = b[k]
+            assert_equals(v_a, v_b, prefix)
+    elif isinstance(a, np.ndarray):
+        np.testing.assert_array_equal(a, b)
+    elif isinstance(a, tuple):
+        for elem_from_a, elem_from_b in zip(a, b):
+            assert_equals(elem_from_a, elem_from_b, prefix)
+    else:
+        assert a == b

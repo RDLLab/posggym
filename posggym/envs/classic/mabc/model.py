@@ -1,13 +1,13 @@
 """POSG Model for the Multi-Access Broadcast problem."""
 from __future__ import annotations
 
-import random
 from itertools import product
-from typing import Dict, List, Optional, SupportsFloat, Tuple, Union
+from typing import Dict, List, SupportsFloat, Tuple, Union
 
 from gymnasium import spaces
 
 import posggym.model as M
+from posggym.utils import seeding
 
 
 MABCState = Tuple[int, ...]
@@ -27,49 +27,6 @@ COLLISION = 0
 NOCOLLISION = 1
 OBS = [COLLISION, NOCOLLISION]
 OBS_STR = ["C", "NC"]
-
-
-class MABCB0(M.Belief[MABCState]):
-    """The initial belief in a MABC problem."""
-
-    def __init__(
-        self,
-        n_agents: int,
-        init_buffer_dist: Tuple[float, ...],
-        state_space: List[MABCState],
-        rng: random.Random,
-    ):
-        self._n_agents = n_agents
-        self._init_buffer_dist = init_buffer_dist
-        self._state_space = state_space
-        self._rng = rng
-
-    def sample(self) -> MABCState:
-        node_states = []
-        for i in range(self._n_agents):
-            if self._rng.random() <= self._init_buffer_dist[i]:
-                node_states.append(FULL)
-            else:
-                node_states.append(EMPTY)
-        return tuple(node_states)
-
-    def get_dist(self) -> Dict[MABCState, float]:
-        b_map: Dict[MABCState, float] = {}
-        s_prob_sum = 0.0
-        for s in self._state_space:
-            s_prob = 1.0
-            for i in range(self._n_agents):
-                if s[i] == FULL:
-                    s_prob *= self._init_buffer_dist[i]
-                else:
-                    s_prob *= 1 - self._init_buffer_dist[i]
-            b_map[s] = s_prob
-            s_prob_sum += s_prob
-
-        for s in self._state_space:
-            b_map[s] /= s_prob_sum
-
-        return b_map
 
 
 class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
@@ -103,19 +60,27 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
         assert len(init_buffer_dist) == num_nodes
         assert all(0 <= x <= 1 for x in init_buffer_dist)
 
-        self.possible_agents = tuple(range(num_nodes))
+        self._fill_probs = fill_probs
+        self._obs_prob = observation_prob
+        self._init_buffer_dist = init_buffer_dist
 
+        self.possible_agents = tuple(range(num_nodes))
+        self.state_space = spaces.Tuple(
+            tuple(spaces.Discrete(len(NODE_STATES)) for i in self.possible_agents)
+        )
+        self.action_spaces = {
+            i: spaces.Discrete(len(ACTIONS)) for i in self.possible_agents
+        }
+        self.observation_spaces = {
+            i: spaces.Discrete(len(OBS)) for i in self.possible_agents
+        }
+
+        # Spaces used internally
         self._state_space = list(
             product(*[list(NODE_STATES) for i in self.possible_agents])
         )
         self._action_spaces = tuple([*ACTIONS] for i in self.possible_agents)
         self._observation_spaces = tuple([*OBS] for i in self.possible_agents)
-
-        self._fill_probs = fill_probs
-        self._obs_prob = observation_prob
-        self._init_buffer_dist = init_buffer_dist
-
-        self._rng = random.Random(None)
 
         self._trans_map = self._construct_trans_func()
         self._rew_map = self._construct_rew_func()
@@ -130,38 +95,34 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
         return True
 
     @property
-    def state_space(self) -> spaces.Space:
-        return spaces.Tuple(
-            tuple(spaces.Discrete(len(NODE_STATES)) for i in self.possible_agents)
-        )
-
-    @property
-    def action_spaces(self) -> Dict[M.AgentID, spaces.Space]:
-        return {i: spaces.Discrete(len(ACTIONS)) for i in self.possible_agents}
-
-    @property
-    def observation_spaces(self) -> Dict[M.AgentID, spaces.Space]:
-        return {i: spaces.Discrete(len(OBS)) for i in self.possible_agents}
-
-    @property
     def reward_ranges(self) -> Dict[M.AgentID, Tuple[SupportsFloat, SupportsFloat]]:
         return {i: (self.R_NO_SEND, self.R_SEND) for i in self.possible_agents}
 
     @property
-    def initial_belief(self) -> MABCB0:
-        return MABCB0(
-            len(self.possible_agents),
-            self._init_buffer_dist,
-            self._state_space,
-            self._rng,
-        )
+    def rng(self) -> seeding.RNG:
+        if self._rng is None:
+            self._rng, seed = seeding.std_random()
+        return self._rng
+
+    @rng.setter
+    def rng(self, value: seeding.RNG):
+        self._rng = value
 
     def get_agents(self, state: MABCState) -> List[M.AgentID]:
         return list(self.possible_agents)
 
+    def sample_initial_state(self) -> MABCState:
+        node_states = []
+        for i in range(len(self.possible_agents)):
+            if self.rng.random() <= self._init_buffer_dist[i]:
+                node_states.append(FULL)
+            else:
+                node_states.append(EMPTY)
+        return tuple(node_states)
+
     def step(
         self, state: MABCState, actions: Dict[M.AgentID, MABCAction]
-    ) -> M.JointTimestep:
+    ) -> M.JointTimestep[MABCState, MABCObs]:
         assert all(a_i in ACTIONS for a_i in actions.values())
         next_state = self._sample_next_state(state, actions)
         obs = self._sample_obs(actions)
@@ -174,6 +135,7 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
         all_done = False
         outcomes = {i: M.Outcome.NA for i in self.possible_agents}
         info: Dict[M.AgentID, Dict] = {i: {} for i in self.possible_agents}
+
         return M.JointTimestep(
             next_state,
             obs,
@@ -193,7 +155,7 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
             if a_i == SEND:
                 # buffer emptied even if there is a collision
                 next_node_states[i] = EMPTY
-            if self._rng.random() <= self._fill_probs[i]:
+            if self.rng.random() <= self._fill_probs[i]:
                 next_node_states[i] = FULL
         return tuple(next_node_states)
 
@@ -210,14 +172,29 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
 
         obs = {}
         for i in self.possible_agents:
-            if self._rng.random() <= self._obs_prob:
+            if self.rng.random() <= self._obs_prob:
                 obs[i] = correct_obs
             else:
                 obs[i] = wrong_obs
         return obs
 
-    def set_seed(self, seed: Optional[int] = None):
-        self._rng = random.Random(seed)
+    def get_initial_belief_dist(self) -> Dict[MABCState, float]:
+        b_map: Dict[MABCState, float] = {}
+        s_prob_sum = 0.0
+        for s in self._state_space:
+            s_prob = 1.0
+            for i in range(len(self.possible_agents)):
+                if s[i] == FULL:
+                    s_prob *= self._init_buffer_dist[i]
+                else:
+                    s_prob *= 1 - self._init_buffer_dist[i]
+            b_map[s] = s_prob
+            s_prob_sum += s_prob
+
+        for s in self._state_space:
+            b_map[s] /= s_prob_sum
+
+        return b_map
 
     def transition_fn(
         self,
