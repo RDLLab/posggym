@@ -5,16 +5,107 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/utils/pass
 
 """
 import inspect
+import random
 from functools import partial
-from typing import Callable, Dict, Optional, get_args
+from typing import Callable, Dict, Optional, Sequence, get_args
 
 import gymnasium.utils.passive_env_checker as gym_passive_env_checker
 import numpy as np
 from gymnasium import Space, spaces
+from gymnasium.utils.env_checker import check_space_limit
 
 import posggym
 import posggym.model as M
 from posggym import error, logger
+from posggym.utils import seeding
+
+
+def data_equivalence(data_1, data_2) -> bool:
+    """Assert equality between data 1 and 2, i.e observations, actions, info.
+
+    Arguments
+    ---------
+    data_1: data structure 1
+    data_2: data structure 2
+
+    Returns
+    -------
+    bool: If observation 1 and 2 are equivalent
+
+    """
+    if type(data_1) == type(data_2):
+        if isinstance(data_1, dict):
+            return data_1.keys() == data_2.keys() and all(
+                data_equivalence(data_1[k], data_2[k]) for k in data_1.keys()
+            )
+        elif isinstance(data_1, (tuple, list)):
+            return len(data_1) == len(data_2) and all(
+                data_equivalence(o_1, o_2) for o_1, o_2 in zip(data_1, data_2)
+            )
+        elif isinstance(data_1, np.ndarray):
+            return data_1.shape == data_2.shape and np.allclose(
+                data_1, data_2, atol=0.00001
+            )
+        else:
+            return data_1 == data_2
+    else:
+        return False
+
+
+def check_rng_equality(rng_1: seeding.RNG, rng_2: seeding.RNG, prefix=None):
+    """Check equality between two random number generators."""
+    assert type(rng_1) == type(
+        rng_2
+    ), f"{prefix}Differing RNG types: {rng_1} and {rng_2}"
+    if isinstance(rng_1, random.Random) and isinstance(rng_2, random.Random):
+        assert (
+            rng_1.getstate() == rng_2.getstate()
+        ), f"{prefix}Internal states differ: {rng_1} and {rng_2}"
+    elif isinstance(rng_1, np.random.Generator) and isinstance(
+        rng_2, np.random.Generator
+    ):
+        assert (
+            rng_1.bit_generator.state == rng_2.bit_generator.state
+        ), f"{prefix}Internal states differ: {rng_1} and {rng_2}"
+    else:
+        raise AssertionError(f"{prefix}Unsupported RNG type: '{type(rng_1)}'.")
+
+
+def check_agent_space_limits(agent_spaces: Dict[M.AgentID, Space], space_type: str):
+    """Check the space limit for any agent Box space."""
+    for i, agent_space in agent_spaces.items():
+        check_space_limit(agent_space, space_type)
+
+
+def _check_box_state_space(state_space: spaces.Box):
+    """Checks that a :class:`Box` state space is defined in a sensible way.
+
+    Arguments
+    ---------
+    state_space: A box state space.
+
+    """
+    assert state_space.low.shape == state_space.shape, (
+        "The Box state space shape and low shape have have different shapes, "
+        f"low shape: {state_space.low.shape}, box shape: {state_space.shape}"
+    )
+    assert state_space.high.shape == state_space.shape, (
+        f"The Box state space shape and high shape have different shapes, "
+        f"high shape: {state_space.high.shape}, box shape: {state_space.shape}"
+    )
+
+    if np.any(state_space.low == state_space.high):
+        logger.warn(
+            "A Box state space maximum and minimum values are equal. "
+            "Actual equal coordinates: "
+            f"{[x for x in zip(*np.where(state_space.low == state_space.high))]}"
+        )
+    elif np.any(state_space.high < state_space.low):
+        logger.warn(
+            "A Box state space low value is greater than a high value. "
+            "Actual less than coordinates: "
+            f"{[x for x in zip(*np.where(state_space.high < state_space.low))]}"
+        )
 
 
 def check_agent_spaces(
@@ -31,6 +122,11 @@ def check_agent_spaces(
             raise AssertionError(f"Invalid {space_type} space for agent '{i}'.") from e
 
 
+check_state_space = partial(
+    gym_passive_env_checker.check_space,
+    space_type="state",
+    check_box_space_fn=_check_box_state_space,
+)
 check_agent_observation_spaces = partial(
     check_agent_spaces,
     space_type="observation",
@@ -41,6 +137,19 @@ check_agent_action_spaces = partial(
     space_type="action",
     check_box_space_fn=gym_passive_env_checker._check_box_action_space,
 )
+
+
+def check_state(state: M.StateType, model: M.POSGModel):
+    """Check state is valid.
+
+    Arguments
+    ---------
+    state: the state to check
+    model: the environment model
+
+    """
+    if model.state_space is not None:
+        assert model.state_space.contains(state)
 
 
 def check_agent_obs(
@@ -64,16 +173,16 @@ def check_agent_obs(
             raise AssertionError("Invalid observation for agent `{i}`.") from e
 
 
-def check_reset_obs(obs: Optional[Dict[M.AgentID, M.ObsType]], env: posggym.Env):
+def check_reset_obs(obs: Optional[Dict[M.AgentID, M.ObsType]], model: M.POSGModel):
     """Check agent observations returned by the environment `reset()` method are valid.
 
     Arguments
     ---------
     obs: The observation for each agent to check
-    env: The environment
+    model: The environment model
 
     """
-    if not env.observation_first:
+    if not model.observation_first:
         assert (
             obs is None
         ), "Expected None from `env.reset()` for `action_first` environment."
@@ -85,10 +194,10 @@ def check_reset_obs(obs: Optional[Dict[M.AgentID, M.ObsType]], env: posggym.Env)
     )
     for i, o_i in obs.items():
         assert (
-            i in env.possible_agents
-        ), f"Invalid agent ID `{i}`. Possible IDs are {env.possible_agents}."
+            i in model.possible_agents
+        ), f"Invalid agent ID `{i}`. Possible IDs are {model.possible_agents}."
 
-    check_agent_obs(obs, env.observation_spaces, "reset")
+    check_agent_obs(obs, model.observation_spaces, "reset")
 
 
 def env_reset_passive_checker(env, **kwargs):
@@ -136,7 +245,7 @@ def env_reset_passive_checker(env, **kwargs):
         )
     else:
         obs, info = result
-        check_reset_obs(obs, env)
+        check_reset_obs(obs, env.model)
         assert isinstance(info, dict), (
             "The second element returned by `env.reset()` was not a dictionary, "
             f"actual type: {type(info)}"
@@ -144,16 +253,101 @@ def env_reset_passive_checker(env, **kwargs):
     return result
 
 
-def _check_agent_dict(agent_dict, env: posggym.Env, dict_type: str):
+def _check_agent_dict(
+    agent_dict,
+    possible_agents: Sequence[M.AgentID],
+    dict_type: str,
+    expected_agents: Optional[Sequence[M.AgentID]] = None,
+):
     assert isinstance(agent_dict, dict), (
         f"Agent {dict_type} dictionary  must be a dictionary mapping agentID to values."
         f"Actual type: {type(agent_dict)}."
     )
     for i in agent_dict:
-        assert i in env.possible_agents, (
+        assert i in possible_agents, (
             f"Agent {dict_type} dictionary must only contain valid agent IDs: "
             f"invalid ID `{i}`."
         )
+    if expected_agents is not None:
+        for i in expected_agents:
+            assert i in agent_dict, (
+                f"Expected agent ID `{i}` missing from {dict_type} dictionary."
+            )
+
+
+def model_step_passive_checker(
+    model: M.POSGModel, state: M.StateType, actions: Dict[M.AgentID, M.ActType]
+):
+    """A passive check for the model step.
+
+    Investigating the returning data then returning the data unchanged.
+    """
+    # List of agents still active in the state and which we expect to get data for
+    step_agents = model.get_agents(state)
+    for i in step_agents:
+        assert i in model.possible_agents, (
+            f"Agent ID not in list of possible IDs. Invalid agent ID '{i}'. "
+        )
+
+    # We don't check the actions as out-of-bounds values are allowed in some
+    # environments
+    result = model.step(state, actions)
+    assert isinstance(result, M.JointTimestep), (
+        "Expects model.step result to be a `posggym.model.JointTimestep`, "
+        f"actual type: {type(result)}"
+    )
+    next_state, obs, reward, terminated, truncated, done, outcomes, info = result
+
+    _check_agent_dict(obs, model.possible_agents, "observation", step_agents)
+    _check_agent_dict(reward, model.possible_agents, "reward", step_agents)
+    _check_agent_dict(terminated, model.possible_agents, "terminated", step_agents)
+    _check_agent_dict(truncated, model.possible_agents, "truncated", step_agents)
+    # Less strict on checking entries for all agents in the outcomes and info values
+    # as these are not functionally critical and are more for record keeping
+    if outcomes is not None:
+        _check_agent_dict(outcomes, model.possible_agents, "outcomes")
+    _check_agent_dict(info, model.possible_agents, "info")
+
+    check_state(next_state, model)
+    check_agent_obs(obs, model.observation_spaces, "step")
+
+    if not all(isinstance(t_i, (bool, np.bool_)) for t_i in terminated.values()):
+        logger.warn(
+            "Expects `terminated` signal to be a boolean for every agent, "
+            f"actual types: {list(type(t_i) for t_i in terminated.values())}."
+        )
+    if not all(isinstance(t_i, (bool, np.bool_)) for t_i in truncated.values()):
+        logger.warn(
+            "Expects `truncated` signal to be a boolean for every agent, "
+            f"actual types: {list(type(t_i) for t_i in truncated.values())}."
+        )
+
+    if not isinstance(done, (bool, np.bool_)):
+        logger.warn(
+            "Expects `done` signal returned by `step()` to be a boolean, "
+            f"actual type: {type(info)}"
+        )
+
+    if not (
+        all(
+            np.issubdtype(type(r_i), np.integer)
+            or np.issubdtype(type(r_i), np.floating)
+            for r_i in reward.values()
+        )
+    ):
+        logger.warn(
+            "The reward returned for each agent by `step()` must be a float, int, "
+            "np.integer or np.floating, "
+            f"actual types: {list(type(r_i) for r_i in reward.values())}."
+        )
+    else:
+        for i, r_i in reward.items():
+            if np.isnan(r_i):  # type: ignore
+                logger.warn(f"The reward for agent `{i}` is a NaN value.")
+            if np.isinf(r_i):  # type: ignore
+                logger.warn(f"The reward for agent `{i}` is an inf value.")
+
+    return result
 
 
 def env_step_passive_checker(env: posggym.Env, actions: Dict[M.AgentID, M.ActType]):
@@ -161,6 +355,13 @@ def env_step_passive_checker(env: posggym.Env, actions: Dict[M.AgentID, M.ActTyp
 
     Investigating the returning data then returning the data unchanged.
     """
+    # List of agents still active in the state and which we expect to get data for
+    step_agents = env.agents
+    for i in step_agents:
+        assert i in env.possible_agents, (
+            f"Agent ID not in list of possible IDs. Invalid agent ID '{i}'. "
+        )
+
     # We don't check the actions as out-of-bounds values are allowed in some
     # environments
     result = env.step(actions)
@@ -170,11 +371,14 @@ def env_step_passive_checker(env: posggym.Env, actions: Dict[M.AgentID, M.ActTyp
     if len(result) == 6:
         obs, reward, terminated, truncated, done, info = result
 
-        _check_agent_dict(obs, env, "observation")
-        _check_agent_dict(reward, env, "reward")
-        _check_agent_dict(terminated, env, "terminated")
-        _check_agent_dict(truncated, env, "truncated")
-        _check_agent_dict(info, env, "info")
+        _check_agent_dict(obs, env.possible_agents, "observation", step_agents)
+        _check_agent_dict(reward, env.possible_agents, "reward", step_agents)
+        _check_agent_dict(terminated, env.possible_agents, "terminated", step_agents)
+        _check_agent_dict(truncated, env.possible_agents, "truncated", step_agents)
+        # Less strict on checking entries for all agents in the outcomes
+        # and info values as these are not functionally critical and are more for
+        # record keeping
+        _check_agent_dict(info, env.possible_agents, "info")
 
         if not all(isinstance(t_i, (bool, np.bool_)) for t_i in terminated.values()):
             logger.warn(
@@ -308,7 +512,7 @@ def env_render_passive_checker(env: posggym.Env):
                 f"Render mode: {env.render_mode}, modes: {render_modes}"
             )
 
-    result = env.render()
+    result = env.render()    # type: ignore
     if env.render_mode is not None:
         _check_render_return(env.render_mode, result)
 

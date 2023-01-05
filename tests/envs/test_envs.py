@@ -10,12 +10,14 @@ import pytest
 
 import posggym
 from posggym.envs.registration import EnvSpec
-from posggym.utils.env_checker import data_equivalence, check_env
+from posggym.utils.env_checker import check_env
+from posggym.utils.passive_env_checker import data_equivalence
 from tests.envs.utils import (
     all_testing_env_specs,
     all_testing_initialised_envs,
     assert_equals,
 )
+
 
 CHECK_ENV_IGNORE_WARNINGS = [
     f"\x1b[33mWARN: {message}\x1b[0m"
@@ -66,9 +68,6 @@ def test_env_determinism_rollout(env_spec: EnvSpec):
     - obs, rew, term, trunc, done, and info are equals between the two envs
 
     """
-    # if env_name_prefix is not None and not _has_prefix(spec, env_name_prefix):
-    #     return
-
     # Don't check rollout equality if it's a nondeterministic environment.
     if env_spec.nondeterministic is True:
         return
@@ -81,6 +80,9 @@ def test_env_determinism_rollout(env_spec: EnvSpec):
     assert_equals(initial_obs_1, initial_obs_2)
 
     for time_step in range(NUM_STEPS):
+        assert_equals(env_1.agents, env_2.agents, f"[{time_step}][Agents] ")
+        assert_equals(env_1.state, env_2.state, f"[{time_step}][State] ")
+
         # We don't evaluate the determinism of actions
         actions = {i: env_1.action_spaces[i].sample() for i in env_1.agents}
 

@@ -1,0 +1,194 @@
+"""General tests for ``posggym.POSGModel`` implementations.
+
+Adapted from:
+https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/test_envs.py
+"""
+import warnings
+
+import pytest
+
+import posggym
+import posggym.model as M
+from posggym.envs.registration import EnvSpec
+from posggym.utils.model_checker import check_model
+from tests.envs.utils import all_testing_env_specs, assert_equals
+
+
+CHECK_MODEL_IGNORE_WARNINGS = [
+    f"\x1b[33mWARN: {message}\x1b[0m"
+    for message in [
+        "A Box observation space minimum value is -infinity. This is probably too low.",
+        "A Box observation space maximum value is -infinity. This is probably too high.",
+        "For Box action spaces, we recommend using a symmetric and normalized space (range=[-1, 1] or [0, 1]). See https://stable-baselines3.readthedocs.io/en/master/guide/rl_tips.html for more information.",
+    ]
+]
+
+
+@pytest.mark.parametrize(
+    "spec",
+    all_testing_env_specs,
+    ids=[spec.id for spec in all_testing_env_specs],
+)
+def test_models_pass_env_checker(spec):
+    """Check that all environment models pass checker with no unexpected warnings."""
+    with warnings.catch_warnings(record=True) as caught_warnings:
+        env = spec.make(disable_env_checker=True).unwrapped
+        check_model(env.model)
+
+        env.close()
+
+    for warning in caught_warnings:
+        if warning.message.args[0] not in CHECK_MODEL_IGNORE_WARNINGS:
+            raise posggym.error.Error(f"Unexpected warning: {warning.message}")
+
+
+SEED = 42
+NUM_STEPS = 50
+NUM_REPEAT_STEPS = 5
+NUM_INIT_STEPS = 5
+
+
+@pytest.mark.parametrize(
+    "env_spec",
+    all_testing_env_specs,
+    ids=[env.id for env in all_testing_env_specs],
+)
+def test_model_determinism_rollout(env_spec: EnvSpec):
+    """Run a rollout with two models and assert equality.
+
+    This test runs two models initialized with the same seed and assert that:
+
+    - observation after first reset are the same
+    - same actions are sampled by the two models
+    - observations are contained in the observation space
+    - step outputs are equal between the two models
+    - agents in play are the same for each model
+
+    It tests models on rollouts of NUM_STEPS timesteps.
+    It also tests models where the same state (generated from rollout of len
+    NUM_INIT_STEPS) is reused for NUM_REPEAT_STEPS timesteps.
+
+    Note, this doesn't test for strict API compliance.
+
+    """
+    # Don't check rollout equality if it's a nondeterministic environment.
+    if env_spec.nondeterministic is True:
+        return
+
+    env_1 = env_spec.make()
+    env_2 = env_spec.make()
+    model_1 = env_1.model
+    model_2 = env_2.model
+
+    assert isinstance(model_1, M.POSGModel)
+    assert isinstance(model_2, M.POSGModel)
+
+    model_1.seed(SEED)
+    model_2.seed(SEED)
+
+    initial_state_1 = model_1.sample_initial_state()
+    initial_state_2 = model_2.sample_initial_state()
+    assert_equals(initial_state_1, initial_state_2)
+    # initial_state_2 verified by previous assertion
+    if model_1.state_space is not None:
+        assert model_1.state_space.contains(initial_state_1)
+    assert_equals(
+        model_1.get_agents(initial_state_1), model_2.get_agents(initial_state_2)
+    )
+
+    if model_1.observation_first:
+        initial_obs_1 = model_1.sample_initial_obs(initial_state_1)
+        initial_obs_2 = model_2.sample_initial_obs(initial_state_2)
+        assert_equals(initial_obs_1, initial_obs_2)
+        # obs_2 verified by previous assertion
+        assert all(
+            model_1.observation_spaces[i].contains(o_i)
+            for i, o_i in initial_obs_1.items()
+        )
+        assert all(i in initial_obs_1 for i in model_1.get_agents(initial_state_1))
+
+        try:
+            for i in model_1.get_agents(initial_state_1):
+                agent_initial_state_1 = model_1.sample_agent_initial_state(
+                    i, initial_obs_1[i]
+                )
+                agent_initial_state_2 = model_2.sample_agent_initial_state(
+                    i, initial_obs_2[i]
+                )
+                assert_equals(
+                    agent_initial_state_1,
+                    agent_initial_state_2,
+                    "[sample_agent_initial_state]",
+                )
+                if model_1.state_space is not None:
+                    assert model_1.state_space.contains(agent_initial_state_1)
+        except NotImplementedError:
+            pass
+
+    # state checked for equality at each step
+    state = initial_state_1
+    for rollout_mode in [True, False]:
+
+        if rollout_mode:
+            num_steps = NUM_STEPS
+        else:
+            num_steps = NUM_INIT_STEPS + NUM_REPEAT_STEPS
+
+        for t in range(num_steps):
+            # We don't evaluate the determinism of actions
+            actions = {
+                i: model_1.action_spaces[i].sample() for i in model_1.get_agents(state)
+            }
+
+            result_1 = model_1.step(state, actions)
+            result_2 = model_2.step(state, actions)
+
+            assert_equals(result_1.state, result_2.state, f"[{t}][State] ")
+            assert_equals(
+                model_1.get_agents(result_1.state),
+                model_2.get_agents(result_2.state),
+                f"[{t}][get_agents] ",
+            )
+            # result_2.state verified by previous assertion
+            if model_1.state_space is not None:
+                assert model_1.state_space.contains(result_1.state)
+
+            assert_equals(
+                result_1.observations, result_2.observations, f"[{t}][Observations] "
+            )
+            # obs_2 verified by previous assertion
+            assert all(
+                model_1.observation_spaces[i].contains(o_i)
+                for i, o_i in result_1.observations.items()
+            )
+            assert all(i in result_1.observations for i in model_1.get_agents(state))
+
+            assert_equals(result_1.rewards, result_2.rewards, f"[{t}][Rewards] ")
+            assert_equals(
+                result_1.terminated, result_2.terminated, f"[{t}][Terminated] "
+            )
+            assert_equals(result_1.truncated, result_2.truncated, f"[{t}][Truncated] ")
+            assert (
+                result_1.all_done == result_2.all_done
+            ), f"[{t}] all_done 1={result_1.all_done}, all_done 2={result_2.all_done}"
+            assert_equals(result_1.outcomes, result_2.outcomes, f"[{t}][Outcomes] ")
+            assert_equals(result_1.info, result_2.info, f"[{t}][Info] ")
+
+            if not rollout_mode and t >= NUM_INIT_STEPS:
+                # don't update state
+                pass
+            else:
+                state = result_1.state
+                if result_1.all_done:
+                    # done_2
+                    env_1.reset(seed=SEED)
+                    env_2.reset(seed=SEED)
+
+                    model_1.seed(SEED + t)
+                    model_2.seed(SEED + t)
+
+                    state = model_1.sample_initial_state()
+                    _ = model_2.sample_initial_state()
+
+    env_1.close()
+    env_2.close()

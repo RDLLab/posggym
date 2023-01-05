@@ -62,7 +62,6 @@ class JointTimestep(Generic[StateType, ObsType]):
     terminated: Dict[AgentID, bool]
     truncated: Dict[AgentID, bool]
     all_done: bool
-    outcomes: Dict[AgentID, Outcome] | None
     info: Dict[AgentID, Dict]
 
     def __iter__(self):
@@ -204,16 +203,28 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
         """
 
     @property
-    @abc.abstractmethod
     def reward_ranges(self) -> Dict[AgentID, Tuple[SupportsFloat, SupportsFloat]]:
-        """Get the minimum and maximum  possible rewards for each agent."""
+        r"""Get the minimum and maximum possible rewards for each agent.
+
+        Returns
+        -------
+        dict
+            Dictionary mapping agent ID to a tuple with the minimum and maximum
+            possible rewards for an agent over an episode. The default reward range
+            is set to :math:`(-\infty,+\infty)` for each agent.
+
+        """
+        return {i: (-float("inf"), float("inf")) for i in self.possible_agents}
 
     @abc.abstractmethod
     def get_agents(self, state: StateType) -> List[AgentID]:
-        """Get list of IDs for agents that are active in given state.
+        """Get list of IDs for all agents that are active in given state.
 
-        This will be :attr:`possible_agents`, independent of state, for any environment
-        where the number of agents remains constant during and across episodes.
+        These list of active agents may change depending on state.
+
+        For any environment where the number of agents remains constant during AND
+        across episodes. This will be :attr:`possible_agents`, independent of state.
+
         """
 
     @abc.abstractmethod
@@ -224,7 +235,14 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
     def step(
         self, state: StateType, actions: Dict[AgentID, ActType]
     ) -> JointTimestep[StateType, ObsType]:
-        """Perform generative step."""
+        """Perform generative step.
+
+        For custom environments that have win/loss or success/fail conditions, you are
+        encouraged to include this information in the `info` property of the returned
+        value. We suggest using the the "outcomes" key with an instance of the
+        ``Outcome`` class for values.
+
+        """
 
     @property
     @abc.abstractmethod

@@ -13,78 +13,22 @@ Which in turn is based on work from:
 These projects are covered by the MIT License.
 
 """
-
 import inspect
-import random
 from copy import deepcopy
-from typing import Dict, Optional
-
-import numpy as np
-from gymnasium import spaces
-from gymnasium.utils.env_checker import check_space_limit
 
 import posggym
 from posggym import error, logger
-from posggym.model import AgentID
-from posggym.utils import seeding
 from posggym.utils.passive_env_checker import (
+    check_rng_equality,
+    data_equivalence,
     check_agent_action_spaces,
     check_agent_observation_spaces,
+    check_agent_space_limits,
     check_reset_obs,
     env_render_passive_checker,
     env_reset_passive_checker,
     env_step_passive_checker,
 )
-
-
-def data_equivalence(data_1, data_2) -> bool:
-    """Assert equality between data 1 and 2, i.e observations, actions, info.
-
-    Arguments
-    ---------
-    data_1: data structure 1
-    data_2: data structure 2
-
-    Returns
-    -------
-    bool: If observation 1 and 2 are equivalent
-
-    """
-    if type(data_1) == type(data_2):
-        if isinstance(data_1, dict):
-            return data_1.keys() == data_2.keys() and all(
-                data_equivalence(data_1[k], data_2[k]) for k in data_1.keys()
-            )
-        elif isinstance(data_1, (tuple, list)):
-            return len(data_1) == len(data_2) and all(
-                data_equivalence(o_1, o_2) for o_1, o_2 in zip(data_1, data_2)
-            )
-        elif isinstance(data_1, np.ndarray):
-            return data_1.shape == data_2.shape and np.allclose(
-                data_1, data_2, atol=0.00001
-            )
-        else:
-            return data_1 == data_2
-    else:
-        return False
-
-
-def _check_rng_equality(rng_1: seeding.RNG, rng_2: seeding.RNG, prefix=None):
-    assert type(rng_1) == type(
-        rng_2
-    ), f"{prefix}Differing RNG types: {rng_1} and {rng_2}"
-    if isinstance(rng_1, random.Random) and isinstance(rng_2, random.Random):
-        assert (
-            rng_1.getstate() == rng_2.getstate()
-        ), f"{prefix}Internal states differ: {rng_1} and {rng_2}"
-    elif isinstance(rng_1, np.random.Generator) and isinstance(
-        rng_2, np.random.Generator
-    ):
-        assert (
-            rng_1.bit_generator.state == rng_2.bit_generator.state
-        ), f"{prefix}Internal states differ: {rng_1} and {rng_2}"
-    else:
-        raise AssertionError(f"{prefix}Unsupported RNG type: '{type(rng_1)}'.")
 
 
 def check_reset_seed(env: posggym.Env):
@@ -107,7 +51,7 @@ def check_reset_seed(env: posggym.Env):
     ):
         try:
             obs_1, info = env.reset(seed=123)
-            check_reset_obs(obs_1, env)
+            check_reset_obs(obs_1, env.model)
 
             assert (
                 env.unwrapped.model._rng  # pyright: ignore [reportPrivateUsage]
@@ -122,27 +66,27 @@ def check_reset_seed(env: posggym.Env):
             )
 
             obs_2, info = env.reset(seed=123)
-            check_reset_obs(obs_2, env)
+            check_reset_obs(obs_2, env.model)
 
             if env.spec is not None and env.spec.nondeterministic is False:
                 assert data_equivalence(obs_1, obs_2), (
                     "Using `env.reset(seed=123)` is non-deterministic as the "
                     "observations are not equivalent."
                 )
-            _check_rng_equality(
+            check_rng_equality(
                 env.unwrapped.model._rng,  # pyright: ignore [reportPrivateUsage]
                 seed_123_rng,
                 prefix=(
                     "Mostly likely the environment reset function does not call "
-                    "`super().reset(seed=seed)` as the random generates are not same "
-                    "when the same seeds are passed to `env.reset`. Specificall, "
+                    "`super().reset(seed=seed)` as the random generators are not same "
+                    "when the same seeds are passed to `env.reset`. "
                 ),
             )
 
             obs_3, info = env.reset(seed=456)
-            check_reset_obs(obs_3, env)
+            check_reset_obs(obs_3, env.model)
             try:
-                _check_rng_equality(
+                check_rng_equality(
                     env.unwrapped.model._rng,  # pyright: ignore [reportPrivateUsage]
                     seed_123_rng,
                     prefix="",
@@ -234,25 +178,15 @@ def check_reset_return_type(env: posggym.Env):
     ), f"Calling reset method did not return a 2-tuple, actual length: {len(result)}"
 
     obs, info = result
-    check_reset_obs(obs, env)
+    check_reset_obs(obs, env.model)
     assert isinstance(info, dict), (
         "The second element returned by `env.reset()` was not a dictionary, "
         f"actual type: {type(info)}"
     )
 
 
-def check_agent_space_limits(
-    agent_spaces: Dict[AgentID, spaces.Space], space_type: str
-):
-    """Check the space limit for only any Box space as a test for `check_env`."""
-    for i, agent_space in agent_spaces.items():
-        check_space_limit(agent_space, space_type)
-
-
-def check_env(
-    env: posggym.Env, warn: Optional[bool] = None, skip_render_check: bool = False
-):
-    """Check that an environment follows Gym API.
+def check_env(env: posggym.Env, skip_render_check: bool = False):
+    """Check that an environment follows posggym API.
 
     This is an invasive function that calls the environment's reset and step.
 
@@ -265,16 +199,12 @@ def check_env(
 
     Arguments
     ---------
-    env: The Gym environment that will be checked
-    warn: Ignored
+    env: The posggym environment that will be checked
     skip_render_check: Whether to skip the checks for the render method.
         True by default (useful for the CI)
 
     """
     more_info_msg = "See COMING SOON for more info."
-
-    if warn is not None:
-        logger.warn("`check_env(warn=...)` parameter is now ignored.")
 
     assert isinstance(
         env, posggym.Env
