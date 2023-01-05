@@ -104,10 +104,6 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
             self._rng, seed = seeding.std_random()
         return self._rng
 
-    @rng.setter
-    def rng(self, value: seeding.RNG):
-        self._rng = value
-
     def get_agents(self, state: MABCState) -> List[M.AgentID]:
         return list(self.possible_agents)
 
@@ -133,7 +129,6 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
         terminated = {i: False for i in self.possible_agents}
         truncated = {i: False for i in self.possible_agents}
         all_done = False
-        outcomes = {i: M.Outcome.NA for i in self.possible_agents}
         info: Dict[M.AgentID, Dict] = {i: {} for i in self.possible_agents}
 
         return M.JointTimestep(
@@ -143,7 +138,6 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
             terminated,
             truncated,
             all_done,
-            outcomes,
             info
         )
 

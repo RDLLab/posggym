@@ -82,6 +82,9 @@ class Env(abc.ABC, Generic[M.StateType, M.ObsType, M.ActType]):
     # This is set when env is made using posggym.make function
     spec: EnvSpec | None = None
 
+    # The model used by the environment
+    model: M.POSGModel[M.StateType, M.ObsType, M.ActType]
+
     @abc.abstractmethod
     def step(
         self, actions: Dict[M.AgentID, M.ActType]
@@ -221,11 +224,6 @@ class Env(abc.ABC, Generic[M.StateType, M.ObsType, M.ActType]):
         Should be overriden in subclasses as necessary.
         """
         pass
-
-    @property
-    @abc.abstractmethod
-    def model(self) -> M.POSGModel[M.StateType, M.ObsType, M.ActType]:
-        """Get the model for this environment."""
 
     @property
     @abc.abstractmethod
@@ -408,31 +406,19 @@ class DefaultEnv(Env[M.StateType, M.ObsType, M.ActType]):
         self._last_obs = step.observations
         self._last_actions = actions
         self._last_rewards = step.rewards
-
-        if step.outcomes is not None:
-            info = {i: {"outcome": o} for i, o in step.outcomes.items()}
-        else:
-            info = {}
-
-        for i, i_info in step.info.items():
-            if i not in info:
-                info[i] = {}
-            info[i].update(i_info)
-
         return (
             step.observations,
             step.rewards,
             step.terminated,
             step.truncated,
             step.all_done,
-            info,
+            step.info,
         )
 
     def reset(
         self, *, seed: int | None = None, options: Dict[str, Any] | None = None
     ) -> Tuple[Optional[Dict[M.AgentID, M.ObsType]], Dict[M.AgentID, Dict]]:
         super().reset(seed=seed)
-
         self._state = self.model.sample_initial_state()
         if self.model.observation_first:
             self._last_obs = self.model.sample_initial_obs(self._state)
@@ -441,7 +427,6 @@ class DefaultEnv(Env[M.StateType, M.ObsType, M.ActType]):
         self._last_actions = None
         self._last_rewards = None
         self._step_num = 0
-        # TODO Handle info from model
         return self._last_obs, {}
 
     @property

@@ -142,6 +142,8 @@ def test_model_determinism_rollout(env_spec: EnvSpec):
 
             result_1 = model_1.step(state, actions)
             result_2 = model_2.step(state, actions)
+            assert isinstance(result_1, M.JointTimestep)
+            assert isinstance(result_2, M.JointTimestep)
 
             assert_equals(result_1.state, result_2.state, f"[{t}][State] ")
             assert_equals(
@@ -171,7 +173,6 @@ def test_model_determinism_rollout(env_spec: EnvSpec):
             assert (
                 result_1.all_done == result_2.all_done
             ), f"[{t}] all_done 1={result_1.all_done}, all_done 2={result_2.all_done}"
-            assert_equals(result_1.outcomes, result_2.outcomes, f"[{t}][Outcomes] ")
             assert_equals(result_1.info, result_2.info, f"[{t}][Info] ")
 
             if not rollout_mode and t >= NUM_INIT_STEPS:

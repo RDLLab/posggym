@@ -77,7 +77,7 @@ class MABCEnv(core.DefaultEnv[MABCState, MABCObs, MABCAction]):
         render_mode: Optional[str] = None,
         **kwargs,
     ):
-        self._model = MABCModel(
+        self.model = MABCModel(
             num_nodes, fill_probs, observation_prob, init_buffer_dist, **kwargs
         )
         self.render_mode = render_mode
@@ -107,7 +107,3 @@ class MABCEnv(core.DefaultEnv[MABCState, MABCObs, MABCAction]):
         else:
             # ansi mode
             return output_str
-
-    @property
-    def model(self) -> M.POSGModel:
-        return self._model

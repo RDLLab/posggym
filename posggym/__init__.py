@@ -2,7 +2,9 @@
 # isort: skip_file
 # Need to import model and core before other modules
 from posggym.model import POSGFullModel, POSGModel
-from posggym.core import ActionWrapper, Env, ObservationWrapper, RewardWrapper, Wrapper
+from posggym.core import (
+    ActionWrapper, Env, DefaultEnv, ObservationWrapper, RewardWrapper, Wrapper
+)
 from posggym import envs, error, logger, utils, wrappers
 from posggym.envs import make, pprint_registry, register, registry, spec
 
@@ -10,6 +12,7 @@ from posggym.envs import make, pprint_registry, register, registry, spec
 __all__ = [
     # core classes
     "Env",
+    "DefaultEnv",
     "Wrapper",
     "ObservationWrapper",
     "ActionWrapper",

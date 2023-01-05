@@ -231,6 +231,16 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
     def sample_initial_state(self) -> StateType:
         """Sample an initial state."""
 
+    def sample_initial_obs(self, state: StateType) -> Dict[AgentID, ObsType]:
+        """Sample initial agent observations given an initial state."""
+        if self.observation_first:
+            raise NotImplementedError
+        raise AssertionError(
+            "Model is action_first so expects agents to perform an action "
+            "before the initial observations are generated. This is done "
+            "using the step() function."
+        )
+
     @abc.abstractmethod
     def step(
         self, state: StateType, actions: Dict[AgentID, ActType]
@@ -267,10 +277,6 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
 
         """
 
-    @rng.setter
-    def rng(self, value: seeding.RNG):
-        self._rng = value
-
     def seed(self, seed: Optional[int] = None):
         """Set the seed for the model RNG.
 
@@ -278,9 +284,9 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
 
         """
         if isinstance(self.rng, random.Random):
-            self.rng, seed = seeding.std_random(seed)
+            self._rng, seed = seeding.std_random(seed)
         elif isinstance(self.rng, np.random.Generator):
-            self.rng, seed = seeding.np_random(seed)
+            self._rng, seed = seeding.np_random(seed)
         else:
             raise error.UnseedableEnv(
                 "{self.__class__.__name__} unseedable. Please ensure the model has "
@@ -300,16 +306,6 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
 
         if self.state_space is not None:
             self.state_space.seed(seed)
-
-    def sample_initial_obs(self, state: StateType) -> Dict[AgentID, ObsType]:
-        """Sample initial agent observations given an initial state."""
-        if self.observation_first:
-            raise NotImplementedError
-        raise AssertionError(
-            "Model is action_first so expects agents to perform an action "
-            "before the initial observations are generated. This is done "
-            "using the step() function."
-        )
 
     def sample_agent_initial_state(self, agent_id: AgentID, obs: ObsType) -> StateType:
         """Sample an initial state for an agent given it's initial observation.

@@ -296,16 +296,14 @@ def model_step_passive_checker(
         "Expects model.step result to be a `posggym.model.JointTimestep`, "
         f"actual type: {type(result)}"
     )
-    next_state, obs, reward, terminated, truncated, done, outcomes, info = result
+    next_state, obs, reward, terminated, truncated, done, info = result
 
     _check_agent_dict(obs, model.possible_agents, "observation", step_agents)
     _check_agent_dict(reward, model.possible_agents, "reward", step_agents)
     _check_agent_dict(terminated, model.possible_agents, "terminated", step_agents)
     _check_agent_dict(truncated, model.possible_agents, "truncated", step_agents)
-    # Less strict on checking entries for all agents in the outcomes and info values
+    # Less strict on checking there are entries for all agents in info values
     # as these are not functionally critical and are more for record keeping
-    if outcomes is not None:
-        _check_agent_dict(outcomes, model.possible_agents, "outcomes")
     _check_agent_dict(info, model.possible_agents, "info")
 
     check_state(next_state, model)
