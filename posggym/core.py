@@ -357,7 +357,7 @@ class Env(abc.ABC, Generic[M.StateType, M.ObsType, M.ActType]):
 class DefaultEnv(Env[M.StateType, M.ObsType, M.ActType]):
     """Default Environment implementation from environment model.
 
-    This class implements some of the main environment functions using the
+    This class implements some of the main environment functions by using the
     environment model in a default manner.
 
     Specifically it implements the following functions and attributes:
@@ -477,6 +477,10 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
     def model(self) -> M.POSGModel:
         return self.env.model
 
+    @model.setter
+    def model(self, value: M.POSGModel):
+        self.env.model = value
+
     @property
     def state(self) -> WrapperStateType:
         return self.env.state  # type: ignore
@@ -515,6 +519,12 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         if self._reward_ranges is None:
             return self.env.reward_ranges
         return self._reward_ranges
+
+    @reward_ranges.setter
+    def reward_ranges(
+        self, reward_ranges: Dict[M.AgentID, Tuple[SupportsFloat, SupportsFloat]]
+    ):
+        self._reward_ranges = reward_ranges
 
     @property
     def metadata(self) -> Dict[str, Any]:
