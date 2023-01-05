@@ -360,28 +360,28 @@ class DefaultEnv(Env[M.StateType, M.ObsType, M.ActType]):
     This class implements some of the main environment functions by using the
     environment model in a default manner.
 
-    Specifically it implements the following functions and attributes:
+    Users need only initialize the class with a posggym.model.POSGModel instance by
+    calling ``super().__init__(custom_model)`` in custom environment class that
+    inherits from this class.
+
+    The DefaultEnv implements the main Env methods and attributes:
 
         step
         reset
         state
 
-    Users will need to implement:
-
-        model
-
-    and optionally implement:
+    The inheriting environment needs only (optionally) implement rendering and clean-up
+    methods:
 
         render
         close
 
     """
 
-    def __init__(self) -> None:
-        assert self.model, (
-            "self.model property must be initialized before calling init "
-            "function of parent class"
-        )
+    def __init__(self, model: M.POSGModel, render_mode: Optional[str] = None):
+        self.model = model
+        self.render_mode = render_mode
+
         self._state = self.model.sample_initial_state()
         self._last_obs: Dict[M.AgentID, M.ObsType] | None = None
         if self.model.observation_first:

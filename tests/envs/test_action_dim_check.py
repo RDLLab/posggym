@@ -77,23 +77,17 @@ def test_box_actions_out_of_bound(env: posggym.Env):
     env.reset(seed=42)
 
     assert env.spec is not None
-    oob_env = posggym.make(env.spec.id)
+    oob_env = posggym.make(env.spec.id, disable_env_checker=True)
     oob_env.reset(seed=42)
 
-    action_spaces: Dict[AgentID, spaces.Box] = env.action_spaces   # type: ignore
+    action_spaces: Dict[AgentID, spaces.Box] = env.action_spaces  # type: ignore
     assert all(
         isinstance(act_space, spaces.Box) for act_space in action_spaces.values()
     )
 
-    dtypes = {
-        i: action_spaces[i].dtype for i in env.agents
-    }
-    upper_bounds = {
-        i: action_spaces[i].high for i in env.agents
-    }
-    lower_bounds = {
-        i: action_spaces[i].low for i in env.agents
-    }
+    dtypes = {i: action_spaces[i].dtype for i in env.agents}
+    upper_bounds = {i: action_spaces[i].high for i in env.agents}
+    lower_bounds = {i: action_spaces[i].low for i in env.agents}
 
     if all(action_spaces[i].bounded_above for i in env.agents):
         obs, _, _, _, _, _ = env.step(upper_bounds)

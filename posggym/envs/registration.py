@@ -19,7 +19,7 @@ from typing import Any, Callable, Dict, Iterable, Tuple
 
 from posggym import error, logger
 from posggym.core import Env
-from posggym.wrappers import OrderEnforcing, TimeLimit
+from posggym.wrappers import OrderEnforcing, TimeLimit, PassiveEnvChecker
 
 
 if sys.version_info < (3, 10):
@@ -123,6 +123,8 @@ class EnvSpec:
         truncation.
     order_enforce: Whether to wrap the environment in an orderEnforcing wrapper, that
         enforces the order of of `reset` before `step` and `render` functions.
+    disable_env_checker: Whether to disable the environment checker wrapper in
+        `posggym.make`, by default False (runs the environment checker)
     kwargs: Additional kwargs to pass to the environment class
 
     """
@@ -137,6 +139,7 @@ class EnvSpec:
     # Wrappers
     max_episode_steps: int | None = field(default=None)
     order_enforce: bool = field(default=True)
+    disable_env_checker: bool = field(default=False)
 
     # Environment Arguments
     kwargs: Dict = field(default_factory=dict)
@@ -370,6 +373,7 @@ def register(
     nondeterministic: bool = False,
     max_episode_steps: int | None = None,
     order_enforce: bool = True,
+    disable_env_checker: bool = False,
     **kwargs,
 ):
     """Register an environment with posggym.
@@ -392,6 +396,8 @@ def register(
         by the Time Limit wrapper.
     order_enforce: If to enable the order enforcer wrapper to ensure users run
         functions in the correct order
+    disable_env_checker: Whether to disable the environment checker for the environment.
+        Recommended to False.
     **kwargs: arbitrary keyword arguments which are passed to the environment
         constructor
 
@@ -422,6 +428,7 @@ def register(
         nondeterministic=nondeterministic,
         max_episode_steps=max_episode_steps,
         order_enforce=order_enforce,
+        disable_env_checker=disable_env_checker,
         **kwargs,
     )
     _check_spec_register(new_spec)
@@ -430,7 +437,12 @@ def register(
     registry[new_spec.id] = new_spec
 
 
-def make(id: str | EnvSpec, max_episode_steps: int | None = None, **kwargs) -> Env:
+def make(
+    id: str | EnvSpec,
+    max_episode_steps: int | None = None,
+    disable_env_checker: bool | None = None,
+    **kwargs,
+) -> Env:
     """Create an environment according to the given ID.
 
     To find all available environments use `posggym.envs.registry.keys()` for all valid
@@ -441,6 +453,10 @@ def make(id: str | EnvSpec, max_episode_steps: int | None = None, **kwargs) -> E
     id: Name of the environment. Optionally, a module to import can be included,
         eg. 'module:Env-v0'
     max_episode_steps: Maximum length of an episode (TimeLimit wrapper).
+    disable_env_checker: Whether to run the env checker, None will default to the
+            environment specification `disable_env_checker` (which is by default False,
+            running the environment checker), otherwise will run according to this
+            parameter (`True` = not run, `False` = run)
     kwargs: Additional arguments to pass to the environment constructor.
 
     Returns
@@ -529,6 +545,13 @@ def make(id: str | EnvSpec, max_episode_steps: int | None = None, **kwargs) -> E
     spec_ = copy.deepcopy(spec_)
     spec_.kwargs = _kwargs
     env.unwrapped.spec = spec_
+    env.unwrapped.model.spec = spec_
+
+    # Run the environment checker as the lowest level wrapper
+    if disable_env_checker is False or (
+        disable_env_checker is None and spec_.disable_env_checker is False
+    ):
+        env = PassiveEnvChecker(env)
 
     # Add the order enforcing wrapper
     if spec_.order_enforce:

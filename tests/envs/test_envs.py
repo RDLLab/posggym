@@ -19,6 +19,15 @@ from tests.envs.utils import (
 )
 
 
+PASSIVE_CHECK_IGNORE_WARNING = [
+    f"\x1b[33mWARN: {message}\x1b[0m"
+    for message in [
+        # add messages to ignore here
+        "Placeholder message",
+    ]
+]
+
+
 CHECK_ENV_IGNORE_WARNINGS = [
     f"\x1b[33mWARN: {message}\x1b[0m"
     for message in [
@@ -39,7 +48,6 @@ def test_envs_pass_env_checker(spec):
     with warnings.catch_warnings(record=True) as caught_warnings:
         env = spec.make(disable_env_checker=True).unwrapped
         check_env(env, skip_render_check=True)
-
         env.close()
 
     for warning in caught_warnings:
@@ -72,8 +80,8 @@ def test_env_determinism_rollout(env_spec: EnvSpec):
     if env_spec.nondeterministic is True:
         return
 
-    env_1 = env_spec.make()
-    env_2 = env_spec.make()
+    env_1 = env_spec.make(disable_env_checker=True)
+    env_2 = env_spec.make(disable_env_checker=True)
 
     initial_obs_1, initial_info_1 = env_1.reset(seed=SEED)
     initial_obs_2, initial_info_2 = env_2.reset(seed=SEED)

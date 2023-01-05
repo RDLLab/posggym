@@ -8,6 +8,7 @@ from typing import Union, get_args, get_origin
 import numpy as np
 import pytest
 
+from posggym.envs.registration import EnvSpec
 from posggym.logger import warn
 from posggym.model import AgentID
 from tests.envs.utils import all_testing_env_specs
@@ -48,8 +49,8 @@ def check_rendered(rendered_frame, mode: str):
 @pytest.mark.parametrize(
     "spec", all_testing_env_specs, ids=[spec.id for spec in all_testing_env_specs]
 )
-def test_render_modes(spec):
-    env = spec.make()
+def test_render_modes(spec: EnvSpec):
+    env = spec.make(disable_env_checker=True)
 
     # assert "rgb_array" in env.metadata["render_modes"]
 
@@ -66,7 +67,7 @@ def test_render_modes(spec):
                     }
                 )
 
-            rendered = new_env.render()
+            rendered = new_env.render()  # type: ignore
             check_rendered(rendered, mode)
 
             new_env.step(

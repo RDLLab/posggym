@@ -3,7 +3,6 @@ import sys
 from typing import Optional, Tuple
 
 import posggym.envs.classic.mabc.model as mabc_model
-import posggym.model as M
 from posggym import core
 from posggym.envs.classic.mabc.model import MABCAction, MABCModel, MABCObs, MABCState
 
@@ -66,7 +65,7 @@ class MABCEnv(core.DefaultEnv[MABCState, MABCObs, MABCAction]):
 
     """
 
-    metadata = {"render_modes": ["human", "ansi"]}
+    metadata = {"render_modes": ["human", "ansi"], "render_fps": 4}
 
     def __init__(
         self,
@@ -77,11 +76,12 @@ class MABCEnv(core.DefaultEnv[MABCState, MABCObs, MABCAction]):
         render_mode: Optional[str] = None,
         **kwargs,
     ):
-        self.model = MABCModel(
-            num_nodes, fill_probs, observation_prob, init_buffer_dist, **kwargs
+        super().__init__(
+            MABCModel(
+                num_nodes, fill_probs, observation_prob, init_buffer_dist, **kwargs
+            ),
+            render_mode=render_mode
         )
-        self.render_mode = render_mode
-        super().__init__()
 
     def render(self):
         assert self._last_obs is not None

@@ -19,7 +19,7 @@ from tests.wrappers.utils import has_wrapper
 )
 def test_gym_make_order_enforcing(spec):
     """Checks that posggym.make wraps environments with OrderEnforcing wrapper."""
-    env = posggym.make(spec.id)
+    env = posggym.make(spec.id, disable_env_checker=True)
     assert has_wrapper(env, OrderEnforcing)
 
 

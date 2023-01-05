@@ -9,10 +9,7 @@ import posggym
 # To ignore the trailing whitespaces, will need flake to ignore this file.
 # flake8: noqa
 
-reduced_registry = {
-    env_id: env_spec
-    for env_id, env_spec in posggym.registry.items()
-}
+reduced_registry = {env_id: env_spec for env_id, env_spec in posggym.registry.items()}
 
 
 def test_pprint_custom_registry():

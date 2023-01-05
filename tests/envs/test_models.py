@@ -75,8 +75,8 @@ def test_model_determinism_rollout(env_spec: EnvSpec):
     if env_spec.nondeterministic is True:
         return
 
-    env_1 = env_spec.make()
-    env_2 = env_spec.make()
+    env_1 = env_spec.make(disable_env_checker=True)
+    env_2 = env_spec.make(disable_env_checker=True)
     model_1 = env_1.model
     model_2 = env_2.model
 

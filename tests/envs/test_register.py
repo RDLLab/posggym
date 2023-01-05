@@ -115,7 +115,7 @@ def test_env_suggestions(
     with pytest.raises(
         posggym.error.UnregisteredEnv, match=f"Did you mean: `{env_id_suggested}`?"
     ):
-        posggym.make(env_id_input)
+        posggym.make(env_id_input, disable_env_checker=True)
 
 
 @pytest.mark.parametrize(
@@ -137,13 +137,13 @@ def test_env_version_suggestions(
             posggym.error.DeprecatedEnv,
             match="It provides the default version",  # env name,
         ):
-            posggym.make(env_id_input)
+            posggym.make(env_id_input, disable_env_checker=True)
     else:
         with pytest.raises(
             posggym.error.UnregisteredEnv,
             match=f"It provides versioned environments: \\[ {suggested_versions} \\]",
         ):
-            posggym.make(env_id_input)
+            posggym.make(env_id_input, disable_env_checker=True)
 
 
 def test_register_versioned_unversioned():
@@ -190,7 +190,9 @@ def test_make_latest_versioned_env(register_registration_testing_envs):
             "environment `MyAwesomeNamespace/MyAwesomeVersionedEnv`."
         ),
     ):
-        env = posggym.make("MyAwesomeNamespace/MyAwesomeVersionedEnv")
+        env = posggym.make(
+            "MyAwesomeNamespace/MyAwesomeVersionedEnv", disable_env_checker=True
+        )
     assert env.spec is not None
     assert env.spec.id == "MyAwesomeNamespace/MyAwesomeVersionedEnv-v5"
 

@@ -18,7 +18,9 @@ def test_spec():
 
 def test_spec_kwargs():
     observation_prob = 0.8
-    env = posggym.make("MABC-v0", observation_prob=observation_prob)
+    env = posggym.make(
+        "MABC-v0", observation_prob=observation_prob, disable_env_checker=True
+    )
     assert env.spec is not None
     assert env.spec.kwargs["observation_prob"] == observation_prob
 
@@ -61,7 +63,7 @@ def test_spec_malformed_lookup():
     )
     with pytest.raises(
         posggym.error.Error,
-        match=f'^{re.escape(expected_error_msg)}$',
+        match=f"^{re.escape(expected_error_msg)}$",
     ):
         posggym.spec("“MABC-v0”")
 

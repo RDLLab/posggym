@@ -1,18 +1,19 @@
 """Test models for posggym."""
-from typing import Dict, Tuple, SupportsFloat
+from typing import Dict, List
 
 from gymnasium import spaces
 
 import posggym.model as M
+from posggym.utils import seeding
 
 
-class TestModel1(M.POSGModel):
-    """For `test_registration.py` to check `env.make` can import and register env."""
+class TestModel(M.POSGModel):
+    """Basic test model."""
 
     def __init__(self):
-        self.possible_agents = [0, 1]
-        self.action_space = spaces.Discrete(1)
-        self.observation_space = spaces.Discrete(1)
+        self.possible_agents = (0, 1)
+        self.action_spaces = {i: spaces.Discrete(2) for i in self.possible_agents}
+        self.observation_spaces = {i: spaces.Discrete(2) for i in self.possible_agents}
 
     @property
     def observation_first(self) -> bool:
@@ -23,17 +24,29 @@ class TestModel1(M.POSGModel):
         return True
 
     @property
-    def state_space(self) -> spaces.Space:
-        return spaces.Discrete(1)
+    def rng(self) -> seeding.RNG:
+        if self._rng is None:
+            self._rng, seed = seeding.std_random()
+        return self._rng
 
-    @property
-    def action_spaces(self) -> Dict[M.AgentID, spaces.Space]:
-        return {i: spaces.Discrete(1) for i in self.possible_agents}
+    def get_agents(self, state: int) -> List[M.AgentID]:
+        return list(self.possible_agents)
 
-    @property
-    def observation_spaces(self) -> Dict[M.AgentID, spaces.Space]:
-        return {i: spaces.Discrete(1) for i in self.possible_agents}
+    def sample_initial_state(self) -> int:
+        return 0
 
-    @property
-    def reward_ranges(self) -> Dict[M.AgentID, Tuple[SupportsFloat, SupportsFloat]]:
-        return {i: (0, 1) for i in self.possible_agents}
+    def sample_initial_obs(self, state: int) -> Dict[M.AgentID, int]:
+        return {i: 0 for i in self.possible_agents}
+
+    def step(
+        self, state: int, actions: Dict[M.AgentID, int]
+    ) -> M.JointTimestep[int, int]:
+        return M.JointTimestep(
+            0,
+            {i: 0 for i in self.possible_agents},
+            {i: 0 for i in self.possible_agents},
+            {i: False for i in self.possible_agents},
+            {i: False for i in self.possible_agents},
+            False,
+            {i: {} for i in self.possible_agents},
+        )
