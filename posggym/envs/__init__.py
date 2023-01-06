@@ -19,7 +19,7 @@ from posggym.envs.registration import (  # noqa: F401
 
 # from posggym.envs.grid_world import driving
 # from posggym.envs.grid_world import predator_prey
-# from posggym.envs.grid_world import pursuit_evasion
+from posggym.envs.grid_world import pursuit_evasion
 from posggym.envs.grid_world import two_paths
 from posggym.envs.grid_world import uav
 
@@ -91,37 +91,37 @@ for grid_name in two_paths.SUPPORTED_GRIDS:
     )
 
 
-# # Pursuit-Evasion
-# for grid_name in pursuit_evasion.grid.SUPPORTED_GRIDS:
-#     register(
-#         id=f"PursuitEvasion{grid_name}-v0",
-#         entry_point=(
-#             "posggym.envs.grid_world.pursuit_evasion:PursuitEvasionEnv"
-#         ),
-#         max_episode_steps=pursuit_evasion.grid.SUPPORTED_GRIDS[grid_name][1],
-#         kwargs={
-#             "grid_name": grid_name,
-#             "action_probs": 1.0,
-#             "max_obs_distance": 12,
-#             "normalize_reward": True,
-#             "use_progress_reward": True
-#         }
-#     )
+# Pursuit-Evasion
+for grid_name in pursuit_evasion.SUPPORTED_GRIDS:
+    register(
+        id=f"PursuitEvasion{grid_name}-v0",
+        entry_point=(
+            "posggym.envs.grid_world.pursuit_evasion:PursuitEvasionEnv"
+        ),
+        max_episode_steps=pursuit_evasion.SUPPORTED_GRIDS[grid_name][1],
+        kwargs={
+            "grid_name": grid_name,
+            "action_probs": 1.0,
+            "max_obs_distance": 12,
+            "normalize_reward": True,
+            "use_progress_reward": True
+        }
+    )
 
-#     register(
-#         id=f"PursuitEvasion{grid_name}Stochastic-v0",
-#         entry_point=(
-#             "posggym.envs.grid_world.pursuit_evasion:PursuitEvasionEnv"
-#         ),
-#         max_episode_steps=pursuit_evasion.grid.SUPPORTED_GRIDS[grid_name][1],
-#         kwargs={
-#             "grid_name": grid_name,
-#             "action_probs": 0.9,
-#             "max_obs_distance": 12,
-#             "normalize_reward": True,
-#             "use_progress_reward": True
-#         }
-#     )
+    register(
+        id=f"PursuitEvasion{grid_name}Stochastic-v0",
+        entry_point=(
+            "posggym.envs.grid_world.pursuit_evasion:PursuitEvasionEnv"
+        ),
+        max_episode_steps=pursuit_evasion.SUPPORTED_GRIDS[grid_name][1],
+        kwargs={
+            "grid_name": grid_name,
+            "action_probs": 0.9,
+            "max_obs_distance": 12,
+            "normalize_reward": True,
+            "use_progress_reward": True
+        }
+    )
 
 
 # # Unmanned Aerial Vehicle (UAV)

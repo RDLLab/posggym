@@ -190,7 +190,7 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
     def sample_initial_state(self) -> TPState:
         return (self.grid.init_runner_coord, self.grid.init_chaser_coord)
 
-    def get_agent_initial_state(self, agent_id: M.AgentID, obs: TPObs) -> TPState:
+    def sample_agent_initial_state(self, agent_id: M.AgentID, obs: TPObs) -> TPState:
         return self.sample_initial_state()
 
     def get_initial_belief_dist(self) -> Dict[TPState, float]:
@@ -225,7 +225,7 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
         terminated = {i: terminal for i in self.possible_agents}
 
         return M.JointTimestep(
-            next_state, obs, rewards, truncated, terminated, terminal, info
+            next_state, obs, rewards, terminated, truncated, terminal, info
         )
 
     def _get_next_state(
