@@ -286,7 +286,7 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
     def step(
         self, state: UAVState, actions: Dict[M.AgentID, UAVAction]
     ) -> M.JointTimestep[UAVState, UAVObs]:
-        assert all(0 <= a_i < 4 for a_i in actions.values())
+        assert all(0 <= a_i < len(Direction) for a_i in actions.values())
         next_state = self._sample_next_state(state, actions)
         rewards = self._get_reward(next_state)
 

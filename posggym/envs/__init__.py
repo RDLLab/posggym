@@ -20,7 +20,7 @@ from posggym.envs.registration import (  # noqa: F401
 # from posggym.envs.grid_world import driving
 # from posggym.envs.grid_world import predator_prey
 # from posggym.envs.grid_world import pursuit_evasion
-# from posggym.envs.grid_world import two_paths
+from posggym.envs.grid_world import two_paths
 from posggym.envs.grid_world import uav
 
 
@@ -47,50 +47,48 @@ register(
 # -------------------------------------------
 
 # Two Paths
-# for grid_name in two_paths.grid.SUPPORTED_GRIDS:
-#     register(
-#         id=f"TwoPaths{grid_name}-v0",
-#         entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
-#         max_episode_steps=two_paths.grid.SUPPORTED_GRIDS[grid_name][1],
-#         kwargs={
-#             "grid_name": grid_name,
-#             "action_probs": 1.0,
-#             "infinite_horizon": False
-#         }
-#     )
+for grid_name in two_paths.SUPPORTED_GRIDS:
+    register(
+        id=f"TwoPaths{grid_name}-v0",
+        entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
+        max_episode_steps=two_paths.SUPPORTED_GRIDS[grid_name][1],
+        kwargs={
+            "grid_name": grid_name,
+            "action_probs": 1.0,
+            "infinite_horizon": False
+        }
+    )
 
-#     register(
-#         id=f"TwoPaths{grid_name}Stochastic-v0",
-#         entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
-#         max_episode_steps=two_paths.grid.SUPPORTED_GRIDS[grid_name][1],
-#         kwargs={
-#             "grid_name": grid_name,
-#             "action_probs": 0.9,
-#             "infinite_horizon": False
-#         }
-#     )
+    register(
+        id=f"TwoPaths{grid_name}Stochastic-v0",
+        entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
+        max_episode_steps=two_paths.SUPPORTED_GRIDS[grid_name][1],
+        kwargs={
+            "grid_name": grid_name,
+            "action_probs": 0.9,
+            "infinite_horizon": False
+        }
+    )
 
-#     register(
-#         id=f"TwoPaths{grid_name}-v1",
-#         entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
-#         max_episode_steps=two_paths.grid.SUPPORTED_GRIDS[grid_name][2],
-#         kwargs={
-#             "grid_name": grid_name,
-#             "action_probs": 1.0,
-#             "infinite_horizon": True
-#         }
-#     )
+    register(
+        id=f"TwoPaths{grid_name}Infinite-v0",
+        entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
+        kwargs={
+            "grid_name": grid_name,
+            "action_probs": 1.0,
+            "infinite_horizon": True
+        }
+    )
 
-#     register(
-#         id=f"TwoPaths{grid_name}Stochastic-v1",
-#         entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
-#         max_episode_steps=two_paths.grid.SUPPORTED_GRIDS[grid_name][2],
-#         kwargs={
-#             "grid_name": grid_name,
-#             "action_probs": 0.9,
-#             "infinite_horizon": True
-#         }
-#     )
+    register(
+        id=f"TwoPaths{grid_name}InfiniteStochastic-v0",
+        entry_point="posggym.envs.grid_world.two_paths:TwoPathsEnv",
+        kwargs={
+            "grid_name": grid_name,
+            "action_probs": 0.9,
+            "infinite_horizon": True
+        }
+    )
 
 
 # # Pursuit-Evasion
