@@ -26,9 +26,7 @@ class ExampleEnv(DefaultEnv[int, int, int]):
     """Example testing environment."""
 
     def __init__(self):
-        """Constructor for example environment."""
-        self.model = ExampleModel()
-        super().__init__()
+        super().__init__(ExampleModel())
 
 
 def test_posggym_env():
@@ -129,9 +127,7 @@ class ActionWrapperTestEnv(DefaultEnv[int, int, int]):
     """
 
     def __init__(self):
-        """Constructor for example environment."""
-        self.model = ExampleModel()
-        super().__init__()
+        super().__init__(ExampleModel())
 
     def step(
         self, actions: Dict[M.AgentID, int]

@@ -32,14 +32,15 @@ register(
     entry_point="posggym.envs.classic.mabc:MABCEnv"
 )
 
-# register(
-#     id="MultiAgentTiger-v0", entry_point="posggym.envs.classic.mat:MultiAgentTigerEnv"
-# )
+register(
+    id="MultiAgentTiger-v0",
+    entry_point="posggym.envs.classic.tiger:MultiAgentTigerEnv"
+)
 
-# register(
-#     id="RockPaperScissors-v0",
-#     entry_point="posggym.envs.classic.rps:RockPaperScissorsEnv",
-# )
+register(
+    id="RockPaperScissors-v0",
+    entry_point="posggym.envs.classic.rock_paper_scissors:RockPaperScissorsEnv",
+)
 
 
 # Grid World
