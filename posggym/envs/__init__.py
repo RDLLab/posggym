@@ -21,7 +21,7 @@ from posggym.envs.registration import (  # noqa: F401
 # from posggym.envs.grid_world import predator_prey
 # from posggym.envs.grid_world import pursuit_evasion
 # from posggym.envs.grid_world import two_paths
-# from posggym.envs.grid_world import uav
+from posggym.envs.grid_world import uav
 
 
 # Classic
@@ -127,14 +127,14 @@ register(
 
 
 # # Unmanned Aerial Vehicle (UAV)
-# for grid_name in uav.grid.SUPPORTED_GRIDS:
-#     register(
-#         id=f"UAV{grid_name}-v0",
-#         entry_point="posggym.envs.grid_world.uav:UAVEnv",
-#         kwargs={
-#             "grid_name": grid_name,
-#         }
-#     )
+for grid_name in uav.SUPPORTED_GRIDS:
+    register(
+        id=f"UAV{grid_name}-v0",
+        entry_point="posggym.envs.grid_world.uav:UAVEnv",
+        kwargs={
+            "grid_name": grid_name,
+        }
+    )
 
 
 # # Driving

@@ -27,6 +27,12 @@ def register_make_testing_envs():
     )
 
     posggym.register(
+        "DummyStepLimitEnv-v0",
+        entry_point="tests.envs.utils_envs:DummyEnv",
+        max_episode_steps=100,
+    )
+
+    posggym.register(
         "RegisterDuringMakeEnv-v0",
         entry_point="tests.envs.utils_envs:RegisterDuringMakeEnv",
     )
@@ -53,6 +59,7 @@ def register_make_testing_envs():
     yield
 
     del posggym.envs.registration.registry["DummyEnv-v0"]
+    del posggym.envs.registration.registry["DummyStepLimitEnv-v0"]
     del posggym.envs.registration.registry["RegisterDuringMakeEnv-v0"]
     del posggym.envs.registration.registry["test.ArgumentEnv-v0"]
     del posggym.envs.registration.registry["test/NoHuman-v0"]
@@ -91,17 +98,12 @@ def test_make_deprecated():
 
 def test_make_max_episode_steps(register_make_testing_envs):
     # Default, uses the spec's step limit
-    posggym.register(
-        "DummyEnv-v0",
-        entry_point="tests.envs.utils_envs:DummyEnv",
-        max_episode_steps=100,
-    )
-    env = posggym.make("DummyEnv-v0", disable_env_checker=True)
+    env = posggym.make("DummyStepLimitEnv-v0", disable_env_checker=True)
     assert has_wrapper(env, TimeLimit)
     assert env.spec is not None
     assert (
         env.spec.max_episode_steps
-        == posggym.envs.registry["DummyEnv-v0"].max_episode_steps
+        == posggym.envs.registry["DummyStepLimitEnv-v0"].max_episode_steps
     )
     env.close()
 

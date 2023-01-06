@@ -4,13 +4,13 @@ This implemention is based on the gym-minigrid library:
 - github.com/maximecb/gym-minigrid/blob/master/gym_minigrid/minigrid.py
 """
 import enum
-from itertools import product
-from typing import Tuple, Optional, List, Callable, Dict, Set, Union
-
 import math
+from itertools import product
+from typing import Callable, Dict, List, Optional, Set, Tuple, Union
+
 import numpy as np
 
-from posggym.envs.grid_world.core import Direction, Coord, Grid
+from posggym.envs.grid_world.core import Coord, Direction, Grid
 
 
 # Size in pixels of a tile in the full-scale human view
@@ -18,30 +18,28 @@ TILE_PIXELS = 32
 
 # Map of color names to RGB values
 COLORS = {
-    'red': np.array([255, 0, 0]),
-    'blue': np.array([0, 0, 255]),
-    'green': np.array([0, 255, 0]),
-    'purple': np.array([112, 39, 195]),
-    'yellow': np.array([255, 255, 0]),
-    'grey': np.array([100, 100, 100]),
-    'white': np.array([255, 255, 255]),
-    'cyan': np.array([0, 195, 195]),
+    "red": np.array([255, 0, 0]),
+    "blue": np.array([0, 0, 255]),
+    "green": np.array([0, 255, 0]),
+    "purple": np.array([112, 39, 195]),
+    "yellow": np.array([255, 255, 0]),
+    "grey": np.array([100, 100, 100]),
+    "white": np.array([255, 255, 255]),
+    "cyan": np.array([0, 195, 195]),
 }
 
 COLOR_TO_IDX = {
-    'red': 0,
-    'blue': 1,
-    'green': 2,
-    'purple': 3,
-    'yellow': 4,
-    'grey': 5,
+    "red": 0,
+    "blue": 1,
+    "green": 2,
+    "purple": 3,
+    "yellow": 4,
+    "grey": 5,
     "white": 6,
-    "cyan": 7
+    "cyan": 7,
 }
 
-AGENT_COLORS = [
-    'red', 'blue', 'green', 'purple', 'yellow', 'white', 'cyan'
-]
+AGENT_COLORS = ["red", "blue", "green", "purple", "yellow", "white", "cyan"]
 
 
 def get_agent_color(agent_id: int) -> str:
@@ -64,18 +62,19 @@ DIR_TO_VEC = [
 
 DIR_TO_THETA = [
     # NORTH
-    0.5*math.pi*2,
+    0.5 * math.pi * 2,
     # EAST
-    0.5*math.pi*1,
+    0.5 * math.pi * 1,
     # SOUTH
-    0.5*math.pi*0,
+    0.5 * math.pi * 0,
     # WEST
-    0.5*math.pi*3
+    0.5 * math.pi * 3,
 ]
 
 
 class Shape(enum.Enum):
     """An Object shape."""
+
     RECTANGLE = enum.auto()
     TRIANGLE = enum.auto()
     CIRCLE = enum.auto()
@@ -85,12 +84,14 @@ class Shape(enum.Enum):
 class GWObject:
     """An object in the grid world."""
 
-    def __init__(self,
-                 coord: Coord,
-                 color: str,
-                 shape: Shape,
-                 direction: Optional[Direction] = None,
-                 alpha: Optional[float] = None):
+    def __init__(
+        self,
+        coord: Coord,
+        color: str,
+        shape: Shape,
+        direction: Optional[Direction] = None,
+        alpha: Optional[float] = None,
+    ):
         if shape == Shape.TRIANGLE:
             assert direction is not None
 
@@ -105,13 +106,9 @@ class GWObject:
         if self.shape == Shape.RECTANGLE:
             _fill_coords(img, _point_in_rect(0, 1, 0, 1), COLORS[self.color])
         elif self.shape == Shape.CIRCLE:
-            _fill_coords(
-                img, _point_in_circle(0.5, 0.5, 0.31), COLORS[self.color]
-            )
+            _fill_coords(img, _point_in_circle(0.5, 0.5, 0.31), COLORS[self.color])
         elif self.shape == Shape.TRIANGLE:
-            tri_fn = _point_in_triangle(
-                (0.12, 0.19), (0.87, 0.50), (0.12, 0.81)
-            )
+            tri_fn = _point_in_triangle((0.12, 0.19), (0.87, 0.50), (0.12, 0.81))
             theta = DIR_TO_THETA[self.direction]  # type: ignore
             tri_fn = _rotate_fn(tri_fn, cx=0.5, cy=0.5, theta=theta)
             _fill_coords(img, tri_fn, COLORS[self.color])
@@ -125,11 +122,13 @@ class GWObject:
 class GWRenderer:
     """Handles generating grid world renders."""
 
-    def __init__(self,
-                 n_agents: int,
-                 grid: Grid,
-                 static_objs: List[GWObject],
-                 render_blocks: bool = True):
+    def __init__(
+        self,
+        n_agents: int,
+        grid: Grid,
+        static_objs: List[GWObject],
+        render_blocks: bool = True,
+    ):
         self._n_agents = n_agents
         self._grid = grid
         self._static_objs = static_objs
@@ -144,22 +143,20 @@ class GWRenderer:
 
         if render_blocks:
             for block_coord in grid.block_coords:
-                block_obj = GWObject(block_coord, 'grey', Shape.RECTANGLE)
+                block_obj = GWObject(block_coord, "grey", Shape.RECTANGLE)
                 self._tiles[block_coord[0]][block_coord[1]].append(block_obj)
 
         for obj in static_objs:
             self._tiles[obj.coord[0]][obj.coord[1]].append(obj)
 
-    def _render_tile(self,
-                     coords: Coord,
-                     other_objs: List[GWObject],
-                     observed: bool,
-                     tile_size: int) -> np.ndarray:
+    def _render_tile(
+        self, coords: Coord, other_objs: List[GWObject], observed: bool, tile_size: int
+    ) -> np.ndarray:
         img = np.zeros(shape=(tile_size, tile_size, 3), dtype=np.uint8)
 
         # Draw the grid lines (tope and left edges)
-        _fill_coords(img, _point_in_rect(0, 0.031, 0, 1), COLORS['grey'])
-        _fill_coords(img, _point_in_rect(0, 1, 0, 0.031), COLORS['grey'])
+        _fill_coords(img, _point_in_rect(0, 0.031, 0, 1), COLORS["grey"])
+        _fill_coords(img, _point_in_rect(0, 1, 0, 0.031), COLORS["grey"])
 
         for obj in self._tiles[coords[0]][coords[1]]:
             if obj is not None:
@@ -173,15 +170,14 @@ class GWRenderer:
 
         return img
 
-    def _render_obj_tile(self,
-                         obj: GWObject,
-                         observed: bool,
-                         tile_size: int) -> np.ndarray:
+    def _render_obj_tile(
+        self, obj: GWObject, observed: bool, tile_size: int
+    ) -> np.ndarray:
         img = np.zeros(shape=(tile_size, tile_size, 3), dtype=np.uint8)
 
         # Draw the grid lines (tope and left edges)
-        _fill_coords(img, _point_in_rect(0, 0.031, 0, 1), COLORS['grey'])
-        _fill_coords(img, _point_in_rect(0, 1, 0, 0.031), COLORS['grey'])
+        _fill_coords(img, _point_in_rect(0, 0.031, 0, 1), COLORS["grey"])
+        _fill_coords(img, _point_in_rect(0, 1, 0, 0.031), COLORS["grey"])
 
         obj.render(img)
 
@@ -190,13 +186,15 @@ class GWRenderer:
 
         return img
 
-    def render(self,
-               agent_coords: Tuple[Coord, ...],
-               agent_obs_coords: Optional[Tuple[List[Coord], ...]],
-               agent_dirs: Optional[Tuple[Direction, ...]],
-               other_objs: Optional[List[GWObject]],
-               agent_colors: Optional[Tuple[str, ...]] = None,
-               tile_size: int = TILE_PIXELS) -> np.ndarray:
+    def render(
+        self,
+        agent_coords: Tuple[Coord, ...],
+        agent_obs_coords: Optional[Tuple[List[Coord], ...]],
+        agent_dirs: Optional[Tuple[Direction, ...]],
+        other_objs: Optional[List[GWObject]],
+        agent_colors: Optional[Tuple[str, ...]] = None,
+        tile_size: int = TILE_PIXELS,
+    ) -> np.ndarray:
         """Generate Grid-World render.
 
         Returns a numpy array image representation of the grid world. This
@@ -228,13 +226,9 @@ class GWRenderer:
                 "Agent colors must be specified when rendering envs with "
                 f"more than {len(AGENT_COLORS)-1} agents."
             )
-            agent_colors = tuple(
-                AGENT_COLORS[i] for i in range(self._n_agents)
-            )
+            agent_colors = tuple(AGENT_COLORS[i] for i in range(self._n_agents))
 
-        for coord, direction, color in zip(
-                agent_coords, agent_dirs, agent_colors
-        ):
+        for coord, direction, color in zip(agent_coords, agent_dirs, agent_colors):
             if coord not in dynamic_objs_map:
                 dynamic_objs_map[coord] = []
             agent_obj = GWObject(coord, color, Shape.TRIANGLE, direction)
@@ -247,32 +241,26 @@ class GWRenderer:
                     coord,
                     dynamic_objs_map.get(coord, []),
                     coord in observed_coords,
-                    tile_size
+                    tile_size,
                 )
 
-                xmin, xmax = x * tile_size, (x+1) * tile_size
-                ymin, ymax = y * tile_size, (y+1) * tile_size
+                xmin, xmax = x * tile_size, (x + 1) * tile_size
+                ymin, ymax = y * tile_size, (y + 1) * tile_size
                 img[xmin:xmax, ymin:ymax, :] = tile_img
 
         img = img.transpose(1, 0, 2)
         return img
 
-    def render_all_agent_obs(self,
-                             env_img: np.ndarray,
-                             agent_coords: Tuple[Coord, ...],
-                             agent_dirs: Union[
-                                 Direction, Tuple[Direction, ...]
-                             ],
-                             agent_obs_dims: Union[
-                                 Tuple[int, int, int],
-                                 Tuple[Tuple[int, int, int], ...]
-                             ],
-                             out_of_bounds_obj: GWObject,
-                             agent_obs_coords: Optional[
-                                 Tuple[List[Coord], ...]
-                             ] = None,
-                             tile_size: int = TILE_PIXELS
-                             ) -> Tuple[np.ndarray, ...]:
+    def render_all_agent_obs(
+        self,
+        env_img: np.ndarray,
+        agent_coords: Tuple[Coord, ...],
+        agent_dirs: Union[Direction, Tuple[Direction, ...]],
+        agent_obs_dims: Union[Tuple[int, int, int], Tuple[Tuple[int, int, int], ...]],
+        out_of_bounds_obj: GWObject,
+        agent_obs_coords: Optional[Tuple[List[Coord], ...]] = None,
+        tile_size: int = TILE_PIXELS,
+    ) -> Tuple[np.ndarray, ...]:
         """Generate seperate render for a each grid-world agent.
 
         Returns a numpy array image representation of the agents observation
@@ -290,33 +278,35 @@ class GWRenderer:
             if isinstance(agent_obs_dims[0], tuple):
                 obs_dims = agent_obs_dims[i]
             else:
-                obs_dims = agent_obs_dims    # type: ignore
+                obs_dims = agent_obs_dims  # type: ignore
 
             if isinstance(agent_obs_coords, tuple):
                 obs_coords = agent_obs_coords[i]
             else:
-                obs_coords = None     # type: ignore
+                obs_coords = None  # type: ignore
 
             agent_img = self.render_agent_obs(
                 env_img,
                 agent_coords[i],
                 agent_dir,
-                obs_dims,                   # type: ignore
+                obs_dims,  # type: ignore
                 out_of_bounds_obj,
                 obs_coords,
-                tile_size
+                tile_size,
             )
             agent_obs_imgs.append(agent_img)
         return tuple(agent_obs_imgs)
 
-    def render_agent_obs(self,
-                         env_img: np.ndarray,
-                         agent_coord: Coord,
-                         agent_dir: Direction,
-                         agent_obs_dims: Tuple[int, int, int],
-                         out_of_bounds_obj: GWObject,
-                         agent_obs_coords: Optional[List[Coord]] = None,
-                         tile_size: int = TILE_PIXELS) -> np.ndarray:
+    def render_agent_obs(
+        self,
+        env_img: np.ndarray,
+        agent_coord: Coord,
+        agent_dir: Direction,
+        agent_obs_dims: Tuple[int, int, int],
+        out_of_bounds_obj: GWObject,
+        agent_obs_coords: Optional[List[Coord]] = None,
+        tile_size: int = TILE_PIXELS,
+    ) -> np.ndarray:
         """Generate render for a single grid-world agent.
 
         Arguments
@@ -357,9 +347,7 @@ class GWRenderer:
 
         obs_width_px = obs_x_dim * tile_size
         obs_height_px = obs_y_dim * tile_size
-        obs_img = np.zeros(
-            shape=(obs_width_px, obs_height_px, 3), dtype=np.uint8
-        )
+        obs_img = np.zeros(shape=(obs_width_px, obs_height_px, 3), dtype=np.uint8)
 
         for (obs_x, obs_y) in product(range(obs_x_dim), range(obs_y_dim)):
             # Need to map to env (x, y)
@@ -368,7 +356,7 @@ class GWRenderer:
                 agent_coord,
                 agent_dir,
                 agent_obs_forward_dim=agent_obs_dims[0],
-                agent_obs_side_dim=agent_obs_dims[2]
+                agent_obs_side_dim=agent_obs_dims[2],
             )
 
             cell_out_of_bounds = (
@@ -379,12 +367,10 @@ class GWRenderer:
             )
 
             if cell_out_of_bounds or not cell_observed:
-                tile_img = self._render_obj_tile(
-                    out_of_bounds_obj, False, tile_size
-                )
+                tile_img = self._render_obj_tile(out_of_bounds_obj, False, tile_size)
             else:
-                env_xmin, env_xmax = env_x * tile_size, (env_x+1) * tile_size
-                env_ymin, env_ymax = env_y * tile_size, (env_y+1) * tile_size
+                env_xmin, env_xmax = env_x * tile_size, (env_x + 1) * tile_size
+                env_ymin, env_ymax = env_y * tile_size, (env_y + 1) * tile_size
                 tile_img = env_img[env_xmin:env_xmax, env_ymin:env_ymax, :]
 
                 # rotate tile so its oriented to agent's viewpoint
@@ -392,41 +378,41 @@ class GWRenderer:
                 k = (len(Direction) - agent_dir) % len(Direction)
                 tile_img = np.rot90(tile_img, k)
 
-            obs_xmin, obs_xmax = obs_x * tile_size, (obs_x+1) * tile_size
-            obs_ymin, obs_ymax = obs_y * tile_size, (obs_y+1) * tile_size
+            obs_xmin, obs_xmax = obs_x * tile_size, (obs_x + 1) * tile_size
+            obs_ymin, obs_ymax = obs_y * tile_size, (obs_y + 1) * tile_size
             obs_img[obs_xmin:obs_xmax, obs_ymin:obs_ymax, :] = tile_img
 
         # Needed to swap to formate expected by matplotlib.imshow function
         obs_img = obs_img.transpose(1, 0, 2)
         return obs_img
 
-    def _map_obs_to_env_coord(self,
-                              obs_coord: Coord,
-                              agent_coord: Coord,
-                              facing_dir: Direction,
-                              agent_obs_forward_dim: int,
-                              agent_obs_side_dim: int) -> Coord:
+    def _map_obs_to_env_coord(
+        self,
+        obs_coord: Coord,
+        agent_coord: Coord,
+        facing_dir: Direction,
+        agent_obs_forward_dim: int,
+        agent_obs_side_dim: int,
+    ) -> Coord:
         grid_row = agent_coord[1]
         grid_col = agent_coord[0]
 
         if facing_dir == Direction.NORTH:
-            grid_row += (obs_coord[1] - agent_obs_forward_dim)
-            grid_col += (obs_coord[0] - agent_obs_side_dim)
+            grid_row += obs_coord[1] - agent_obs_forward_dim
+            grid_col += obs_coord[0] - agent_obs_side_dim
         elif facing_dir == Direction.EAST:
-            grid_row += (obs_coord[0] - agent_obs_side_dim)
-            grid_col += (-obs_coord[1] + agent_obs_forward_dim)
+            grid_row += obs_coord[0] - agent_obs_side_dim
+            grid_col += -obs_coord[1] + agent_obs_forward_dim
         elif facing_dir == Direction.SOUTH:
-            grid_row += (-obs_coord[1] + agent_obs_forward_dim)
-            grid_col += (-obs_coord[0] + agent_obs_side_dim)
+            grid_row += -obs_coord[1] + agent_obs_forward_dim
+            grid_col += -obs_coord[0] + agent_obs_side_dim
         else:
-            grid_row += (-obs_coord[0] + agent_obs_side_dim)
-            grid_col += (obs_coord[1] - agent_obs_forward_dim)
+            grid_row += -obs_coord[0] + agent_obs_side_dim
+            grid_col += obs_coord[1] - agent_obs_forward_dim
         return (grid_col, grid_row)
 
 
-def _fill_coords(img: np.ndarray,
-                 fn: Callable,
-                 color: np.ndarray) -> np.ndarray:
+def _fill_coords(img: np.ndarray, fn: Callable, color: np.ndarray) -> np.ndarray:
     """Fill pixels of an image with coordinates matching a filter function."""
     for y in range(img.shape[0]):
         for x in range(img.shape[1]):
@@ -451,11 +437,7 @@ def _rotate_fn(fin: Callable, cx: float, cy: float, theta: float) -> Callable:
     return _fout
 
 
-def _point_in_line(x0: float,
-                   y0: float,
-                   x1: float,
-                   y1: float,
-                   r: float) -> Callable:
+def _point_in_line(x0: float, y0: float, x1: float, y1: float, r: float) -> Callable:
     p0 = np.array([x0, y0])
     p1 = np.array([x1, y1])
     direction = p1 - p0
@@ -488,16 +470,15 @@ def _point_in_line(x0: float,
 
 def _point_in_circle(cx, cy, r):
     def _fn(x, y):
-        return (x-cx)*(x-cx) + (y-cy)*(y-cy) <= r * r
+        return (x - cx) * (x - cx) + (y - cy) * (y - cy) <= r * r
+
     return _fn
 
 
-def _point_in_rect(xmin: float,
-                   xmax: float,
-                   ymin: float,
-                   ymax: float) -> Callable:
+def _point_in_rect(xmin: float, xmax: float, ymin: float, ymax: float) -> Callable:
     def _fn(x, y):
         return xmin <= x <= xmax and ymin <= y <= ymax
+
     return _fn
 
 
