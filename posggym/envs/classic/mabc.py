@@ -17,8 +17,6 @@ References
   San Jose, California: AAAI Press, 2004.
 
 """
-from __future__ import annotations
-
 import sys
 from itertools import product
 from typing import Dict, List, Optional, SupportsFloat, Tuple, Union
