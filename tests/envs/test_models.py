@@ -77,6 +77,12 @@ def test_model_determinism_rollout(env_spec: EnvSpec):
 
     env_1 = env_spec.make(disable_env_checker=True)
     env_2 = env_spec.make(disable_env_checker=True)
+
+    # Reset envs with seed to ensure models are initialized the same for generated
+    # environments that may have different models between episodes
+    env_1.reset(seed=SEED)
+    env_2.reset(seed=SEED)
+
     model_1 = env_1.model
     model_2 = env_2.model
 

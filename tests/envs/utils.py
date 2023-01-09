@@ -10,10 +10,7 @@ import numpy as np
 import posggym
 from posggym import logger
 from posggym.envs.registration import EnvSpec
-
-
-def _has_prefix(spec, env_name_prefix):
-    return spec.id.startswith(env_name_prefix)
+from tests.conftest import env_name_prefix
 
 
 def try_make_env(env_spec: EnvSpec) -> Optional[posggym.Env]:
@@ -41,6 +38,7 @@ def try_make_env(env_spec: EnvSpec) -> Optional[posggym.Env]:
 # Tries to make all environment to test with
 _all_testing_initialised_envs: List[Optional[posggym.Env]] = [
     try_make_env(env_spec) for env_spec in posggym.envs.registry.values()
+    if env_name_prefix is None or env_spec.id.startswith(env_name_prefix)
 ]
 all_testing_initialised_envs: List[posggym.Env] = [
     env for env in _all_testing_initialised_envs if env is not None

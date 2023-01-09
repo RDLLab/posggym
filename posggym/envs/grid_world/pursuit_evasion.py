@@ -441,6 +441,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
     def step(
         self, state: PEState, actions: Dict[M.AgentID, PEAction]
     ) -> M.JointTimestep[PEState, PEObs]:
+        assert all(0 <= a_i < len(Direction) for a_i in actions.values())
         next_state = self._get_next_state(state, actions)
         obs, evader_detected = self._get_obs(next_state)
         rewards = self._get_reward(state, next_state, evader_detected)
@@ -688,17 +689,21 @@ class PursuitEvasionEnv(DefaultEnv):
 
     References
     ----------
-    This Pursuit-Evasion implementation is directly inspired by the problem
-    presented in the paper:
-    - Seaman, Iris Rubi, Jan-Willem van de Meent, and David Wingate. 2018.
-      “Nested Reasoning About Autonomous Agents Using Probabilistic Programs.”
+    - [This Pursuit-Evasion implementation is directly inspired by the problem] Seaman,
+      Iris Rubi, Jan-Willem van de Meent, and David Wingate. 2018. “Nested Reasoning
+      About Autonomous Agents Using Probabilistic Programs.”
       ArXiv Preprint ArXiv:1812.01569.
+    - Schwartz, Jonathon, Ruijia Zhou, and Hanna Kurniawati. "Online Planning for
+      Interactive-POMDPs using Nested Monte Carlo Tree Search." In 2022 IEEE/RSJ
+      International Conference on Intelligent Robots and Systems (IROS), pp. 8770-8777.
+      IEEE, 2022.
 
     """
 
     metadata = {
         "render_modes": ["human", "ansi", "rgb_array", "rgb_array_dict"],
-        "render_fps": 4}
+        "render_fps": 4
+    }
 
     def __init__(
         self,
