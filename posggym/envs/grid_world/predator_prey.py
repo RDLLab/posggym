@@ -779,9 +779,10 @@ class PPEnv(DefaultEnv[PPState, PPObs, PPAction]):
         )
 
         if self.render_mode == "human":
-            self._viewer.display_img(env_img, agent_idx=None)
+            self._viewer.update_img(env_img, agent_idx=None)
             for i, obs_img in enumerate(agent_obs_imgs):
-                self._viewer.display_img(obs_img, agent_idx=i)
+                self._viewer.update_img(obs_img, agent_idx=i)
+            self._viewer.display_img()
         elif self.render_mode == "rgb_array":
             return env_img
         else:

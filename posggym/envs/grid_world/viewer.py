@@ -34,6 +34,7 @@ class GWViewer:
         self._fig = plt.figure(
             num=title, figsize=figsize, constrained_layout=True
         )
+        self._bg = self._fig.canvas.copy_from_bbox(self._fig.bbox)
 
         if num_agent_displays is None:
             spec = gridspec.GridSpec(1, 1, figure=self._fig)
@@ -68,8 +69,8 @@ class GWViewer:
 
         self._fig.canvas.mpl_connect('close_event', close_handler)
 
-    def display_img(self, img: np.ndarray, agent_idx: Optional[int] = None):
-        """Show an image or update the image being shown."""
+    def update_img(self, img: np.ndarray, agent_idx: Optional[int] = None):
+        """Update image to be shown for env or agent."""
         if agent_idx is None:
             ax = self._main_ax
             imshow_obj = self._main_imshow_obj
@@ -80,7 +81,7 @@ class GWViewer:
         # Show the first image of the environment
         if imshow_obj is None:
             imshow_obj = ax.imshow(
-                img, interpolation='bilinear', origin='upper'
+                img, interpolation='bilinear', origin='upper', animated=True
             )
 
             if agent_idx is None:
@@ -88,8 +89,14 @@ class GWViewer:
             else:
                 self._agent_imshow_objs[agent_idx] = imshow_obj
 
-        imshow_obj.set_data(img)  # type: ignore
-        self._fig.canvas.draw()
+        imshow_obj.set_data(img)
+
+    def display_img(self):
+        """Show current image/s."""
+        self._fig.canvas.restore_region(self._bg)
+        # Request the window be redrawn
+        self._fig.canvas.blit(self._fig.bbox)
+        self._fig.canvas.flush_events()
 
         # Let matplotlib process UI events
         # This is needed for interactive mode to work properly

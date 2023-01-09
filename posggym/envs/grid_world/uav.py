@@ -466,48 +466,48 @@ class UAVEnv(DefaultEnv[UAVState, UAVObs, UAVAction]):
                 )
                 output.insert(1, f"Actions: <{action_str}>")
                 output.append(f"Rewards: <{self._last_rewards}>")
-
             return "\n".join(output) + "\n"
-        elif self.render_mode in ("human", "rgb_array"):
-            if self.render_mode == "human" and self._viewer is None:
-                # pylint: disable=[import-outside-toplevel]
-                from posggym.envs.grid_world import viewer
 
-                self._viewer = viewer.GWViewer(
-                    "Unmanned Aerial Vehicle Env",
-                    (min(grid.width, 9), min(grid.height, 9)),
-                )
-                self._viewer.show(block=False)
+        if self.render_mode == "human" and self._viewer is None:
+            # pylint: disable=[import-outside-toplevel]
+            from posggym.envs.grid_world import viewer
 
-            if self._renderer is None:
-                safe_house_obj = render_lib.GWObject(
-                    grid.safe_house_coord, "green", render_lib.Shape.RECTANGLE
-                )
-                self._renderer = render_lib.GWRenderer(
-                    len(self.possible_agents),
-                    grid,
-                    [safe_house_obj],
-                    render_blocks=True,
-                )
+            self._viewer = viewer.GWViewer(
+                "Unmanned Aerial Vehicle Env",
+                (min(grid.width, 9), min(grid.height, 9)),
+            )
+            self._viewer.show(block=False)
 
-            agent_coords = self._state
-            agent_dirs = tuple(
-                Direction.NORTH for _ in range(len(self.possible_agents))
+        if self._renderer is None:
+            safe_house_obj = render_lib.GWObject(
+                grid.safe_house_coord, "green", render_lib.Shape.RECTANGLE
+            )
+            self._renderer = render_lib.GWRenderer(
+                len(self.possible_agents),
+                grid,
+                [safe_house_obj],
+                render_blocks=True,
             )
 
-            env_img = self._renderer.render(
-                agent_coords,
-                agent_obs_coords=None,
-                agent_dirs=agent_dirs,
-                other_objs=None,
-                agent_colors=None,
-            )
-            # At the moment the UAV doesn't support agent centric rendering
+        agent_coords = self._state
+        agent_dirs = tuple(
+            Direction.NORTH for _ in range(len(self.possible_agents))
+        )
 
-            if self.render_mode == "human":
-                self._viewer.display_img(env_img, agent_idx=None)
-            else:
-                return env_img
+        env_img = self._renderer.render(
+            agent_coords,
+            agent_obs_coords=None,
+            agent_dirs=agent_dirs,
+            other_objs=None,
+            agent_colors=None,
+        )
+        # At the moment the UAV doesn't support agent centric rendering
+
+        if self.render_mode == "human":
+            self._viewer.update_img(env_img, agent_idx=None)
+            self._viewer.display_img()
+        else:
+            return env_img
 
     def close(self) -> None:
         if self._viewer is not None:
