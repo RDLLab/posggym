@@ -36,14 +36,11 @@ dynamic = ["version"]
 [project.optional-dependencies]
 # Update dependencies in `all` if any are added or removed
 grid-world = ["matplotlib >=3.5"]
-lbforaging = ["lbforaging ==1.1.1"]
 all = [
 	# All dependencies above
 	# NOTE: No need to manually remove the duplicates, setuptools automatically does that.
 	# grid-world
 	"matplotlib >=3.5",
-	# lbforaging
-	"lbforaging ==1.1.1"
 ]
 testing = ["pytest >=7.2"]
 
@@ -61,7 +58,7 @@ include-package-data = true
 include = ["posggym", "posggym.*"]
 
 [tool.setuptools.package-data]
-gymnasium = [
+posggym = [
     "py.typed",
 ]
 
