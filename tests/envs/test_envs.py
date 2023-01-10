@@ -99,7 +99,8 @@ def test_env_determinism_rollout(env_spec: EnvSpec):
 
         assert_equals(obs_1, obs_2, f"[{time_step}][Observations] ")
         # obs_2 verified by previous assertion
-        assert all(env_1.observation_spaces[i].contains(obs_1[i]) for i in obs_1)
+        for i, o_i in obs_1.items():
+            assert env_1.observation_spaces[i].contains(o_i)
 
         assert_equals(rew_1, rew_2, f"[{time_step}][Rewards] ")
         assert_equals(term_1, term_2, f"[{time_step}][Terminated] ")

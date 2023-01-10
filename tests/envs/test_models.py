@@ -165,10 +165,8 @@ def test_model_determinism_rollout(env_spec: EnvSpec):
                 result_1.observations, result_2.observations, f"[{t}][Observations] "
             )
             # obs_2 verified by previous assertion
-            assert all(
-                model_1.observation_spaces[i].contains(o_i)
-                for i, o_i in result_1.observations.items()
-            )
+            for i, o_i in result_1.observations.items():
+                assert model_1.observation_spaces[i].contains(o_i)
             assert all(i in result_1.observations for i in model_1.get_agents(state))
 
             assert_equals(result_1.rewards, result_2.rewards, f"[{t}][Rewards] ")
