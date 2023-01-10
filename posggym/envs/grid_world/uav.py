@@ -45,83 +45,137 @@ OBSNONE = 3
 DIR_OBS = [OBSNORTH, OBSSOUTH, OBSLEVEL, OBSNONE]
 DIR_OBS_STR = ["N", "S", "L", "0"]
 
-# Observatio Accuracy for each agent
-FUG_OBS_ACC = 0.8
-UAV_OBS_ACC = 0.9
 
+class UAVEnv(DefaultEnv[UAVState, UAVObs, UAVAction]):
+    """The Unmanned Aerial Vehicle Grid World Environment.
 
-class UAVGrid(Grid):
-    """A grid for the MA UAV Problem."""
+    An adversarial 2D grid world problem involving two agents, a Unmanned
+    Aerial Vehicle (UAV) and a fugitive. The UAV's goal is to capture the
+    fugitive, while the fugitive's goal is to reach the safe house located at
+    a known fixed location on the grid. The fugitive is considered caught if
+    it is co-located with the UAV. The UAV observes it's own location and
+    recieves a noisy observation of the fugitive's location. The fugitive does
+    not know it's location but it recieves a noisy observation of its relative
+    direction to the safe house when it is adjacent to the safe house.
 
-    def __init__(
-        self,
-        grid_width: int,
-        grid_height: int,
-        block_coords: Optional[Set[Coord]],
-        safe_house_coord: Coord,
-        init_fug_coords: List[Coord],
-        init_uav_coords: List[Coord],
-    ):
-        super().__init__(grid_width, grid_height, block_coords)
-        self.safe_house_coord = safe_house_coord
-        self.init_fug_coords = init_fug_coords
-        self.init_uav_coords = init_uav_coords
+    Agents
+    ------
+    UAV = 0
+    Fugitive = 1
 
-        self.valid_coords = set(self.unblocked_coords)
-        self.valid_coords.remove(self.safe_house_coord)
+    State
+    -----
+    Each state contains the (x, y) (x=column, y=row, with origin at the
+    top-left square of the grid) of the UAV and fugitive agent. Specifically,
+    a states is ((x_uav, y_uav), (x_fugitive, y_fugitive))
 
-    def get_ascii_repr(
-        self, fug_coord: Optional[Coord], uav_coord: Optional[Coord]
-    ) -> str:
-        """Get ascii repr of grid."""
-        grid_repr = []
-        for row in range(self.height):
-            row_repr = []
-            for col in range(self.width):
-                coord = (col, row)
-                if coord == self.safe_house_coord:
-                    row_repr.append("S")
-                elif coord in self.block_coords:
-                    row_repr.append("#")
-                else:
-                    row_repr.append(".")
-            grid_repr.append(row_repr)
+    Initially, the location of both agents is chosen at random.
 
-        if fug_coord is not None:
-            grid_repr[fug_coord[0]][fug_coord[1]] = "F"
-        if uav_coord is not None:
-            if uav_coord == fug_coord:
-                grid_repr[uav_coord[0]][uav_coord[1]] = "X"
-            else:
-                grid_repr[uav_coord[0]][uav_coord[1]] = "U"
+    Actions
+    -------
+    Each agent has 4 actions corresponding to moving in the 4 cardinal
+    directions (NORTH=0, EAST=1, SOUTH=2, WEST=3).
 
-        return (
-            str(self) + "\n" + "\n".join(list(list((" ".join(r) for r in grid_repr))))
+    Observation
+    -----------
+    The UAV observes its (x, y) coordinates and recieves a noisy observation
+    of the fugitives (x, y) coordinates. The UAV observes the correct fugitive
+    coordinates with p=0.9, and one of the adjacent locations to the true
+    fugitive location with p=1-0.9.
+
+    The fugitive can sense it's position with respect to the safe house, namely
+    whether it is north of it (OBSNORTH=0), south of it (OBSSOUTH=1), or at the
+    same level (OBSLEVEL=3). These observations are recieved with accuracy 0.8,
+    and only when the fugitive is adjacent to it. If the fugitive is not
+    adjacent to the safe house it recieves no observation (OBSNONE=4).
+
+    Reward
+    ------
+    Both agents receive a penalty of -0.04 for each step.
+    If the fugitive reaches the safe house then the fugitive recieves a reward
+    of 1, while the UAV recieves a penalty of -1.
+    If the fugitive is caught by the UAV, then the fugitive recieves a penalty
+    of -1, while the UAV recieves a reward of 1.
+
+    Transition Dynamics
+    -------------------
+    Actions are deterministic. The fugitive's position is reset at random if
+    it reaches the safe house or gets caught by the UAV.
+
+    Reference
+    ---------
+    Panella, Alessandro, and Piotr Gmytrasiewicz. 2017. “Interactive POMDPs
+    with Finite-State Models of Other Agents.” Autonomous Agents and
+    Multi-Agent Systems 31 (4): 861–904.
+    """
+
+    metadata = {"render_modes": ["human", "ansi", "rgb_array"], "render_fps": 4}
+
+    def __init__(self, grid_name: str, render_mode: Optional[str] = None, **kwargs):
+        self._viewer = None
+        self._renderer: Optional[render_lib.GWRenderer] = None
+        super().__init__(UAVModel(grid_name, **kwargs), render_mode=render_mode)
+
+    def render(self):
+        grid: UAVGrid = self.model.grid  # type: ignore
+        if self.render_mode == "ansi":
+            grid_str = grid.get_ascii_repr(self._state[0], self._state[1])
+
+            output = [
+                f"Step: {self._step_num}",
+                grid_str,
+            ]
+            if self._last_actions is not None:
+                action_str = ", ".join(
+                    [str(Direction(a)) for a in self._last_actions.values()]
+                )
+                output.insert(1, f"Actions: <{action_str}>")
+                output.append(f"Rewards: <{self._last_rewards}>")
+            return "\n".join(output) + "\n"
+
+        if self.render_mode == "human" and self._viewer is None:
+            # pylint: disable=[import-outside-toplevel]
+            from posggym.envs.grid_world import viewer
+
+            self._viewer = viewer.GWViewer(
+                "Unmanned Aerial Vehicle Env",
+                (min(grid.width, 9), min(grid.height, 9)),
+            )
+            self._viewer.show(block=False)
+
+        if self._renderer is None:
+            safe_house_obj = render_lib.GWObject(
+                grid.safe_house_coord, "green", render_lib.Shape.RECTANGLE
+            )
+            self._renderer = render_lib.GWRenderer(
+                len(self.possible_agents),
+                grid,
+                [safe_house_obj],
+                render_blocks=True,
+            )
+
+        agent_coords = self._state
+        agent_dirs = tuple(Direction.NORTH for _ in range(len(self.possible_agents)))
+
+        env_img = self._renderer.render(
+            agent_coords,
+            agent_obs_coords=None,
+            agent_dirs=agent_dirs,
+            other_objs=None,
+            agent_colors=None,
         )
+        # At the moment the UAV doesn't support agent centric rendering
 
+        if self.render_mode == "human":
+            self._viewer.update_img(env_img, agent_idx=None)
+            self._viewer.display_img()
+        else:
+            return env_img
 
-def _empty_uav_grid(width, height, safe_house_coord) -> UAVGrid:
-    all_coords = set(
-        itertools.product(
-            range(
-                width,
-            ),
-            range(height),
-        )
-    )
-    all_coords.remove(safe_house_coord)
-
-    init_fug_coords = list(all_coords)
-    init_uav_coords = [*all_coords]
-
-    return UAVGrid(
-        grid_height=width,
-        grid_width=height,
-        block_coords=None,
-        safe_house_coord=safe_house_coord,
-        init_fug_coords=init_fug_coords,
-        init_uav_coords=init_uav_coords,
-    )
+    def close(self) -> None:
+        if self._viewer is not None:
+            self._viewer.close()
+            self._viewer = None
 
 
 class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
@@ -135,6 +189,10 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
     R_ACTION = -0.04
     R_CAPTURE = 1.0  # UAV reward, fugitive = -R_CAPTURE
     R_SAFE = -1.0  # UAV reward, fugitive = -R_SAFE
+
+    # Observatio Accuracy for each agent
+    FUG_OBS_ACC = 0.8
+    UAV_OBS_ACC = 0.9
 
     def __init__(self, grid_name: str, **kwargs):
         self.grid = load_grid(grid_name)
@@ -218,7 +276,7 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
 
     def _sample_uav_initial_state(self, uav_obs: UAVUAVObs) -> UAVState:
         uav_coord, fug_coord = uav_obs
-        if self.rng.random() < UAV_OBS_ACC:
+        if self.rng.random() < self.UAV_OBS_ACC:
             # UAV_OBS_ACC probability obs loc is correct
             true_fug_coord = fug_coord
         else:
@@ -259,13 +317,13 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
                     dist.append(dist[-1] + p)
             return list(valid_fug_coords), dist
         if obs == OBSNORTH:
-            p = (1.0 - FUG_OBS_ACC) / (len(house_adj_coords) - 1)
+            p = (1.0 - self.FUG_OBS_ACC) / (len(house_adj_coords) - 1)
             true_coords = [house_adj_coords[Direction.SOUTH]]
         elif obs == OBSSOUTH:
-            p = (1.0 - FUG_OBS_ACC) / (len(house_adj_coords) - 1)
+            p = (1.0 - self.FUG_OBS_ACC) / (len(house_adj_coords) - 1)
             true_coords = [house_adj_coords[Direction.NORTH]]
         elif obs == OBSLEVEL:
-            p = (1.0 - FUG_OBS_ACC) / (len(house_adj_coords) - 2)
+            p = (1.0 - self.FUG_OBS_ACC) / (len(house_adj_coords) - 2)
             true_coords = [
                 house_adj_coords[Direction.EAST],
                 house_adj_coords[Direction.WEST],
@@ -275,9 +333,9 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
         num_adj, num_true = len(house_adj_coords), len(true_coords)
         for coord in house_adj_coords:
             if coord in true_coords:
-                dist.append(FUG_OBS_ACC / num_true)
+                dist.append(self.FUG_OBS_ACC / num_true)
             else:
-                dist.append((1.0 - FUG_OBS_ACC) / (num_adj - num_true))
+                dist.append((1.0 - self.FUG_OBS_ACC) / (num_adj - num_true))
         return house_adj_coords, dist
 
     def sample_initial_obs(self, state: UAVState) -> Dict[M.AgentID, UAVObs]:
@@ -334,7 +392,10 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
 
     def _sample_uav_obs(self, state: UAVState) -> UAVUAVObs:
         uav_coord, fug_coord = state
-        if fug_coord == self.grid.safe_house_coord or self.rng.random() < UAV_OBS_ACC:
+        if (
+            fug_coord == self.grid.safe_house_coord
+            or self.rng.random() < self.UAV_OBS_ACC
+        ):
             fug_coord_obs = fug_coord
         else:
             adj_coords = self.grid.get_neighbours(fug_coord)
@@ -362,7 +423,7 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
         if true_obs == OBSNONE:
             return true_obs
 
-        if self.rng.random() < FUG_OBS_ACC:
+        if self.rng.random() < self.FUG_OBS_ACC:
             return true_obs
         return self.rng.choice([OBSNORTH, OBSSOUTH, OBSLEVEL])
 
@@ -381,138 +442,78 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
         return rewards
 
 
-class UAVEnv(DefaultEnv[UAVState, UAVObs, UAVAction]):
-    """The Unmanned Aerial Vehicle Grid World Environment.
+class UAVGrid(Grid):
+    """A grid for the MA UAV Problem."""
 
-    An adversarial 2D grid world problem involving two agents, a Unmanned
-    Aerial Vehicle (UAV) and a fugitive. The UAV's goal is to capture the
-    fugitive, while the fugitive's goal is to reach the safe house located at
-    a known fixed location on the grid. The fugitive is considered caught if
-    it is co-located with the UAV. The UAV observes it's own location and
-    recieves a noisy observation of the fugitive's location. The fugitive does
-    not know it's location but it recieves a noisy observation of its relative
-    direction to the safe house when it is adjacent to the safe house.
+    def __init__(
+        self,
+        grid_width: int,
+        grid_height: int,
+        block_coords: Optional[Set[Coord]],
+        safe_house_coord: Coord,
+        init_fug_coords: List[Coord],
+        init_uav_coords: List[Coord],
+    ):
+        super().__init__(grid_width, grid_height, block_coords)
+        self.safe_house_coord = safe_house_coord
+        self.init_fug_coords = init_fug_coords
+        self.init_uav_coords = init_uav_coords
 
-    Agents
-    ------
-    UAV = 0
-    Fugitive = 1
+        self.valid_coords = set(self.unblocked_coords)
+        self.valid_coords.remove(self.safe_house_coord)
 
-    State
-    -----
-    Each state contains the (x, y) (x=column, y=row, with origin at the
-    top-left square of the grid) of the UAV and fugitive agent. Specifically,
-    a states is ((x_uav, y_uav), (x_fugitive, y_fugitive))
+    def get_ascii_repr(
+        self, fug_coord: Optional[Coord], uav_coord: Optional[Coord]
+    ) -> str:
+        """Get ascii repr of grid."""
+        grid_repr = []
+        for row in range(self.height):
+            row_repr = []
+            for col in range(self.width):
+                coord = (col, row)
+                if coord == self.safe_house_coord:
+                    row_repr.append("S")
+                elif coord in self.block_coords:
+                    row_repr.append("#")
+                else:
+                    row_repr.append(".")
+            grid_repr.append(row_repr)
 
-    Initially, the location of both agents is chosen at random.
+        if fug_coord is not None:
+            grid_repr[fug_coord[0]][fug_coord[1]] = "F"
+        if uav_coord is not None:
+            if uav_coord == fug_coord:
+                grid_repr[uav_coord[0]][uav_coord[1]] = "X"
+            else:
+                grid_repr[uav_coord[0]][uav_coord[1]] = "U"
 
-    Actions
-    -------
-    Each agent has 4 actions corresponding to moving in the 4 cardinal
-    directions (NORTH=0, EAST=1, SOUTH=2, WEST=3).
-
-    Observation
-    -----------
-    The UAV observes its (x, y) coordinates and recieves a noisy observation
-    of the fugitives (x, y) coordinates. The UAV observes the correct fugitive
-    coordinates with p=0.9, and one of the adjacent locations to the true
-    fugitive location with p=1-0.9.
-
-    The fugitive can sense it's position with respect to the safe house, namely
-    whether it is north of it (OBSNORTH=0), south of it (OBSSOUTH=1), or at the
-    same level (OBSLEVEL=3). These observations are recieved with accuracy 0.8,
-    and only when the fugitive is adjacent to it. If the fugitive is not
-    adjacent to the safe house it recieves no observation (OBSNONE=4).
-
-    Reward
-    ------
-    Both agents receive a penalty of -0.04 for each step.
-    If the fugitive reaches the safe house then the fugitive recieves a reward
-    of 1, while the UAV recieves a penalty of -1.
-    If the fugitive is caught by the UAV, then the fugitive recieves a penalty
-    of -1, while the UAV recieves a reward of 1.
-
-    Transition Dynamics
-    -------------------
-    Actions are deterministic. The fugitive's position is reset at random if
-    it reaches the safe house or gets caught by the UAV.
-
-    Reference
-    ---------
-    Panella, Alessandro, and Piotr Gmytrasiewicz. 2017. “Interactive POMDPs
-    with Finite-State Models of Other Agents.” Autonomous Agents and
-    Multi-Agent Systems 31 (4): 861–904.
-    """
-
-    metadata = {"render_modes": ["human", "ansi", "rgb_array"], "render_fps": 4}
-
-    def __init__(self, grid_name: str, render_mode: Optional[str] = None, **kwargs):
-        self._viewer = None
-        self._renderer: Optional[render_lib.GWRenderer] = None
-        super().__init__(UAVModel(grid_name, **kwargs), render_mode=render_mode)
-
-    def render(self):
-        grid: UAVGrid = self.model.grid   # type: ignore
-        if self.render_mode == "ansi":
-            grid_str = grid.get_ascii_repr(self._state[0], self._state[1])
-
-            output = [
-                f"Step: {self._step_num}",
-                grid_str,
-            ]
-            if self._last_actions is not None:
-                action_str = ", ".join(
-                    [str(Direction(a)) for a in self._last_actions.values()]
-                )
-                output.insert(1, f"Actions: <{action_str}>")
-                output.append(f"Rewards: <{self._last_rewards}>")
-            return "\n".join(output) + "\n"
-
-        if self.render_mode == "human" and self._viewer is None:
-            # pylint: disable=[import-outside-toplevel]
-            from posggym.envs.grid_world import viewer
-
-            self._viewer = viewer.GWViewer(
-                "Unmanned Aerial Vehicle Env",
-                (min(grid.width, 9), min(grid.height, 9)),
-            )
-            self._viewer.show(block=False)
-
-        if self._renderer is None:
-            safe_house_obj = render_lib.GWObject(
-                grid.safe_house_coord, "green", render_lib.Shape.RECTANGLE
-            )
-            self._renderer = render_lib.GWRenderer(
-                len(self.possible_agents),
-                grid,
-                [safe_house_obj],
-                render_blocks=True,
-            )
-
-        agent_coords = self._state
-        agent_dirs = tuple(
-            Direction.NORTH for _ in range(len(self.possible_agents))
+        return (
+            str(self) + "\n" + "\n".join(list(list((" ".join(r) for r in grid_repr))))
         )
 
-        env_img = self._renderer.render(
-            agent_coords,
-            agent_obs_coords=None,
-            agent_dirs=agent_dirs,
-            other_objs=None,
-            agent_colors=None,
+
+def _empty_uav_grid(width, height, safe_house_coord) -> UAVGrid:
+    all_coords = set(
+        itertools.product(
+            range(
+                width,
+            ),
+            range(height),
         )
-        # At the moment the UAV doesn't support agent centric rendering
+    )
+    all_coords.remove(safe_house_coord)
 
-        if self.render_mode == "human":
-            self._viewer.update_img(env_img, agent_idx=None)
-            self._viewer.display_img()
-        else:
-            return env_img
+    init_fug_coords = list(all_coords)
+    init_uav_coords = [*all_coords]
 
-    def close(self) -> None:
-        if self._viewer is not None:
-            self._viewer.close()
-            self._viewer = None
+    return UAVGrid(
+        grid_height=width,
+        grid_width=height,
+        block_coords=None,
+        safe_house_coord=safe_house_coord,
+        init_fug_coords=init_fug_coords,
+        init_uav_coords=init_uav_coords,
+    )
 
 
 def get_3x3_grid() -> UAVGrid:
@@ -600,7 +601,7 @@ SUPPORTED_GRIDS = {
 
 def load_grid(grid_name: str) -> UAVGrid:
     """Load grid with given name."""
-    grid_name = grid_name.lower()
+    grid_name = grid_name
     assert grid_name in SUPPORTED_GRIDS, (
         f"Unsupported grid name '{grid_name}'. Grid name must be one of: "
         f"{SUPPORTED_GRIDS.keys()}."

@@ -35,6 +35,71 @@ OBS_SPACE = ACTIONS
 OBS_STR = ACTION_STR
 
 
+class RockPaperScissorsEnv(DefaultEnv):
+    """The Rock Paper Scissors Environment.
+
+    This is the classic game of rock, paper, scissors (RPS).
+
+    This scenario involves two agents. Each step both agents choose an action
+    out of 'ROCK', 'PAPER' or 'SCISSORS' and are rewarded based on the actions
+    taken in comparison to their opponent.
+
+    State
+    -----
+    There is only a single state in RPS, the None state.
+
+    Actions
+    -------
+    A_1 = A_2 = {`ROCK`, `PAPER`, `SCISSORS`}
+
+    Observation
+    -----------
+    Agents observe the last action played by their opponent.
+
+    O_1 = O_2 = {`ROCK`, `PAPER`, `SCISSORS`}
+
+    Reward
+    ------
+    Agents are rewarded based on the following pay-off matrix (shows pay-off
+    for row agent):
+
+             | ROCK     | PAPER    | SCISSORS |
+    -------------------------------------------
+    ROCK     | 0        | -1       | 1        |
+    PAPER    | 1        | 0        | -1       |
+    SCISSORS | -1       | 1        | 0        |
+
+    Transition Dynamics
+    -------------------
+    There is only a single state so the transition function is the identity
+    function.
+
+    """
+
+    metadata = {"render_modes": ["human", "ansi"], "render_fps": 4}
+
+    def __init__(self, render_mode: Optional[str] = None, **kwargs):
+        super().__init__(RockPaperScissorsModel(**kwargs), render_mode=render_mode)
+
+    def render(self, mode: str = "human"):
+        assert self._last_obs is not None
+
+        obs_str = ", ".join([OBS_STR[o] for o in self._last_obs.values()])
+        output = [f"Step: {self._step_num}", f"Obs: <{obs_str}>"]
+        if self._last_actions is not None:
+            action_str = ", ".join([ACTION_STR[a] for a in self._last_actions.values()])
+            output.insert(1, f"Actions: <{action_str}>")
+            output.append(f"Rewards: <{self._last_rewards}>")
+
+        output_str = "\n".join(output) + "\n"
+
+        if self.render_mode == "human":
+            sys.stdout.write(output_str)
+        else:
+            # ansi mode
+            return output_str
+
+
 class RockPaperScissorsModel(M.POSGFullModel[RPSState, RPSObs, RPSAction]):
     """Rock, Paper, Scissors Model."""
 
@@ -153,68 +218,3 @@ class RockPaperScissorsModel(M.POSGFullModel[RPSState, RPSObs, RPSAction]):
         for a in product(*self._action_spaces):
             rew_map[(STATE0, a)] = self._get_reward(dict(enumerate(a)))
         return rew_map
-
-
-class RockPaperScissorsEnv(DefaultEnv):
-    """The Rock Paper Scissors Environment.
-
-    This is the classic game of rock, paper, scissors (RPS).
-
-    This scenario involves two agents. Each step both agents choose an action
-    out of 'ROCK', 'PAPER' or 'SCISSORS' and are rewarded based on the actions
-    taken in comparison to their opponent.
-
-    State
-    -----
-    There is only a single state in RPS, the None state.
-
-    Actions
-    -------
-    A_1 = A_2 = {`ROCK`, `PAPER`, `SCISSORS`}
-
-    Observation
-    -----------
-    Agents observe the last action played by their opponent.
-
-    O_1 = O_2 = {`ROCK`, `PAPER`, `SCISSORS`}
-
-    Reward
-    ------
-    Agents are rewarded based on the following pay-off matrix (shows pay-off
-    for row agent):
-
-             | ROCK     | PAPER    | SCISSORS |
-    -------------------------------------------
-    ROCK     | 0        | -1       | 1        |
-    PAPER    | 1        | 0        | -1       |
-    SCISSORS | -1       | 1        | 0        |
-
-    Transition Dynamics
-    -------------------
-    There is only a single state so the transition function is the identity
-    function.
-
-    """
-
-    metadata = {"render_modes": ["human", "ansi"], "render_fps": 4}
-
-    def __init__(self, render_mode: Optional[str] = None, **kwargs):
-        super().__init__(RockPaperScissorsModel(**kwargs), render_mode=render_mode)
-
-    def render(self, mode: str = "human"):
-        assert self._last_obs is not None
-
-        obs_str = ", ".join([OBS_STR[o] for o in self._last_obs.values()])
-        output = [f"Step: {self._step_num}", f"Obs: <{obs_str}>"]
-        if self._last_actions is not None:
-            action_str = ", ".join([ACTION_STR[a] for a in self._last_actions.values()])
-            output.insert(1, f"Actions: <{action_str}>")
-            output.append(f"Rewards: <{self._last_rewards}>")
-
-        output_str = "\n".join(output) + "\n"
-
-        if self.render_mode == "human":
-            sys.stdout.write(output_str)
-        else:
-            # ansi mode
-            return output_str

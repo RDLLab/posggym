@@ -13,7 +13,17 @@ Reference
 """
 import math
 from itertools import product
-from typing import Dict, List, NamedTuple, Optional, Sequence, Set, SupportsFloat, Tuple
+from typing import (
+    Dict,
+    List,
+    NamedTuple,
+    Optional,
+    Sequence,
+    Set,
+    SupportsFloat,
+    Tuple,
+    Union,
+)
 
 from gymnasium import spaces
 
@@ -55,88 +65,212 @@ CELL_OBS = [EMPTY, WALL, PREDATOR, PREY]
 CELL_OBS_STR = ["0", "#", "P", "p"]
 
 
-class PPGrid(Grid):
-    """A grid for the Predator-Prey Problem."""
+class PPEnv(DefaultEnv[PPState, PPObs, PPAction]):
+    """The Predator-Prey Grid World Environment.
+
+    A co-operative 2D grid world problem involving multiple predator agents
+    working together to catch prey agent/s in the environment.
+
+    Agents
+    ------
+    Varied number
+
+    State
+    -----
+    Each state consists of:
+
+    1. tuple of the (x, y) position of all predators
+    2. tuple of the (x, y) position of all preys
+    3. tuple of whether each prey has been caught or not (0=no, 1=yes)
+
+    For the coordinate x=column, y=row, with the origin (0, 0) at the
+    top-left square of the grid.
+
+    Actions
+    -------
+    Each agent has 5 actions: DO_NOTHING=0, UP=1, DOWN=2, LEFT=3, RIGHT=4
+
+    Observation
+    -----------
+    Each agent observes the contents of local cells. The size of the
+    local area observed is controlled by the `obs_dims` parameter. For each
+    cell in the observed are the agent observes whether they are one of four
+    things: EMPTY=0, WALL=1, PREDATOR=2, PREY=3.
+
+    Reward
+    ------
+    There are two modes of play:
+
+    1. Fully cooperative: All predators share a reward and each agent recieves
+    a reward of 1.0 / `num_prey` for each prey capture, independent of which
+    predator agent/s were responsible for the capture.
+
+    2. Mixed cooperative: Predators only recieve a reward if they were part
+    of the prey capture, recieving 1.0 / `num_prey`.
+
+    In both modes prey can only been captured when at least `prey_strength`
+    predators are in adjacent cells,
+    where 1 <= `prey_strength` <= `num_predators`.
+
+    Transition Dynamics
+    -------------------
+    Actions of the predator agents are deterministic and consist of moving in
+    to the adjacent cell in each of the four cardinal directions. If two or
+    more predators attempt to move into the same cell then no agent moves.
+
+    Prey move according to the following rules (in order of priority):
+
+    1. if predator is within `obs_dim` cells, moves away from closest predator
+    2. if another prey is within `obs_dim` cells, moves away from closest prey
+    3. else move randomly
+
+    Prey always move first and predators and prey cannot occupy the same cell.
+    The only exception being if a prey has been caught their final coord is
+    recorded in the state but predator and prey agents will be able to move
+    into the final coord.
+
+    Episodes ends when all prey have been captured or the episode step limit is
+    reached.
+
+    Initial Conditions
+    ------------------
+    Predators start from random seperate locations along the edge of the grid
+    (either in a corner, or half-way along a side), while prey start together
+    in the middle.
+
+    Reference
+    ---------
+    - Ming Tan. 1993. Multi-Agent Reinforcement Learning: Independent vs. Cooperative
+      Agents. In Proceedings of the Tenth International Conference on Machine Learning.
+      330–337.
+    - J. Z. Leibo, V. F. Zambaldi, M. Lanctot, J. Marecki, and T. Graepel. 2017.
+      Multi-Agent Reinforcement Learning in Sequential Social Dilemmas. In AAMAS,
+      Vol. 16. ACM, 464–473
+
+    """
+
+    metadata = {
+        "render_modes": ["human", "ansi", "rgb_array", "rgb_array_dict"],
+        "render_fps": 4,
+    }
 
     def __init__(
         self,
-        grid_size: int,
-        block_coords: Optional[Set[Coord]],
-        predator_start_coords: Optional[List[Coord]] = None,
-        prey_start_coords: Optional[List[Coord]] = None,
+        grid: Union[str, "PPGrid"],
+        num_predators: int,
+        num_prey: int,
+        cooperative: bool,
+        prey_strength: int,
+        obs_dim: int,
+        render_mode: Optional[str] = None,
+        **kwargs,
     ):
-        assert grid_size >= 3
-        super().__init__(grid_size, grid_size, block_coords)
-        self.size = grid_size
-        # predators start in corners or half-way along a side
-        if predator_start_coords is None:
-            predator_start_coords = list(
-                c  # type: ignore
-                for c in product([0, grid_size // 2, grid_size - 1], repeat=2)
-                if c[0] in (0, grid_size - 1) or c[1] in (0, grid_size - 1)
+        super().__init__(
+            PPModel(
+                grid,
+                num_predators,
+                num_prey,
+                cooperative,
+                prey_strength,
+                obs_dim,
+                **kwargs,
+            ),
+            render_mode=render_mode,
+        )
+        self._obs_dim = obs_dim
+        self._viewer = None
+        self._renderer: Optional[render_lib.GWRenderer] = None
+
+    def render(self):
+        # cast for typehinting
+        model: PPModel = self.model  # type: ignore
+        grid = model.grid
+        if self.render_mode == "ansi":
+            uncaught_prey_coords = [
+                self._state.prey_coords[i]
+                for i in range(self.model.num_prey)
+                if not self._state.prey_caught[i]
+            ]
+            grid_str = grid.get_ascii_repr(
+                self._state.predator_coords, uncaught_prey_coords
             )
-        self.predator_start_coords = predator_start_coords
-        self.prey_start_coords = prey_start_coords
-
-    def get_ascii_repr(
-        self,
-        predator_coords: Optional[Sequence[Coord]],
-        prey_coords: Optional[Sequence[Coord]],
-    ) -> str:
-        """Get ascii repr of grid."""
-        grid_repr = []
-        for row in range(self.height):
-            row_repr = []
-            for col in range(self.width):
-                coord = (col, row)
-                if coord in self.block_coords:
-                    row_repr.append("#")
-                else:
-                    row_repr.append(".")
-            grid_repr.append(row_repr)
-
-        if predator_coords is not None:
-            for c in predator_coords:
-                grid_repr[c[0]][c[1]] = "P"
-        if prey_coords is not None:
-            for c in prey_coords:
-                grid_repr[c[0]][c[1]] = "p"
-
-        return (
-            str(self) + "\n" + "\n".join(list(list((" ".join(r) for r in grid_repr))))
-        )
-
-    def get_unblocked_center_coords(self, num: int) -> List[Coord]:
-        """Get at least num closest coords to the center of grid.
-
-        May return more than num, since can be more than one coord at equal
-        distance from the center.
-        """
-        assert num < self.n_coords - len(self.block_coords)
-        center = (self.width // 2, self.height // 2)
-        min_dist_from_center = math.ceil(math.sqrt(num)) - 1
-        coords = self.get_coords_within_dist(
-            center, min_dist_from_center, ignore_blocks=False, include_origin=True
-        )
-
-        while len(coords) < num:
-            # not the most efficient as it repeats work,
-            # but function should only be called once when model is initialized
-            # and for small num
-            for c in coords:
-                coords.update(
-                    self.get_neighbours(
-                        c, ignore_blocks=False, include_out_of_bounds=False
-                    )
+            output = [
+                f"Step: {self._step_num}",
+                grid_str,
+            ]
+            if self._last_actions is not None:
+                action_str = ", ".join(
+                    [ACTIONS_STR[a] for a in self._last_actions.values()]
                 )
+                output.insert(1, f"Actions: <{action_str}>")
+                output.append(f"Rewards: <{self._last_rewards}>")
 
-        return list(coords)
+            return "\n".join(output) + "\n"
 
-    def num_unblocked_neighbours(self, coord: Coord) -> int:
-        """Get number of neighbouring coords that are unblocked."""
-        return len(
-            self.get_neighbours(coord, ignore_blocks=False, include_out_of_bounds=False)
+        if self.render_mode == "human" and self._viewer is None:
+            # pylint: disable=[import-outside-toplevel]
+            from posggym.envs.grid_world import viewer
+
+            self._viewer = viewer.GWViewer(
+                "Predator-Prey Env",
+                (min(grid.width, 9), min(grid.height, 9)),
+                num_agent_displays=len(self.possible_agents),
+            )
+            self._viewer.show(block=False)
+
+        if self._renderer is None:
+            self._renderer = render_lib.GWRenderer(
+                len(self.possible_agents), grid, [], render_blocks=True
+            )
+
+        agent_obs_coords = tuple(
+            self.model.get_obs_coords(c) for c in self._state.predator_coords
         )
+        agent_coords = self._state.predator_coords
+
+        prey_objs = [
+            render_lib.GWObject(
+                c,
+                "cyan",
+                render_lib.Shape.CIRCLE,
+                # alpha=0.25
+            )
+            for i, c in enumerate(self._state.prey_coords)
+            if not self._state.prey_caught[i]
+        ]
+
+        env_img = self._renderer.render(
+            agent_coords,
+            agent_obs_coords,
+            agent_dirs=None,
+            other_objs=prey_objs,
+            agent_colors=None,
+        )
+        agent_obs_imgs = self._renderer.render_all_agent_obs(
+            env_img,
+            agent_coords,
+            Direction.NORTH,
+            agent_obs_dims=(self._obs_dim, self._obs_dim, self._obs_dim),
+            out_of_bounds_obj=render_lib.GWObject(
+                (0, 0), "grey", render_lib.Shape.RECTANGLE
+            ),
+        )
+
+        if self.render_mode == "human":
+            self._viewer.update_img(env_img, agent_idx=None)
+            for i, obs_img in enumerate(agent_obs_imgs):
+                self._viewer.update_img(obs_img, agent_idx=i)
+            self._viewer.display_img()
+        elif self.render_mode == "rgb_array":
+            return env_img
+        else:
+            # rgb_array_dict
+            return dict(enumerate(agent_obs_imgs))
+
+    def close(self) -> None:
+        if self._viewer is not None:
+            self._viewer.close()  # type: ignore
+            self._viewer = None
 
 
 class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
@@ -166,7 +300,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
     def __init__(
         self,
-        grid: PPGrid,
+        grid: Union[str, "PPGrid"],
         num_predators: int,
         num_prey: int,
         cooperative: bool,
@@ -174,6 +308,9 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         obs_dim: int,
         **kwargs,
     ):
+        if isinstance(grid, str):
+            grid = load_grid(grid)
+
         assert 1 < num_predators <= 8
         assert 0 < num_prey
         assert 0 < obs_dim
@@ -584,215 +721,91 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             predator_reward = self._per_prey_reward / len(involved_predators)
             for i in involved_predators:
                 rewards[i] += predator_reward
-        return rewards   # type: ignore
+        return rewards  # type: ignore
 
 
-class PPEnv(DefaultEnv[PPState, PPObs, PPAction]):
-    """The Predator-Prey Grid World Environment.
-
-    A co-operative 2D grid world problem involving multiple predator agents
-    working together to catch prey agent/s in the environment.
-
-    Agents
-    ------
-    Varied number
-
-    State
-    -----
-    Each state consists of:
-
-    1. tuple of the (x, y) position of all predators
-    2. tuple of the (x, y) position of all preys
-    3. tuple of whether each prey has been caught or not (0=no, 1=yes)
-
-    For the coordinate x=column, y=row, with the origin (0, 0) at the
-    top-left square of the grid.
-
-    Actions
-    -------
-    Each agent has 5 actions: DO_NOTHING=0, UP=1, DOWN=2, LEFT=3, RIGHT=4
-
-    Observation
-    -----------
-    Each agent observes the contents of local cells. The size of the
-    local area observed is controlled by the `obs_dims` parameter. For each
-    cell in the observed are the agent observes whether they are one of four
-    things: EMPTY=0, WALL=1, PREDATOR=2, PREY=3.
-
-    Reward
-    ------
-    There are two modes of play:
-
-    1. Fully cooperative: All predators share a reward and each agent recieves
-    a reward of 1.0 / `num_prey` for each prey capture, independent of which
-    predator agent/s were responsible for the capture.
-
-    2. Mixed cooperative: Predators only recieve a reward if they were part
-    of the prey capture, recieving 1.0 / `num_prey`.
-
-    In both modes prey can only been captured when at least `prey_strength`
-    predators are in adjacent cells,
-    where 1 <= `prey_strength` <= `num_predators`.
-
-    Transition Dynamics
-    -------------------
-    Actions of the predator agents are deterministic and consist of moving in
-    to the adjacent cell in each of the four cardinal directions. If two or
-    more predators attempt to move into the same cell then no agent moves.
-
-    Prey move according to the following rules (in order of priority):
-
-    1. if predator is within `obs_dim` cells, moves away from closest predator
-    2. if another prey is within `obs_dim` cells, moves away from closest prey
-    3. else move randomly
-
-    Prey always move first and predators and prey cannot occupy the same cell.
-    The only exception being if a prey has been caught their final coord is
-    recorded in the state but predator and prey agents will be able to move
-    into the final coord.
-
-    Episodes ends when all prey have been captured or the episode step limit is
-    reached.
-
-    Initial Conditions
-    ------------------
-    Predators start from random seperate locations along the edge of the grid
-    (either in a corner, or half-way along a side), while prey start together
-    in the middle.
-
-    Reference
-    ---------
-    - Ming Tan. 1993. Multi-Agent Reinforcement Learning: Independent vs. Cooperative
-      Agents. In Proceedings of the Tenth International Conference on Machine Learning.
-      330–337.
-    - J. Z. Leibo, V. F. Zambaldi, M. Lanctot, J. Marecki, and T. Graepel. 2017.
-      Multi-Agent Reinforcement Learning in Sequential Social Dilemmas. In AAMAS,
-      Vol. 16. ACM, 464–473
-
-    """
-
-    metadata = {
-        "render_modes": ["human", "ansi", "rgb_array", "rgb_array_dict"],
-        "render_fps": 4
-    }
+class PPGrid(Grid):
+    """A grid for the Predator-Prey Problem."""
 
     def __init__(
         self,
-        grid: PPGrid,
-        num_predators: int,
-        num_prey: int,
-        cooperative: bool,
-        prey_strength: int,
-        obs_dim: int,
-        render_mode: Optional[str] = None,
-        **kwargs,
+        grid_size: int,
+        block_coords: Optional[Set[Coord]],
+        predator_start_coords: Optional[List[Coord]] = None,
+        prey_start_coords: Optional[List[Coord]] = None,
     ):
-        super().__init__(
-            PPModel(
-                grid,
-                num_predators,
-                num_prey,
-                cooperative,
-                prey_strength,
-                obs_dim,
-                **kwargs,
-            ),
-            render_mode=render_mode,
-        )
-        self._obs_dim = obs_dim
-        self._viewer = None
-        self._renderer: Optional[render_lib.GWRenderer] = None
-
-    def render(self):
-        # cast for typehinting
-        model: PPModel = self.model  # type: ignore
-        grid = model.grid
-        if self.render_mode == "ansi":
-            uncaught_prey_coords = [
-                self._state.prey_coords[i]
-                for i in range(self.model.num_prey)
-                if not self._state.prey_caught[i]
-            ]
-            grid_str = grid.get_ascii_repr(
-                self._state.predator_coords, uncaught_prey_coords
+        assert grid_size >= 3
+        super().__init__(grid_size, grid_size, block_coords)
+        self.size = grid_size
+        # predators start in corners or half-way along a side
+        if predator_start_coords is None:
+            predator_start_coords = list(
+                c  # type: ignore
+                for c in product([0, grid_size // 2, grid_size - 1], repeat=2)
+                if c[0] in (0, grid_size - 1) or c[1] in (0, grid_size - 1)
             )
-            output = [
-                f"Step: {self._step_num}",
-                grid_str,
-            ]
-            if self._last_actions is not None:
-                action_str = ", ".join(
-                    [ACTIONS_STR[a] for a in self._last_actions.values()]
+        self.predator_start_coords = predator_start_coords
+        self.prey_start_coords = prey_start_coords
+
+    def get_ascii_repr(
+        self,
+        predator_coords: Optional[Sequence[Coord]],
+        prey_coords: Optional[Sequence[Coord]],
+    ) -> str:
+        """Get ascii repr of grid."""
+        grid_repr = []
+        for row in range(self.height):
+            row_repr = []
+            for col in range(self.width):
+                coord = (col, row)
+                if coord in self.block_coords:
+                    row_repr.append("#")
+                else:
+                    row_repr.append(".")
+            grid_repr.append(row_repr)
+
+        if predator_coords is not None:
+            for c in predator_coords:
+                grid_repr[c[0]][c[1]] = "P"
+        if prey_coords is not None:
+            for c in prey_coords:
+                grid_repr[c[0]][c[1]] = "p"
+
+        return (
+            str(self) + "\n" + "\n".join(list(list((" ".join(r) for r in grid_repr))))
+        )
+
+    def get_unblocked_center_coords(self, num: int) -> List[Coord]:
+        """Get at least num closest coords to the center of grid.
+
+        May return more than num, since can be more than one coord at equal
+        distance from the center.
+        """
+        assert num < self.n_coords - len(self.block_coords)
+        center = (self.width // 2, self.height // 2)
+        min_dist_from_center = math.ceil(math.sqrt(num)) - 1
+        coords = self.get_coords_within_dist(
+            center, min_dist_from_center, ignore_blocks=False, include_origin=True
+        )
+
+        while len(coords) < num:
+            # not the most efficient as it repeats work,
+            # but function should only be called once when model is initialized
+            # and for small num
+            for c in coords:
+                coords.update(
+                    self.get_neighbours(
+                        c, ignore_blocks=False, include_out_of_bounds=False
+                    )
                 )
-                output.insert(1, f"Actions: <{action_str}>")
-                output.append(f"Rewards: <{self._last_rewards}>")
 
-            return "\n".join(output) + "\n"
+        return list(coords)
 
-        if self.render_mode == "human" and self._viewer is None:
-            # pylint: disable=[import-outside-toplevel]
-            from posggym.envs.grid_world import viewer
-
-            self._viewer = viewer.GWViewer(
-                "Predator-Prey Env",
-                (min(grid.width, 9), min(grid.height, 9)),
-                num_agent_displays=len(self.possible_agents),
-            )
-            self._viewer.show(block=False)
-
-        if self._renderer is None:
-            self._renderer = render_lib.GWRenderer(
-                len(self.possible_agents), grid, [], render_blocks=True
-            )
-
-        agent_obs_coords = tuple(
-            self.model.get_obs_coords(c) for c in self._state.predator_coords
+    def num_unblocked_neighbours(self, coord: Coord) -> int:
+        """Get number of neighbouring coords that are unblocked."""
+        return len(
+            self.get_neighbours(coord, ignore_blocks=False, include_out_of_bounds=False)
         )
-        agent_coords = self._state.predator_coords
-
-        prey_objs = [
-            render_lib.GWObject(
-                c,
-                "cyan",
-                render_lib.Shape.CIRCLE,
-                # alpha=0.25
-            )
-            for i, c in enumerate(self._state.prey_coords)
-            if not self._state.prey_caught[i]
-        ]
-
-        env_img = self._renderer.render(
-            agent_coords,
-            agent_obs_coords,
-            agent_dirs=None,
-            other_objs=prey_objs,
-            agent_colors=None,
-        )
-        agent_obs_imgs = self._renderer.render_all_agent_obs(
-            env_img,
-            agent_coords,
-            Direction.NORTH,
-            agent_obs_dims=(self._obs_dim, self._obs_dim, self._obs_dim),
-            out_of_bounds_obj=render_lib.GWObject(
-                (0, 0), "grey", render_lib.Shape.RECTANGLE
-            ),
-        )
-
-        if self.render_mode == "human":
-            self._viewer.update_img(env_img, agent_idx=None)
-            for i, obs_img in enumerate(agent_obs_imgs):
-                self._viewer.update_img(obs_img, agent_idx=i)
-            self._viewer.display_img()
-        elif self.render_mode == "rgb_array":
-            return env_img
-        else:
-            # rgb_array_dict
-            return dict(enumerate(agent_obs_imgs))
-
-    def close(self) -> None:
-        if self._viewer is not None:
-            self._viewer.close()  # type: ignore
-            self._viewer = None
 
 
 def parse_grid_str(grid_str: str) -> PPGrid:
@@ -865,7 +878,7 @@ def parse_grid_str(grid_str: str) -> PPGrid:
         grid_size,
         block_coords,
         None if len(predator_coords) == 0 else list(predator_coords),
-        None if len(prey_coords) == 0 else list(prey_coords)
+        None if len(prey_coords) == 0 else list(prey_coords),
     )
 
 
@@ -976,7 +989,7 @@ SUPPORTED_GRIDS = {
 
 def load_grid(grid_name: str) -> PPGrid:
     """Load grid with given name."""
-    grid_name = grid_name.lower()
+    grid_name = grid_name
     assert grid_name in SUPPORTED_GRIDS, (
         f"Unsupported grid name '{grid_name}'. Grid name must be one of: "
         f"{SUPPORTED_GRIDS.keys()}."

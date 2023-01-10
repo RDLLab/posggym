@@ -101,14 +101,142 @@ class LBFEntityObs(NamedTuple):
     is_self: bool
 
 
-def sorted_from_middle(lst):
-    """Sorts list from middle out."""
-    left = lst[len(lst) // 2 - 1 :: -1]
-    right = lst[len(lst) // 2 :]
-    output = [right.pop(0)] if len(lst) % 2 else []
-    for t in zip(left, right):
-        output += sorted(t)
-    return output
+class LBFEnv(DefaultEnv):
+    """The Level-Based Foraging Environment.
+
+    This implementation uses and is based on the original implementation of
+    the Level-Based Foraging environment:
+
+    https://github.com/semitable/lb-foraging
+
+    We provide a discription here for convinience.
+
+    Agents
+    ------
+    Varied number
+
+    State
+    -----
+    The state of the environment is defined by a (x, y, level) triplet for each
+    agent and food object in the environment. The (x, y) components define the
+    position, starting from the bottom left square, while the level is the
+    level of the agent or food.
+
+    Actions
+    -------
+    Each agent has six possible discrete actions [0-5] corresponding to:
+
+        Noop, Move North, Move South, Move West, Move East, Pickup
+
+    Observations
+    ------------
+    Each agent observes the (x, y, level) of food and other agent within their
+    field of vision, which is the grid `sight` distance away from the agent in
+    all directions.
+
+    There are three observation modes:
+
+    1. grid_observation
+       The agent recieves three 2D layers of size (1+2*`sight`, 1+2*`sight`).
+       Each cell in each layer corresponds to a specific (x, y) coordinate
+       relative to the observing agent.
+       The layers are:
+         i. agent level
+         ii. food level
+         iii. whether cell is free or blocked (e.g. out of bounds)
+    2. vector observation
+       A vector of (x, y, level) triplets for each food and agent in the
+       environment. If a given food or agent is not within the observing
+       agent's field of vision triplets have a value of [-1, -1, 0].
+       The size of the vector is (`num_agents` + `max_food`) * 3, with the
+       first `max_food` triplets being for the food, the `max_food`+1 triplet
+       being for the observing agent and the remaining `num_agents`-1
+       triplets for the other agents.
+       The ordering of the triplets for the other agents is consistent, while
+       the food obs triplets can change based on how many are visible and their
+       relative coordinates to the observing agent.
+    3. tuple observation
+       This is the same as the vector observation except observations are
+       Python tuples of integers instead of numpy arrays of floats.
+
+    References
+    ----------
+    - Stefano V. Albrecht and Subramanian Ramamoorthy. 2013. A Game-Theoretic Model and
+      Best-Response Learning Method for Ad Hoc Coordination in Multia-gent Systems.
+      In Proceedings of the 2013 International Conference on Autonomous Agents and
+      Multi-Agent Systems. 1155–1156.
+    - S. V. Albrecht and Peter Stone. 2017. Reasoning about Hypothetical Agent
+      Behaviours and Their Parameters. In 16th International Conference on Autonomous
+      Agents and Multiagent Systems 2017. International Foundation for Autonomous
+      Agents and Multiagent Systems, 547–555
+    - Filippos Christianos, Lukas Schäfer, and Stefano Albrecht. 2020. Shared Experience
+      Actor-Critic for Multi-Agent Reinforcement Learning. Advances in Neural
+      Information Processing Systems 33 (2020), 10707–10717
+    - Georgios Papoudakis, Filippos Christianos, Lukas Schäfer, and Stefano V. Albrecht.
+      2021. Benchmarking Multi-Agent Deep Reinforcement Learning Algorithms in
+      Cooperative Tasks. In Thirty-Fifth Conference on Neural Information Processing
+      Systems Datasets and Benchmarks Track (Round 1)
+
+    """
+
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 50}
+
+    def __init__(
+        self,
+        num_agents: int,
+        max_agent_level: int,
+        field_size: Tuple[int, int],
+        max_food: int,
+        sight: int,
+        force_coop: bool,
+        static_layout: bool,
+        normalize_reward: bool = True,
+        observation_mode: str = "tuple",
+        penalty: float = 0.0,
+        render_mode: Optional[str] = None,
+        **kwargs
+    ):
+        super().__init__(
+            LBFModel(
+                num_agents,
+                max_agent_level,
+                field_size=field_size,
+                max_food=max_food,
+                sight=sight,
+                force_coop=force_coop,
+                static_layout=static_layout,
+                normalize_reward=normalize_reward,
+                observation_mode=observation_mode,
+                penalty=penalty,
+                **kwargs
+            ),
+            render_mode=render_mode,
+        )
+        self.viewer = None
+
+    def render(self):
+        # TODO
+        if self.render_mode == "human":
+            return None
+        return np.zeros((3, 3, 3), dtype=np.uint8)
+
+    def close(self):
+        if self.viewer:
+            self.viewer.close()
+
+    # def _init_render(self):
+    #     from lbforaging.foraging.rendering import Viewer
+    #     self.viewer = Viewer((self.rows, self.cols))
+    #     self._rendering_initialized = True
+
+    # def render(self, mode="human"):
+    #     if mode not in self.metadata["render.modes"]:
+    #         super().render(mode)
+
+    #     if not self._rendering_initialized:
+    #         self._init_render()
+
+    #     return self.viewer.render(self, return_rgb_array=(mode == "rgb_array"))
 
 
 class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
@@ -715,139 +843,11 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         return agent_obs, food_obs
 
 
-class LBFEnv(DefaultEnv):
-    """The Level-Based Foraging Environment.
-
-    This implementation uses and is based on the original implementation of
-    the Level-Based Foraging environment:
-
-    https://github.com/semitable/lb-foraging
-
-    We provide a discription here for convinience.
-
-    Agents
-    ------
-    Varied number
-
-    State
-    -----
-    The state of the environment is defined by a (x, y, level) triplet for each
-    agent and food object in the environment. The (x, y) components define the
-    position, starting from the bottom left square, while the level is the
-    level of the agent or food.
-
-    Actions
-    -------
-    Each agent has six possible discrete actions [0-5] corresponding to:
-
-        Noop, Move North, Move South, Move West, Move East, Pickup
-
-    Observations
-    ------------
-    Each agent observes the (x, y, level) of food and other agent within their
-    field of vision, which is the grid `sight` distance away from the agent in
-    all directions.
-
-    There are three observation modes:
-
-    1. grid_observation
-       The agent recieves three 2D layers of size (1+2*`sight`, 1+2*`sight`).
-       Each cell in each layer corresponds to a specific (x, y) coordinate
-       relative to the observing agent.
-       The layers are:
-         i. agent level
-         ii. food level
-         iii. whether cell is free or blocked (e.g. out of bounds)
-    2. vector observation
-       A vector of (x, y, level) triplets for each food and agent in the
-       environment. If a given food or agent is not within the observing
-       agent's field of vision triplets have a value of [-1, -1, 0].
-       The size of the vector is (`num_agents` + `max_food`) * 3, with the
-       first `max_food` triplets being for the food, the `max_food`+1 triplet
-       being for the observing agent and the remaining `num_agents`-1
-       triplets for the other agents.
-       The ordering of the triplets for the other agents is consistent, while
-       the food obs triplets can change based on how many are visible and their
-       relative coordinates to the observing agent.
-    3. tuple observation
-       This is the same as the vector observation except observations are
-       Python tuples of integers instead of numpy arrays of floats.
-
-    References
-    ----------
-    - Stefano V. Albrecht and Subramanian Ramamoorthy. 2013. A Game-Theoretic Model and
-      Best-Response Learning Method for Ad Hoc Coordination in Multia-gent Systems.
-      In Proceedings of the 2013 International Conference on Autonomous Agents and
-      Multi-Agent Systems. 1155–1156.
-    - S. V. Albrecht and Peter Stone. 2017. Reasoning about Hypothetical Agent
-      Behaviours and Their Parameters. In 16th International Conference on Autonomous
-      Agents and Multiagent Systems 2017. International Foundation for Autonomous
-      Agents and Multiagent Systems, 547–555
-    - Filippos Christianos, Lukas Schäfer, and Stefano Albrecht. 2020. Shared Experience
-      Actor-Critic for Multi-Agent Reinforcement Learning. Advances in Neural
-      Information Processing Systems 33 (2020), 10707–10717
-    - Georgios Papoudakis, Filippos Christianos, Lukas Schäfer, and Stefano V. Albrecht.
-      2021. Benchmarking Multi-Agent Deep Reinforcement Learning Algorithms in
-      Cooperative Tasks. In Thirty-Fifth Conference on Neural Information Processing
-      Systems Datasets and Benchmarks Track (Round 1)
-
-    """
-
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 50}
-
-    def __init__(
-        self,
-        num_agents: int,
-        max_agent_level: int,
-        field_size: Tuple[int, int],
-        max_food: int,
-        sight: int,
-        force_coop: bool,
-        static_layout: bool,
-        normalize_reward: bool = True,
-        observation_mode: str = "tuple",
-        penalty: float = 0.0,
-        render_mode: Optional[str] = None,
-        **kwargs
-    ):
-        super().__init__(
-            LBFModel(
-                num_agents,
-                max_agent_level,
-                field_size=field_size,
-                max_food=max_food,
-                sight=sight,
-                force_coop=force_coop,
-                static_layout=static_layout,
-                normalize_reward=normalize_reward,
-                observation_mode=observation_mode,
-                penalty=penalty,
-                **kwargs
-            ),
-            render_mode=render_mode,
-        )
-        self.viewer = None
-
-    def render(self):
-        # TODO
-        if self.render_mode == "human":
-            return None
-        return np.zeros((3, 3, 3), dtype=np.uint8)
-
-    def close(self):
-        if self.viewer:
-            self.viewer.close()
-
-    # def _init_render(self):
-    #     from lbforaging.foraging.rendering import Viewer
-    #     self.viewer = Viewer((self.rows, self.cols))
-    #     self._rendering_initialized = True
-
-    # def render(self, mode="human"):
-    #     if mode not in self.metadata["render.modes"]:
-    #         super().render(mode)
-
-    #     if not self._rendering_initialized:
-    #         self._init_render()
-
-    #     return self.viewer.render(self, return_rgb_array=(mode == "rgb_array"))
+def sorted_from_middle(lst):
+    """Sorts list from middle out."""
+    left = lst[len(lst) // 2 - 1 :: -1]
+    right = lst[len(lst) // 2 :]
+    output = [right.pop(0)] if len(lst) % 2 else []
+    for t in zip(left, right):
+        output += sorted(t)
+    return output

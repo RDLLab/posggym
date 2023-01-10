@@ -34,6 +34,7 @@ from typing import (
     Set,
     SupportsFloat,
     Tuple,
+    Union,
 )
 
 from gymnasium import spaces
@@ -47,7 +48,7 @@ from posggym.envs.grid_world.core import (
     Direction,
     Grid,
     GridCycler,
-    GridGenerator
+    GridGenerator,
 )
 from posggym.utils import seeding
 
@@ -111,61 +112,307 @@ CELL_OBS = [VEHICLE, WALL, EMPTY, DESTINATION]
 CELL_OBS_STR = ["V", "#", "0", "D"]
 
 
-class DrivingGrid(Grid):
-    """A grid for the Driving Problem."""
+class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
+    """The Driving Grid World Environment.
+
+    A general-sum 2D grid world problem involving multiple agents. Each agent
+    controls a vehicle and is tasked with driving the vehicle from it's start
+    location to a destination location while avoiding crashing into obstacles
+    or other vehicles.
+
+    This environment requires each agent to navigate in the world while also
+    taking care to avoid crashing into other players. The dynamics and
+    observations of the environment are such that avoiding collisions requires
+    some planning in order for the vehicle to brake in time or maintain a good
+    speed. Depending on the grid layout, the environment will require agents to
+    reason about and possibly coordinate with the other vehicles.
+
+
+    Agents
+    ------
+    Varied number
+
+    State
+    -----
+    Each state is made up of the state of each vehicle, which in turn is
+    defined by:
+
+    - the (x, y) (x=column, y=row, with origin at the top-left square of the
+      grid) of the vehicle,
+    - the direction the vehicle is facing NORTH=0, SOUTH=1, EAST=2, WEST=3),
+    - the speed of the vehicle (REVERSE=-1, STOPPED=0, FORWARD_SLOW=1,
+      FORWARD_FAST=2),
+    - the (x, y) of the vehicles destination
+    - whether the vehicle has reached it's destination or not
+    - whether the vehicle has crashed or not
+
+    Actions
+    -------
+    Each agent has 5 actions: DO_NOTHING=0, ACCELERATE=1, DECELERATE=2,
+    TURN_RIGHT=3, TURN_LEFT=4
+
+    Observation
+    -----------
+    Each agent observes their current speed along with the cells in their local
+    area. The size of the local area observed is controlled by the `obs_dims`
+    parameter. For each cell in the observed are the agent observes whether
+    they are one of four things: VEHICLE=0, WALL=1, EMPTY=2, DESTINATION=3.
+    Each agent also observes the (x, y) coordinates of their destination,
+    whether they have reached the destination, and whether they have crashed.
+
+    Each observation is represented as a tuple:
+        ((local obs), speed, destination coord, destination reached, crashed)
+
+    Reward
+    ------
+    All agents receive a penalty of 0.00 for each step. They also recieve a
+    penalty of -0.5 for hitting an obstacle (if ``obstacle_collision=True``),
+    and -1.0 for hitting another vehicle. A reward of 1.0 is given if the agent
+    reaches it's destination.
+
+    Transition Dynamics
+    -------------------
+    Actions are deterministic and movement is determined by direction the
+    vehicle is facing and it's speed:
+
+    - Speed=-1 (REVERSE) - vehicle moves one cell in the opposite direction
+    - Speed=0 (STOPPED) - vehicle remains in same cell
+    - Speed=1 (FORWARD_SLOW) - vehicle move one cell in facing direction
+    - Speed=1 (FORWARD_FAST) - vehicle moves two cells in facing direction
+
+    Accelerating increases speed by 1, while deceleration decreased speed by 1.
+    If the vehicle will hit a wall or an other vehicle when moving from one
+    cell to another then it remains in it's current cell and its crashed state
+    variable is updated. Once a vehicle reaches it's destination it is stuck.
+
+    Episodes ends when all agents have either reached their destination or
+    crashed, or the episode step limit is reached.
+
+    References
+    ----------
+    - Adam Lerer and Alexander Peysakhovich. 2019. Learning Existing Social Conventions
+    via Observationally Augmented Self-Play. In Proceedings of the 2019 AAAI/ACM
+    Conference on AI, Ethics, and Society. 107–114.
+    - Kevin R. McKee, Joel Z. Leibo, Charlie Beattie, and Richard Everett. 2022.
+    Quantifying the Effects of Environment and Population Diversity in Multi-Agent
+    Reinforcement Learning. Autonomous Agents and Multi-Agent Systems 36, 1 (2022), 1–16
+
+    """
+
+    metadata = {
+        "render_modes": ["human", "ansi", "rgb_array", "rgb_array_dict"],
+        "render_fps": 4,
+    }
 
     def __init__(
         self,
-        grid_width: int,
-        grid_height: int,
-        block_coords: Set[Coord],
-        start_coords: List[Set[Coord]],
-        dest_coords: List[Set[Coord]],
+        grid: Union[str, "DrivingGrid"],
+        num_agents: int,
+        obs_dim: Tuple[int, int, int],
+        obstacle_collisions: bool,
+        render_mode: Optional[str] = None,
+        **kwargs,
     ):
-        super().__init__(grid_width, grid_height, block_coords)
-        assert len(start_coords) == len(dest_coords)
-        self.start_coords = start_coords
-        self.dest_coords = dest_coords
+        super().__init__(
+            DrivingModel(grid, num_agents, obs_dim, obstacle_collisions, **kwargs),
+            render_mode=render_mode,
+        )
+        self._obs_dim = obs_dim
+        self._viewer = None
+        self._renderer: Optional[render_lib.GWRenderer] = None
+        # Whether to re-render blocks each new episode
+        # This is needed when block positions change between episodes
+        self._rerender_blocks = False
 
-        self.shortest_paths = self.get_all_shortest_paths(set.union(*dest_coords))
+    def render(self):
+        model: DrivingModel = self.model  # type: ignore
+        if self.render_mode == "ansi":
+            grid_str = model.grid.get_ascii_repr(
+                [vs.coord for vs in self._state],
+                [vs.facing_dir for vs in self._state],
+                [vs.dest_coord for vs in self._state],
+            )
 
-    @property
-    def supported_num_agents(self) -> int:
-        """Get the number of agents supported by this grid."""
-        return len(self.start_coords)
+            output = [
+                f"Step: {self._step_num}",
+                grid_str,
+            ]
+            if self._last_actions is not None:
+                action_str = ", ".join(
+                    [ACTIONS_STR[a] for a in self._last_actions.values()]
+                )
+                output.insert(1, f"Actions: <{action_str}>")
+                output.append(f"Rewards: <{self._last_rewards}>")
 
-    def get_shortest_path_distance(self, coord: Coord, dest: Coord) -> int:
-        """Get the shortest path distance from coord to destination."""
-        return int(self.shortest_paths[dest][coord])
+            return "\n".join(output) + "\n"
 
-    def get_max_shortest_path_distance(self) -> int:
-        """Get the longest shortest path distance to any destination."""
-        return int(max([max(d.values()) for d in self.shortest_paths.values()]))
+        if self.render_mode == "human" and self._viewer is None:
+            # pylint: disable=[import-outside-toplevel]
+            from posggym.envs.grid_world import viewer
 
-    def get_ascii_repr(
+            self._viewer = viewer.GWViewer(  # type: ignore
+                "Driving Env",
+                (min(model.grid.width, 9), min(model.grid.height, 9)),
+                num_agent_displays=len(self.possible_agents),
+            )
+            self._viewer.show(block=False)  # type: ignore
+
+        blocks_added = False
+        if self._renderer is None:
+            blocks_added = True
+            self._renderer = render_lib.GWRenderer(
+                len(self.possible_agents), model.grid, [], render_blocks=True
+            )
+
+        agent_obs_coords = tuple(
+            model.get_obs_coords(vs.coord, vs.facing_dir) for vs in self._state
+        )
+        agent_coords = tuple(vs.coord for vs in self._state)
+        agent_dirs = tuple(vs.facing_dir for vs in self._state)
+
+        # Add agent destination locations
+        other_objs = [
+            render_lib.GWObject(
+                vs.dest_coord,
+                render_lib.get_agent_color(i),
+                render_lib.Shape.RECTANGLE,
+                # make dest squares slightly different to vehicle color
+                alpha=0.2,
+            )
+            for i, vs in enumerate(self._state)
+        ]
+        # Add blocks, as necessary
+        if self._rerender_blocks and not blocks_added:
+            for block_coord in model.grid.block_coords:
+                other_objs.append(
+                    render_lib.GWObject(block_coord, "grey", render_lib.Shape.RECTANGLE)
+                )
+        # Add visualization for crashed agents
+        for i, vs in enumerate(self._state):
+            if vs.crashed:
+                other_objs.append(
+                    render_lib.GWObject(vs.coord, "yellow", render_lib.Shape.CIRCLE)
+                )
+
+        env_img = self._renderer.render(
+            agent_coords,
+            agent_obs_coords,
+            agent_dirs=agent_dirs,
+            other_objs=other_objs,
+            agent_colors=None,
+        )
+        agent_obs_imgs = self._renderer.render_all_agent_obs(
+            env_img,
+            agent_coords,
+            agent_dirs,
+            agent_obs_dims=self._obs_dim,
+            out_of_bounds_obj=render_lib.GWObject(
+                (0, 0), "grey", render_lib.Shape.RECTANGLE
+            ),
+        )
+
+        if self.render_mode == "human":
+            self._viewer.update_img(env_img, agent_idx=None)
+            for i, obs_img in enumerate(agent_obs_imgs):
+                self._viewer.update_img(obs_img, agent_idx=i)
+            self._viewer.display_img()
+        elif self.render_mode == "rgb_array":
+            return env_img
+        else:
+            # rgb_array_dict
+            return dict(enumerate(agent_obs_imgs))
+
+    def close(self) -> None:
+        if self._viewer is not None:
+            self._viewer.close()
+            self._viewer = None
+
+
+class DrivingGenEnv(DrivingEnv):
+    """The Generated Driving Grid World Environment.
+
+    This is the same as the Driving Environment except that a new grid is
+    generated at each reset.
+
+    The generated Grids can be:
+
+    1. set to be from some list of grids, in which case the grids in the list
+       will be cycled through (in the same order or shuffled)
+    2. generated a new each reset. Depending on grid size and generator
+       parameters this will lead to possibly unique grids each episode.
+
+    The seed parameter can be used to ensure the same grids are used on
+    different runs.
+
+    """
+
+    def __init__(
         self,
-        vehicle_coords: List[Coord],
-        vehicle_dirs: List[Direction],
-        vehicle_dests: List[Coord],
-    ) -> str:
-        """Get ascii repr of grid."""
-        grid_repr = []
-        for row in range(self.height):
-            row_repr = []
-            for col in range(self.width):
-                coord = (col, row)
-                if coord in self.block_coords:
-                    row_repr.append("#")
-                elif coord in vehicle_dests:
-                    row_repr.append("D")
-                else:
-                    row_repr.append(".")
-            grid_repr.append(row_repr)
+        num_agents: int,
+        obs_dim: Tuple[int, int, int],
+        obstacle_collisions: bool,
+        n_grids: Optional[int],
+        generator_params: Dict[str, Any],
+        shuffle_grid_order: bool = True,
+        seed: Optional[int] = None,
+        **kwargs,
+    ):
+        if "seed" not in generator_params:
+            generator_params["seed"] = seed
 
-        for coord, direction in zip(vehicle_coords, vehicle_dirs):
-            grid_repr[coord[0]][coord[1]] = DIRECTION_ASCII_REPR[direction]
+        self._n_grids = n_grids
+        self._gen_params = generator_params
+        self._shuffle_grid_order = shuffle_grid_order
+        self._gen = DrivingGridGenerator(**generator_params)
+        # Need to re-add blocks each time since these change each episode
+        self._rerender_blocks = True
 
-        return "\n".join(list(list((" ".join(r) for r in grid_repr))))
+        if n_grids is not None:
+            grids = self._gen.generate_n(n_grids)
+            self._cycler = GridCycler(grids, shuffle_grid_order, seed=seed)
+            grid: "DrivingGrid" = grids[0]  # type: ignore
+        else:
+            self._cycler = None  # type: ignore
+            grid = self._gen.generate()
+
+        self._model_kwargs = {
+            "num_agents": num_agents,
+            "obs_dim": obs_dim,
+            "obstacle_collisions": obstacle_collisions,
+            **kwargs,
+        }
+
+        super().__init__(
+            grid,
+            num_agents,
+            obs_dim,
+            obstacle_collisions=obstacle_collisions,
+            seed=seed,
+            **kwargs,
+        )
+
+    def reset(
+        self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
+    ) -> Tuple[Optional[Dict[M.AgentID, DObs]], Dict[M.AgentID, Dict]]:
+        if seed is not None:
+            self._gen_params["seed"] = seed
+            self._gen = DrivingGridGenerator(**self._gen_params)
+
+            if self._n_grids is not None:
+                grids = self._gen.generate_n(self._n_grids)
+                self._cycler = GridCycler(grids, self._shuffle_grid_order, seed=seed)
+
+        if self._n_grids:
+            grid = self._cycler.next()
+        else:
+            grid = self._gen.generate()
+
+        self.model = DrivingModel(
+            grid,  # type: ignore
+            **self._model_kwargs,  # type: ignore
+        )
+
+        return super().reset(seed=seed)
 
 
 class DrivingModel(M.POSGModel[DState, DObs, DAction]):
@@ -194,12 +441,15 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
     def __init__(
         self,
-        grid: DrivingGrid,
+        grid: Union[str, "DrivingGrid"],
         num_agents: int,
         obs_dim: Tuple[int, int, int],
         obstacle_collisions: bool,
         **kwargs,
     ):
+        if isinstance(grid, str):
+            grid = load_grid(grid)
+
         assert 0 < num_agents <= grid.supported_num_agents
         assert obs_dim[0] > 0 and obs_dim[1] >= 0 and obs_dim[2] >= 0
         self.grid = grid
@@ -662,307 +912,61 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         return rewards
 
 
-class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
-    """The Driving Grid World Environment.
-
-    A general-sum 2D grid world problem involving multiple agents. Each agent
-    controls a vehicle and is tasked with driving the vehicle from it's start
-    location to a destination location while avoiding crashing into obstacles
-    or other vehicles.
-
-    This environment requires each agent to navigate in the world while also
-    taking care to avoid crashing into other players. The dynamics and
-    observations of the environment are such that avoiding collisions requires
-    some planning in order for the vehicle to brake in time or maintain a good
-    speed. Depending on the grid layout, the environment will require agents to
-    reason about and possibly coordinate with the other vehicles.
-
-
-    Agents
-    ------
-    Varied number
-
-    State
-    -----
-    Each state is made up of the state of each vehicle, which in turn is
-    defined by:
-
-    - the (x, y) (x=column, y=row, with origin at the top-left square of the
-      grid) of the vehicle,
-    - the direction the vehicle is facing NORTH=0, SOUTH=1, EAST=2, WEST=3),
-    - the speed of the vehicle (REVERSE=-1, STOPPED=0, FORWARD_SLOW=1,
-      FORWARD_FAST=2),
-    - the (x, y) of the vehicles destination
-    - whether the vehicle has reached it's destination or not
-    - whether the vehicle has crashed or not
-
-    Actions
-    -------
-    Each agent has 5 actions: DO_NOTHING=0, ACCELERATE=1, DECELERATE=2,
-    TURN_RIGHT=3, TURN_LEFT=4
-
-    Observation
-    -----------
-    Each agent observes their current speed along with the cells in their local
-    area. The size of the local area observed is controlled by the `obs_dims`
-    parameter. For each cell in the observed are the agent observes whether
-    they are one of four things: VEHICLE=0, WALL=1, EMPTY=2, DESTINATION=3.
-    Each agent also observes the (x, y) coordinates of their destination,
-    whether they have reached the destination, and whether they have crashed.
-
-    Each observation is represented as a tuple:
-        ((local obs), speed, destination coord, destination reached, crashed)
-
-    Reward
-    ------
-    All agents receive a penalty of 0.00 for each step. They also recieve a
-    penalty of -0.5 for hitting an obstacle (if ``obstacle_collision=True``),
-    and -1.0 for hitting another vehicle. A reward of 1.0 is given if the agent
-    reaches it's destination.
-
-    Transition Dynamics
-    -------------------
-    Actions are deterministic and movement is determined by direction the
-    vehicle is facing and it's speed:
-
-    - Speed=-1 (REVERSE) - vehicle moves one cell in the opposite direction
-    - Speed=0 (STOPPED) - vehicle remains in same cell
-    - Speed=1 (FORWARD_SLOW) - vehicle move one cell in facing direction
-    - Speed=1 (FORWARD_FAST) - vehicle moves two cells in facing direction
-
-    Accelerating increases speed by 1, while deceleration decreased speed by 1.
-    If the vehicle will hit a wall or an other vehicle when moving from one
-    cell to another then it remains in it's current cell and its crashed state
-    variable is updated. Once a vehicle reaches it's destination it is stuck.
-
-    Episodes ends when all agents have either reached their destination or
-    crashed, or the episode step limit is reached.
-
-    References
-    ----------
-    - Adam Lerer and Alexander Peysakhovich. 2019. Learning Existing Social Conventions
-    via Observationally Augmented Self-Play. In Proceedings of the 2019 AAAI/ACM
-    Conference on AI, Ethics, and Society. 107–114.
-    - Kevin R. McKee, Joel Z. Leibo, Charlie Beattie, and Richard Everett. 2022.
-    Quantifying the Effects of Environment and Population Diversity in Multi-Agent
-    Reinforcement Learning. Autonomous Agents and Multi-Agent Systems 36, 1 (2022), 1–16
-
-    """
-
-    metadata = {
-        "render_modes": ["human", "ansi", "rgb_array", "rgb_array_dict"],
-        "render_fps": 4,
-    }
+class DrivingGrid(Grid):
+    """A grid for the Driving Problem."""
 
     def __init__(
         self,
-        grid: DrivingGrid,
-        num_agents: int,
-        obs_dim: Tuple[int, int, int],
-        obstacle_collisions: bool,
-        render_mode: Optional[str] = None,
-        **kwargs,
+        grid_width: int,
+        grid_height: int,
+        block_coords: Set[Coord],
+        start_coords: List[Set[Coord]],
+        dest_coords: List[Set[Coord]],
     ):
-        super().__init__(
-            DrivingModel(grid, num_agents, obs_dim, obstacle_collisions, **kwargs),
-            render_mode=render_mode,
-        )
-        self._obs_dim = obs_dim
-        self._viewer = None
-        self._renderer: Optional[render_lib.GWRenderer] = None
-        # Whether to re-render blocks each new episode
-        # This is needed when block positions change between episodes
-        self._rerender_blocks = False
+        super().__init__(grid_width, grid_height, block_coords)
+        assert len(start_coords) == len(dest_coords)
+        self.start_coords = start_coords
+        self.dest_coords = dest_coords
 
-    def render(self):
-        model: DrivingModel = self.model  # type: ignore
-        if self.render_mode == "ansi":
-            grid_str = model.grid.get_ascii_repr(
-                [vs.coord for vs in self._state],
-                [vs.facing_dir for vs in self._state],
-                [vs.dest_coord for vs in self._state],
-            )
+        self.shortest_paths = self.get_all_shortest_paths(set.union(*dest_coords))
 
-            output = [
-                f"Step: {self._step_num}",
-                grid_str,
-            ]
-            if self._last_actions is not None:
-                action_str = ", ".join(
-                    [ACTIONS_STR[a] for a in self._last_actions.values()]
-                )
-                output.insert(1, f"Actions: <{action_str}>")
-                output.append(f"Rewards: <{self._last_rewards}>")
+    @property
+    def supported_num_agents(self) -> int:
+        """Get the number of agents supported by this grid."""
+        return len(self.start_coords)
 
-            return "\n".join(output) + "\n"
+    def get_shortest_path_distance(self, coord: Coord, dest: Coord) -> int:
+        """Get the shortest path distance from coord to destination."""
+        return int(self.shortest_paths[dest][coord])
 
-        if self.render_mode == "human" and self._viewer is None:
-            # pylint: disable=[import-outside-toplevel]
-            from posggym.envs.grid_world import viewer
+    def get_max_shortest_path_distance(self) -> int:
+        """Get the longest shortest path distance to any destination."""
+        return int(max([max(d.values()) for d in self.shortest_paths.values()]))
 
-            self._viewer = viewer.GWViewer(  # type: ignore
-                "Driving Env",
-                (min(model.grid.width, 9), min(model.grid.height, 9)),
-                num_agent_displays=len(self.possible_agents),
-            )
-            self._viewer.show(block=False)  # type: ignore
-
-        blocks_added = False
-        if self._renderer is None:
-            blocks_added = True
-            self._renderer = render_lib.GWRenderer(
-                len(self.possible_agents), model.grid, [], render_blocks=True
-            )
-
-        agent_obs_coords = tuple(
-            model.get_obs_coords(vs.coord, vs.facing_dir) for vs in self._state
-        )
-        agent_coords = tuple(vs.coord for vs in self._state)
-        agent_dirs = tuple(vs.facing_dir for vs in self._state)
-
-        # Add agent destination locations
-        other_objs = [
-            render_lib.GWObject(
-                vs.dest_coord,
-                render_lib.get_agent_color(i),
-                render_lib.Shape.RECTANGLE,
-                # make dest squares slightly different to vehicle color
-                alpha=0.2,
-            )
-            for i, vs in enumerate(self._state)
-        ]
-        # Add blocks, as necessary
-        if self._rerender_blocks and not blocks_added:
-            for block_coord in model.grid.block_coords:
-                other_objs.append(
-                    render_lib.GWObject(block_coord, "grey", render_lib.Shape.RECTANGLE)
-                )
-        # Add visualization for crashed agents
-        for i, vs in enumerate(self._state):
-            if vs.crashed:
-                other_objs.append(
-                    render_lib.GWObject(vs.coord, "yellow", render_lib.Shape.CIRCLE)
-                )
-
-        env_img = self._renderer.render(
-            agent_coords,
-            agent_obs_coords,
-            agent_dirs=agent_dirs,
-            other_objs=other_objs,
-            agent_colors=None,
-        )
-        agent_obs_imgs = self._renderer.render_all_agent_obs(
-            env_img,
-            agent_coords,
-            agent_dirs,
-            agent_obs_dims=self._obs_dim,
-            out_of_bounds_obj=render_lib.GWObject(
-                (0, 0), "grey", render_lib.Shape.RECTANGLE
-            ),
-        )
-
-        if self.render_mode == "human":
-            self._viewer.update_img(env_img, agent_idx=None)
-            for i, obs_img in enumerate(agent_obs_imgs):
-                self._viewer.update_img(obs_img, agent_idx=i)
-            self._viewer.display_img()
-        elif self.render_mode == "rgb_array":
-            return env_img
-        else:
-            # rgb_array_dict
-            return dict(enumerate(agent_obs_imgs))
-
-    def close(self) -> None:
-        if self._viewer is not None:
-            self._viewer.close()
-            self._viewer = None
-
-
-class DrivingGenEnv(DrivingEnv):
-    """The Generated Driving Grid World Environment.
-
-    This is the same as the Driving Environment except that a new grid is
-    generated at each reset.
-
-    The generated Grids can be:
-
-    1. set to be from some list of grids, in which case the grids in the list
-       will be cycled through (in the same order or shuffled)
-    2. generated a new each reset. Depending on grid size and generator
-       parameters this will lead to possibly unique grids each episode.
-
-    The seed parameter can be used to ensure the same grids are used on
-    different runs.
-
-    """
-
-    def __init__(
+    def get_ascii_repr(
         self,
-        num_agents: int,
-        obs_dim: Tuple[int, int, int],
-        obstacle_collisions: bool,
-        n_grids: Optional[int],
-        generator_params: Dict[str, Any],
-        shuffle_grid_order: bool = True,
-        seed: Optional[int] = None,
-        **kwargs,
-    ):
-        if "seed" not in generator_params:
-            generator_params["seed"] = seed
+        vehicle_coords: List[Coord],
+        vehicle_dirs: List[Direction],
+        vehicle_dests: List[Coord],
+    ) -> str:
+        """Get ascii repr of grid."""
+        grid_repr = []
+        for row in range(self.height):
+            row_repr = []
+            for col in range(self.width):
+                coord = (col, row)
+                if coord in self.block_coords:
+                    row_repr.append("#")
+                elif coord in vehicle_dests:
+                    row_repr.append("D")
+                else:
+                    row_repr.append(".")
+            grid_repr.append(row_repr)
 
-        self._n_grids = n_grids
-        self._gen_params = generator_params
-        self._shuffle_grid_order = shuffle_grid_order
-        self._gen = DrivingGridGenerator(**generator_params)
-        # Need to re-add blocks each time since these change each episode
-        self._rerender_blocks = True
+        for coord, direction in zip(vehicle_coords, vehicle_dirs):
+            grid_repr[coord[0]][coord[1]] = DIRECTION_ASCII_REPR[direction]
 
-        if n_grids is not None:
-            grids = self._gen.generate_n(n_grids)
-            self._cycler = GridCycler(grids, shuffle_grid_order, seed=seed)
-            grid = grids[0]
-        else:
-            self._cycler = None  # type: ignore
-            grid = self._gen.generate()
-
-        self._model_kwargs = {
-            "num_agents": num_agents,
-            "obs_dim": obs_dim,
-            "obstacle_collisions": obstacle_collisions,
-            **kwargs,
-        }
-
-        super().__init__(
-            grid,  # type: ignore
-            num_agents,
-            obs_dim,
-            obstacle_collisions=obstacle_collisions,
-            seed=seed,
-            **kwargs,
-        )
-
-    def reset(
-        self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
-    ) -> Tuple[Optional[Dict[M.AgentID, DObs]], Dict[M.AgentID, Dict]]:
-        if seed is not None:
-            self._gen_params["seed"] = seed
-            self._gen = DrivingGridGenerator(**self._gen_params)
-
-            if self._n_grids is not None:
-                grids = self._gen.generate_n(self._n_grids)
-                self._cycler = GridCycler(grids, self._shuffle_grid_order, seed=seed)
-
-        if self._n_grids:
-            grid = self._cycler.next()
-        else:
-            grid = self._gen.generate()
-
-        self.model = DrivingModel(
-            grid,  # type: ignore
-            **self._model_kwargs,  # type: ignore
-        )
-
-        return super().reset(seed=seed)
+        return "\n".join(list(list((" ".join(r) for r in grid_repr))))
 
 
 def parse_grid_str(grid_str: str, supported_num_agents: int) -> DrivingGrid:
@@ -1196,12 +1200,14 @@ class DrivingGridGenerator(GridGenerator):
     the outside of edge of the grid.
     """
 
-    def __init__(self,
-                 width: int,
-                 height: int,
-                 max_obstacle_size: int,
-                 max_num_obstacles: int,
-                 seed: Optional[int] = None):
+    def __init__(
+        self,
+        width: int,
+        height: int,
+        max_obstacle_size: int,
+        max_num_obstacles: int,
+        seed: Optional[int] = None,
+    ):
         super().__init__(
             width,
             height,
@@ -1209,7 +1215,7 @@ class DrivingGridGenerator(GridGenerator):
             max_obstacle_size,
             max_num_obstacles,
             ensure_grid_connected=True,
-            seed=seed
+            seed=seed,
         )
 
         self._start_coords = [self.mask for _ in range(len(self.mask))]
@@ -1220,11 +1226,11 @@ class DrivingGridGenerator(GridGenerator):
         mask = set()
         for x in range(start, width, 2):
             mask.add((x, 0))
-            mask.add((x, height-1))
+            mask.add((x, height - 1))
 
         for y in range(start, height, 2):
             mask.add((0, y))
-            mask.add((width-1, y))
+            mask.add((width - 1, y))
 
         return mask
 
@@ -1236,7 +1242,7 @@ class DrivingGridGenerator(GridGenerator):
             base_grid.height,
             base_grid.block_coords,
             self._start_coords,
-            self._dest_coords
+            self._dest_coords,
         )
         return driving_grid
 
@@ -1248,7 +1254,7 @@ SUPPORTED_GEN_PARAMS = {
             "width": 7,
             "height": 7,
             "max_obstacle_size": 2,
-            "max_num_obstacles": 21    # size * 3
+            "max_num_obstacles": 21,  # size * 3
         },
         40,
     ),
@@ -1257,7 +1263,7 @@ SUPPORTED_GEN_PARAMS = {
             "width": 14,
             "height": 14,
             "max_obstacle_size": 3,
-            "max_num_obstacles": 42,   # size * 3
+            "max_num_obstacles": 42,  # size * 3
         },
         100,
     ),
@@ -1266,10 +1272,10 @@ SUPPORTED_GEN_PARAMS = {
             "width": 28,
             "height": 28,
             "max_obstacle_size": 4,
-            "max_num_obstacles": 84,    # size * 3
+            "max_num_obstacles": 84,  # size * 3
         },
         200,
-    )
+    ),
 }
 
 
@@ -1289,7 +1295,7 @@ SUPPORTED_GRIDS = {
 
 def load_grid(grid_name: str) -> DrivingGrid:
     """Load grid with given name."""
-    grid_name = grid_name.lower()
+    grid_name = grid_name
     assert grid_name in SUPPORTED_GRIDS, (
         f"Unsupported grid name '{grid_name}'. Grid name must be one of: "
         f"{SUPPORTED_GRIDS.keys()}."

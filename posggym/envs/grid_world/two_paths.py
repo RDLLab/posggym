@@ -46,53 +46,175 @@ CELL_OBS = [OPPONENT, WALL, EMPTY]
 CELL_OBS_STR = ["X", "#", "0"]
 
 
-class TPGrid(Grid):
-    """A grid for the Two-Paths Problem."""
+class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
+    """The Two-Paths Grid World Environment.
+
+    An adversarial 2D grid world problem involving two agents, a runner and
+    a chaser. The runner's goal is to reach one of two goal location, with each
+    goal located at the end of a seperate path. The lengths of the two paths
+    have different lengths. The goal of the chaser is to intercept the runner
+    before it reaches a goal. The runner is considered caught if it is observed
+    by the chaser, or occupies the same location. However, the chaser is only
+    able to effectively cover one of the two goal locations.
+
+    This environment requires each agent to reason about the which path the
+    other agent will choose. It offers an ideal testbed for planning under
+    finite-nested reasoning assumptions since it is possible to map reasoning
+    level to the expected path choice.
+
+    The two agents start at opposite ends of the maps.
+
+    Agents
+    ------
+    Runner=0
+    Chaser=1
+
+    State
+    -----
+    Each state contains the (x, y) (x=column, y=row, with origin at the
+    top-left square of the grid) of the runner and chaser agent. Specifically,
+    a states is ((x_runner, y_runner), (x_chaser, y_chaser))
+
+    Actions
+    -------
+    Each agent has 4 actions corresponding to moving in the 4 cardinal
+    directions (NORTH=0, EAST=1, SOUTH=2, WEST=3).
+
+    Observation
+    -----------
+    Each agent observes the adjacent cells in the four cardinal directions and
+    whether they are one of three things: OPPONENT=0, WALL=1, EMPTY=2.
+    Each agent also observes whether a terminal state was reach (0/1). This is
+    necessary for the infinite horizon model of the environment.
+
+    Each observation is represented as a tuple:
+        ((cell_north, cell_south, cell_east, cell_west), terminal)
+
+    Reward
+    ------
+    Both agents receive a penalty of -0.01 for each step.
+    If the runner reaches the goal then the runner recieves a reward of 1.0,
+    while the chaser recieves a penalty of -1.0.
+    If the runner is observed by the chaser, then the runner recieves a penalty
+    of -1.0, while the chaser recieves a reward of 1.0.
+
+    The rewards make the environment adversarial, but not strictly zero-sum,
+    due to the small penalty each step.
+
+    Transition Dynamics
+    -------------------
+    By default actions are deterministic and an episode ends when either the
+    runner is caught, the runner reaches a goal, or the step limit is reached.
+
+    The environment can also be run in stochastic mode by changing the
+    action_probs parameter at initialization. This controls the probability
+    the agent will move in the desired direction each step, otherwise moving
+    randomly in one of the other 3 possible directions.
+
+    Lastly, if using infinite_horizon mode then the environment resets to the
+    start state once a terminal state is reached.
+    """
+
+    metadata = {
+        "render_modes": ["human", "ansi", "rgb_array", "rgb_array_dict"],
+        "render_fps": 4,
+    }
 
     def __init__(
         self,
-        grid_width: int,
-        grid_height: int,
-        block_coords: Set[Coord],
-        goal_coords: Set[Coord],
-        init_runner_coord: Coord,
-        init_chaser_coord: Coord,
+        grid_name: str,
+        action_probs: Union[float, Tuple[float, float]] = 1.0,
+        infinite_horizon: bool = False,
+        render_mode: Optional[str] = None,
+        **kwargs,
     ):
-        super().__init__(grid_width, grid_height, block_coords)
-        self.goal_coords = goal_coords
-        self.init_runner_coord = init_runner_coord
-        self.init_chaser_coord = init_chaser_coord
+        self._viewer = None
+        self._renderer: Optional[render_lib.GWRenderer] = None
+        super().__init__(
+            TwoPathsModel(grid_name, action_probs, infinite_horizon, **kwargs),
+            render_mode=render_mode,
+        )
 
-    def get_ascii_repr(
-        self, runner_coord: Optional[Coord], chaser_coord: Optional[Coord]
-    ) -> str:
-        """Get ascii repr of grid."""
-        grid_repr = []
-        for row in range(self.height):
-            row_repr = []
-            for col in range(self.width):
-                coord = (col, row)
-                if coord in self.goal_coords:
-                    row_repr.append("G")
-                elif coord in self.block_coords:
-                    row_repr.append("#")
-                else:
-                    row_repr.append(".")
-            grid_repr.append(row_repr)
+    def render(self):
+        grid = self.model.grid  # type: ignore
+        if self.render_mode == "ansi":
+            grid_str = grid.get_ascii_repr(self._state[0], self._state[1])
 
-        if runner_coord is not None:
-            grid_repr[runner_coord[1]][runner_coord[0]] = "R"
-        if chaser_coord is not None:
-            if chaser_coord == runner_coord:
-                grid_repr[chaser_coord[1]][chaser_coord[0]] = "X"
-            else:
-                grid_repr[chaser_coord[1]][chaser_coord[0]] = "C"
+            output = [
+                f"Step: {self._step_num}",
+                grid_str,
+            ]
+            if self._last_actions is not None:
+                action_str = ", ".join(
+                    [str(Direction(a)) for a in self._last_actions.values()]
+                )
+                output.insert(1, f"Actions: <{action_str}>")
+                output.append(f"Rewards: <{self._last_rewards}>")
 
-        return "\n".join(list(list((" ".join(r) for r in grid_repr))))
+            return "\n".join(output) + "\n"
 
-    def get_init_ascii_repr(self) -> str:
-        """Get ascii repr of initial grid."""
-        return self.get_ascii_repr(self.init_runner_coord, self.init_chaser_coord)
+        if self.render_mode == "human" and self._viewer is None:
+            # pylint: disable=[import-outside-toplevel]
+            from posggym.envs.grid_world import viewer
+
+            self._viewer = viewer.GWViewer(
+                "Two-Paths Env",
+                (min(grid.width, 9), min(grid.height, 9)),
+                num_agent_displays=len(self.possible_agents),
+            )
+            self._viewer.show(block=False)
+
+        if self._renderer is None:
+            static_objs = [
+                render_lib.GWObject(coord, "green", render_lib.Shape.RECTANGLE)
+                for coord in grid.goal_coords
+            ]
+            self._renderer = render_lib.GWRenderer(
+                len(self.possible_agents), grid, static_objs, render_blocks=True
+            )
+
+        agent_coords = self._state
+        agent_obs_coords = tuple(
+            grid.get_neighbours(self._state[i], True)
+            for i in range(len(self.possible_agents))
+        )
+        for i, coord in enumerate(agent_coords):
+            agent_obs_coords[i].append(coord)
+        agent_dirs = tuple(Direction.NORTH for _ in range(len(self.possible_agents)))
+
+        env_img = self._renderer.render(
+            self._state,
+            agent_obs_coords,
+            agent_dirs,
+            other_objs=None,
+            agent_colors=None,
+        )
+        agent_obs_imgs = self._renderer.render_all_agent_obs(
+            env_img,
+            agent_coords,
+            agent_dirs,
+            agent_obs_dims=(1, 1, 1),
+            out_of_bounds_obj=render_lib.GWObject(
+                (0, 0), "grey", render_lib.Shape.RECTANGLE
+            ),
+            agent_obs_coords=agent_obs_coords,
+        )
+
+        if self.render_mode == "human":
+            self._viewer.update_img(env_img, agent_idx=None)
+            for i, obs_img in enumerate(agent_obs_imgs):
+                self._viewer.update_img(obs_img, agent_idx=i)
+            self._viewer.display_img()
+        elif self.render_mode == "rgb_array":
+            return env_img
+        else:
+            # rgb_array_dict
+            return dict(enumerate(agent_obs_imgs))
+
+    def close(self) -> None:
+        if self._viewer is not None:
+            self._viewer.close()
+            self._viewer = None
 
 
 class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
@@ -196,7 +318,7 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
     def get_initial_belief_dist(self) -> Dict[TPState, float]:
         s_0 = (self.grid.init_runner_coord, self.grid.init_chaser_coord)
         return {
-            s: float(s == s_0)   # type: ignore
+            s: float(s == s_0)  # type: ignore
             for s in itertools.product(self.grid.all_coords, repeat=2)
         }
 
@@ -321,175 +443,53 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
         return runner_coords in neighbour_coords
 
 
-class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
-    """The Two-Paths Grid World Environment.
-
-    An adversarial 2D grid world problem involving two agents, a runner and
-    a chaser. The runner's goal is to reach one of two goal location, with each
-    goal located at the end of a seperate path. The lengths of the two paths
-    have different lengths. The goal of the chaser is to intercept the runner
-    before it reaches a goal. The runner is considered caught if it is observed
-    by the chaser, or occupies the same location. However, the chaser is only
-    able to effectively cover one of the two goal locations.
-
-    This environment requires each agent to reason about the which path the
-    other agent will choose. It offers an ideal testbed for planning under
-    finite-nested reasoning assumptions since it is possible to map reasoning
-    level to the expected path choice.
-
-    The two agents start at opposite ends of the maps.
-
-    Agents
-    ------
-    Runner=0
-    Chaser=1
-
-    State
-    -----
-    Each state contains the (x, y) (x=column, y=row, with origin at the
-    top-left square of the grid) of the runner and chaser agent. Specifically,
-    a states is ((x_runner, y_runner), (x_chaser, y_chaser))
-
-    Actions
-    -------
-    Each agent has 4 actions corresponding to moving in the 4 cardinal
-    directions (NORTH=0, EAST=1, SOUTH=2, WEST=3).
-
-    Observation
-    -----------
-    Each agent observes the adjacent cells in the four cardinal directions and
-    whether they are one of three things: OPPONENT=0, WALL=1, EMPTY=2.
-    Each agent also observes whether a terminal state was reach (0/1). This is
-    necessary for the infinite horizon model of the environment.
-
-    Each observation is represented as a tuple:
-        ((cell_north, cell_south, cell_east, cell_west), terminal)
-
-    Reward
-    ------
-    Both agents receive a penalty of -0.01 for each step.
-    If the runner reaches the goal then the runner recieves a reward of 1.0,
-    while the chaser recieves a penalty of -1.0.
-    If the runner is observed by the chaser, then the runner recieves a penalty
-    of -1.0, while the chaser recieves a reward of 1.0.
-
-    The rewards make the environment adversarial, but not strictly zero-sum,
-    due to the small penalty each step.
-
-    Transition Dynamics
-    -------------------
-    By default actions are deterministic and an episode ends when either the
-    runner is caught, the runner reaches a goal, or the step limit is reached.
-
-    The environment can also be run in stochastic mode by changing the
-    action_probs parameter at initialization. This controls the probability
-    the agent will move in the desired direction each step, otherwise moving
-    randomly in one of the other 3 possible directions.
-
-    Lastly, if using infinite_horizon mode then the environment resets to the
-    start state once a terminal state is reached.
-    """
-
-    metadata = {
-        "render_modes": ["human", "ansi", "rgb_array", "rgb_array_dict"],
-        "render_fps": 4
-    }
+class TPGrid(Grid):
+    """A grid for the Two-Paths Problem."""
 
     def __init__(
         self,
-        grid_name: str,
-        action_probs: Union[float, Tuple[float, float]] = 1.0,
-        infinite_horizon: bool = False,
-        render_mode: Optional[str] = None,
-        **kwargs,
+        grid_width: int,
+        grid_height: int,
+        block_coords: Set[Coord],
+        goal_coords: Set[Coord],
+        init_runner_coord: Coord,
+        init_chaser_coord: Coord,
     ):
-        self._viewer = None
-        self._renderer: Optional[render_lib.GWRenderer] = None
-        super().__init__(
-            TwoPathsModel(grid_name, action_probs, infinite_horizon, **kwargs),
-            render_mode=render_mode,
-        )
+        super().__init__(grid_width, grid_height, block_coords)
+        self.goal_coords = goal_coords
+        self.init_runner_coord = init_runner_coord
+        self.init_chaser_coord = init_chaser_coord
 
-    def render(self):
-        grid = self.model.grid  # type: ignore
-        if self.render_mode == "ansi":
-            grid_str = grid.get_ascii_repr(self._state[0], self._state[1])
+    def get_ascii_repr(
+        self, runner_coord: Optional[Coord], chaser_coord: Optional[Coord]
+    ) -> str:
+        """Get ascii repr of grid."""
+        grid_repr = []
+        for row in range(self.height):
+            row_repr = []
+            for col in range(self.width):
+                coord = (col, row)
+                if coord in self.goal_coords:
+                    row_repr.append("G")
+                elif coord in self.block_coords:
+                    row_repr.append("#")
+                else:
+                    row_repr.append(".")
+            grid_repr.append(row_repr)
 
-            output = [
-                f"Step: {self._step_num}",
-                grid_str,
-            ]
-            if self._last_actions is not None:
-                action_str = ", ".join(
-                    [str(Direction(a)) for a in self._last_actions.values()]
-                )
-                output.insert(1, f"Actions: <{action_str}>")
-                output.append(f"Rewards: <{self._last_rewards}>")
+        if runner_coord is not None:
+            grid_repr[runner_coord[1]][runner_coord[0]] = "R"
+        if chaser_coord is not None:
+            if chaser_coord == runner_coord:
+                grid_repr[chaser_coord[1]][chaser_coord[0]] = "X"
+            else:
+                grid_repr[chaser_coord[1]][chaser_coord[0]] = "C"
 
-            return "\n".join(output) + "\n"
+        return "\n".join(list(list((" ".join(r) for r in grid_repr))))
 
-        if self.render_mode == "human" and self._viewer is None:
-            # pylint: disable=[import-outside-toplevel]
-            from posggym.envs.grid_world import viewer
-
-            self._viewer = viewer.GWViewer(
-                "Two-Paths Env",
-                (min(grid.width, 9), min(grid.height, 9)),
-                num_agent_displays=len(self.possible_agents),
-            )
-            self._viewer.show(block=False)
-
-        if self._renderer is None:
-            static_objs = [
-                render_lib.GWObject(coord, "green", render_lib.Shape.RECTANGLE)
-                for coord in grid.goal_coords
-            ]
-            self._renderer = render_lib.GWRenderer(
-                len(self.possible_agents), grid, static_objs, render_blocks=True
-            )
-
-        agent_coords = self._state
-        agent_obs_coords = tuple(
-            grid.get_neighbours(self._state[i], True)
-            for i in range(len(self.possible_agents))
-        )
-        for i, coord in enumerate(agent_coords):
-            agent_obs_coords[i].append(coord)
-        agent_dirs = tuple(Direction.NORTH for _ in range(len(self.possible_agents)))
-
-        env_img = self._renderer.render(
-            self._state,
-            agent_obs_coords,
-            agent_dirs,
-            other_objs=None,
-            agent_colors=None,
-        )
-        agent_obs_imgs = self._renderer.render_all_agent_obs(
-            env_img,
-            agent_coords,
-            agent_dirs,
-            agent_obs_dims=(1, 1, 1),
-            out_of_bounds_obj=render_lib.GWObject(
-                (0, 0), "grey", render_lib.Shape.RECTANGLE
-            ),
-            agent_obs_coords=agent_obs_coords,
-        )
-
-        if self.render_mode == "human":
-            self._viewer.update_img(env_img, agent_idx=None)
-            for i, obs_img in enumerate(agent_obs_imgs):
-                self._viewer.update_img(obs_img, agent_idx=i)
-            self._viewer.display_img()
-        elif self.render_mode == "rgb_array":
-            return env_img
-        else:
-            # rgb_array_dict
-            return dict(enumerate(agent_obs_imgs))
-
-    def close(self) -> None:
-        if self._viewer is not None:
-            self._viewer.close()
-            self._viewer = None
+    def get_init_ascii_repr(self) -> str:
+        """Get ascii repr of initial grid."""
+        return self.get_ascii_repr(self.init_runner_coord, self.init_chaser_coord)
 
 
 def get_3x3_grid() -> TPGrid:
@@ -611,7 +611,7 @@ SUPPORTED_GRIDS = {
 
 def load_grid(grid_name: str) -> TPGrid:
     """Load grid with given name."""
-    grid_name = grid_name.lower()
+    grid_name = grid_name
     assert grid_name in SUPPORTED_GRIDS, (
         f"Unsupported grid name '{grid_name}'. Grid name must be one of: "
         f"{SUPPORTED_GRIDS.keys()}."
