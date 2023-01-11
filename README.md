@@ -1,8 +1,18 @@
 # POSGGym
 
-The goal of this library is to provide implementations of Partially Observable Stochastic Game (POSG) environments coupled with dynamic models of each environment, all under a unified API. While there are a number of amazing open-source implementations for POSG environments, very few have easily useable dynamic models that can be used for planning. The aim of this library is to fill this gap.
+POSGGym is an open source Python library providing implementations of Partially Observable Stochastic Game (POSG) environments coupled with dynamic models of each environment, all under a unified API. While there are a number of amazing open-source implementations for POSG environments, very few have support for dynamic models that can be used for planning. The aim of this library is to fill this gap. Another aim it to provide open-source implementations for many of the environments commonly used in the Partially-Observable multi-agent planning literature. While some open-source implementations exist for some of the common environments, we hope to provide a central repository, with easy to understand and use implementations in order to make reproducibility easier and to aid in faster research.
 
-Another aim it to provide open-source implementations for many of the environments commonly used in the Partially-Observable multi-agent planning literature. While some open-source implementations exist for some of the common environments, we hope to provide a central repository, with easy to understand and use implementations in order to make reproducibility easier and to aid in faster research.
+POSGGym is directly inspired by and adapted from the [Gymnasium (formerly Open AI Gym)](https://gymnasium.farama.org/) and [PettingZoo](https://pettingzoo.farama.org/) libraries for reinforcement learning. The key addition in POSGGym is the support for environment models. POSGGym's API aims to mimic the Gymnasium API as much as possible while incorporating multiple-agents.
+
+The documentation for the project is available at **TODO**.
+
+
+## Environments
+
+POSGGym includes the following families of environments. The code for implemented environments are located in the `posggym/envs/` subdirectory.
+
+- *Classic* - These are classic POSG problems from the literature.
+- *Grid-World* - These environments are all based in a 2D Gridworld.
 
 
 ## Installation
@@ -22,94 +32,64 @@ pip install -e .[all]
 ```
 
 
-## Environment API (OUTDATED)
+## Environment API
 
-POSGGym environments follow the [Open AI Gym](https://github.com/openai/gym) API, except using joint actions, observations and rewards.
+POSGGym models each environment as a python `env` class. Creating environment instances and interacting with them is very simple, and flows almost identically to the Gymnasium user flow. Here's an example using the `TwoPaths-v0` environment:
 
-Creating environment instances and interacting with them is very simple, and flows almost identically to the Open AI Gym user flow. Here's an example using the "TwoPaths-v0" environment:
-
-```
+```python
 import posggym
-
 env = posggym.make("TwoPaths-v0")
 
-# env is created now we can use it
+observations, info = env.reset(seed=42)
 
-# the number of agents in the environment is stored in the n_agents property
-# env.n_agents
-for episode in range(10):
+for t in range(50):
+	actions = {i: env.action_spaces[i].sample() for i in env.agents}
+	observations, rewards, terminated, truncated, done, info = env.step(actions)
 
-	# reset the environment and get initial observation
-	# observations is a tuple with one observation per agent
-	observations = env.reset()
+	if done:
+		observation, info = env.reset(seed=42)
 
-	for step in range(50):
-		# select an action for each agent in the environment
-		# actions are a tuple of agent actions, ordered by agent index
-		actions = (as_i.sample() for as_i in env.action_spaces)
-
-		# execute a step
-		# observations and rewards are tuples with one entry per agent
-		# done signifies if episode reached a terminal state
-		# info is auxiliary information, e.g. outcome after the step
-		observations, rewards, done, info = env.step(actions)
-
-		# the env can also be rendered
-		# where "human" can be replaced by different rendering modes
-		env.render("human")
+env.close()
 ```
 
 
-## Model API (OUTDATED)
+## Model API
 
-Each environment comes with an implemented POSG model. Every environment model implements a generative model, which can be used for planning, along with an initial belief. Some environments also implement the full POSG model including the transition, joint observation and joint reward functions.
+Every environment provides access to a model of the environment in the form of a python `model` class. Each model implements a generative model, which can be used for planning, along with functions for sampling initial states. Some environments also implement a full POSG model including the transition, joint observation and joint reward functions.
 
-The following is an example of the generative model API.
+The following is an example of accessing and using the environment model:
 
 
-```
+```python
 import posggym
-
 env = posggym.make("TwoPaths-v0")
 model = env.model
 
-initial_belief = model.initial_belief
+model.seed(seed=42)
 
-# could also use model.sample_initial_state() convenience function
-state = initial_belief.sample()
-
+state = model.sample_initial_state()
 observations = model.sample_initial_obs(state)
 
-# get actions to perform
-# e.g. policy(observation[i]) for each agent i
-actions = (as_i.sample() for as_i in env.action_spaces)
+for t in range(50):
+	actions = {i: env.action_spaces[i].sample() for i in model.get_agents(state)}
+	state, observations, rewards, terminated, truncated, all_done, info = model.step(state, actions)
 
-# next_state, observations, rewards, done, outcomes ~ model.step(state, actions)
-joint_step = model.step(state, actions)
-
-state = joint_step.state
-observations = joint_step.observations
-rewards = joint_step.rewards
-done = joint_step.done           # whether terminal state was reached
-outcomes = joint_step.outcomes   # e.g. winner and loser agents if applicable
+	if all_done:
+		state = model.sample_initial_state()
+		observations = model.sample_initial_obs(state)
 ```
 
+The base model API is very similar to the environment API. The key difference that all methods are stateless so can be used repeatedly for planning. Indeed the `env` class for the built-in environments are mainly just a wrappers over the underlying `model` class that manage the state and add support for rendering.
 
-## Model Types
+Note that unlike for the `env` class, for convinience the output of the `model.step()` method is a `NamedTuple` instance and so it's components can be accessed as attributes. For example:
 
-POSGGym supports two types of models:
+```python
+result = model.step(state, actions)
+observations = result.observations
+info = result.info
+```
 
-- *Full* (`POSGFullModel` Class) - models which are fully defined, in the sense they include implementations of every component of the POSG model (including state space, transition, observation, and reward functions)
-- *Generative* (`POSGModel` Class) - models which only include implementation of a generative function which takes in a state and joint action and returns the next state, joint observation, joint reward, and terminal information.
-
-*Full* models implement a superset of the generative model functionallity.
-
-## Implemented Environments
-
-POSGGym includes the following families of environments along with some third-party environments. The code for implemented environments are located in the `posggym/envs/` subdirectory.
-
-- *Classic* - These are classic POSG problems.
-- *Grid-World* - These environments are all based in a 2D Gridworld.
+Both the `env` and `model` classes support a number of other methods, please see the documentation *TODO* for details.
 
 
 ## Authors

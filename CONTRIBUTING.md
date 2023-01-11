@@ -13,7 +13,8 @@ This section contains technical instructions & hints for the contributors.
 
 ### Type checking
 
-This project uses `mypy` for type checking. For instructions on installation and running `mypy` locally see official [instruction](https://mypy.readthedocs.io/en/latest/getting_started.html#installing-and-running-mypy).
+This project uses `mypy` for type checking. For instructions on installation see official [instructions](https://mypy.readthedocs.io/en/latest/getting_started.html#installing-and-running-mypy).
+Once `mypy` is installed it can be run locally by running ``mypy --package posggym`` from the root project directory.
 
 ### Code style
 
