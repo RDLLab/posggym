@@ -16,17 +16,20 @@ with Finite-State Models of Other Agents.” Autonomous Agents and
 Multi-Agent Systems 31 (4): 861–904.
 
 """
+from os import path
 import itertools
 import random
 from typing import Dict, List, Optional, Set, SupportsFloat, Tuple, Union
 
+import numpy as np
 from gymnasium import spaces
 
-import posggym.envs.grid_world.render as render_lib
+from posggym import logger
 import posggym.model as M
 from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import Coord, Direction, Grid
 from posggym.utils import seeding
+from posggym.error import DependencyNotInstalled
 
 
 UAVState = Tuple[Coord, Coord]
@@ -112,70 +115,123 @@ class UAVEnv(DefaultEnv[UAVState, UAVObs, UAVAction]):
     metadata = {"render_modes": ["human", "ansi", "rgb_array"], "render_fps": 4}
 
     def __init__(self, grid_name: str, render_mode: Optional[str] = None, **kwargs):
-        self._viewer = None
-        self._renderer: Optional[render_lib.GWRenderer] = None
         super().__init__(UAVModel(grid_name, **kwargs), render_mode=render_mode)
 
-    def render(self):
-        grid: UAVGrid = self.model.grid  # type: ignore
-        if self.render_mode == "ansi":
-            grid_str = grid.get_ascii_repr(self._state[0], self._state[1])
-
-            output = [
-                f"Step: {self._step_num}",
-                grid_str,
-            ]
-            if self._last_actions is not None:
-                action_str = ", ".join(
-                    [str(Direction(a)) for a in self._last_actions.values()]
-                )
-                output.insert(1, f"Actions: <{action_str}>")
-                output.append(f"Rewards: <{self._last_rewards}>")
-            return "\n".join(output) + "\n"
-
-        if self.render_mode == "human" and self._viewer is None:
-            # pylint: disable=[import-outside-toplevel]
-            from posggym.envs.grid_world import viewer
-
-            self._viewer = viewer.GWViewer(
-                "Unmanned Aerial Vehicle Env",
-                (min(grid.width, 9), min(grid.height, 9)),
-            )
-            self._viewer.show(block=False)
-
-        if self._renderer is None:
-            safe_house_obj = render_lib.GWObject(
-                grid.safe_house_coord, "green", render_lib.Shape.RECTANGLE
-            )
-            self._renderer = render_lib.GWRenderer(
-                len(self.possible_agents),
-                grid,
-                [safe_house_obj],
-                render_blocks=True,
-            )
-
-        agent_coords = self._state
-        agent_dirs = tuple(Direction.NORTH for _ in range(len(self.possible_agents)))
-
-        env_img = self._renderer.render(
-            agent_coords,
-            agent_obs_coords=None,
-            agent_dirs=agent_dirs,
-            other_objs=None,
-            agent_colors=None,
+        grid: UAVGrid = self.model.grid   # type: ignore
+        self.window_size = (min(64 * grid.width, 512), min(64 * grid.height, 512))
+        self.cell_size = (
+            self.window_size[0] // grid.width,
+            self.window_size[1] // grid.height
         )
-        # At the moment the UAV doesn't support agent centric rendering
+        self.window_surface = None
+        self.clock = None
+        self.uav_img = None
+        self.fug_img = None
+        self.house_img = None
+
+    def render(self):
+        if self.render_mode is None:
+            assert self.spec is not None
+            logger.warn(
+                "You are calling render method without specifying any render mode. "
+                "You can specify the render_mode at initialization, "
+                f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
+            )
+            return
+
+        if self.render_mode == "ansi":
+            return self._render_ansi()
+        return self._render_gui()
+
+    def _render_ansi(self):
+        grid: UAVGrid = self.model.grid  # type: ignore
+        grid_str = grid.get_ascii_repr(self._state[0], self._state[1])
+
+        output = [
+            f"Step: {self._step_num}",
+            grid_str,
+        ]
+        if self._last_actions is not None:
+            action_str = ", ".join(
+                [str(Direction(a)) for a in self._last_actions.values()]
+            )
+            output.insert(1, f"Actions: <{action_str}>")
+            output.append(f"Rewards: <{self._last_rewards}>")
+        return "\n".join(output) + "\n"
+
+    def _render_gui(self):
+        try:
+            import pygame
+        except ImportError as e:
+            raise DependencyNotInstalled(
+                "pygame is not installed, run `pip install posggym[grid-world]`"
+            ) from e
+
+        if self.window_surface is None:
+            pygame.init()
+
+            if self.render_mode == "human":
+                pygame.display.init()
+                pygame.display.set_caption("UAV")
+                self.window_surface = pygame.display.set_mode(self.window_size)
+            elif self.render_mode == "rgb_array":
+                self.window_surface = pygame.Surface(self.window_size)
+
+        assert (
+            self.window_surface is not None
+        ), "Something went wrong with pygame. This should never happen."
+
+        if self.clock is None:
+            self.clock = pygame.time.Clock()
+
+        if self.uav_img is None:
+            file_name = path.join(path.dirname(__file__), "img/drone.png")
+            self.uav_img = pygame.transform.scale(
+                pygame.image.load(file_name), self.cell_size
+            )
+        if self.fug_img is None:
+            file_name = path.join(path.dirname(__file__), "img/robber.png")
+            self.fug_img = pygame.transform.scale(
+                pygame.image.load(file_name), self.cell_size
+            )
+        if self.house_img is None:
+            file_name = path.join(path.dirname(__file__), "img/house.png")
+            self.house_img = pygame.transform.scale(
+                pygame.image.load(file_name), self.cell_size
+            )
+
+        self.window_surface.fill((255, 255, 255))
+
+        grid: UAVGrid = self.model.grid  # type: ignore
+        uav_coord, fug_coord = self._state
+        for y in range(grid.height):
+            for x in range(grid.width):
+                pos = (x * self.cell_size[0], y * self.cell_size[1])
+                rect = (*pos, *self.cell_size)
+
+                if (x, y) == grid.safe_house_coord:
+                    self.window_surface.blit(self.house_img, pos)
+                if (x, y) == fug_coord:
+                    self.window_surface.blit(self.fug_img, pos)
+                if (x, y) == uav_coord:
+                    self.window_surface.blit(self.uav_img, pos)
+
+                pygame.draw.rect(self.window_surface, (0, 0, 0), rect, 1)
 
         if self.render_mode == "human":
-            self._viewer.update_img(env_img, agent_idx=None)
-            self._viewer.display_img()
-        else:
-            return env_img
+            pygame.event.pump()
+            pygame.display.update()
+            self.clock.tick(self.metadata["render_fps"])
+        elif self.render_mode == "rgb_array":
+            return np.transpose(
+                np.array(pygame.surfarray.pixels3d(self.window_surface)), axes=(1, 0, 2)
+            )
 
-    def close(self) -> None:
-        if self._viewer is not None:
-            self._viewer.close()
-            self._viewer = None
+    def close(self):
+        if self.window_surface is not None:
+            import pygame
+            pygame.display.quit()
+            pygame.quit()
 
 
 class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):

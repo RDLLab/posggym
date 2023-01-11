@@ -163,7 +163,6 @@ def test_passive_checker_wrapper_warnings(spec):
         env = posggym.make(spec)  # disable_env_checker=False
         env.reset()
         env.step({i: env.action_spaces[i].sample() for i in env.agents})
-        env.render()
         env.close()
 
     for warning in caught_warnings:

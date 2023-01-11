@@ -26,6 +26,7 @@ References
 """
 import enum
 import math
+from os import path
 from collections import defaultdict
 from itertools import product
 from typing import Dict, List, NamedTuple, Optional, SupportsFloat, Tuple, Union
@@ -33,10 +34,13 @@ from typing import Dict, List, NamedTuple, Optional, SupportsFloat, Tuple, Union
 import numpy as np
 from gymnasium import spaces
 
+from posggym import logger
 import posggym.model as M
 from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import Coord, Direction, Grid
 from posggym.utils import seeding
+import posggym.envs.grid_world.render as render_lib
+from posggym.error import DependencyNotInstalled
 
 
 class Player(NamedTuple):
@@ -101,7 +105,7 @@ class LBFEntityObs(NamedTuple):
     is_self: bool
 
 
-class LBFEnv(DefaultEnv):
+class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
     """The Level-Based Foraging Environment.
 
     This implementation uses and is based on the original implementation of
@@ -179,7 +183,7 @@ class LBFEnv(DefaultEnv):
 
     """
 
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 50}
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 10}
 
     def __init__(
         self,
@@ -212,31 +216,111 @@ class LBFEnv(DefaultEnv):
             ),
             render_mode=render_mode,
         )
-        self.viewer = None
+
+        grid: Grid = self.model.grid   # type: ignore
+        self.window_size = (min(64 * grid.width, 512), min(64 * grid.height, 512))
+        self.cell_size = (
+            self.window_size[0] // grid.width,
+            self.window_size[1] // grid.height
+        )
+        self.window_surface = None
+        self.clock = None
+        self.food_img = None
+        self.agent_img = None
+        self.font = None
 
     def render(self):
-        # TODO
+        if self.render_mode is None:
+            assert self.spec is not None
+            logger.warn(
+                "You are calling render method without specifying any render mode. "
+                "You can specify the render_mode at initialization, "
+                f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
+            )
+            return
+
+        try:
+            import pygame
+        except ImportError as e:
+            raise DependencyNotInstalled(
+                "pygame is not installed, run `pip install posggym[grid-world]`"
+            ) from e
+
+        if self.window_surface is None:
+            pygame.init()
+
+            if self.render_mode == "human":
+                pygame.display.init()
+                pygame.display.set_caption("Level-Based Foraging")
+                self.window_surface = pygame.display.set_mode(self.window_size)
+            elif self.render_mode == "rgb_array":
+                pygame.font.init()
+                self.window_surface = pygame.Surface(self.window_size)
+
+        assert (
+            self.window_surface is not None
+        ), "Something went wrong with pygame. This should never happen."
+
+        if self.clock is None:
+            self.clock = pygame.time.Clock()
+
+        if self.agent_img is None:
+            file_name = path.join(path.dirname(__file__), "img/robot.png")
+            self.agent_img = pygame.transform.scale(
+                pygame.image.load(file_name), self.cell_size
+            )
+        if self.food_img is None:
+            file_name = path.join(path.dirname(__file__), "img/apple.png")
+            self.food_img = pygame.transform.scale(
+                pygame.image.load(file_name), self.cell_size
+            )
+        if self.font is None:
+            self.font = pygame.font.SysFont('Comic Sans MS', self.cell_size[1] // 4)
+
+        self.window_surface.fill((0, 0, 0))
+        grid: Grid = self.model.grid   # type: ignore
+
+        # draw grid lines
+        for y in range(grid.height):
+            for x in range(grid.width):
+                pos = (x * self.cell_size[0], y * self.cell_size[1])
+                rect = (*pos, *self.cell_size)
+                pygame.draw.rect(self.window_surface, (255, 255, 255), rect, 1)
+
+        for player in self._state.players:
+            (x, y) = player.coord
+            pos = (x * self.cell_size[0], y * self.cell_size[1])
+            self.window_surface.blit(self.agent_img, pos)
+            level_txt = self.font.render(
+                str(player.level), True, (255, 255, 255), (0, 0, 0)
+            )
+            text_pos = (pos[0] + 1, pos[1] + 1)
+            self.window_surface.blit(level_txt, text_pos)
+
+        for food in self._state.food:
+            (x, y) = food.coord
+            pos = (x * self.cell_size[0], y * self.cell_size[1])
+            self.window_surface.blit(self.food_img, pos)
+            level_txt = self.font.render(
+                str(food.level), True, (255, 255, 255)
+            )
+            text_pos = (pos[0] + 1, pos[1] + 1)
+            self.window_surface.blit(level_txt, text_pos)
+
         if self.render_mode == "human":
-            return None
-        return np.zeros((3, 3, 3), dtype=np.uint8)
+            pygame.event.pump()
+            pygame.display.update()
+            self.clock.tick(self.metadata["render_fps"])
+        elif self.render_mode == "rgb_array":
+            return np.transpose(
+                np.array(pygame.surfarray.pixels3d(self.window_surface)), axes=(1, 0, 2)
+            )
 
     def close(self):
-        if self.viewer:
-            self.viewer.close()
-
-    # def _init_render(self):
-    #     from lbforaging.foraging.rendering import Viewer
-    #     self.viewer = Viewer((self.rows, self.cols))
-    #     self._rendering_initialized = True
-
-    # def render(self, mode="human"):
-    #     if mode not in self.metadata["render.modes"]:
-    #         super().render(mode)
-
-    #     if not self._rendering_initialized:
-    #         self._init_render()
-
-    #     return self.viewer.render(self, return_rgb_array=(mode == "rgb_array"))
+        if self.window_surface is not None:
+            import pygame
+            pygame.display.quit()
+            pygame.quit()
 
 
 class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
@@ -308,7 +392,7 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
             i: self.get_agent_observation_space() for i in self.possible_agents
         }
 
-        self._grid = Grid(
+        self.grid = Grid(
             grid_width=self._cols, grid_height=self._rows, block_coords=None
         )
 
@@ -577,13 +661,15 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
             i = player.idx
             a_i = actions[i]
             if a_i == LBFAction.NONE:
-                next_pos = player.coord
+                next_coord = player.coord
             elif a_i == LBFAction.LOAD:
-                next_pos = player.coord
+                next_coord = player.coord
                 loading_players.add(player)
             else:
-                next_pos = self._grid.get_next_coord(player.coord, ACTION_TO_DIR[a_i])
-            collisions[next_pos].append(player)
+                next_coord = self.grid.get_next_coord(player.coord, ACTION_TO_DIR[a_i])
+            if next_coord in next_food:
+                next_coord = player.coord
+            collisions[next_coord].append(player)
 
         # do movements for non colliding players
         next_players = list(state.players)
@@ -597,12 +683,12 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         # process the loadings and calculate rewards as necessary
         rewards: Dict[M.AgentID, float] = {i: 0.0 for i in self.possible_agents}
         for player in loading_players:
-            adj_coords = self._grid.get_neighbours(player.coord)
+            adj_coords = self.grid.get_neighbours(player.coord)
             for adj_coord in adj_coords:
                 if adj_coord not in next_food:
                     continue
                 adj_food = next_food[adj_coord]
-                food_adj_coords = self._grid.get_neighbours(adj_coord)
+                food_adj_coords = self.grid.get_neighbours(adj_coord)
                 adj_players = [p for p in loading_players if p.coord in food_adj_coords]
                 adj_player_level = sum([p.level for p in adj_players])
 
