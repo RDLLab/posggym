@@ -47,10 +47,10 @@ testing = ["pytest >=7.2"]
 
 [project.urls]
 Homepage = "https://github.com/RDLLab/posggym"
-Repository = "https://github.com/RDLLab/posggym"
+Repository = "https://github.com/RDLLab/posggym/"
 # TODO
 # Documentation = "https://gymnasium.farama.org"
-# "Bug Report" = "https://github.com/Farama-Foundation/Gymnasium/issues"
+"Bug Report" = "https://github.com/RDLLab/posggym/issues"
 
 [tool.setuptools]
 include-package-data = true
@@ -78,7 +78,7 @@ indent = 4
 lines_after_imports = 2
 multi_line_output = 3
 
-[tool.pylsp-mypy]
-enabled = true
-live_mode = true
-strict = false
+# [tool.pylsp-mypy]
+# enabled = true
+# live_mode = true
+# strict = false
