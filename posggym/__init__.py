@@ -1,10 +1,33 @@
-from posggym.core import Env
-from posggym.core import Wrapper
-from posggym.core import ActionWrapper
-from posggym.core import RewardWrapper
-from posggym.core import ObservationWrapper
-from posggym.model import POSGModel
-from posggym.model import POSGFullModel
-from posggym.envs import make
-from posggym.envs import register
-from posggym.envs import spec
+"""Root '__init__' of the posggym package."""
+# isort: skip_file
+# Need to import model and core before other modules
+from posggym.model import POSGFullModel, POSGModel
+from posggym.core import (
+    ActionWrapper, Env, DefaultEnv, ObservationWrapper, RewardWrapper, Wrapper
+)
+from posggym import envs, error, logger, utils, wrappers
+from posggym.envs import make, register, spec
+
+
+__all__ = [
+    # core classes
+    "Env",
+    "DefaultEnv",
+    "Wrapper",
+    "ObservationWrapper",
+    "ActionWrapper",
+    "RewardWrapper",
+    "POSGModel",
+    "POSGFullModel",
+    # registration
+    "make",
+    "register",
+    "spec",
+    # module folders
+    "envs",
+    "utils",
+    "wrappers",
+    "error",
+    "logger",
+]
+__version__ = "0.1.0"
