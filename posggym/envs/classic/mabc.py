@@ -192,6 +192,8 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
         self.observation_spaces = {
             i: spaces.Discrete(len(OBS)) for i in self.possible_agents
         }
+        self.observation_first = False
+        self.is_symmetric = True
 
         # Spaces used internally
         self._state_space = list(
@@ -203,14 +205,6 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
         self._trans_map = self._construct_trans_func()
         self._rew_map = self._construct_rew_func()
         self._obs_map = self._construct_obs_func()
-
-    @property
-    def observation_first(self) -> bool:
-        return False
-
-    @property
-    def is_symmetric(self) -> bool:
-        return True
 
     @property
     def reward_ranges(self) -> Dict[M.AgentID, Tuple[SupportsFloat, SupportsFloat]]:
@@ -284,7 +278,7 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
                 obs[i] = wrong_obs
         return obs
 
-    def get_initial_belief_dist(self) -> Dict[MABCState, float]:
+    def get_initial_belief(self) -> Dict[MABCState, float]:
         b_map: Dict[MABCState, float] = {}
         s_prob_sum = 0.0
         for s in self._state_space:

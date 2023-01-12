@@ -203,6 +203,8 @@ class MultiAgentTigerModel(M.POSGFullModel[MATState, MATObs, MATAction]):
             )
             for i in self.possible_agents
         }
+        self.observation_first = False
+        self.is_symmetric = True
 
         # Spaces used internally
         self._state_space = STATES
@@ -214,14 +216,6 @@ class MultiAgentTigerModel(M.POSGFullModel[MATState, MATObs, MATAction]):
         self._trans_map = self._construct_trans_func()
         self._rew_map = self._construct_rew_func()
         self._obs_map = self._construct_obs_func()
-
-    @property
-    def observation_first(self) -> bool:
-        return False
-
-    @property
-    def is_symmetric(self) -> bool:
-        return True
 
     @property
     def reward_ranges(self) -> Dict[M.AgentID, Tuple[SupportsFloat, SupportsFloat]]:
@@ -311,7 +305,7 @@ class MultiAgentTigerModel(M.POSGFullModel[MATState, MATObs, MATAction]):
                 rewards[i] = self.OPEN_GOOD_R
         return rewards
 
-    def get_initial_belief_dist(self) -> Dict[MATState, float]:
+    def get_initial_belief(self) -> Dict[MATState, float]:
         b_map: Dict[MATState, float] = {}
         for s in STATES:
             s_prob = 1.0 / len(STATES)

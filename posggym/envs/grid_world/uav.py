@@ -278,18 +278,12 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
             # FUG ubs = (safe house dir)
             self.FUG_IDX: spaces.Discrete(len(DIR_OBS)),
         }
+        self.observation_first = True
+        self.is_symmetric = False
 
         # cache for sampling obs conditioned init state for fug
         self._cached_init_fug_obs: Optional[UAVFUGObs] = None
         self._valid_fug_coords_dist: Tuple[List[Coord], List[float]] = ([], [])
-
-    @property
-    def observation_first(self) -> bool:
-        return True
-
-    @property
-    def is_symmetric(self) -> bool:
-        return False
 
     @property
     def reward_ranges(self) -> Dict[M.AgentID, Tuple[SupportsFloat, SupportsFloat]]:

@@ -503,14 +503,8 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             )
             for i in self.possible_agents
         }
-
-    @property
-    def observation_first(self) -> bool:
-        return True
-
-    @property
-    def is_symmetric(self) -> bool:
-        return True
+        self.observation_first = True
+        self.is_symmetric = True
 
     @property
     def reward_ranges(self) -> Dict[M.AgentID, Tuple[SupportsFloat, SupportsFloat]]:

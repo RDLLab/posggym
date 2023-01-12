@@ -26,21 +26,20 @@ References
 """
 import enum
 import math
-from os import path
 from collections import defaultdict
 from itertools import product
+from os import path
 from typing import Dict, List, NamedTuple, Optional, SupportsFloat, Tuple, Union
 
 import numpy as np
 from gymnasium import spaces
 
-from posggym import logger
 import posggym.model as M
+from posggym import logger
 from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import Coord, Direction, Grid
-from posggym.utils import seeding
-import posggym.envs.grid_world.render as render_lib
 from posggym.error import DependencyNotInstalled
+from posggym.utils import seeding
 
 
 class Player(NamedTuple):
@@ -198,7 +197,7 @@ class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
         observation_mode: str = "tuple",
         penalty: float = 0.0,
         render_mode: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(
             LBFModel(
@@ -212,16 +211,16 @@ class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
                 normalize_reward=normalize_reward,
                 observation_mode=observation_mode,
                 penalty=penalty,
-                **kwargs
+                **kwargs,
             ),
             render_mode=render_mode,
         )
 
-        grid: Grid = self.model.grid   # type: ignore
+        grid: Grid = self.model.grid  # type: ignore
         self.window_size = (min(64 * grid.width, 512), min(64 * grid.height, 512))
         self.cell_size = (
             self.window_size[0] // grid.width,
-            self.window_size[1] // grid.height
+            self.window_size[1] // grid.height,
         )
         self.window_surface = None
         self.clock = None
@@ -275,10 +274,10 @@ class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
                 pygame.image.load(file_name), self.cell_size
             )
         if self.font is None:
-            self.font = pygame.font.SysFont('Comic Sans MS', self.cell_size[1] // 4)
+            self.font = pygame.font.SysFont("Comic Sans MS", self.cell_size[1] // 4)
 
         self.window_surface.fill((0, 0, 0))
-        grid: Grid = self.model.grid   # type: ignore
+        grid: Grid = self.model.grid  # type: ignore
 
         # draw grid lines
         for y in range(grid.height):
@@ -301,9 +300,7 @@ class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
             (x, y) = food.coord
             pos = (x * self.cell_size[0], y * self.cell_size[1])
             self.window_surface.blit(self.food_img, pos)
-            level_txt = self.font.render(
-                str(food.level), True, (255, 255, 255)
-            )
+            level_txt = self.font.render(str(food.level), True, (255, 255, 255))
             text_pos = (pos[0] + 1, pos[1] + 1)
             self.window_surface.blit(level_txt, text_pos)
 
@@ -319,6 +316,7 @@ class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
     def close(self):
         if self.window_surface is not None:
             import pygame
+
             pygame.display.quit()
             pygame.quit()
 
@@ -370,7 +368,7 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         normalize_reward: bool = True,
         observation_mode: str = "tuple",
         penalty: float = 0.0,
-        **kwargs
+        **kwargs,
     ):
         assert observation_mode in self.OBSERVATION_MODES
         self._field_size = field_size
@@ -391,6 +389,8 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         self.observation_spaces = {
             i: self.get_agent_observation_space() for i in self.possible_agents
         }
+        self.observation_first = True
+        self.is_symmetric = True
 
         self.grid = Grid(
             grid_width=self._cols, grid_height=self._rows, block_coords=None
@@ -404,14 +404,6 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
             ), "static layout only supported for square grids"
             self._food_locations = self._generate_static_food_coords()
             self._player_locations = self._generate_static_player_coords()
-
-    @property
-    def observation_first(self) -> bool:
-        return True
-
-    @property
-    def is_symmetric(self) -> bool:
-        return True
 
     def get_agent_observation_space(self) -> spaces.Space:
         """The Observation Space for an agent.

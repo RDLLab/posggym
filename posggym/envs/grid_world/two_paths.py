@@ -287,14 +287,8 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
             )
             for i in self.possible_agents
         }
-
-    @property
-    def observation_first(self) -> bool:
-        return True
-
-    @property
-    def is_symmetric(self) -> bool:
-        return False
+        self.observation_first = True
+        self.is_symmetric = False
 
     @property
     def reward_ranges(self) -> Dict[M.AgentID, Tuple[SupportsFloat, SupportsFloat]]:

@@ -123,18 +123,12 @@ class RockPaperScissorsModel(M.POSGFullModel[RPSState, RPSObs, RPSAction]):
             [*ACTIONS] for _ in range(len(self.possible_agents))
         )
         self._obs_spaces = tuple(OBS_SPACE for _ in range(len(self.possible_agents)))
+        self.observation_first = False
+        self.is_symmetric = True
 
         self._trans_map = self._construct_trans_func()
         self._rew_map = self._construct_rew_func()
         self._obs_map = self._construct_obs_func()
-
-    @property
-    def observation_first(self) -> bool:
-        return False
-
-    @property
-    def is_symmetric(self) -> bool:
-        return True
 
     @property
     def reward_ranges(self) -> Dict[M.AgentID, Tuple[SupportsFloat, SupportsFloat]]:
@@ -174,7 +168,7 @@ class RockPaperScissorsModel(M.POSGFullModel[RPSState, RPSObs, RPSAction]):
             1: self.R_MATRIX[actions[1]][actions[0]],
         }
 
-    def get_initial_belief_dist(self) -> Dict[RPSState, float]:
+    def get_initial_belief(self) -> Dict[RPSState, float]:
         return {STATE0: 1.0}
 
     def transition_fn(
