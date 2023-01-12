@@ -4,7 +4,10 @@ POSGGym is an open source Python library providing implementations of Partially 
 
 POSGGym is directly inspired by and adapted from the [Gymnasium (formerly Open AI Gym)](https://gymnasium.farama.org/) and [PettingZoo](https://pettingzoo.farama.org/) libraries for reinforcement learning. The key addition in POSGGym is the support for environment models. POSGGym's API aims to mimic the Gymnasium API as much as possible while incorporating multiple-agents.
 
-The documentation for the project is available at **TODO**.
+
+## Documentation
+
+The documentation for the project is not yet available online, however you can easily build it yourself :) Head to `docs/README.md` to see how.
 
 
 ## Environments
