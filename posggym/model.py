@@ -81,7 +81,7 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
 
     Attributes
     ----------
-    possible_agents : List[AgentID]
+    :attr:possible_agents : Tuple[AgentID]
         All agents that may appear in the environment
     observation_first : bool
         whether the environment is observation (True) or action (False) first.
@@ -119,9 +119,6 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
     sample_initial_obs :
         samples an initial observation from a state. This function should only
         be used in observation first environments.
-
-    Optional Functions and Attributes
-    ---------------------------------
     sample_agent_initial_state :
         sample an initial state for an agent given the agent's initial observation.
         This function is only applicable in observation first environments. It is
@@ -208,7 +205,7 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
 
         Returns
         -------
-        dict
+        Dict[AgentID, Tuple[SupportsFloat, SupportsFloat]]
             Dictionary mapping agent ID to a tuple with the minimum and maximum
             possible rewards for an agent over an episode. The default reward range
             is set to :math:`(-\infty,+\infty)` for each agent.
@@ -225,14 +222,45 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
         For any environment where the number of agents remains constant during AND
         across episodes. This will be :attr:`possible_agents`, independent of state.
 
+        Returns
+        -------
+        List[AgentID]
+          List of IDs for all agents that active in given state,
+
         """
 
     @abc.abstractmethod
     def sample_initial_state(self) -> StateType:
-        """Sample an initial state."""
+        """Sample an initial state.
+
+        Returns
+        -------
+        StateType
+          An initial state.
+
+        """
 
     def sample_initial_obs(self, state: StateType) -> Dict[AgentID, ObsType]:
-        """Sample initial agent observations given an initial state."""
+        """Sample initial agent observations given an initial state.
+
+        This method must be implemented for `observation_first` models.
+
+        Arguments
+        ---------
+        state : StateType
+          The initial state.
+
+        Returns
+        -------
+        Dict[AgentID, ObsType]
+          A mapping from AgentID to initial observation.
+
+        Raises
+        ------
+        AssertionError
+          If this method is called for action first model.
+
+        """
         if self.observation_first:
             raise NotImplementedError
         raise AssertionError(
@@ -280,7 +308,8 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
     def seed(self, seed: Optional[int] = None):
         """Set the seed for the model RNG.
 
-        Also handles seed for the action, observation, and (if it exists) state spaces.
+        Also handles seeding for the action, observation, and (if it exists) state
+        spaces.
 
         """
         if isinstance(self.rng, random.Random):

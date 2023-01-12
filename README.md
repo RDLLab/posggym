@@ -81,7 +81,7 @@ for t in range(50):
 
 The base model API is very similar to the environment API. The key difference that all methods are stateless so can be used repeatedly for planning. Indeed the `env` class for the built-in environments are mainly just a wrappers over the underlying `model` class that manage the state and add support for rendering.
 
-Note that unlike for the `env` class, for convinience the output of the `model.step()` method is a `NamedTuple` instance and so it's components can be accessed as attributes. For example:
+Note that unlike for the `env` class, for convinience the output of the `model.step()` method is a `dataclass` instance and so it's components can be accessed as attributes. For example:
 
 ```python
 result = model.step(state, actions)

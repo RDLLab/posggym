@@ -8,6 +8,15 @@ lastpage:
 
 ```{toctree}
 :hidden:
+:caption: API
+
+api/env
+api/model
+api/wrappers
+```
+
+```{toctree}
+:hidden:
 :caption: Environments
 
 environments/classic

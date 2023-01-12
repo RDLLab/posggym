@@ -26,15 +26,15 @@ from typing import (
 from gymnasium import spaces
 from gymnasium.core import RenderFrame
 
-import posggym.model as M
+from posggym.model import ActType, AgentID, ObsType, POSGModel, StateType
 
 
 if TYPE_CHECKING:
     from posggym.envs.registration import EnvSpec
 
 
-class Env(abc.ABC, Generic[M.StateType, M.ObsType, M.ActType]):
-    """The main POSGGym class for implementing POSG environments.
+class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
+    r"""The main POSGGym class for implementing POSG environments.
 
     The class encapsulates an environment and a POSG model. The environment maintains an
     internal state and can be interacted with by  multiple agents in parallel through
@@ -43,7 +43,7 @@ class Env(abc.ABC, Generic[M.StateType, M.ObsType, M.ActType]):
     planning or for anything else (see :py:class:`posggym.POSGModel` class for details).
 
     The implementation is heavily inspired by the Farama Foundation Gymnasium (Open AI
-    Gym) ([https://github.com/Farama-Foundation/Gymnasium]) and PettingZoo
+    Gym) (https://github.com/Farama-Foundation/Gymnasium) and PettingZoo
     (https://github.com/Farama-Foundation/PettingZoo) APIs. It aims to be consistent
     with these APIs and easily compatible with the PettingZoo API.
 
@@ -56,14 +56,19 @@ class Env(abc.ABC, Generic[M.StateType, M.ObsType, M.ActType]):
 
     And the main attributes:
 
-    - :attr:`model` - the POSG model of the environment (:py:class:`posggym.POSGModel`)
-    - :attr:`possible_agents` - all agents that may appear in the environment
-    - :attr:`agents` - the agents currently active in the environment
-    - :attr:`action_spaces` - the action space specs for each agent
-    - :attr:`observation_spaces` - the observation space specs for each agent
-    - :attr:`state` - the current state of the environment
-    - :attr:`observation_first` - whether environment is observation or action first
-    - :attr:`reward_specs` - the reward specs for each agent
+    - :attr:`model` - The POSG model of the environment (:py:class:`posggym.POSGModel`)
+    - :attr:`state` - The current state of the environment
+    - :attr:`possible_agents` - All agents that may appear in the environment
+    - :attr:`agents` - The agents currently active in the environment
+    - :attr:`action_spaces` - The action space for each agent
+    - :attr:`observation_spaces` - The observation space for each agent
+    - :attr:`reward_ranges` - The minimum and maximum possible rewards over an episode
+      for each agent. The default reward range is set to :math:`(-\infty,+\infty)`.
+    - :attr:`observation_first` - Whether the environment is observation or action first
+    - :attr:`is_symmetric` - Whether the environment is symmetric or asymmetric
+    - :attr:`spec` - An environment spec that contains the information used to
+      initialize the environment from :meth:`posggym.make`
+    - :attr:`metadata` - The metadata of the environment, i.e. render modes, render fps
 
     Environments have additional methods and attributes that provide more environment
     information and access:
@@ -83,18 +88,18 @@ class Env(abc.ABC, Generic[M.StateType, M.ObsType, M.ActType]):
     spec: EnvSpec | None = None
 
     # The model used by the environment
-    model: M.POSGModel[M.StateType, M.ObsType, M.ActType]
+    model: POSGModel[StateType, ObsType, ActType]
 
     @abc.abstractmethod
     def step(
-        self, actions: Dict[M.AgentID, M.ActType]
+        self, actions: Dict[AgentID, ActType]
     ) -> Tuple[
-        Dict[M.AgentID, M.ObsType],
-        Dict[M.AgentID, SupportsFloat],
-        Dict[M.AgentID, bool],
-        Dict[M.AgentID, bool],
+        Dict[AgentID, ObsType],
+        Dict[AgentID, SupportsFloat],
+        Dict[AgentID, bool],
+        Dict[AgentID, bool],
         bool,
-        Dict[M.AgentID, Dict],
+        Dict[AgentID, Dict[str, Any]],
     ]:
         """Run one timestep in the environment using the agents' actions.
 
@@ -103,30 +108,32 @@ class Env(abc.ABC, Generic[M.StateType, M.ObsType, M.ActType]):
 
         Arguments
         ---------
-        actions : Dict[M.AgentID, M.ActType]
-          a joint action containing one action per agent in the environment.
+        actions : Dict[AgentID, ActType]
+          a joint action containing one action per active agent in the environment.
 
         Returns
         -------
-        observations : Dict[M.AgentID, M.ObsType]
+        observations : Dict[AgentID, ObsType]
           the joint observation containing one observation per agent.
-        rewards : Dict[M.AgentID, SupportsFloat]
+        rewards : Dict[AgentID, SupportsFloat]
           the joint rewards containing one reward per agent.
-        terminated : Dict[M.AgentID, bool]
+        terminated : Dict[AgentID, bool]
           whether each agent has reached a terminal state in the environment.
           Contains one value for each agent in the environment. It's possible,
           depending on the environment, for only some of the agents to be in a
           terminal during a given step.
-        truncated : Dict[M.AgentID, bool]
-          whether the episode has been truncated for each agent in the environment.
-          Contains one value for each agent in the environment. Truncation for an
-          agent signifies that the episode was ended for that agent (e.g. due to
+        truncated : Dict[AgentID, bool]
+          whether the episode has been truncated for each agent in the
+          environment. Contains one value for each agent in the environment. Truncation
+          for an agent signifies that the episode was ended for that agent (e.g. due to
           reaching the time limit) before the agent reached a terminal state.
         done : bool
-          whether the episode is finished. Provided for convenience and is equivalent
-          to checking if all agents are either in a terminated or truncated state. If
-          true, the user needs to call :py:func:`reset()`.
-        info : Dict[M.AgentID, Dict]
+          whether the episode is finished. Provided for convenience and to handle
+          the case where agents may be added and removed during an episode. For
+          environments where the active agents remains constant during each episode,
+          this is equivalent to checking if all agents are either in a terminated or
+          truncated state. If true, the user needs to call :py:func:`reset()`.
+        info : Dict[AgentID, Dict[str, Any]]
           contains auxiliary diagnostic information (helpful for debugging, learning,
           and logging) for each agent.
 
@@ -134,15 +141,15 @@ class Env(abc.ABC, Generic[M.StateType, M.ObsType, M.ActType]):
 
     def reset(
         self, *, seed: int | None = None, options: Dict[str, Any] | None = None
-    ) -> Tuple[Optional[Dict[M.AgentID, M.ObsType]], Dict[M.AgentID, Dict]]:
+    ) -> Tuple[Optional[Dict[AgentID, ObsType]], Dict[AgentID, Dict]]:
         """Resets the environment and returns an initial observations and info.
 
         This method generates a new starting state often with some randomness. This
         randomness can be controlled with the ``seed`` parameter otherwise if the
         environment already has a random number generator and :meth:`reset` is called
         with ``seed=None``, the RNG is not reset. Note, that the RNG is handled by the
-        environment :attr:``model``, rather than the environment class itself, which
-        is just a wrapper of a model.
+        environment :attr:`model`, rather than the environment class itself, which
+        simply calls the model.
 
         Therefore, :meth:`reset` should (in the typical use case) be called with a seed
         right after initialization and then never again.
@@ -152,7 +159,7 @@ class Env(abc.ABC, Generic[M.StateType, M.ObsType, M.ActType]):
 
         Arguments
         ---------
-        seed : int, optional
+        seed : int,  optional
           The seed that is used to initialize the environment's PRNG. If the
           ``seed=None`` is passed, the PRNG will *not* be reset. If you pass an
           integer, the PRNG will be reset even if it already exists. Usually, you want
@@ -166,13 +173,13 @@ class Env(abc.ABC, Generic[M.StateType, M.ObsType, M.ActType]):
         Returns
         -------
         observations : JointObservation, optional
-          the joint observation containing one observation per agent in the environment.
+          The joint observation containing one observation per agent in the environment.
           Note in environments that are not observation first (i.e. they expect an
           action before the first observation) this function should reset the state and
           return ``None``.
-        info : Dict[M.AgentID, Dict]
-          auxiliary information for each agent. It should be analogous to the ``info``
-          returned by :meth:`step()`
+        info : Dict[AgentID, Dict]
+          Auxiliary information for each agent. It should be analogous to the ``info``
+          returned by :meth:`step()` and can be empty.
 
         """
         # initialize the RNG if the seed is manually passed
@@ -182,13 +189,12 @@ class Env(abc.ABC, Generic[M.StateType, M.ObsType, M.ActType]):
 
     def render(
         self,
-    ) -> RenderFrame | Dict[M.AgentID, RenderFrame] | List[RenderFrame] | None:
+    ) -> RenderFrame | Dict[AgentID, RenderFrame] | List[RenderFrame] | None:
         """Render the environment as specified by environment :attr:`render_mode`.
 
         The render mode attribute :attr:`render_mode` is set during the initialization
-        of the environment.The environment's :attr:`metadata` render modes
-        (`env.metadata["render_modes"]`) should contain the possible ways to implement
-        the render modes.
+        of the environment. While the environment's :attr:`metadata` render modes
+        (`env.metadata["render_modes"]`) should contain the supported render modes.
 
         The set of supported modes varies per environment (some environments do not
         support rendering at all). By convention, if :attr:`render_mode` is:
@@ -197,23 +203,21 @@ class Env(abc.ABC, Generic[M.StateType, M.ObsType, M.ActType]):
         - "human": Environment is rendered to the current display or terminal usually
           for human consumption. Returns ``None``.
         - "rgb_array": Return an ``np.ndarray`` with shape ``(x, y, 3)``  representing
-          RGB values for an x-by-y pixel image, suitable for turning into a video.
+          RGB values for an x-by-y pixel image of the entire environment, suitable for
+          turning into a video.
         - "ansi": Return a string (``str``) or ``StringIO.StringIO`` containing a
           terminal-style text representation for each timestep. The text can include
           newlines and ANSI escape sequences (e.g. for colors).
         - "rgb_array_dict" and "ansi_dict": Return ``dict`` mapping ``AgentID`` to
           render frame (RGB or ANSI depending on render mode). Each render frame is
-          represents the agent-centric view for the given agent.
+          represents the agent-centric view for the given agent. May also return a
+          render for the entire environment (like "rgb_array" and "ansi" options) which
+          should be mapped to the "env" key in the dictionary by default.
 
         Note
         ----
         Make sure that your class's :attr:`metadata` ``"render_modes"`` key includes
-          the list of supported modes.
-
-        Returns
-        -------
-        Value :  Any
-          the return value depends on the mode.
+        the list of supported modes.
 
         """
         raise NotImplementedError
@@ -227,27 +231,78 @@ class Env(abc.ABC, Generic[M.StateType, M.ObsType, M.ActType]):
 
     @property
     @abc.abstractmethod
-    def state(self) -> M.StateType:
-        """Get the current state for this environment."""
+    def state(self) -> StateType:
+        """The current state for this environment.
+
+        This must be implemented in custom environments.
+
+        Returns
+        -------
+        StateType
+
+        """
 
     @property
-    def possible_agents(self) -> Tuple[M.AgentID, ...]:
-        """Get list of agents that may appear in the environment."""
+    def possible_agents(self) -> Tuple[AgentID, ...]:
+        """The list of all possible agents that may appear in the environment.
+
+        Returns
+        -------
+        Tuple[AgentID, ...]
+
+        """
         return self.model.possible_agents
 
     @property
-    def agents(self) -> List[M.AgentID]:
-        """Get list of agents active in the environment for current state.
+    def agents(self) -> List[AgentID]:
+        """The list of agents active in the environment for current state.
 
         This will be :attr:`possible_agents`, independent of state, for any environment
         where the number of agents remains constant during and across episodes.
 
         Returns
         -------
-        agents: List of IDs of agents currently active in the environment.
+        List[AgentID]
 
         """
         return self.model.get_agents(self.state)
+
+    @property
+    def action_spaces(self) -> Dict[AgentID, spaces.Space]:
+        """A mapping from Agent ID to the space of valid actions for that agent.
+
+        Returns
+        -------
+        Dict[AgentID, spaces.Space]
+
+        """
+        return self.model.action_spaces
+
+    @property
+    def observation_spaces(self) -> Dict[AgentID, spaces.Space]:
+        """A mapping from Agent ID to the space of valid observations for that agent.
+
+        Returns
+        -------
+        Dict[AgentID, spaces.Space]
+
+        """
+        return self.model.observation_spaces
+
+    @property
+    def reward_ranges(self) -> Dict[AgentID, Tuple[SupportsFloat, SupportsFloat]]:
+        r"""A mapping from Agent ID to min and max possible rewards for that agent.
+
+        Each reward tuple corresponding to the minimum and maximum possible rewards for
+        a given agent over an episode. The default reward range for each agent is set
+        to :math:`(-\infty,+\infty)`.
+
+        Returns
+        -------
+        Dict[AgentID, Tuple[SupportsFloat, SupportsFloat]]
+
+        """
+        return self.model.reward_ranges
 
     @property
     def observation_first(self) -> bool:
@@ -303,27 +358,12 @@ class Env(abc.ABC, Generic[M.StateType, M.ObsType, M.ActType]):
         return self.model.is_symmetric
 
     @property
-    def action_spaces(self) -> Dict[M.AgentID, spaces.Space]:
-        """Get the action space for each agent."""
-        return self.model.action_spaces
-
-    @property
-    def observation_spaces(self) -> Dict[M.AgentID, spaces.Space]:
-        """Get the observation space for each agent."""
-        return self.model.observation_spaces
-
-    @property
-    def reward_ranges(self) -> Dict[M.AgentID, Tuple[SupportsFloat, SupportsFloat]]:
-        """The minimum and maximum  possible rewards for each agent."""
-        return self.model.reward_ranges
-
-    @property
     def unwrapped(self) -> "Env":
         """Completely unwrap this env.
 
         Returns
         -------
-        env: posggym.Env
+        posggym.Env
             The base non-wrapped posggym.Env instance
 
         """
@@ -354,51 +394,45 @@ class Env(abc.ABC, Generic[M.StateType, M.ObsType, M.ActType]):
         return False
 
 
-class DefaultEnv(Env[M.StateType, M.ObsType, M.ActType]):
-    """Default Environment implementation from environment model.
+class DefaultEnv(Env[StateType, ObsType, ActType]):
+    """A default environment implementation using an environment model.
 
-    This class implements some of the main environment functions by using the
-    environment model in a default manner.
+    This class implements the main environment methods - :meth:`reset`,
+    :meth:`step`, :attr:`state` - using the environment model.
 
-    Users need only initialize the class with a posggym.model.POSGModel instance by
-    calling ``super().__init__(custom_model)`` in custom environment class that
+    Users need only initialize the class with a :class:`posggym.POSGModel` instance by
+    calling ``super().__init__(custom_model)`` in their custom environment class that
     inherits from this class.
 
-    The DefaultEnv implements the main Env methods and attributes:
-
-        step
-        reset
-        state
-
-    The inheriting environment needs only (optionally) implement rendering and clean-up
+    The custom environment needs only (optionally) implement rendering and clean-up
     methods:
 
-        render
-        close
+    - :meth:`render`
+    - :meth:`close`
 
     """
 
-    def __init__(self, model: M.POSGModel, render_mode: Optional[str] = None):
+    def __init__(self, model: POSGModel, render_mode: Optional[str] = None):
         self.model = model
         self.render_mode = render_mode
 
         self._state = self.model.sample_initial_state()
-        self._last_obs: Dict[M.AgentID, M.ObsType] | None = None
+        self._last_obs: Dict[AgentID, ObsType] | None = None
         if self.model.observation_first:
             self._last_obs = self.model.sample_initial_obs(self._state)
         self._step_num = 0
-        self._last_actions: Dict[M.AgentID, M.ActType] | None = None
-        self._last_rewards: Dict[M.AgentID, SupportsFloat] | None = None
+        self._last_actions: Dict[AgentID, ActType] | None = None
+        self._last_rewards: Dict[AgentID, SupportsFloat] | None = None
 
     def step(
-        self, actions: Dict[M.AgentID, M.ActType]
+        self, actions: Dict[AgentID, ActType]
     ) -> Tuple[
-        Dict[M.AgentID, M.ObsType],
-        Dict[M.AgentID, SupportsFloat],
-        Dict[M.AgentID, bool],
-        Dict[M.AgentID, bool],
+        Dict[AgentID, ObsType],
+        Dict[AgentID, SupportsFloat],
+        Dict[AgentID, bool],
+        Dict[AgentID, bool],
         bool,
-        Dict[M.AgentID, Dict],
+        Dict[AgentID, Dict],
     ]:
         step = self.model.step(self._state, actions)
         self._step_num += 1
@@ -417,7 +451,7 @@ class DefaultEnv(Env[M.StateType, M.ObsType, M.ActType]):
 
     def reset(
         self, *, seed: int | None = None, options: Dict[str, Any] | None = None
-    ) -> Tuple[Optional[Dict[M.AgentID, M.ObsType]], Dict[M.AgentID, Dict]]:
+    ) -> Tuple[Optional[Dict[AgentID, ObsType]], Dict[AgentID, Dict]]:
         super().reset(seed=seed)
         self._state = self.model.sample_initial_state()
         if self.model.observation_first:
@@ -430,7 +464,7 @@ class DefaultEnv(Env[M.StateType, M.ObsType, M.ActType]):
         return self._last_obs, {}
 
     @property
-    def state(self) -> M.StateType:
+    def state(self) -> StateType:
         return copy.copy(self._state)
 
 
@@ -453,13 +487,13 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
 
     """
 
-    def __init__(self, env: Env[M.StateType, M.ObsType, M.ActType]):
+    def __init__(self, env: Env[StateType, ObsType, ActType]):
         self.env = env
 
-        self._action_spaces: Dict[M.AgentID, spaces.Space] | None = None
-        self._observation_spaces: Dict[M.AgentID, spaces.Space] | None = None
+        self._action_spaces: Dict[AgentID, spaces.Space] | None = None
+        self._observation_spaces: Dict[AgentID, spaces.Space] | None = None
         self._reward_ranges: Dict[
-            M.AgentID, Tuple[SupportsFloat, SupportsFloat]
+            AgentID, Tuple[SupportsFloat, SupportsFloat]
         ] | None = None
         self._metadata: Dict[str, Any] | None = None
 
@@ -474,11 +508,11 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         return cls.__name__
 
     @property
-    def model(self) -> M.POSGModel:
+    def model(self) -> POSGModel:
         return self.env.model
 
     @model.setter
-    def model(self, value: M.POSGModel):
+    def model(self, value: POSGModel):
         self.env.model = value
 
     @property
@@ -486,43 +520,43 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         return self.env.state  # type: ignore
 
     @property
-    def possible_agents(self) -> Tuple[M.AgentID, ...]:
+    def possible_agents(self) -> Tuple[AgentID, ...]:
         return self.env.possible_agents
 
     @property
-    def agents(self) -> List[M.AgentID]:
+    def agents(self) -> List[AgentID]:
         return self.env.agents
 
     @property
-    def action_spaces(self) -> Dict[M.AgentID, spaces.Space]:
+    def action_spaces(self) -> Dict[AgentID, spaces.Space]:
         if self._action_spaces is None:
             return self.env.action_spaces
         return self._action_spaces
 
     @action_spaces.setter
-    def action_spaces(self, action_spaces: Dict[M.AgentID, spaces.Space]):
+    def action_spaces(self, action_spaces: Dict[AgentID, spaces.Space]):
         self._action_spaces = action_spaces
 
     @property
-    def observation_spaces(self) -> Dict[M.AgentID, spaces.Space]:
+    def observation_spaces(self) -> Dict[AgentID, spaces.Space]:
         """Get the observation space for each agent."""
         if self._observation_spaces is None:
             return self.env.observation_spaces
         return self._observation_spaces
 
     @observation_spaces.setter
-    def observation_spaces(self, observation_spaces: Dict[M.AgentID, spaces.Space]):
+    def observation_spaces(self, observation_spaces: Dict[AgentID, spaces.Space]):
         self._observation_spaces = observation_spaces
 
     @property
-    def reward_ranges(self) -> Dict[M.AgentID, Tuple[SupportsFloat, SupportsFloat]]:
+    def reward_ranges(self) -> Dict[AgentID, Tuple[SupportsFloat, SupportsFloat]]:
         if self._reward_ranges is None:
             return self.env.reward_ranges
         return self._reward_ranges
 
     @reward_ranges.setter
     def reward_ranges(
-        self, reward_ranges: Dict[M.AgentID, Tuple[SupportsFloat, SupportsFloat]]
+        self, reward_ranges: Dict[AgentID, Tuple[SupportsFloat, SupportsFloat]]
     ):
         self._reward_ranges = reward_ranges
 
@@ -556,25 +590,25 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         self.env.render_mode = render_mode
 
     def step(
-        self, actions: Dict[M.AgentID, WrapperActType]
+        self, actions: Dict[AgentID, WrapperActType]
     ) -> Tuple[
-        Dict[M.AgentID, WrapperObsType],
-        Dict[M.AgentID, SupportsFloat],
-        Dict[M.AgentID, bool],
-        Dict[M.AgentID, bool],
+        Dict[AgentID, WrapperObsType],
+        Dict[AgentID, SupportsFloat],
+        Dict[AgentID, bool],
+        Dict[AgentID, bool],
         bool,
-        Dict[M.AgentID, Dict],
+        Dict[AgentID, Dict],
     ]:
         return self.env.step(actions)  # type: ignore
 
     def reset(
         self, *, seed: int | None = None, options: Dict[str, Any] | None = None
-    ) -> Tuple[Optional[Dict[M.AgentID, WrapperObsType]], Dict[M.AgentID, Dict]]:
+    ) -> Tuple[Optional[Dict[AgentID, WrapperObsType]], Dict[AgentID, Dict]]:
         return self.env.reset(seed=seed, options=options)  # type: ignore
 
     def render(
         self,
-    ) -> RenderFrame | Dict[M.AgentID, RenderFrame] | List[RenderFrame] | None:
+    ) -> RenderFrame | Dict[AgentID, RenderFrame] | List[RenderFrame] | None:
         return self.env.render()
 
     def close(self):
@@ -596,95 +630,93 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         return str(self)
 
 
-class ObservationWrapper(Wrapper[M.StateType, WrapperObsType, M.ActType]):
+class ObservationWrapper(Wrapper[StateType, WrapperObsType, ActType]):
     """Wraps environment to allow modular transformations of observations.
 
     Subclasses should at least implement the observations function.
     """
 
-    def __init__(self, env: Env[M.StateType, M.ObsType, M.ActType]):
+    def __init__(self, env: Env[StateType, ObsType, ActType]):
         super().__init__(env)
 
     def reset(
         self, *, seed: int | None = None, options: Dict[str, Any] | None = None
-    ) -> Tuple[Optional[Dict[M.AgentID, WrapperObsType]], Dict[M.AgentID, Dict]]:
+    ) -> Tuple[Optional[Dict[AgentID, WrapperObsType]], Dict[AgentID, Dict]]:
         obs, info = self.env.reset(seed=seed, options=options)
         if obs is None:
             return obs, info
         return self.observations(obs), info
 
     def step(
-        self, actions: Dict[M.AgentID, M.ActType]
+        self, actions: Dict[AgentID, ActType]
     ) -> Tuple[
-        Dict[M.AgentID, WrapperObsType],
-        Dict[M.AgentID, SupportsFloat],
-        Dict[M.AgentID, bool],
-        Dict[M.AgentID, bool],
+        Dict[AgentID, WrapperObsType],
+        Dict[AgentID, SupportsFloat],
+        Dict[AgentID, bool],
+        Dict[AgentID, bool],
         bool,
-        Dict[M.AgentID, Dict],
+        Dict[AgentID, Dict],
     ]:
         obs, reward, term, trunc, done, info = self.env.step(actions)  # type: ignore
         return self.observations(obs), reward, term, trunc, done, info
 
     def observations(
-        self, obs: Dict[M.AgentID, M.ObsType]
-    ) -> Dict[M.AgentID, WrapperObsType]:
+        self, obs: Dict[AgentID, ObsType]
+    ) -> Dict[AgentID, WrapperObsType]:
         """Transforms observations recieved from wrapped environment."""
         raise NotImplementedError
 
 
-class RewardWrapper(Wrapper[M.StateType, M.ObsType, M.ActType]):
+class RewardWrapper(Wrapper[StateType, ObsType, ActType]):
     """Wraps environment to allow modular transformations of rewards.
 
     Subclasses should atleast implement the rewards function.
     """
 
-    def __init__(self, env: Env[M.StateType, M.ObsType, M.ActType]):
+    def __init__(self, env: Env[StateType, ObsType, ActType]):
         super().__init__(env)
 
     def step(
-        self, actions: Dict[M.AgentID, M.ActType]
+        self, actions: Dict[AgentID, ActType]
     ) -> Tuple[
-        Dict[M.AgentID, M.ObsType],
-        Dict[M.AgentID, SupportsFloat],
-        Dict[M.AgentID, bool],
-        Dict[M.AgentID, bool],
+        Dict[AgentID, ObsType],
+        Dict[AgentID, SupportsFloat],
+        Dict[AgentID, bool],
+        Dict[AgentID, bool],
         bool,
-        Dict[M.AgentID, Dict],
+        Dict[AgentID, Dict],
     ]:
         obs, reward, term, trunc, done, info = self.env.step(actions)  # type: ignore
         return obs, self.rewards(reward), term, trunc, done, info  # type: ignore
 
     def rewards(
-        self, rewards: Dict[M.AgentID, SupportsFloat]
-    ) -> Dict[M.AgentID, SupportsFloat]:
+        self, rewards: Dict[AgentID, SupportsFloat]
+    ) -> Dict[AgentID, SupportsFloat]:
         """Transforms rewards recieved from wrapped environment."""
         raise NotImplementedError
 
 
-class ActionWrapper(Wrapper[M.StateType, M.ObsType, WrapperActType]):
+class ActionWrapper(Wrapper[StateType, ObsType, WrapperActType]):
     """Wraps environment to allow modular transformations of actions.
 
     Subclasses should atleast implement the actions function.
     """
 
-    def __init__(self, env: Env[M.StateType, M.ObsType, M.ActType]):
+    def __init__(self, env: Env[StateType, ObsType, ActType]):
         super().__init__(env)
 
     def step(
-        self, actions: Dict[M.AgentID, M.ActType]
+        self, actions: Dict[AgentID, ActType]
     ) -> Tuple[
-        Dict[M.AgentID, M.ObsType],
-        Dict[M.AgentID, SupportsFloat],
-        Dict[M.AgentID, bool],
-        Dict[M.AgentID, bool],
+        Dict[AgentID, ObsType],
+        Dict[AgentID, SupportsFloat],
+        Dict[AgentID, bool],
+        Dict[AgentID, bool],
         bool,
-        Dict[M.AgentID, Dict],
+        Dict[AgentID, Dict],
     ]:
         return self.env.step(self.actions(actions))  # type: ignore
 
-    def actions(
-        self, actions: Dict[M.AgentID, M.ActType]
-    ) -> Dict[M.AgentID, WrapperActType]:
+    def actions(self, actions: Dict[AgentID, ActType]) -> Dict[AgentID, WrapperActType]:
         """Transform actions for wrapped environment."""
         raise NotImplementedError
