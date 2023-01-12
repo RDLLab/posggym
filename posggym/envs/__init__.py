@@ -315,29 +315,3 @@ for s, n, f, c, sl in product(sizes, players, foods, coop, static_layout):
             "penalty": 0.0
         },
     )
-
-
-# Highway Env
-# -------------------------------------------
-# Ref: https://github.com/eleurent/highway-env
-
-try:
-    from posggym.envs.highway_env.scenarios import HWSCENARIOS
-
-    # suppress pandas warning to do with Highway Env obs space
-    warnings.simplefilter(action='ignore', category=FutureWarning)
-
-    num_agents = [2, 3, 4, 6, 8]
-
-    for scenario_name, scenario_fn in HWSCENARIOS.items():
-        for n in num_agents:
-            register(
-                id=f"HW{scenario_name}-n{n}-v0",
-                entry_point="posggym.envs.highway_env:HWEnv",
-                kwargs={
-                    "n_agents": n,
-                    "env": scenario_fn(n)
-                },
-            )
-except ModuleNotFoundError:
-    pass

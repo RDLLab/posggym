@@ -5,7 +5,6 @@ from setuptools import setup, find_packages
 extras = {
     "test": ["pytest>=6.2"],
     "render": ["matplotlib>=3.5"],
-    "highwayenv": ["highway-env==1.5"],
     "lbf": ["lbforaging==1.1.1"]
 }
 
@@ -14,12 +13,12 @@ extras['all'] = [item for group in extras.values() for item in group]
 
 setup(
     name='posggym',
-    version='0.0.1',
+    version='0.0.1-alpha',
     url="https://github.com/RDLLab/posggym/",
     description=(
         "Partially Observable Stochastic Game environments with models."
     ),
-    author="RDLLab",
+    author="Jonathon Schwartz",
     author_email="Jonathon.Schwartz@anu.edu.au",
     license="MIT",
     packages=[
