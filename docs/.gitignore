@@ -3,3 +3,10 @@ __pycache__
 .vscode/
 build/
 _build/
+
+
+environments/**/list.html
+environments/**/complete_list.html
+environments/**/complete_list.md
+environments/classic/*.md
+environments/grid_world/*.md
