@@ -7,7 +7,7 @@ POSGGym is directly inspired by and adapted from the [Gymnasium (formerly Open A
 
 ## Documentation
 
-The documentation for the project is not yet available online, however you can easily build it yourself :) Head to `docs/README.md` to see how.
+The documentation for the project is available at [posggym.readthedocs.io/](https://posggym.readthedocs.io/).
 
 
 ## Environments
