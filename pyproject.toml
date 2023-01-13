@@ -47,8 +47,7 @@ testing = ["pytest >=7.2"]
 [project.urls]
 Homepage = "https://github.com/RDLLab/posggym"
 Repository = "https://github.com/RDLLab/posggym/"
-# TODO
-# Documentation = "https://gymnasium.farama.org"
+Documentation = "https://posggym.readthedocs.io/"
 "Bug Report" = "https://github.com/RDLLab/posggym/issues"
 
 [tool.setuptools]
