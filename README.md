@@ -46,7 +46,7 @@ for t in range(50):
 	observations, rewards, terminated, truncated, done, info = env.step(actions)
 
 	if done:
-		observation, info = env.reset(seed=42)
+		observation, info = env.reset()
 
 env.close()
 ```
