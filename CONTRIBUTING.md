@@ -11,6 +11,26 @@ At this time we are currently accepting the current forms of contributions:
 
 This section contains technical instructions & hints for the contributors.
 
+### Installation
+
+Clone the repo then you can install POSGGym locally using `pip`  by navigating to the `posggym` root directory (the one containing the `setup.py` file), and running:
+
+```
+pip install -e .
+```
+
+Or use the following to install `posggym` with all dependencies:
+
+```
+pip install -e .[all]
+```
+
+And the following to install dependencies for running tests:
+
+```
+pip install -e .[testing]
+```
+
 ### Type checking
 
 This project uses `mypy` for type checking. For instructions on installation see official [instructions](https://mypy.readthedocs.io/en/latest/getting_started.html#installing-and-running-mypy).

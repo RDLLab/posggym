@@ -20,19 +20,15 @@ POSGGym includes the following families of environments. The code for implemente
 
 ## Installation
 
-At the moment we only support installation by cloning the repo and installing locally.
-
-Once the repo is cloned, you can install POSGGym using PIP by navigating to the `posggym` root directory (the one containing the `setup.py` file), and running:
+The latest version of POSGGym can be installed by running:
 
 ```
-pip install -e .
+pip install posggym
 ```
 
-Or use the following to install `posggym` with all dependencies:
+This will install the base dependencies for running the main environments, but may not include all dependencies for all environments or for rendering some environments. You can install all dependencies for a family of environments like `pip install posggym[grid_world]` or dependencies for all environments using `pip install posggym[all]`.
 
-```
-pip install -e .[all]
-```
+We support and test for Python>=3.8.
 
 
 ## Environment API

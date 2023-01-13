@@ -13,9 +13,8 @@ authors = [{ name = "Jonathon Schwartz", email = "jonathon.schwartz@anu.edu.au" 
 license = { text = "MIT License" }
 keywords = ["reinforcement learning", "game", "RL", "AI", "planning", "posg"]
 classifiers = [
-	# change to `4 - Beta` when ready
 	# change to `5 - Production/Stable` maybe one day
-    "Development Status :: 4 - Alpha",
+    "Development Status :: 4 - Beta",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
