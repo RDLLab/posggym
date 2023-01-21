@@ -15,12 +15,14 @@ reduced_registry = {env_id: env_spec for env_id, env_spec in posggym.registry.it
 def test_pprint_custom_registry():
     """Testing a registry different from default."""
     a = {
-        "MABC-v0": posggym.envs.registry["MABC-v0"],
+        "MultiAccessBroadcastChannel-v0": posggym.envs.registry[
+            "MultiAccessBroadcastChannel-v0"
+        ],
     }
     out = posggym.pprint_registry(a, disable_print=True)
 
     correct_out = """===== classic =====
-MABC-v0
+MultiAccessBroadcastChannel-v0
 
 """
     assert out == correct_out

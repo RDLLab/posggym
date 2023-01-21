@@ -11,15 +11,17 @@ import posggym
 
 
 def test_spec():
-    spec = posggym.spec("MABC-v0")
-    assert spec.id == "MABC-v0"
-    assert spec is posggym.envs.registry["MABC-v0"]
+    spec = posggym.spec("MultiAccessBroadcastChannel-v0")
+    assert spec.id == "MultiAccessBroadcastChannel-v0"
+    assert spec is posggym.envs.registry["MultiAccessBroadcastChannel-v0"]
 
 
 def test_spec_kwargs():
     observation_prob = 0.8
     env = posggym.make(
-        "MABC-v0", observation_prob=observation_prob, disable_env_checker=True
+        "MultiAccessBroadcastChannel-v0",
+        observation_prob=observation_prob,
+        disable_env_checker=True,
     )
     assert env.spec is not None
     assert env.spec.kwargs["observation_prob"] == observation_prob
@@ -58,14 +60,15 @@ def test_spec_missing_lookup():
 
 def test_spec_malformed_lookup():
     expected_error_msg = (
-        "Malformed environment ID: “MABC-v0”. (Currently all IDs must be of the form "
+        "Malformed environment ID: “MultiAccessBroadcastChannel-v0”. "
+        "(Currently all IDs must be of the form "
         "[namespace/](env-name)-v(version) (namespace is optional))."
     )
     with pytest.raises(
         posggym.error.Error,
         match=f"^{re.escape(expected_error_msg)}$",
     ):
-        posggym.spec("“MABC-v0”")
+        posggym.spec("“MultiAccessBroadcastChannel-v0”")
 
 
 def test_spec_versioned_lookups():

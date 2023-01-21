@@ -12,7 +12,7 @@ from posggym.wrappers import TimeLimit
 
 
 def test_time_limit_reset_info():
-    env = posggym.make("MABC-v0", disable_env_checker=True)
+    env = posggym.make("MultiAccessBroadcastChannel-v0", disable_env_checker=True)
     env = TimeLimit(env)
     obs, info = env.reset()
     assert not env.observation_first

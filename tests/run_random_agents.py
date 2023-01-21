@@ -6,16 +6,6 @@ import posggym
 import posggym.model as M
 
 
-# def _get_outcome_counts(episode_outcomes, n_agents):
-#     outcome_counts = {k: [0 for _ in range(n_agents)] for k in M.Outcome}
-#     for outcome in episode_outcomes:
-#         if outcome is None:
-#             outcome = tuple(M.Outcome.NA for _ in range(n_agents))
-#         for i in range(n_agents):
-#             outcome_counts[outcome[i]][i] += 1
-#     return outcome_counts
-
-
 def run_random_agent(
     env_id: str,
     num_episodes: int,
@@ -76,7 +66,6 @@ def run_random_agent(
 
         dones += int(done)
         episode_steps.append(t)
-        # episode_outcomes.append(info.get("outcome", None))
 
         for i, r_i in rewards.items():
             episode_rewards[i].append(r_i)

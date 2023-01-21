@@ -67,9 +67,9 @@ def register_make_testing_envs():
 
 
 def test_make():
-    env = posggym.make("MABC-v0", disable_env_checker=True)
+    env = posggym.make("MultiAccessBroadcastChannel-v0", disable_env_checker=True)
     assert env.spec is not None
-    assert env.spec.id == "MABC-v0"
+    assert env.spec.id == "MultiAccessBroadcastChannel-v0"
     assert isinstance(env.unwrapped, mabc.MABCEnv)
     env.close()
 
@@ -108,7 +108,11 @@ def test_make_max_episode_steps(register_make_testing_envs):
     env.close()
 
     # Custom max episode steps
-    env = posggym.make("MABC-v0", max_episode_steps=100, disable_env_checker=True)
+    env = posggym.make(
+        "MultiAccessBroadcastChannel-v0",
+        max_episode_steps=100,
+        disable_env_checker=True,
+    )
     assert has_wrapper(env, TimeLimit)
     assert env.spec is not None
     assert env.spec.max_episode_steps == 100
@@ -128,7 +132,7 @@ def test_make_disable_env_checker():
 
     Specifically only when `posggym.make(..., disable_env_checker=False)`.
     """
-    spec = deepcopy(posggym.spec("MABC-v0"))
+    spec = deepcopy(posggym.spec("MultiAccessBroadcastChannel-v0"))
 
     # Test with spec disable env checker
     spec.disable_env_checker = False
@@ -174,7 +178,7 @@ def test_make_order_enforcing():
     """Checks that gym.make wrappers the environment with the OrderEnforcing wrapper."""
     assert all(spec.order_enforce is True for spec in all_testing_env_specs)
 
-    env = posggym.make("MABC-v0", disable_env_checker=True)
+    env = posggym.make("MultiAccessBroadcastChannel-v0", disable_env_checker=True)
     assert has_wrapper(env, OrderEnforcing)
     # We can assume that there all other specs will also have the order enforcing
     env.close()
@@ -192,22 +196,26 @@ def test_make_order_enforcing():
 
 
 def test_make_render_mode(register_make_testing_envs):
-    env = posggym.make("MABC-v0", disable_env_checker=True)
+    env = posggym.make("MultiAccessBroadcastChannel-v0", disable_env_checker=True)
     assert env.render_mode is None
     env.close()
 
     # Make sure that render_mode is applied correctly
-    env = posggym.make("MABC-v0", render_mode="ansi", disable_env_checker=True)
+    env = posggym.make(
+        "MultiAccessBroadcastChannel-v0", render_mode="ansi", disable_env_checker=True
+    )
     assert env.render_mode == "ansi"
     env.reset()
-    # Since MABC env is action first
+    # Since MultiAccessBroadcastChannel env is action first
     env.step({i: act_space.sample() for i, act_space in env.action_spaces.items()})
     render = env.render()
     # Make sure that the `render` method does what is supposed to
     assert isinstance(render, str)
     env.close()
 
-    env = posggym.make("MABC-v0", render_mode=None, disable_env_checker=True)
+    env = posggym.make(
+        "MultiAccessBroadcastChannel-v0", render_mode=None, disable_env_checker=True
+    )
     assert env.render_mode is None
     valid_render_modes = env.metadata["render_modes"]
     env.close()
@@ -215,7 +223,9 @@ def test_make_render_mode(register_make_testing_envs):
     assert len(valid_render_modes) > 0
     with warnings.catch_warnings(record=True) as caught_warnings:
         env = posggym.make(
-            "MABC-v0", render_mode=valid_render_modes[0], disable_env_checker=True
+            "MultiAccessBroadcastChannel-v0",
+            render_mode=valid_render_modes[0],
+            disable_env_checker=True,
         )
         assert env.render_mode == valid_render_modes[0]
         env.close()
@@ -228,7 +238,7 @@ def test_make_render_mode(register_make_testing_envs):
 # Add this test when it is
 # def test_make_human_rendering(register_make_testing_envs):
 #     # Make sure that native rendering is used when possible
-#     env = posggym.make("MABC-v0", render_mode="human")
+#     env = posggym.make("MultiAccessBroadcastChannel-v0", render_mode="human")
 #     assert not has_wrapper(env, HumanRendering)  # Should use native human-rendering
 #     assert env.render_mode == "human"
 #     env.close()

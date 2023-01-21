@@ -85,7 +85,7 @@ def test_register(
 @pytest.mark.parametrize(
     "env_id",
     [
-        "“MABC-v0”",
+        "“MultiAccessBroadcastChannel-v0”",
         "MyNotSoAwesomeEnv-vNone\n",
         "MyNamespace///MyNotSoAwesomeEnv-vNone",
     ],
@@ -100,9 +100,9 @@ def test_register_error(env_id):
 @pytest.mark.parametrize(
     "env_id_input, env_id_suggested",
     [
-        ("MAbc-v0", "MABC"),
-        ("MOBC-v0", "MABC"),
-        ("Mabc-v10", "MABC"),
+        ("MultiAccessbroadcastchannel-v0", "MultiAccessBroadcastChannel"),
+        ("MultiOccessBroadcastChannel-v0", "MultiAccessBroadcastChannel"),
+        ("Multiaccessbroadcastchannel-v10", "MultiAccessBroadcastChannel"),
         ("MyAwesomeNamspce/MyAwesomeVersionedEnv-v1", "MyAwesomeNamespace"),
         ("MyAwesomeNamspce/MyAwesomeUnversionedEnv", "MyAwesomeNamespace"),
         ("MyAwesomeNamespace/MyAwesomeUnversioneEnv", "MyAwesomeUnversionedEnv"),
@@ -121,7 +121,7 @@ def test_env_suggestions(
 @pytest.mark.parametrize(
     "env_id_input, suggested_versions, default_version",
     [
-        ("MABC-v12", "`v0`", False),
+        ("MultiAccessBroadcastChannel-v12", "`v0`", False),
         ("MyAwesomeNamespace/MyAwesomeVersionedEnv-v6", "`v1`, `v3`, `v5`", False),
         ("MyAwesomeNamespace/MyAwesomeUnversionedEnv-v6", "", True),
     ],
