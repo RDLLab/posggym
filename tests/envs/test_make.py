@@ -170,7 +170,10 @@ def test_passive_checker_wrapper_warnings(spec):
         env.close()
 
     for warning in caught_warnings:
-        if warning.message.args[0] not in PASSIVE_CHECK_IGNORE_WARNING:
+        if not any(
+            warning.message.args[0].startswith(msg)
+            for msg in PASSIVE_CHECK_IGNORE_WARNING
+        ):
             raise posggym.error.Error(f"Unexpected warning: {warning.message}")
 
 

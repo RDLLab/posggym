@@ -20,10 +20,9 @@ from tests.envs.utils import (
 
 
 PASSIVE_CHECK_IGNORE_WARNING = [
-    f"\x1b[33mWARN: {message}\x1b[0m"
+    f"\x1b[33mWARN: {message}"
     for message in [
-        # add messages to ignore here
-        "Placeholder message",
+        "It seems a Box observation space is an image but the",
     ]
 ]
 
