@@ -10,14 +10,6 @@ POSGGym is directly inspired by and adapted from the [Gymnasium (formerly Open A
 The documentation for the project is available at [posggym.readthedocs.io/](https://posggym.readthedocs.io/).
 
 
-## Environments
-
-POSGGym includes the following families of environments. The code for implemented environments are located in the `posggym/envs/` subdirectory.
-
-- *Classic* - These are classic POSG problems from the literature.
-- *Grid-World* - These environments are all based in a 2D Gridworld.
-
-
 ## Installation
 
 The latest version of POSGGym can be installed by running:
@@ -31,13 +23,29 @@ This will install the base dependencies for running the main environments, but m
 We support and test for Python>=3.8.
 
 
+## Environments
+
+POSGGym includes the following families of environments. The code for implemented environments are located in the `posggym/envs/` subdirectory.
+
+- *Classic* - These are classic POSG problems from the literature.
+- *Grid-World* - These environments are all based in a 2D Gridworld.
+
+You can see a list of all environments by running:
+
+```python
+import posggym
+posggym.pprint_registry()
+
+```
+
+
 ## Environment API
 
 POSGGym models each environment as a python `env` class. Creating environment instances and interacting with them is very simple, and flows almost identically to the Gymnasium user flow. Here's an example using the `TwoPaths-v0` environment:
 
 ```python
 import posggym
-env = posggym.make("TwoPaths-v0")
+env = posggym.make("TwoPaths-7x7-v0")
 
 observations, info = env.reset(seed=42)
 
@@ -61,7 +69,7 @@ The following is an example of accessing and using the environment model:
 
 ```python
 import posggym
-env = posggym.make("TwoPaths-v0")
+env = posggym.make("TwoPaths-7x7-v0")
 model = env.model
 
 model.seed(seed=42)
