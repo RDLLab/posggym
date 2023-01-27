@@ -354,12 +354,9 @@ class DrivingGenEnv(DrivingEnv):
         n_grids: Optional[int],
         generator_params: Dict[str, Any],
         shuffle_grid_order: bool = True,
-        seed: Optional[int] = None,
+        render_mode: Optional[str] = None,
         **kwargs,
     ):
-        if "seed" not in generator_params:
-            generator_params["seed"] = seed
-
         self._n_grids = n_grids
         self._gen_params = generator_params
         self._shuffle_grid_order = shuffle_grid_order
@@ -369,7 +366,7 @@ class DrivingGenEnv(DrivingEnv):
 
         if n_grids is not None:
             grids = self._gen.generate_n(n_grids)
-            self._cycler = GridCycler(grids, shuffle_grid_order, seed=seed)
+            self._cycler = GridCycler(grids, shuffle_grid_order)
             grid: "DrivingGrid" = grids[0]  # type: ignore
         else:
             self._cycler = None  # type: ignore
@@ -387,7 +384,7 @@ class DrivingGenEnv(DrivingEnv):
             num_agents,
             obs_dim,
             obstacle_collisions=obstacle_collisions,
-            seed=seed,
+            render_mode=render_mode,
             **kwargs,
         )
 
@@ -395,6 +392,7 @@ class DrivingGenEnv(DrivingEnv):
         self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
     ) -> Tuple[Optional[Dict[M.AgentID, DObs]], Dict[M.AgentID, Dict]]:
         if seed is not None:
+            self._model_seed = seed
             self._gen_params["seed"] = seed
             self._gen = DrivingGridGenerator(**self._gen_params)
 
@@ -407,10 +405,7 @@ class DrivingGenEnv(DrivingEnv):
         else:
             grid = self._gen.generate()
 
-        self.model = DrivingModel(
-            grid,  # type: ignore
-            **self._model_kwargs,  # type: ignore
-        )
+        self.model.grid = grid   # type: ignore
 
         return super().reset(seed=seed)
 
@@ -452,7 +447,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
         assert 0 < num_agents <= grid.supported_num_agents
         assert obs_dim[0] > 0 and obs_dim[1] >= 0 and obs_dim[2] >= 0
-        self.grid = grid
+        self._grid = grid
         self._obs_front, self._obs_back, self._obs_side = obs_dim
         self._obstacle_collisions = obstacle_collisions
 
@@ -521,6 +516,16 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
     def get_agents(self, state: DState) -> List[M.AgentID]:
         return list(self.possible_agents)
+
+    @property
+    def grid(self) -> "DrivingGrid":
+        """The underlying grid for this model instance."""
+        return self._grid
+
+    @grid.setter
+    def grid(self, grid: "DrivingGrid"):
+        assert (self._grid.height, self._grid.width) == (grid.height, grid.width)
+        self._grid = grid
 
     def sample_initial_state(self) -> DState:
         state = []
