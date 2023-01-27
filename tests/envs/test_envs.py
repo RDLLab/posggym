@@ -114,8 +114,8 @@ def test_env_determinism_rollout(env_spec: EnvSpec):
 
         if done_1:
             # done_2
-            env_1.reset(seed=SEED)
-            env_2.reset(seed=SEED)
+            env_1.reset()
+            env_2.reset()
 
     env_1.close()
     env_2.close()

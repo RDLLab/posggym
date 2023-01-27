@@ -1,20 +1,23 @@
-from typing import Tuple, Optional
+"""Utilities for storing and managing agent action-observation histories."""
+from typing import Generic, List, Optional, Tuple
 
 import posggym.model as M
 
 
-class AgentHistory:
+class AgentHistory(Generic[M.ActType, M.ObsType]):
     """An Action-Observation history for a single agent in a POSG environment.
 
     A History is an ordered Tuple of (Action, Observation) tuples with one
     entry for each time step in the environment
     """
 
-    def __init__(self, history: Tuple[Tuple[M.Action, M.Observation], ...]):
+    def __init__(
+        self, history: Tuple[Tuple[Optional[M.ActType], Optional[M.ObsType]], ...]
+    ):
         self.history = history
         self.t = len(history) - 1
 
-    def extend(self, action: M.Action, obs: M.Observation) -> "AgentHistory":
+    def extend(self, action: M.ActType, obs: M.ObsType) -> "AgentHistory":
         """Extend the current history with given action, observation pair."""
         new_history = list(self.history)
         new_history.append((action, obs))
@@ -30,7 +33,7 @@ class AgentHistory:
             return self
         return AgentHistory(self.history[:horizon])
 
-    def get_last_step(self) -> Tuple[M.Action, M.Observation]:
+    def get_last_step(self) -> Tuple[Optional[M.ActType], Optional[M.ObsType]]:
         """Get the last step in the history."""
         return self.history[-1]
 
@@ -43,13 +46,11 @@ class AgentHistory:
         return len(self.history)
 
     @classmethod
-    def get_init_history(cls,
-                         obs: Optional[M.Observation] = None
-                         ) -> "AgentHistory":
+    def get_init_history(cls, obs: Optional[M.ObsType] = None) -> "AgentHistory":
         """Get Initial history."""
         if obs is None:
             return cls(())
-        return cls(((None, obs), ))
+        return cls(((None, obs),))
 
     def __hash__(self):
         return hash(self.history)
@@ -77,7 +78,6 @@ class AgentHistory:
 
 
 class _AgentHistoryIterator:
-
     def __init__(self, history: AgentHistory):
         self.history = history
         self._idx = 0
@@ -88,7 +88,7 @@ class _AgentHistoryIterator:
     def __next__(self):
         if self._idx < len(self.history.history):
             self._idx += 1
-            return self.history[self._idx-1]
+            return self.history[self._idx - 1]
         raise StopIteration
 
 
@@ -100,27 +100,25 @@ class JointHistory:
         self.num_agents = len(self.agent_histories)
 
     @classmethod
-    def get_init_history(cls,
-                         num_agents: int,
-                         obs: Optional[M.JointObservation] = None
-                         ) -> "JointHistory":
+    def get_init_history(
+        cls, num_agents: int, obs: Optional[Tuple[Optional[M.ObsType], ...]] = None
+    ) -> "JointHistory":
         """Get Initial joint history."""
         if obs is None:
-            return cls(tuple(
-                AgentHistory.get_init_history() for _ in range(num_agents)
-            ))
-        return cls(tuple(
-            AgentHistory.get_init_history(obs[i])
-            for i in range(num_agents)
-        ))
+            return cls(
+                tuple(AgentHistory.get_init_history() for _ in range(num_agents))
+            )
+        return cls(
+            tuple(AgentHistory.get_init_history(obs[i]) for i in range(num_agents))
+        )
 
     def get_agent_history(self, agent_id: int) -> AgentHistory:
         """Get the history of given agent."""
         return self.agent_histories[agent_id]
 
-    def extend(self,
-               action: M.JointAction,
-               obs: M.JointObservation) -> "JointHistory":
+    def extend(
+        self, action: Tuple[M.ActType, ...], obs: Tuple[M.ObsType, ...]
+    ) -> "JointHistory":
         """Extend the current history with given action, observation pair."""
         new_agent_histories = []
         for i in range(self.num_agents):
@@ -133,18 +131,14 @@ class JointHistory:
         """Get a subset of history up to given horizon."""
         sub_agent_histories = []
         for i in range(self.num_agents):
-            sub_agent_histories.append(
-                self.agent_histories[i].get_sub_history(horizon)
-            )
+            sub_agent_histories.append(self.agent_histories[i].get_sub_history(horizon))
         return JointHistory(tuple(sub_agent_histories))
 
     def get_history_tm1(self) -> "JointHistory":
         """Get history at time t-1."""
-        sub_agent_histories = []
+        sub_agent_histories: List[AgentHistory] = []
         for i in range(self.num_agents):
-            sub_agent_histories.append(
-                AgentHistory(self.agent_histories[i][:-1])
-            )
+            sub_agent_histories.append(AgentHistory(self.agent_histories[i][:-1]))
         return JointHistory(tuple(sub_agent_histories))
 
     def __hash__(self):

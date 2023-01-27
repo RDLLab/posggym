@@ -371,7 +371,7 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         **kwargs,
     ):
         assert observation_mode in self.OBSERVATION_MODES
-        self._field_size = field_size
+        self.field_size = field_size
         self._rows, self._cols = field_size
         self._max_agent_level = max_agent_level
         self._max_food = max_food
@@ -379,7 +379,7 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         self._force_coop = force_coop
         self._static_layout = static_layout
         self._normalize_reward = normalize_reward
-        self._obs_mode = observation_mode
+        self.observation_mode = observation_mode
         self._penalty = penalty
 
         self.possible_agents = tuple(range(num_agents))
@@ -414,7 +414,7 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         """
         n_agents = len(self.possible_agents)
         max_food_level = self._max_agent_level * min(n_agents, 4)
-        if self._obs_mode == "tuple":
+        if self.observation_mode == "tuple":
             max_x, max_y = self._cols, self._rows
             tuple_obs_space = []
             for _ in range(n_agents):
@@ -429,7 +429,7 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
                 tuple_obs_space.append(spaces.Discrete(max_food_level + 1, start=0))
             return spaces.Tuple(tuple_obs_space)
 
-        if self._obs_mode == "vector":
+        if self.observation_mode == "vector":
             max_x, max_y = self._cols - 1, self._rows - 1
             min_obs = [-1, -1, 0] * n_agents + [-1, -1, 0] * self._max_food
             max_obs = [max_x, max_y, self._max_agent_level] * n_agents + [
@@ -457,7 +457,7 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
             min_obs = np.stack([agents_min, foods_min, access_min])
             max_obs = np.stack([agents_max, foods_max, access_max])
 
-        # dtype = np.int8 if self._obs_mode == "vector" else np.uint8
+        # dtype = np.int8 if self.observation_mode == "vector" else np.uint8
         dtype = np.float32
         return spaces.Box(
             np.array(min_obs, dtype=dtype),
@@ -708,9 +708,9 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         obs: Dict[M.AgentID, LBFObs] = {}
         for i in self.possible_agents:
             player_obs, food_obs = self._get_local_obs(state, int(i))
-            if self._obs_mode == "tuple":
+            if self.observation_mode == "tuple":
                 obs[i] = self._get_tuple_obs(player_obs, food_obs)
-            elif self._obs_mode == "vector":
+            elif self.observation_mode == "vector":
                 obs[i] = self._get_vector_obs(int(i), player_obs, food_obs)
             else:
                 obs[i] = self._get_grid_obs(
@@ -853,12 +853,12 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         On triplet of [-1, -1, 0] means no observation for the given agent or
         food.
         """
-        if self._obs_mode == "tuple":
+        if self.observation_mode == "tuple":
             assert isinstance(obs, tuple)
             return self.parse_tuple_obs(obs)
 
         assert isinstance(obs, np.ndarray)
-        if self._obs_mode == "grid":
+        if self.observation_mode == "grid":
             return self.parse_grid_obs(obs)
         # vector obs
         return self.parse_vector_obs(obs)

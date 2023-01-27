@@ -222,7 +222,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
         """
         raise NotImplementedError
 
-    def close(self) -> None:
+    def close(self):
         """Close environment and perform any necessary cleanup.
 
         Should be overriden in subclasses as necessary.

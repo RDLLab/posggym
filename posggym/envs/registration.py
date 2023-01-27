@@ -15,11 +15,11 @@ import re
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterable, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Tuple
 
 from posggym import error, logger
 from posggym.core import Env
-from posggym.wrappers import OrderEnforcing, TimeLimit, PassiveEnvChecker
+from posggym.wrappers import OrderEnforcing, PassiveEnvChecker, TimeLimit
 
 
 if sys.version_info < (3, 10):
@@ -328,7 +328,7 @@ def _check_spec_register(spec: EnvSpec):
             f"`{spec.id}` when the versioned environment "
             f"`{latest_versioned_spec.id}` of the same name "
             f"already exists. Note: the default behavior is "
-            f"that `gym.make` with the unversioned environment "
+            f"that `posggym.make` with the unversioned environment "
             f"will return the latest versioned environment"
         )
 
@@ -595,7 +595,7 @@ def spec(env_id: str) -> EnvSpec:
 def pprint_registry(
     _registry: dict = registry,
     num_cols: int = 3,
-    exclude_namespaces: list[str] | None = None,
+    exclude_namespaces: List[str] | None = None,
     disable_print: bool = False,
 ) -> str | None:
     """Pretty print the environments in the registry.
