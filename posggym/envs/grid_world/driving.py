@@ -1171,8 +1171,8 @@ def get_14x14_blocks_grid() -> DrivingGrid:
     return parse_grid_str(grid_str, 4)
 
 
-def get_14x14_roundabout_wide_grid() -> DrivingGrid:
-    """Generate a 14-by-14 Round About grid layout with wide roads."""
+def get_14x14_roundabout_grid() -> DrivingGrid:
+    """Generate a 14-by-14 Round About grid layout roads."""
     grid_str = (
         "#-..........-#\n"
         "-#####..#####+\n"
@@ -1255,7 +1255,7 @@ SUPPORTED_GEN_PARAMS = {
             "max_obstacle_size": 2,
             "max_num_obstacles": 21,  # size * 3
         },
-        40,
+        50,
     ),
     "14x14": (
         {
@@ -1264,7 +1264,7 @@ SUPPORTED_GEN_PARAMS = {
             "max_obstacle_size": 3,
             "max_num_obstacles": 42,  # size * 3
         },
-        100,
+        50,
     ),
     "28x28": (
         {
@@ -1273,22 +1273,22 @@ SUPPORTED_GEN_PARAMS = {
             "max_obstacle_size": 4,
             "max_num_obstacles": 84,  # size * 3
         },
-        200,
+        100,
     ),
 }
 
 
 #  (grid_make_fn, max step_limit, )
 SUPPORTED_GRIDS = {
-    "3x3": (get_3x3_grid, 30),
+    "3x3": (get_3x3_grid, 15),
     "4x4Intersection": (get_4x4_intersection_grid, 20),
     "6x6Intersection": (get_6x6_intersection_grid, 20),
     "7x7CrissCross": (get_7x7_crisscross_grid, 50),
     "7x7Blocks": (get_7x7_blocks_grid, 50),
     "7x7RoundAbout": (get_7x7_roundabout_grid, 50),
-    "14x14Blocks": (get_14x14_blocks_grid, 100),
-    "14x14CrissCross": (get_14x14_crisscross_grid, 100),
-    "14x14WideRoundAbout": (get_14x14_roundabout_wide_grid, 50),
+    "14x14Blocks": (get_14x14_blocks_grid, 50),
+    "14x14CrissCross": (get_14x14_crisscross_grid, 50),
+    "14x14RoundAbout": (get_14x14_roundabout_grid, 50),
 }
 
 
