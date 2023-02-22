@@ -38,7 +38,6 @@ import posggym.model as M
 from posggym import logger
 from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import Coord, Direction, Grid
-from posggym.error import DependencyNotInstalled
 from posggym.utils import seeding
 
 
@@ -182,7 +181,10 @@ class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
 
     """
 
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 10}
+    metadata = {
+        "render_modes": ["human", "rgb_array", "rgb_array_dict"],
+        "render_fps": 15
+    }
 
     def __init__(
         self,
@@ -215,18 +217,10 @@ class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
             ),
             render_mode=render_mode,
         )
-
-        grid: Grid = self.model.grid  # type: ignore
-        self.window_size = (min(64 * grid.width, 512), min(64 * grid.height, 512))
-        self.cell_size = (
-            self.window_size[0] // grid.width,
-            self.window_size[1] // grid.height,
-        )
-        self.window_surface = None
-        self.clock = None
-        self.food_img = None
-        self.agent_img = None
-        self.font = None
+        self.max_food = max_food
+        self.renderer = None
+        self.food_imgs = None
+        self.agent_imgs = None
 
     def render(self):
         if self.render_mode is None:
@@ -238,87 +232,78 @@ class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
             )
             return
 
-        try:
-            import pygame
-        except ImportError as e:
-            raise DependencyNotInstalled(
-                "pygame is not installed, run `pip install posggym[grid-world]`"
-            ) from e
+        import posggym.envs.grid_world.render as render_lib
 
-        if self.window_surface is None:
-            pygame.init()
-
-            if self.render_mode == "human":
-                pygame.display.init()
-                pygame.display.set_caption("Level-Based Foraging")
-                self.window_surface = pygame.display.set_mode(self.window_size)
-            elif self.render_mode == "rgb_array":
-                pygame.font.init()
-                self.window_surface = pygame.Surface(self.window_size)
-
-        assert (
-            self.window_surface is not None
-        ), "Something went wrong with pygame. This should never happen."
-
-        if self.clock is None:
-            self.clock = pygame.time.Clock()
-
-        if self.agent_img is None:
-            file_name = path.join(path.dirname(__file__), "img/robot.png")
-            self.agent_img = pygame.transform.scale(
-                pygame.image.load(file_name), self.cell_size
+        model: LBFModel = self.model  # type: ignore
+        if self.renderer is None:
+            self.renderer = render_lib.GWRenderer(
+                self.render_mode,
+                model.grid,
+                render_fps=self.metadata["render_fps"],
+                env_name="LevelBasedForaging"
             )
-        if self.food_img is None:
-            file_name = path.join(path.dirname(__file__), "img/apple.png")
-            self.food_img = pygame.transform.scale(
-                pygame.image.load(file_name), self.cell_size
+
+        if self.agent_imgs is None:
+            img_path = path.join(path.dirname(__file__), "img", "robot.png")
+            agent_img = render_lib.load_img_file(img_path, self.renderer.cell_size)
+            font = render_lib.load_font(
+                "Comic Sans MC",
+                render_lib.get_default_font_size(self.renderer.cell_size)
             )
-        if self.font is None:
-            self.font = pygame.font.SysFont("Comic Sans MS", self.cell_size[1] // 4)
+            self.agent_imgs = {
+                i: render_lib.GWImageAndText(
+                    (0, 0), self.renderer.cell_size, agent_img, str(1), font
+                )
+                for i in self.possible_agents
+            }
 
-        self.window_surface.fill((0, 0, 0))
-        grid: Grid = self.model.grid  # type: ignore
-
-        # draw grid lines
-        for y in range(grid.height):
-            for x in range(grid.width):
-                pos = (x * self.cell_size[0], y * self.cell_size[1])
-                rect = (*pos, *self.cell_size)
-                pygame.draw.rect(self.window_surface, (255, 255, 255), rect, 1)
-
-        for player in self._state.players:
-            (x, y) = player.coord
-            pos = (x * self.cell_size[0], y * self.cell_size[1])
-            self.window_surface.blit(self.agent_img, pos)
-            level_txt = self.font.render(
-                str(player.level), True, (255, 255, 255), (0, 0, 0)
+        if self.food_imgs is None:
+            img_path = path.join(path.dirname(__file__), "img", "apple.png")
+            food_img = render_lib.load_img_file(img_path, self.renderer.cell_size)
+            font = render_lib.load_font(
+                "Comic Sans MC",
+                render_lib.get_default_font_size(self.renderer.cell_size)
             )
-            text_pos = (pos[0] + 1, pos[1] + 1)
-            self.window_surface.blit(level_txt, text_pos)
+            self.food_imgs = [
+                render_lib.GWImageAndText(
+                    (0, 0), self.renderer.cell_size, food_img, str(1), font
+                )
+                for i in range(self.max_food)
+            ]
 
-        for food in self._state.food:
-            (x, y) = food.coord
-            pos = (x * self.cell_size[0], y * self.cell_size[1])
-            self.window_surface.blit(self.food_img, pos)
-            level_txt = self.font.render(str(food.level), True, (255, 255, 255))
-            text_pos = (pos[0] + 1, pos[1] + 1)
-            self.window_surface.blit(level_txt, text_pos)
+        render_objects = []
+        observed_coords = []
+        for i, player in enumerate(self._state.players):
+            img_obj = self.agent_imgs[i]
+            img_obj.coord = player.coord
+            img_obj.text = str(player.level)
+            render_objects.append(img_obj)
+            observed_coords.extend(model.get_obs_coords(player.coord))
 
-        if self.render_mode == "human":
-            pygame.event.pump()
-            pygame.display.update()
-            self.clock.tick(self.metadata["render_fps"])
-        elif self.render_mode == "rgb_array":
-            return np.transpose(
-                np.array(pygame.surfarray.pixels3d(self.window_surface)), axes=(1, 0, 2)
-            )
+        for i, food in enumerate(self._state.food):
+            img_obj = self.food_imgs[i]
+            img_obj.coord = food.coord
+            img_obj.text = str(food.level)
+            render_objects.append(img_obj)
+
+        agent_coords_and_dirs = {
+            i: (player.coord, Direction.NORTH)
+            for i, player in enumerate(self._state.players)
+        }
+
+        if self.render_mode in ("human", "rgb_array"):
+            return self.renderer.render(render_objects, observed_coords)
+        return self.renderer.render_agents(
+            render_objects,
+            agent_coords_and_dirs,
+            agent_obs_dims=model.sight,
+            observed_coords=observed_coords
+        )
 
     def close(self):
-        if self.window_surface is not None:
-            import pygame
-
-            pygame.display.quit()
-            pygame.quit()
+        if self.renderer is not None:
+            self.renderer.close()
+            self.renderer = None
 
 
 class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
@@ -375,7 +360,7 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         self._rows, self._cols = field_size
         self._max_agent_level = max_agent_level
         self._max_food = max_food
-        self._sight = sight
+        self.sight = sight
         self._force_coop = force_coop
         self._static_layout = static_layout
         self._normalize_reward = normalize_reward
@@ -439,7 +424,7 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
             ] * self._max_food
         else:
             # grid observation space
-            grid_shape = (1 + 2 * self._sight, 1 + 2 * self._sight)
+            grid_shape = (1 + 2 * self.sight, 1 + 2 * self.sight)
 
             # agents layer: agent levels
             agents_min = np.zeros(grid_shape, dtype=np.float32)
@@ -726,12 +711,12 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         ego_player = state.players[agent_id]
         for p in state.players:
             if (
-                abs(p.coord[0] - ego_player.coord[0]) <= self._sight
-                and abs(p.coord[1] - ego_player.coord[1]) <= self._sight
+                abs(p.coord[0] - ego_player.coord[0]) <= self.sight
+                and abs(p.coord[1] - ego_player.coord[1]) <= self.sight
             ):
                 p_obs_coord = (
-                    p.coord[0] - ego_player.coord[0] + self._sight,
-                    p.coord[1] - ego_player.coord[1] + self._sight,
+                    p.coord[0] - ego_player.coord[0] + self.sight,
+                    p.coord[1] - ego_player.coord[1] + self.sight,
                 )
                 player_obs.append(
                     LBFEntityObs(p_obs_coord, p.level, is_self=(ego_player == p))
@@ -745,12 +730,12 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
             # note unobserved food are exluded since ordering can change for food obs
             # (unlike for players)
             if (
-                abs(f.coord[0] - ego_player.coord[0]) <= self._sight
-                and abs(f.coord[1] - ego_player.coord[1]) <= self._sight
+                abs(f.coord[0] - ego_player.coord[0]) <= self.sight
+                and abs(f.coord[1] - ego_player.coord[1]) <= self.sight
             ):
                 f_obs_coord = (
-                    f.coord[0] - ego_player.coord[0] + self._sight,
-                    f.coord[1] - ego_player.coord[1] + self._sight,
+                    f.coord[0] - ego_player.coord[0] + self.sight,
+                    f.coord[1] - ego_player.coord[1] + self.sight,
                 )
                 food_obs.append(LBFEntityObs(f_obs_coord, f.level, is_self=False))
 
@@ -810,7 +795,7 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         player_obs: List[LBFEntityObs],
         food_obs: List[LBFEntityObs],
     ) -> np.ndarray:
-        grid_shape_x, grid_shape_y = (2 * self._sight + 1, 2 * self._sight + 1)
+        grid_shape_x, grid_shape_y = (2 * self.sight + 1, 2 * self.sight + 1)
         # agent, food, access layers
         grid_obs = np.zeros((3, grid_shape_x, grid_shape_y), dtype=np.float32)
 
@@ -819,14 +804,14 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         agent_x, agent_y = agent_coord
         for x, y in product(
             range(
-                max(agent_x - self._sight, 0), min(self._cols, agent_x + self._sight)
+                max(agent_x - self.sight, 0), min(self._cols, agent_x + self.sight)
             ),
             range(
-                max(agent_y - self._sight, 0), min(self._rows, agent_y + self._sight)
+                max(agent_y - self.sight, 0), min(self._rows, agent_y + self.sight)
             ),
         ):
-            obs_x = x - agent_x + self._sight
-            obs_y = y - agent_y + self._sight
+            obs_x = x - agent_x + self.sight
+            obs_y = y - agent_y + self.sight
             grid_obs[2, obs_x, obs_y] = 1.0
 
         for p in player_obs:
@@ -919,6 +904,27 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
             else:
                 food_obs.append(triplet)
         return agent_obs, food_obs
+
+    def get_obs_coords(self, origin: Coord) -> List[Coord]:
+        """Get the list of coords observed from agent at origin."""
+        obs_size = (2 * self.sight) + 1
+        obs_coords: List[Coord] = []
+        for col, row in product(range(obs_size), repeat=2):
+            obs_grid_coord = self._map_obs_to_grid_coord((col, row), origin)
+            if obs_grid_coord is not None:
+                obs_coords.append(obs_grid_coord)
+        return obs_coords
+
+    def _map_obs_to_grid_coord(
+        self, obs_coord: Coord, agent_coord: Coord
+    ) -> Optional[Coord]:
+        grid_col = agent_coord[0] + obs_coord[0] - self.sight
+        grid_row = agent_coord[1] + obs_coord[1] - self.sight
+
+        width, height = self.field_size
+        if 0 <= grid_row < height and 0 <= grid_col < width:
+            return (grid_col, grid_row)
+        return None
 
 
 def sorted_from_middle(lst):

@@ -13,6 +13,7 @@ Reference
 """
 import math
 from itertools import product
+from os import path
 from typing import (
     Dict,
     List,
@@ -27,8 +28,8 @@ from typing import (
 
 from gymnasium import spaces
 
-import posggym.envs.grid_world.render as render_lib
 import posggym.model as M
+from posggym import logger
 from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import Coord, Direction, Grid
 from posggym.utils import seeding
@@ -151,7 +152,7 @@ class PPEnv(DefaultEnv[PPState, PPObs, PPAction]):
 
     metadata = {
         "render_modes": ["human", "ansi", "rgb_array", "rgb_array_dict"],
-        "render_fps": 4,
+        "render_fps": 15,
     }
 
     def __init__(
@@ -178,99 +179,108 @@ class PPEnv(DefaultEnv[PPState, PPObs, PPAction]):
             render_mode=render_mode,
         )
         self._obs_dim = obs_dim
-        self._viewer = None
-        self._renderer: Optional[render_lib.GWRenderer] = None
+        self.renderer = None
+        self._predator_imgs = None
+        self._prey_imgs = None
 
     def render(self):
-        # cast for typehinting
+        if self.render_mode is None:
+            assert self.spec is not None
+            logger.warn(
+                "You are calling render method without specifying any render mode. "
+                "You can specify the render_mode at initialization, "
+                f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
+            )
+            return
+
+        if self.render_mode == "ansi":
+            return self._render_ansi()
+        return self._render_img()
+
+    def _render_ansi(self):
         model: PPModel = self.model  # type: ignore
         grid = model.grid
-        if self.render_mode == "ansi":
-            uncaught_prey_coords = [
-                self._state.prey_coords[i]
-                for i in range(self.model.num_prey)
-                if not self._state.prey_caught[i]
-            ]
-            grid_str = grid.get_ascii_repr(
-                self._state.predator_coords, uncaught_prey_coords
-            )
-            output = [
-                f"Step: {self._step_num}",
-                grid_str,
-            ]
-            if self._last_actions is not None:
-                action_str = ", ".join(
-                    [ACTIONS_STR[a] for a in self._last_actions.values()]
-                )
-                output.insert(1, f"Actions: <{action_str}>")
-                output.append(f"Rewards: <{self._last_rewards}>")
-
-            return "\n".join(output) + "\n"
-
-        if self.render_mode == "human" and self._viewer is None:
-            # pylint: disable=[import-outside-toplevel]
-            from posggym.envs.grid_world import viewer
-
-            self._viewer = viewer.GWViewer(
-                "Predator-Prey Env",
-                (min(grid.width, 9), min(grid.height, 9)),
-                num_agent_displays=len(self.possible_agents),
-            )
-            self._viewer.show(block=False)
-
-        if self._renderer is None:
-            self._renderer = render_lib.GWRenderer(
-                len(self.possible_agents), grid, [], render_blocks=True
-            )
-
-        agent_obs_coords = tuple(
-            self.model.get_obs_coords(c) for c in self._state.predator_coords
-        )
-        agent_coords = self._state.predator_coords
-
-        prey_objs = [
-            render_lib.GWObject(
-                c,
-                "cyan",
-                render_lib.Shape.CIRCLE,
-                # alpha=0.25
-            )
-            for i, c in enumerate(self._state.prey_coords)
+        uncaught_prey_coords = [
+            self._state.prey_coords[i]
+            for i in range(self.model.num_prey)
             if not self._state.prey_caught[i]
         ]
-
-        env_img = self._renderer.render(
-            agent_coords,
-            agent_obs_coords,
-            agent_dirs=None,
-            other_objs=prey_objs,
-            agent_colors=None,
+        grid_str = grid.get_ascii_repr(
+            self._state.predator_coords, uncaught_prey_coords
         )
-        agent_obs_imgs = self._renderer.render_all_agent_obs(
-            env_img,
-            agent_coords,
-            Direction.NORTH,
-            agent_obs_dims=(self._obs_dim, self._obs_dim, self._obs_dim),
-            out_of_bounds_obj=render_lib.GWObject(
-                (0, 0), "grey", render_lib.Shape.RECTANGLE
-            ),
-        )
+        output = [
+            f"Step: {self._step_num}",
+            grid_str,
+        ]
+        if self._last_actions is not None:
+            action_str = ", ".join(
+                [ACTIONS_STR[a] for a in self._last_actions.values()]
+            )
+            output.insert(1, f"Actions: <{action_str}>")
+            output.append(f"Rewards: <{self._last_rewards}>")
 
-        if self.render_mode == "human":
-            self._viewer.update_img(env_img, agent_idx=None)
-            for i, obs_img in enumerate(agent_obs_imgs):
-                self._viewer.update_img(obs_img, agent_idx=i)
-            self._viewer.display_img()
-        elif self.render_mode == "rgb_array":
-            return env_img
-        else:
-            # rgb_array_dict
-            return dict(enumerate(agent_obs_imgs))
+        return "\n".join(output) + "\n"
+
+    def _render_img(self):
+        model: PPModel = self.model  # type: ignore
+
+        import posggym.envs.grid_world.render as render_lib
+
+        if self.renderer is None:
+            self.renderer = render_lib.GWRenderer(
+                self.render_mode,
+                model.grid,
+                render_fps=self.metadata["render_fps"],
+                env_name="PredatorPrey",
+            )
+
+        if self._predator_imgs is None:
+            img_path = path.join(path.dirname(__file__), "img", "robot.png")
+            agent_img = render_lib.load_img_file(img_path, self.renderer.cell_size)
+            self._predator_imgs = {
+                i: render_lib.GWImage((0, 0), self.renderer.cell_size, agent_img)
+                for i in self.possible_agents
+            }
+
+        observed_coords = []
+        for coord in self._state.predator_coords:
+            observed_coords.extend(model.get_obs_coords(coord))
+
+        render_objects = []
+        # Add prey
+        for i, coord in enumerate(self._state.prey_coords):
+            if self._state.prey_caught[i]:
+                continue
+            render_objects.append(
+                render_lib.GWCircle(
+                    coord, self.renderer.cell_size, render_lib.get_color("cyan")
+                )
+            )
+
+        # Add agents
+        for i, coord in enumerate(self._state.predator_coords):
+            agent_obj = self._predator_imgs[i]
+            agent_obj.coord = coord
+            render_objects.append(agent_obj)
+
+        agent_coords_and_dirs = {
+            i: (coord, Direction.NORTH)
+            for i, coord in enumerate(self._state.predator_coords)
+        }
+
+        if self.render_mode in ("human", "rgb_array"):
+            return self.renderer.render(render_objects, observed_coords)
+        return self.renderer.render_agents(
+            render_objects,
+            agent_coords_and_dirs,
+            agent_obs_dims=self._obs_dim,
+            observed_coords=observed_coords,
+        )
 
     def close(self) -> None:
-        if self._viewer is not None:
-            self._viewer.close()  # type: ignore
-            self._viewer = None
+        if self.renderer is not None:
+            self.renderer.close()
+            self.renderer = None
 
 
 class PPModel(M.POSGModel[PPState, PPObs, PPAction]):

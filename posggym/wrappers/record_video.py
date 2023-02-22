@@ -15,8 +15,9 @@ from posggym.wrappers.monitoring.video_recorder import VideoRecorder
 def capped_cubic_video_schedule(episode_id: int) -> bool:
     """Get cubic schedule.
 
-    Triggers recording of episodes numbers 0, 1, 4, 8, 37, ..., :math:`k^3`, ..., 729,
-    1000, 2000, 3000, ...
+    Triggers recording of episodes numbers that are perfect cubes :math:`k^3` upto
+    the 1000th episode, then every 1000 episodes after that:
+    0, 1, 8, 27, 64, 125, 216, 343, 512, 729, 1000, 2000, 3000, ...
 
     Arguments
     ---------
@@ -116,31 +117,6 @@ class RecordVideo(Wrapper):
             self.start_video_recorder()
         return observations
 
-    def _video_enabled(self):
-        if self.step_trigger:
-            return self.step_trigger(self.step_id)
-        return self.episode_trigger(self.episode_id)
-
-    def start_video_recorder(self):
-        """Starts video recorder."""
-        self.close_video_recorder()
-
-        video_name = f"{self.name_prefix}-step-{self.step_id}"
-        if self.episode_trigger:
-            video_name = f"{self.name_prefix}-episode-{self.episode_id}"
-
-        base_path = os.path.join(self.video_folder, video_name)
-        self.video_recorder = VideoRecorder(
-            env=self.env,
-            base_path=base_path,
-            metadata={"step_id": self.step_id, "episode_id": self.episode_id},
-            disable_logger=self.disable_logger,
-        )
-
-        self.video_recorder.capture_frame()
-        self.recorded_frames = 1
-        self.recording = True
-
     def step(self, actions):
         obs, rewards, terminated, truncated, all_done, info = super().step(actions)
 
@@ -179,9 +155,39 @@ class RecordVideo(Wrapper):
             if self.recording:
                 return recorded_frames
             else:
-                return recorded_frames + super().render(*args, **kwargs)
+                render_output = super().render(*args, **kwargs)
+                if isinstance(render_output, dict):
+                    if "env" not in render_output:
+                        return recorded_frames
+                    return recorded_frames + render_output.get('env', [])
+                return recorded_frames + render_output
         else:
             return super().render(*args, **kwargs)
+
+    def _video_enabled(self):
+        if self.step_trigger:
+            return self.step_trigger(self.step_id)
+        return self.episode_trigger(self.episode_id)
+
+    def start_video_recorder(self):
+        """Starts video recorder."""
+        self.close_video_recorder()
+
+        video_name = f"{self.name_prefix}-step-{self.step_id}"
+        if self.episode_trigger:
+            video_name = f"{self.name_prefix}-episode-{self.episode_id}"
+
+        base_path = os.path.join(self.video_folder, video_name)
+        self.video_recorder = VideoRecorder(
+            env=self.env,
+            base_path=base_path,
+            metadata={"step_id": self.step_id, "episode_id": self.episode_id},
+            disable_logger=self.disable_logger,
+        )
+
+        self.video_recorder.capture_frame()
+        self.recorded_frames = 1
+        self.recording = True
 
     def close_video_recorder(self):
         """Closes the video recorder if currently recording."""

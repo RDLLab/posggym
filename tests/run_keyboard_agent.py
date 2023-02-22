@@ -1,5 +1,6 @@
 """Run a keyboard agent on an environment."""
 from argparse import ArgumentParser
+import os.path as osp
 from typing import Dict, List, Optional
 
 from gym import spaces
@@ -44,8 +45,16 @@ def run_keyboard_agent(
         env = posggym.make(env_id, render_mode=render_mode)
 
     action_spaces = env.action_spaces
-    for i in keyboard_agent_ids:
-        assert isinstance(action_spaces[i], spaces.Discrete)
+    assert all(
+        isinstance(action_spaces[i], spaces.Discrete)
+        for i in keyboard_agent_ids
+    )
+
+    if record_env:
+        video_save_dir = osp.join(osp.expanduser("~"), "posggym_video")
+        print(f"Saving video to {video_save_dir}")
+        name_prefix = f"keyboard-{env_id}"
+        env = posggym.wrappers.RecordVideo(env, video_save_dir, name_prefix=name_prefix)
 
     env.reset(seed=seed)
 
@@ -70,7 +79,7 @@ def run_keyboard_agent(
             t += 1
 
             for i, r_i in r.items():
-                rewards[i] += r_i  # type: ignore
+                rewards[i] += r_i    # type: ignore
 
             if render_mode:
                 env.render()
@@ -86,7 +95,7 @@ def run_keyboard_agent(
         dones += int(done)
         episode_steps.append(t)
 
-        for j in range(env.n_agents):
+        for j in env.possible_agents:
             episode_rewards[j].append(rewards[j])
 
     env.close()
@@ -129,6 +138,11 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--pause_each_step", action="store_true", help="Pause execution after each step"
+    )
+    parser.add_argument(
+        "--record_env",
+        action="store_true",
+        help="Record video of environment saved to ~/posggym_videos.",
     )
     args = parser.parse_args()
     run_keyboard_agent(**vars(args))

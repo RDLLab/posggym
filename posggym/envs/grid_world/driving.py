@@ -22,6 +22,7 @@ Quantifying the Effects of Environment and Population Diversity in Multi-Agent
 Reinforcement Learning. Autonomous Agents and Multi-Agent Systems 36, 1 (2022), 1–16
 
 """
+from os import path
 import enum
 from itertools import product
 from typing import (
@@ -39,7 +40,6 @@ from typing import (
 
 from gymnasium import spaces
 
-import posggym.envs.grid_world.render as render_lib
 import posggym.model as M
 from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import (
@@ -201,7 +201,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
 
     metadata = {
         "render_modes": ["human", "ansi", "rgb_array", "rgb_array_dict"],
-        "render_fps": 4,
+        "render_fps": 15,
     }
 
     def __init__(
@@ -218,114 +218,111 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
             render_mode=render_mode,
         )
         self._obs_dim = obs_dim
-        self._viewer = None
-        self._renderer: Optional[render_lib.GWRenderer] = None
-        # Whether to re-render blocks each new episode
-        # This is needed when block positions change between episodes
-        self._rerender_blocks = False
+        self.renderer = None
+        self._agent_imgs = None
 
     def render(self):
-        model: DrivingModel = self.model  # type: ignore
         if self.render_mode == "ansi":
-            grid_str = model.grid.get_ascii_repr(
-                [vs.coord for vs in self._state],
-                [vs.facing_dir for vs in self._state],
-                [vs.dest_coord for vs in self._state],
-            )
+            return self._render_ansi()
+        return self._render_img()
 
-            output = [
-                f"Step: {self._step_num}",
-                grid_str,
-            ]
-            if self._last_actions is not None:
-                action_str = ", ".join(
-                    [ACTIONS_STR[a] for a in self._last_actions.values()]
-                )
-                output.insert(1, f"Actions: <{action_str}>")
-                output.append(f"Rewards: <{self._last_rewards}>")
-
-            return "\n".join(output) + "\n"
-
-        if self.render_mode == "human" and self._viewer is None:
-            # pylint: disable=[import-outside-toplevel]
-            from posggym.envs.grid_world import viewer
-
-            self._viewer = viewer.GWViewer(  # type: ignore
-                "Driving Env",
-                (min(model.grid.width, 9), min(model.grid.height, 9)),
-                num_agent_displays=len(self.possible_agents),
-            )
-            self._viewer.show(block=False)  # type: ignore
-
-        blocks_added = False
-        if self._renderer is None:
-            blocks_added = True
-            self._renderer = render_lib.GWRenderer(
-                len(self.possible_agents), model.grid, [], render_blocks=True
-            )
-
-        agent_obs_coords = tuple(
-            model.get_obs_coords(vs.coord, vs.facing_dir) for vs in self._state
+    def _render_ansi(self):
+        model: DrivingModel = self.model  # type: ignore
+        grid_str = model.grid.get_ascii_repr(
+            [vs.coord for vs in self._state],
+            [vs.facing_dir for vs in self._state],
+            [vs.dest_coord for vs in self._state],
         )
-        agent_coords = tuple(vs.coord for vs in self._state)
-        agent_dirs = tuple(vs.facing_dir for vs in self._state)
 
-        # Add agent destination locations
-        other_objs = [
-            render_lib.GWObject(
-                vs.dest_coord,
-                render_lib.get_agent_color(i),
-                render_lib.Shape.RECTANGLE,
-                # make dest squares slightly different to vehicle color
-                alpha=0.2,
-            )
-            for i, vs in enumerate(self._state)
+        output = [
+            f"Step: {self._step_num}",
+            grid_str,
         ]
-        # Add blocks, as necessary
-        if self._rerender_blocks and not blocks_added:
-            for block_coord in model.grid.block_coords:
-                other_objs.append(
-                    render_lib.GWObject(block_coord, "grey", render_lib.Shape.RECTANGLE)
+        if self._last_actions is not None:
+            action_str = ", ".join(
+                [ACTIONS_STR[a] for a in self._last_actions.values()]
+            )
+            output.insert(1, f"Actions: <{action_str}>")
+            output.append(f"Rewards: <{self._last_rewards}>")
+
+        return "\n".join(output) + "\n"
+
+    def _render_img(self):
+        model: DrivingModel = self.model  # type: ignore
+
+        import posggym.envs.grid_world.render as render_lib
+
+        if self.renderer is None:
+            self.renderer = render_lib.GWRenderer(
+                self.render_mode,
+                model.grid,
+                render_fps=self.metadata["render_fps"],
+                env_name="Driving"
+            )
+
+        if self._agent_imgs is None:
+            self._agent_imgs = {
+                i: render_lib.GWTriangle(
+                    (0, 0),
+                    self.renderer.cell_size,
+                    render_lib.get_agent_color(i)[0],
+                    Direction.NORTH
                 )
+                for i in self.possible_agents
+            }
+
+        observed_coords = []
+        for vs in self._state:
+            observed_coords.extend(model.get_obs_coords(vs.coord, vs.facing_dir))
+
+        render_objects = []
+        # Add agent destination locations
+        for i, vs in enumerate(self._state):
+            # use alternative agent color so dest squares slightly different to vehicle
+            # color
+            render_objects.append(
+                render_lib.GWRectangle(
+                    vs.dest_coord,
+                    self.renderer.cell_size,
+                    render_lib.get_agent_color(i)[1],
+                )
+            )
+
+        # Add agents
+        for i, vs in enumerate(self._state):
+            agent_obj = self._agent_imgs[i]
+            agent_obj.coord = vs.coord
+            agent_obj.facing_dir = vs.facing_dir
+            render_objects.append(agent_obj)
+
+        agent_coords_and_dirs = {
+            i: (vs.coord, vs.facing_dir) for i, vs in enumerate(self._state)
+        }
+
         # Add visualization for crashed agents
         for i, vs in enumerate(self._state):
             if vs.crashed:
-                other_objs.append(
-                    render_lib.GWObject(vs.coord, "yellow", render_lib.Shape.CIRCLE)
+                render_objects.append(
+                    render_lib.GWCircle(
+                        vs.coord,
+                        self.renderer.cell_size,
+                        render_lib.get_color("yellow")
+                    )
                 )
 
-        env_img = self._renderer.render(
-            agent_coords,
-            agent_obs_coords,
-            agent_dirs=agent_dirs,
-            other_objs=other_objs,
-            agent_colors=None,
+        if self.render_mode in ("human", "rgb_array"):
+            return self.renderer.render(render_objects, observed_coords)
+        return self.renderer.render_agents(
+            render_objects,
+            agent_coords_and_dirs,
+            agent_obs_dims=(*self._obs_dim, self._obs_dim[-1]),
+            observed_coords=observed_coords
         )
-        agent_obs_imgs = self._renderer.render_all_agent_obs(
-            env_img,
-            agent_coords,
-            agent_dirs,
-            agent_obs_dims=self._obs_dim,
-            out_of_bounds_obj=render_lib.GWObject(
-                (0, 0), "grey", render_lib.Shape.RECTANGLE
-            ),
-        )
-
-        if self.render_mode == "human":
-            self._viewer.update_img(env_img, agent_idx=None)
-            for i, obs_img in enumerate(agent_obs_imgs):
-                self._viewer.update_img(obs_img, agent_idx=i)
-            self._viewer.display_img()
-        elif self.render_mode == "rgb_array":
-            return env_img
-        else:
-            # rgb_array_dict
-            return dict(enumerate(agent_obs_imgs))
 
     def close(self) -> None:
-        if self._viewer is not None:
-            self._viewer.close()
-            self._viewer = None
+        if self.renderer is not None:
+            self.renderer.close()
+            self.renderer = None
 
 
 class DrivingGenEnv(DrivingEnv):
@@ -361,8 +358,6 @@ class DrivingGenEnv(DrivingEnv):
         self._gen_params = generator_params
         self._shuffle_grid_order = shuffle_grid_order
         self._gen = DrivingGridGenerator(**generator_params)
-        # Need to re-add blocks each time since these change each episode
-        self._rerender_blocks = True
 
         if n_grids is not None:
             grids = self._gen.generate_n(n_grids)
@@ -406,6 +401,10 @@ class DrivingGenEnv(DrivingEnv):
             grid = self._gen.generate()
 
         self.model.grid = grid   # type: ignore
+
+        if self.render_mode != "ansi" and self.renderer is not None:
+            self.renderer.grid = grid
+            self.renderer.reset_blocks()
 
         return super().reset(seed=seed)
 

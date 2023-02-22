@@ -30,6 +30,8 @@ class VideoRecorder:
 
     """
 
+    combatible_render_modes = ["rgb_array", "rgb_array_dict"]
+
     def __init__(
         self,
         env: Env,
@@ -70,11 +72,11 @@ class VideoRecorder:
 
         self.render_mode = env.render_mode
 
-        compatible_modes = ("rgb_array",)
-        if self.render_mode not in compatible_modes:
+        if self.render_mode not in self.combatible_render_modes:
             logger.warn(
                 f"Disabling video recorder because environment {env} was not "
-                f"initialized with any compatible video modes in {compatible_modes}."
+                "initialized with any compatible video modes in "
+                f"{self.combatible_render_modes}."
             )
             # Disable since the env not initialized with a compatible `render_mode`
             self.enabled = False
@@ -131,18 +133,24 @@ class VideoRecorder:
 
         Note, this function has been changed from the source implementation.
         """
+        if not self.functional:
+            return
+
         frame = self.env.render()
         if isinstance(frame, list):
             self.render_history += frame
             frame = frame[-1]
-        # TODO handle rgb_array_dict
-        # else:
-        # (env_frame, agent_frames) = self.env.render(mode=render_mode)
-        # TODO combine env_frame and agent_frames
-        # frame = env_frame
+        elif isinstance(frame, dict):
+            if "env" not in frame:
+                logger.warn(
+                    "The video recorder expects an entry with the key `env` when "
+                    "trying to record an environment that is using the "
+                    "`rgb_array_dict` render mode."
+                )
+                self.broken = True
+                return
+            frame = frame['env']
 
-        if not self.functional:
-            return
         if self._closed:
             logger.warn(
                 "The video recorder has been closed and no frames will be "
@@ -173,10 +181,6 @@ class VideoRecorder:
             self._closed = True
             return
 
-        # First close the environment
-        self.env.close()
-
-        # Close the encoder
         if len(self.recorded_frames) > 0:
             try:
                 from moviepy.video.io.ImageSequenceClip import ImageSequenceClip

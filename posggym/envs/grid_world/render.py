@@ -1,122 +1,250 @@
-"""Functions and classes for rendering grid world environments.
-
-This implemention is based on the gym-minigrid library:
-- github.com/maximecb/gym-minigrid/blob/master/gym_minigrid/minigrid.py
-"""
-import enum
-import math
-from itertools import product
-from typing import Callable, Dict, List, Optional, Set, Tuple, Union
+"""Functions and classes for rendering grid world environments."""
+import abc
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
 from posggym.envs.grid_world.core import Coord, Direction, Grid
+from posggym.error import DependencyNotInstalled
+from posggym.model import AgentID
 
 
-# Size in pixels of a tile in the full-scale human view
-TILE_PIXELS = 32
+ColorTuple = Union[Tuple[int, int, int], Tuple[int, int, int, int]]
 
-# Map of color names to RGB values
-COLORS = {
-    "red": np.array([255, 0, 0]),
-    "blue": np.array([0, 0, 255]),
-    "green": np.array([0, 255, 0]),
-    "purple": np.array([112, 39, 195]),
-    "yellow": np.array([255, 255, 0]),
-    "grey": np.array([100, 100, 100]),
-    "white": np.array([255, 255, 255]),
-    "cyan": np.array([0, 195, 195]),
-}
-
-COLOR_TO_IDX = {
-    "red": 0,
-    "blue": 1,
-    "green": 2,
-    "purple": 3,
-    "yellow": 4,
-    "grey": 5,
-    "white": 6,
-    "cyan": 7,
-}
-
-AGENT_COLORS = ["red", "blue", "green", "purple", "yellow", "white", "cyan"]
+try:
+    import pygame
+except ImportError as e:
+    raise DependencyNotInstalled(
+        "pygame is not installed, run `pip install posggym[grid-world]`"
+    ) from e
 
 
-def get_agent_color(agent_id: int) -> str:
+# (Main, Alternative) agent colors
+AGENT_COLORS = [
+    (pygame.colordict.THECOLORS["red"], pygame.colordict.THECOLORS["red3"]),
+    (pygame.colordict.THECOLORS["blue"], pygame.colordict.THECOLORS["blue3"]),
+    (pygame.colordict.THECOLORS["green"], pygame.colordict.THECOLORS["green3"]),
+    (pygame.colordict.THECOLORS["purple"], pygame.colordict.THECOLORS["purple3"]),
+    (pygame.colordict.THECOLORS["yellow"], pygame.colordict.THECOLORS["yellow3"]),
+    (pygame.colordict.THECOLORS["cyan"], pygame.colordict.THECOLORS["cyan3"]),
+    (pygame.colordict.THECOLORS["hotpink"], pygame.colordict.THECOLORS["hotpink3"]),
+    (pygame.colordict.THECOLORS["orange"], pygame.colordict.THECOLORS["orange3"]),
+]
+
+
+def get_agent_color(agent_id: int) -> Tuple[ColorTuple, ColorTuple]:
     """Get color for agent."""
     return AGENT_COLORS[agent_id]
 
 
-# Map of agent direction indices to vectors
-# Ordering matches ordering in Direction enum
-DIR_TO_VEC = [
-    # NORTH (negative Y)
-    np.array((0, -1)),
-    # EAST (positive X)
-    np.array((1, 0)),
-    # SOUTH (positive Y)
-    np.array((0, 1)),
-    # WEST (negative X)
-    np.array((-1, 0)),
-]
-
-DIR_TO_THETA = [
-    # NORTH
-    0.5 * math.pi * 2,
-    # EAST
-    0.5 * math.pi * 1,
-    # SOUTH
-    0.5 * math.pi * 0,
-    # WEST
-    0.5 * math.pi * 3,
-]
+def get_color(color_name: str) -> ColorTuple:
+    """Get color from name."""
+    return pygame.colordict.THECOLORS[color_name]
 
 
-class Shape(enum.Enum):
-    """An Object shape."""
-
-    RECTANGLE = enum.auto()
-    TRIANGLE = enum.auto()
-    CIRCLE = enum.auto()
-    LINE = enum.auto()
+def load_img_file(img_path: str, cell_size: Tuple[int, int]):
+    """Load an image from file and scale it to cell size."""
+    return pygame.transform.scale(pygame.image.load(img_path), cell_size)
 
 
-class GWObject:
+def get_default_font_size(cell_size: Tuple[int, int]) -> int:
+    """Get the default font size based on cell size."""
+    return cell_size[1] // 4
+
+
+def load_font(font_name: str, font_size: int) -> pygame.font.Font:
+    """Load font."""
+    return pygame.font.SysFont(font_name, font_size)
+
+
+class GWObject(abc.ABC):
     """An object in the grid world."""
 
     def __init__(
         self,
         coord: Coord,
-        color: str,
-        shape: Shape,
-        direction: Optional[Direction] = None,
-        alpha: Optional[float] = None,
+        cell_size: Tuple[int, int],
     ):
-        if shape == Shape.TRIANGLE:
-            assert direction is not None
-
         self.coord = coord
+        self.cell_size = cell_size
+
+    @property
+    def pos(self) -> Tuple[int, int]:
+        """The (x, y) position of the object on render surface."""
+        return (self.coord[0] * self.cell_size[0], self.coord[1] * self.cell_size[1])
+
+    @abc.abstractmethod
+    def render(self, surface: pygame.Surface):
+        """Render object on surface."""
+
+
+class GWRectangle(GWObject):
+    """A rectangle in the grid world."""
+
+    def __init__(
+        self,
+        coord: Coord,
+        cell_size: Tuple[int, int],
+        color: ColorTuple,
+    ):
+        super().__init__(coord, cell_size)
         self.color = color
-        self.shape = shape
-        self.direction = direction
+
+    def render(self, surface: pygame.Surface):
+        rect = (*self.pos, *self.cell_size)
+        surface.fill(self.color, rect=rect)
+
+
+class GWTriangle(GWObject):
+    """A equilateral triangle in the grid world."""
+
+    def __init__(
+        self,
+        coord: Coord,
+        cell_size: Tuple[int, int],
+        color: ColorTuple,
+        facing_dir: Direction,
+    ):
+        super().__init__(coord, cell_size)
+        self.color = color
+        self.facing_dir = facing_dir
+
+    def _get_triangle_by_direction(self, facing_dir: Direction):
+        # amount to shrink points away from cell edges, so they fit better
+        delta = (int(0.05 * self.cell_size[0]), int(0.05 * self.cell_size[1]))
+
+        max_pos = (
+            self.pos[0] + self.cell_size[0] - delta[0],
+            self.pos[1] + self.cell_size[1] - delta[1],
+        )
+        min_pos = (self.pos[0] + delta[0], self.pos[1] + delta[1])
+
+        if facing_dir == Direction.NORTH:
+            points = (
+                (min_pos[0] + self.cell_size[0] // 2, min_pos[1]),
+                (min_pos[0], max_pos[1]),
+                (max_pos[0], max_pos[1]),
+            )
+        elif facing_dir == Direction.SOUTH:
+            points = (
+                (min_pos[0] + self.cell_size[0] // 2, max_pos[1]),
+                (min_pos[0], min_pos[1]),
+                (max_pos[0], min_pos[1]),
+            )
+        elif facing_dir == Direction.EAST:
+            points = (
+                (max_pos[0], min_pos[1] + self.cell_size[1] // 2),
+                (min_pos[0], min_pos[1]),
+                (min_pos[0], max_pos[1]),
+            )
+        elif facing_dir == Direction.WEST:
+            points = (
+                (min_pos[0], min_pos[1] + self.cell_size[1] // 2),
+                (max_pos[0], min_pos[1]),
+                (max_pos[0], max_pos[1]),
+            )
+
+        return points
+
+    def render(self, surface: pygame.Surface):
+        points = self._get_triangle_by_direction(self.facing_dir)
+        pygame.draw.polygon(surface, self.color, points)
+
+
+class GWCircle(GWObject):
+    """A circle in the grid world."""
+
+    def __init__(
+        self,
+        coord: Coord,
+        cell_size: Tuple[int, int],
+        color: ColorTuple,
+    ):
+        super().__init__(coord, cell_size)
+        self.color = color
+
+    def render(self, surface: pygame.Surface):
+        radius = int(0.95 * self.cell_size[0]) // 2
+        center = (
+            self.pos[0] + self.cell_size[0] // 2,
+            self.pos[1] + self.cell_size[1] // 2,
+        )
+        pygame.draw.circle(surface, self.color, center, radius)
+
+
+class GWHighlight(GWObject):
+    """A transparent rectangle for highlighting a cell in the grid world."""
+
+    def __init__(self, coord: Coord, cell_size: Tuple[int, int], alpha: float = 0.25):
+        super().__init__(coord, cell_size)
         self.alpha = alpha
+        self.surface = pygame.Surface(cell_size, pygame.SRCALPHA)
+        self.surface.fill((255, 255, 255, int(alpha * 255)))
 
-    def render(self, img: np.ndarray):
-        """Draw object into image cell."""
-        if self.shape == Shape.RECTANGLE:
-            _fill_coords(img, _point_in_rect(0, 1, 0, 1), COLORS[self.color])
-        elif self.shape == Shape.CIRCLE:
-            _fill_coords(img, _point_in_circle(0.5, 0.5, 0.31), COLORS[self.color])
-        elif self.shape == Shape.TRIANGLE:
-            tri_fn = _point_in_triangle((0.12, 0.19), (0.87, 0.50), (0.12, 0.81))
-            theta = DIR_TO_THETA[self.direction]  # type: ignore
-            tri_fn = _rotate_fn(tri_fn, cx=0.5, cy=0.5, theta=theta)
-            _fill_coords(img, tri_fn, COLORS[self.color])
-        else:
-            raise AttributeError("Unsupported Object shape: {self.shape}")
+    def render(self, surface: pygame.Surface):
+        surface.blit(self.surface, self.pos)
 
-        if self.alpha is not None:
-            _highlight_img(img, alpha=self.alpha)
+
+class GWImage(GWObject):
+    """An image object in the grid world."""
+
+    def __init__(
+        self,
+        coord: Coord,
+        cell_size: Tuple[int, int],
+        img: pygame.Surface,
+    ):
+        super().__init__(coord, cell_size)
+        self.img = img
+
+    def render(self, surface: pygame.Surface):
+        surface.blit(self.img, self.pos)
+
+
+class GWText(GWObject):
+    """An text object in the grid world."""
+
+    def __init__(
+        self,
+        coord: Coord,
+        cell_size: Tuple[int, int],
+        text: str,
+        font: pygame.font.Font,
+    ):
+        super().__init__(coord, cell_size)
+        self.text = text
+        self.font = font
+
+    def render(self, surface: pygame.Surface):
+        text_img = self.font.render(self.text, True, (255, 255, 255), (0, 0, 0))
+        # +1 so text is in offset from corner of cell
+        text_pos = (self.pos[0] + 1, self.pos[1] + 1)
+        surface.blit(text_img, text_pos)
+
+
+class GWImageAndText(GWObject):
+    """A combined image and text grid-world object."""
+
+    def __init__(
+        self,
+        coord: Coord,
+        cell_size: Tuple[int, int],
+        img: pygame.Surface,
+        text: str,
+        font: pygame.font.Font,
+    ):
+        super().__init__(coord, cell_size)
+        self.img = img
+        self.text = text
+        self.font = font
+
+    def render(self, surface: pygame.Surface):
+        surface.blit(self.img, self.pos)
+
+        text_img = self.font.render(self.text, True, (255, 255, 255), (0, 0, 0))
+        # +1 so text is in offset from corner of cell
+        text_pos = (self.pos[0] + 1, self.pos[1] + 1)
+        surface.blit(text_img, text_pos)
 
 
 class GWRenderer:
@@ -124,394 +252,192 @@ class GWRenderer:
 
     def __init__(
         self,
-        n_agents: int,
+        render_mode: str,
         grid: Grid,
-        static_objs: List[GWObject],
-        render_blocks: bool = True,
+        render_fps: int = 30,
+        env_name: str = "",
+        bg_color: ColorTuple = (0, 0, 0),
+        grid_line_color: ColorTuple = (255, 255, 255),
+        block_color: ColorTuple = (131, 139, 139),
     ):
-        self._n_agents = n_agents
-        self._grid = grid
-        self._static_objs = static_objs
-        self._width, self._height = grid.width, grid.height
+        self.render_mode = render_mode
+        self.grid = grid
+        self.render_fps = render_fps
 
-        self._tiles: List[List[List[Optional[GWObject]]]] = []
-        for x in range(self._width):
-            self._tiles.append([])
-            for y in range(self._height):
-                self._tiles[x].append([])
-                self._tiles[x][y].append(None)
+        self.bg_color = bg_color
+        self.grid_line_color = grid_line_color
+        self.block_color = block_color
 
-        if render_blocks:
-            for block_coord in grid.block_coords:
-                block_obj = GWObject(block_coord, "grey", Shape.RECTANGLE)
-                self._tiles[block_coord[0]][block_coord[1]].append(block_obj)
+        self.window_size = (min(64 * grid.width, 512), min(64 * grid.height, 512))
+        self.cell_size = (
+            self.window_size[0] // grid.width,
+            self.window_size[1] // grid.height,
+        )
 
-        for obj in static_objs:
-            self._tiles[obj.coord[0]][obj.coord[1]].append(obj)
+        self.blocks = [
+            GWRectangle(coord, self.cell_size, self.block_color)
+            for coord in grid.block_coords
+        ]
+        # list of static objects user can add to
+        self.static_objects: List[GWObject] = []
 
-    def _render_tile(
-        self, coords: Coord, other_objs: List[GWObject], observed: bool, tile_size: int
-    ) -> np.ndarray:
-        img = np.zeros(shape=(tile_size, tile_size, 3), dtype=np.uint8)
+        pygame.init()
+        if render_mode == "human":
+            pygame.display.init()
+            pygame.display.set_caption(env_name)
+            self.window_surface = pygame.display.set_mode(
+                self.window_size, pygame.SRCALPHA
+            )
+        else:
+            assert render_mode.startswith("rgb_array")
+            pygame.font.init()
+            self.window_surface = pygame.Surface(self.window_size, pygame.SRCALPHA)
 
-        # Draw the grid lines (tope and left edges)
-        _fill_coords(img, _point_in_rect(0, 0.031, 0, 1), COLORS["grey"])
-        _fill_coords(img, _point_in_rect(0, 1, 0, 0.031), COLORS["grey"])
+        self.clock = pygame.time.Clock()
 
-        for obj in self._tiles[coords[0]][coords[1]]:
-            if obj is not None:
-                obj.render(img)
+    def _reset_surface(self):
+        self.window_surface.fill(self.bg_color)
+        for y in range(self.grid.height):
+            for x in range(self.grid.width):
+                pos = (x * self.cell_size[0], y * self.cell_size[1])
+                rect = (*pos, *self.cell_size)
+                pygame.draw.rect(self.window_surface, self.grid_line_color, rect, 1)
 
-        for obj in other_objs:
-            obj.render(img)
+        for block in self.blocks:
+            block.render(self.window_surface)
 
-        if observed:
-            _highlight_img(img)
+        for static_object in self.static_objects:
+            static_object.render(self.window_surface)
 
-        return img
-
-    def _render_obj_tile(
-        self, obj: GWObject, observed: bool, tile_size: int
-    ) -> np.ndarray:
-        img = np.zeros(shape=(tile_size, tile_size, 3), dtype=np.uint8)
-
-        # Draw the grid lines (tope and left edges)
-        _fill_coords(img, _point_in_rect(0, 0.031, 0, 1), COLORS["grey"])
-        _fill_coords(img, _point_in_rect(0, 1, 0, 0.031), COLORS["grey"])
-
-        obj.render(img)
-
-        if observed:
-            _highlight_img(img)
-
-        return img
+    def reset_blocks(self):
+        """Reset the blocks."""
+        self.blocks = [
+            GWRectangle(coord, self.cell_size, self.block_color)
+            for coord in self.grid.block_coords
+        ]
 
     def render(
+        self, objects: List[GWObject], observed_coords: Optional[List[Coord]] = None
+    ) -> Optional[np.ndarray]:
+        """Generate Grid-World render."""
+        self._reset_surface()
+        for obj in objects:
+            obj.render(self.window_surface)
+
+        if observed_coords is None:
+            observed_coords = []
+
+        highlight_obj = GWHighlight((0, 0), self.cell_size)
+        for coord in observed_coords:
+            highlight_obj.coord = coord
+            highlight_obj.render(self.window_surface)
+
+        if self.render_mode == "human":
+            pygame.event.pump()
+            pygame.display.update()
+            self.clock.tick(self.render_fps)
+            return None
+
+        return np.transpose(
+            np.array(pygame.surfarray.pixels3d(self.window_surface)), axes=(1, 0, 2)
+        )
+
+    def render_agents(
         self,
-        agent_coords: Tuple[Coord, ...],
-        agent_obs_coords: Optional[Tuple[List[Coord], ...]],
-        agent_dirs: Optional[Tuple[Direction, ...]],
-        other_objs: Optional[List[GWObject]],
-        agent_colors: Optional[Tuple[str, ...]] = None,
-        tile_size: int = TILE_PIXELS,
-    ) -> np.ndarray:
-        """Generate Grid-World render.
+        objects: List[GWObject],
+        agent_coords_and_dirs: Dict[AgentID, Tuple[Coord, Direction]],
+        agent_obs_dims: Union[int, Tuple[int, int, int, int]],
+        observed_coords: Optional[List[Coord]] = None,
+        agent_obs_mask: Optional[List[Coord]] = None,
+    ) -> Dict[Union[str, AgentID], np.ndarray]:
+        """Generate environment and agent-centric grid-world renders."""
+        if agent_obs_mask is None:
+            agent_obs_mask = []
+        if observed_coords is None:
+            observed_coords = []
+        if isinstance(agent_obs_dims, int):
+            d = agent_obs_dims
+            agent_obs_dims = (d, d, d, d)
 
-        Returns a numpy array image representation of the grid world. This
-        includes the agents inside the grid-world.
-        """
-        width_px = self._width * tile_size
-        height_px = self._height * tile_size
+        self._reset_surface()
+        for obj in objects:
+            obj.render(self.window_surface)
 
-        img = np.zeros(shape=(width_px, height_px, 3), dtype=np.uint8)
+        env_array = np.array(pygame.surfarray.pixels3d(self.window_surface))
 
-        observed_coords: Set[Coord] = set()
-        if agent_obs_coords is not None:
-            observed_coords.update(*agent_obs_coords)
-
-        dynamic_objs_map: Dict[Coord, List[GWObject]] = {}
-        if other_objs is None:
-            other_objs = []
-
-        for obj in other_objs:
-            if obj.coord not in dynamic_objs_map:
-                dynamic_objs_map[obj.coord] = []
-            dynamic_objs_map[obj.coord].append(obj)
-
-        if agent_dirs is None:
-            agent_dirs = tuple(Direction.NORTH for _ in range(self._n_agents))
-
-        if agent_colors is None:
-            assert self._n_agents <= len(AGENT_COLORS), (
-                "Agent colors must be specified when rendering envs with "
-                f"more than {len(AGENT_COLORS)-1} agents."
+        array_dict: Dict[AgentID, np.ndarray] = {}
+        for i, (coord, facing_dir) in agent_coords_and_dirs.items():
+            # 1. get agent's view of env
+            # (min_col, max_col, min_row, max_row) of coords in grid that agent observed
+            view_coords_rect = self.grid.get_rectangular_bounds(
+                coord, facing_dir, agent_obs_dims
             )
-            agent_colors = tuple(AGENT_COLORS[i] for i in range(self._n_agents))
-
-        for coord, direction, color in zip(agent_coords, agent_dirs, agent_colors):
-            if coord not in dynamic_objs_map:
-                dynamic_objs_map[coord] = []
-            agent_obj = GWObject(coord, color, Shape.TRIANGLE, direction)
-            dynamic_objs_map[coord].append(agent_obj)
-
-        for x in range(self._width):
-            for y in range(self._height):
-                coord = (x, y)
-                tile_img = self._render_tile(
-                    coord,
-                    dynamic_objs_map.get(coord, []),
-                    coord in observed_coords,
-                    tile_size,
-                )
-
-                xmin, xmax = x * tile_size, (x + 1) * tile_size
-                ymin, ymax = y * tile_size, (y + 1) * tile_size
-                img[xmin:xmax, ymin:ymax, :] = tile_img
-
-        img = img.transpose(1, 0, 2)
-        return img
-
-    def render_all_agent_obs(
-        self,
-        env_img: np.ndarray,
-        agent_coords: Tuple[Coord, ...],
-        agent_dirs: Union[Direction, Tuple[Direction, ...]],
-        agent_obs_dims: Union[Tuple[int, int, int], Tuple[Tuple[int, int, int], ...]],
-        out_of_bounds_obj: GWObject,
-        agent_obs_coords: Optional[Tuple[List[Coord], ...]] = None,
-        tile_size: int = TILE_PIXELS,
-    ) -> Tuple[np.ndarray, ...]:
-        """Generate seperate render for a each grid-world agent.
-
-        Returns a numpy array image representation of the agents observation
-        of the grid world for each agent.
-
-        Assumes env_img was render generated by the Renderer.render function.
-        """
-        agent_obs_imgs = []
-        for i in range(self._n_agents):
-            if isinstance(agent_dirs, tuple):
-                agent_dir = agent_dirs[i]
-            else:
-                agent_dir = agent_dirs
-
-            if isinstance(agent_obs_dims[0], tuple):
-                obs_dims = agent_obs_dims[i]
-            else:
-                obs_dims = agent_obs_dims  # type: ignore
-
-            if isinstance(agent_obs_coords, tuple):
-                obs_coords = agent_obs_coords[i]
-            else:
-                obs_coords = None  # type: ignore
-
-            agent_img = self.render_agent_obs(
-                env_img,
-                agent_coords[i],
-                agent_dir,
-                obs_dims,  # type: ignore
-                out_of_bounds_obj,
-                obs_coords,
-                tile_size,
+            view_pos_rect = (
+                view_coords_rect[0] * self.cell_size[0],
+                (view_coords_rect[1] + 1) * self.cell_size[0],
+                view_coords_rect[2] * self.cell_size[1],
+                (view_coords_rect[3] + 1) * self.cell_size[1],
             )
-            agent_obs_imgs.append(agent_img)
-        return tuple(agent_obs_imgs)
+            agent_array = env_array[
+                view_pos_rect[0] : view_pos_rect[1], view_pos_rect[2] : view_pos_rect[3]
+            ]
 
-    def render_agent_obs(
-        self,
-        env_img: np.ndarray,
-        agent_coord: Coord,
-        agent_dir: Direction,
-        agent_obs_dims: Tuple[int, int, int],
-        out_of_bounds_obj: GWObject,
-        agent_obs_coords: Optional[List[Coord]] = None,
-        tile_size: int = TILE_PIXELS,
-    ) -> np.ndarray:
-        """Generate render for a single grid-world agent.
-
-        Arguments
-        ---------
-        env_img : np.ndarray
-            image render of entire environment assumed to be generated by the
-            Renderer.render function.
-        agent_coord: Coord
-            Coordinates of agent within the environment grid
-        agent_obs_dims: (int, int, int)
-            Dimensions of agents observation in terms of number of cells
-            in front, behind and to each side.
-        agent_dir: Direction
-            Direction the agent is facing within the environment grid.
-        out_of_bounds_obj: GWObject
-            Render object to use for cells in observation that are outside of
-            environment grid (e.g. when agent is at the boundary of the
-            environment)
-        agent_obs_coords: Optional[List[Coord]]
-            Optional list of environment coordinates for cells observed by
-            agent. If provided, then treats all unobserved cells as out of
-            bounds. If None, then assumes all coordinates in agents observation
-            dims are observed.
-        tile_size: int
-            Defines the resolution of the image.
-
-        Returns a numpy array image representation of the agents observation
-        of the grid world.
-
-        """
-        # Reverse transpose to handle coord system properly
-        env_img = env_img.transpose(1, 0, 2)
-        env_width = env_img.shape[0] / tile_size
-        env_height = env_img.shape[1] / tile_size
-
-        obs_x_dim = (2 * agent_obs_dims[2]) + 1
-        obs_y_dim = agent_obs_dims[0] + agent_obs_dims[1] + 1
-
-        obs_width_px = obs_x_dim * tile_size
-        obs_height_px = obs_y_dim * tile_size
-        obs_img = np.zeros(shape=(obs_width_px, obs_height_px, 3), dtype=np.uint8)
-
-        for (obs_x, obs_y) in product(range(obs_x_dim), range(obs_y_dim)):
-            # Need to map to env (x, y)
-            env_x, env_y = self._map_obs_to_env_coord(
-                (obs_x, obs_y),
-                agent_coord,
-                agent_dir,
-                agent_obs_forward_dim=agent_obs_dims[0],
-                agent_obs_side_dim=agent_obs_dims[2],
+            # 2. pad view with blocks so agent's view matches their obs_dims
+            pad_coords = self.grid.get_rectangular_padding(
+                coord, facing_dir, agent_obs_dims
+            )
+            pad_pos = [
+                (
+                    pad_coords[0][0] * self.cell_size[0],
+                    pad_coords[0][1] * self.cell_size[0],
+                ),
+                (
+                    pad_coords[1][0] * self.cell_size[1],
+                    pad_coords[1][1] * self.cell_size[1],
+                ),
+                # padding for color axes (i.e no padding)
+                (0, 0),
+            ]
+            agent_array = np.pad(
+                agent_array,
+                pad_width=pad_pos,
+                mode="constant",
+                constant_values=[
+                    (self.block_color[0], self.block_color[0]),
+                    (self.block_color[1], self.block_color[1]),
+                    (self.block_color[2], self.block_color[2]),
+                ],
             )
 
-            cell_out_of_bounds = (
-                not 0 <= env_x < env_width or not 0 <= env_y < env_height
-            )
-            cell_observed = (
-                agent_obs_coords is None or (env_x, env_y) in agent_obs_coords
-            )
+            # 3. apply masking if necessary
+            for coord in agent_obs_mask:
+                pos = (coord[0] * self.cell_size[0], coord[1] * self.cell_size[1])
+                agent_array[
+                    pos[0] : pos[0] + self.cell_size[0],
+                    pos[1] : pos[1] + self.cell_size[1],
+                ] = self.bg_color[:3]
 
-            if cell_out_of_bounds or not cell_observed:
-                tile_img = self._render_obj_tile(out_of_bounds_obj, False, tile_size)
-            else:
-                env_xmin, env_xmax = env_x * tile_size, (env_x + 1) * tile_size
-                env_ymin, env_ymax = env_y * tile_size, (env_y + 1) * tile_size
-                tile_img = env_img[env_xmin:env_xmax, env_ymin:env_ymax, :]
+            # 3. rotate agent's array so it is ego-centric
+            agent_array = np.transpose(agent_array, axes=(1, 0, 2))
+            # just so happens int value of direction lines up with # rotations needed
+            agent_array = np.rot90(agent_array, k=int(facing_dir))
 
-                # rotate tile so its oriented to agent's viewpoint
-                # function rotates counter-clockwise
-                k = (len(Direction) - agent_dir) % len(Direction)
-                tile_img = np.rot90(tile_img, k)
+            array_dict[i] = agent_array
 
-            obs_xmin, obs_xmax = obs_x * tile_size, (obs_x + 1) * tile_size
-            obs_ymin, obs_ymax = obs_y * tile_size, (obs_y + 1) * tile_size
-            obs_img[obs_xmin:obs_xmax, obs_ymin:obs_ymax, :] = tile_img
+        # Add obs highlighting after generating agent-centric views
+        highlight_obj = GWHighlight((0, 0), self.cell_size)
+        for coord in observed_coords:
+            highlight_obj.coord = coord
+            highlight_obj.render(self.window_surface)
 
-        # Needed to swap to formate expected by matplotlib.imshow function
-        obs_img = obs_img.transpose(1, 0, 2)
-        return obs_img
+        # finally add env image, including highlighting
+        array_dict["env"] = np.transpose(
+            np.array(pygame.surfarray.pixels3d(self.window_surface)), axes=(1, 0, 2)
+        )
 
-    def _map_obs_to_env_coord(
-        self,
-        obs_coord: Coord,
-        agent_coord: Coord,
-        facing_dir: Direction,
-        agent_obs_forward_dim: int,
-        agent_obs_side_dim: int,
-    ) -> Coord:
-        grid_row = agent_coord[1]
-        grid_col = agent_coord[0]
+        return array_dict
 
-        if facing_dir == Direction.NORTH:
-            grid_row += obs_coord[1] - agent_obs_forward_dim
-            grid_col += obs_coord[0] - agent_obs_side_dim
-        elif facing_dir == Direction.EAST:
-            grid_row += obs_coord[0] - agent_obs_side_dim
-            grid_col += -obs_coord[1] + agent_obs_forward_dim
-        elif facing_dir == Direction.SOUTH:
-            grid_row += -obs_coord[1] + agent_obs_forward_dim
-            grid_col += -obs_coord[0] + agent_obs_side_dim
-        else:
-            grid_row += -obs_coord[0] + agent_obs_side_dim
-            grid_col += obs_coord[1] - agent_obs_forward_dim
-        return (grid_col, grid_row)
-
-
-def _fill_coords(img: np.ndarray, fn: Callable, color: np.ndarray) -> np.ndarray:
-    """Fill pixels of an image with coordinates matching a filter function."""
-    for y in range(img.shape[0]):
-        for x in range(img.shape[1]):
-            yf = (y + 0.5) / img.shape[0]
-            xf = (x + 0.5) / img.shape[1]
-            if fn(xf, yf):
-                img[y, x] = color
-
-    return img
-
-
-def _rotate_fn(fin: Callable, cx: float, cy: float, theta: float) -> Callable:
-    def _fout(x, y):
-        x = x - cx
-        y = y - cy
-
-        x2 = cx + x * math.cos(-theta) - y * math.sin(-theta)
-        y2 = cy + y * math.cos(-theta) + x * math.sin(-theta)
-
-        return fin(x2, y2)
-
-    return _fout
-
-
-def _point_in_line(x0: float, y0: float, x1: float, y1: float, r: float) -> Callable:
-    p0 = np.array([x0, y0])
-    p1 = np.array([x1, y1])
-    direction = p1 - p0
-    dist = np.linalg.norm(direction)
-    direction = direction / dist
-
-    xmin = min(x0, x1) - r
-    xmax = max(x0, x1) + r
-    ymin = min(y0, y1) - r
-    ymax = max(y0, y1) + r
-
-    def _fn(x, y):
-        # Fast, early escape test
-        if x < xmin or x > xmax or y < ymin or y > ymax:
-            return False
-
-        q = np.array([x, y])
-        pq = q - p0
-
-        # Closest point on line
-        a = np.dot(pq, direction)
-        a = np.clip(a, 0, dist)
-        p = p0 + a * direction
-
-        dist_to_line = np.linalg.norm(q - p)
-        return dist_to_line <= r
-
-    return _fn
-
-
-def _point_in_circle(cx, cy, r):
-    def _fn(x, y):
-        return (x - cx) * (x - cx) + (y - cy) * (y - cy) <= r * r
-
-    return _fn
-
-
-def _point_in_rect(xmin: float, xmax: float, ymin: float, ymax: float) -> Callable:
-    def _fn(x, y):
-        return xmin <= x <= xmax and ymin <= y <= ymax
-
-    return _fn
-
-
-def _point_in_triangle(a, b, c):
-    a = np.array(a)
-    b = np.array(b)
-    c = np.array(c)
-
-    def _fn(x, y):
-        v0 = c - a
-        v1 = b - a
-        v2 = np.array((x, y)) - a
-
-        # Compute dot products
-        dot00 = np.dot(v0, v0)
-        dot01 = np.dot(v0, v1)
-        dot02 = np.dot(v0, v2)
-        dot11 = np.dot(v1, v1)
-        dot12 = np.dot(v1, v2)
-
-        # Compute barycentric coordinates
-        inv_denom = 1 / (dot00 * dot11 - dot01 * dot01)
-        u = (dot11 * dot02 - dot01 * dot12) * inv_denom
-        v = (dot00 * dot12 - dot01 * dot02) * inv_denom
-
-        # Check if point is in triangle
-        return (u >= 0) and (v >= 0) and (u + v) < 1
-
-    return _fn
-
-
-def _highlight_img(img: np.ndarray, color=(255, 255, 255), alpha=0.2):
-    """Add highlighting to an image."""
-    blend_img = img + alpha * (np.array(color, dtype=np.uint8) - img)
-    blend_img = blend_img.clip(0, 255).astype(np.uint8)
-    img[:, :, :] = blend_img
+    def close(self):
+        """Close renderer and perform any necessary cleanup."""
+        pygame.display.quit()
+        pygame.quit()

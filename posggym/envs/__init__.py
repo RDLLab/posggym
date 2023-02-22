@@ -124,7 +124,7 @@ for (size, n_food), n_agents, coop, static_layout in product(
     )
 
     register(
-        id=f"LevelBasedForagig-VectorObs-{suffix}",
+        id=f"LevelBasedForaging-VectorObs-{suffix}",
         entry_point="posggym.envs.grid_world.lbf:LBFEnv",
         max_episode_steps=50,
         kwargs={
@@ -220,6 +220,7 @@ for grid_name in uav.SUPPORTED_GRIDS:
     register(
         id=f"UAV-{grid_name}-v0",
         entry_point="posggym.envs.grid_world.uav:UAVEnv",
+        max_episode_steps=50,
         kwargs={
             "grid_name": grid_name,
         },

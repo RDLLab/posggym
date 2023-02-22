@@ -21,12 +21,13 @@ Conference on Intelligent Robots and Systems (IROS), pp. 8770-8777. IEEE, 2022.
 
 """
 import itertools
+from os import path
 from typing import Dict, List, Optional, Set, SupportsFloat, Tuple, Union
 
 from gymnasium import spaces
 
-import posggym.envs.grid_world.render as render_lib
 import posggym.model as M
+from posggym import logger
 from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import Coord, Direction, Grid
 from posggym.utils import seeding
@@ -117,7 +118,7 @@ class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
 
     metadata = {
         "render_modes": ["human", "ansi", "rgb_array", "rgb_array_dict"],
-        "render_fps": 4,
+        "render_fps": 15,
     }
 
     def __init__(
@@ -128,93 +129,104 @@ class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
         render_mode: Optional[str] = None,
         **kwargs,
     ):
-        self._viewer = None
-        self._renderer: Optional[render_lib.GWRenderer] = None
         super().__init__(
             TwoPathsModel(grid_name, action_probs, infinite_horizon, **kwargs),
             render_mode=render_mode,
         )
+        self.renderer = None
+        self.chaser_img = None
+        self.runner_img = None
 
     def render(self):
-        grid = self.model.grid  # type: ignore
-        if self.render_mode == "ansi":
-            grid_str = grid.get_ascii_repr(self._state[0], self._state[1])
-
-            output = [
-                f"Step: {self._step_num}",
-                grid_str,
-            ]
-            if self._last_actions is not None:
-                action_str = ", ".join(
-                    [str(Direction(a)) for a in self._last_actions.values()]
-                )
-                output.insert(1, f"Actions: <{action_str}>")
-                output.append(f"Rewards: <{self._last_rewards}>")
-
-            return "\n".join(output) + "\n"
-
-        if self.render_mode == "human" and self._viewer is None:
-            # pylint: disable=[import-outside-toplevel]
-            from posggym.envs.grid_world import viewer
-
-            self._viewer = viewer.GWViewer(
-                "Two-Paths Env",
-                (min(grid.width, 9), min(grid.height, 9)),
-                num_agent_displays=len(self.possible_agents),
+        if self.render_mode is None:
+            assert self.spec is not None
+            logger.warn(
+                "You are calling render method without specifying any render mode. "
+                "You can specify the render_mode at initialization, "
+                f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
             )
-            self._viewer.show(block=False)
+            return
 
-        if self._renderer is None:
-            static_objs = [
-                render_lib.GWObject(coord, "green", render_lib.Shape.RECTANGLE)
+        if self.render_mode == "ansi":
+            return self._render_ansi()
+        return self._render_img()
+
+    def _render_ansi(self):
+        grid = self.model.grid  # type: ignore
+        grid_str = grid.get_ascii_repr(self._state[0], self._state[1])
+
+        output = [
+            f"Step: {self._step_num}",
+            grid_str,
+        ]
+        if self._last_actions is not None:
+            action_str = ", ".join(
+                [str(Direction(a)) for a in self._last_actions.values()]
+            )
+            output.insert(1, f"Actions: <{action_str}>")
+            output.append(f"Rewards: <{self._last_rewards}>")
+
+        return "\n".join(output) + "\n"
+
+    def _render_img(self):
+        grid: Grid = self.model.grid  # type: ignore
+
+        import posggym.envs.grid_world.render as render_lib
+
+        if self.renderer is None:
+            self.renderer = render_lib.GWRenderer(
+                self.render_mode,
+                grid,
+                render_fps=self.metadata["render_fps"],
+                env_name="Two Paths"
+            )
+
+            goal_imgs = [
+                render_lib.GWRectangle(
+                    coord,
+                    self.renderer.cell_size,
+                    render_lib.get_color("green")
+                )
                 for coord in grid.goal_coords
             ]
-            self._renderer = render_lib.GWRenderer(
-                len(self.possible_agents), grid, static_objs, render_blocks=True
-            )
+            self.renderer.static_objects.extend(goal_imgs)
 
-        agent_coords = self._state
-        agent_obs_coords = tuple(
-            grid.get_neighbours(self._state[i], True)
-            for i in range(len(self.possible_agents))
-        )
-        for i, coord in enumerate(agent_coords):
-            agent_obs_coords[i].append(coord)
-        agent_dirs = tuple(Direction.NORTH for _ in range(len(self.possible_agents)))
+        if self.runner_img is None:
+            img_path = path.join(path.dirname(__file__), "img", "robot.png")
+            img = render_lib.load_img_file(img_path, self.renderer.cell_size)
+            self.runner_img = render_lib.GWImage((0, 0), self.renderer.cell_size, img)
 
-        env_img = self._renderer.render(
-            self._state,
-            agent_obs_coords,
-            agent_dirs,
-            other_objs=None,
-            agent_colors=None,
-        )
-        agent_obs_imgs = self._renderer.render_all_agent_obs(
-            env_img,
-            agent_coords,
-            agent_dirs,
-            agent_obs_dims=(1, 1, 1),
-            out_of_bounds_obj=render_lib.GWObject(
-                (0, 0), "grey", render_lib.Shape.RECTANGLE
-            ),
-            agent_obs_coords=agent_obs_coords,
-        )
+        if self.chaser_img is None:
+            img_path = path.join(path.dirname(__file__), "img", "robot.png")
+            img = render_lib.load_img_file(img_path, self.renderer.cell_size)
+            self.chaser_img = render_lib.GWImage((0, 0), self.renderer.cell_size, img)
 
-        if self.render_mode == "human":
-            self._viewer.update_img(env_img, agent_idx=None)
-            for i, obs_img in enumerate(agent_obs_imgs):
-                self._viewer.update_img(obs_img, agent_idx=i)
-            self._viewer.display_img()
-        elif self.render_mode == "rgb_array":
-            return env_img
-        else:
-            # rgb_array_dict
-            return dict(enumerate(agent_obs_imgs))
+        self.runner_img.coord = self._state[0]
+        self.chaser_img.coord = self._state[1]
+        render_objects = [self.runner_img, self.chaser_img]
+
+        observed_coords = grid.get_neighbours(self._state[0])
+        observed_coords.extend(grid.get_neighbours(self._state[1]))
+
+        if self.render_mode in ("human", "rgb_array"):
+            return self.renderer.render(render_objects, observed_coords)
+
+        return self.renderer.render_agents(
+            render_objects,
+            {
+                0: (self._state[0], Direction.NORTH),
+                1: (self._state[1], Direction.NORTH),
+            },
+            agent_obs_dims=1,
+            observed_coords=observed_coords,
+            # mask corners of obs square
+            agent_obs_mask=[(0, 0), (0, 2), (2, 0), (2, 2)]
+        )
 
     def close(self) -> None:
-        if self._viewer is not None:
-            self._viewer.close()
-            self._viewer = None
+        if self.renderer is not None:
+            self.renderer.close()
+            self.renderer = None
 
 
 class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):

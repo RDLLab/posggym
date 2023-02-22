@@ -40,7 +40,6 @@ from typing import (
 
 from gymnasium import spaces
 
-import posggym.envs.grid_world.render as render_lib
 import posggym.model as M
 from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import Coord, Direction, Grid
@@ -185,8 +184,8 @@ class PursuitEvasionEnv(DefaultEnv):
     """
 
     metadata = {
-        "render_modes": ["human", "ansi", "rgb_array", "rgb_array_dict"],
-        "render_fps": 4,
+        "render_modes": ["human", "ansi", "rgb_array"],
+        "render_fps": 15,
     }
 
     def __init__(
@@ -219,9 +218,10 @@ class PursuitEvasionEnv(DefaultEnv):
             min(max_obs_distance, max(grid.width, grid.height)),
             0,
             fov_width // 2,
+            fov_width // 2,
         )
-        self._viewer = None
-        self._renderer: Optional[render_lib.GWRenderer] = None
+        self.renderer = None
+        self._agent_imgs = None
 
     def reset(
         self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
@@ -231,93 +231,89 @@ class PursuitEvasionEnv(DefaultEnv):
         return super().reset(seed=seed, options=options)
 
     def render(self):
+        if self.render_mode == "ansi":
+            return self._render_ansi()
+        return self._render_img()
+
+    def _render_ansi(self):
         evader_coord = self._state[0]
         pursuer_coord = self._state[2]
         goal_coord = self._state[6]
         grid = self.model.grid  # type: ignore
 
-        if self.render_mode == "ansi":
-            grid_str = grid.get_ascii_repr(goal_coord, evader_coord, pursuer_coord)
-            output = [
-                f"Step: {self._step_num}",
-                grid_str,
-            ]
-            if self._last_actions is not None:
-                action_str = ", ".join(
-                    [str(Direction(a)) for a in self._last_actions.values()]
+        grid_str = grid.get_ascii_repr(goal_coord, evader_coord, pursuer_coord)
+        output = [
+            f"Step: {self._step_num}",
+            grid_str,
+        ]
+        if self._last_actions is not None:
+            action_str = ", ".join(
+                [str(Direction(a)) for a in self._last_actions.values()]
+            )
+            output.insert(1, f"Actions: <{action_str}>")
+            output.append(f"Rewards: <{self._last_rewards}>")
+        return "\n".join(output) + "\n"
+
+    def _render_img(self):
+        evader_coord = self._state[0]
+        pursuer_coord = self._state[2]
+        goal_coord = self._state[6]
+        model: PursuitEvasionModel = self.model  # type: ignore
+
+        import posggym.envs.grid_world.render as render_lib
+
+        if self.renderer is None:
+            self.renderer = render_lib.GWRenderer(
+                self.render_mode,
+                model.grid,
+                render_fps=self.metadata["render_fps"],
+                env_name="Driving",
+            )
+
+        if self._agent_imgs is None:
+            self._agent_imgs = {
+                i: render_lib.GWTriangle(
+                    (0, 0),
+                    self.renderer.cell_size,
+                    render_lib.get_agent_color(i)[0],
+                    Direction.NORTH,
                 )
-                output.insert(1, f"Actions: <{action_str}>")
-                output.append(f"Rewards: <{self._last_rewards}>")
-            return "\n".join(output) + "\n"
+                for i in self.possible_agents
+            }
 
-        if self.render_mode == "human" and self._viewer is None:
-            # pylint: disable=[import-outside-toplevel]
-            from posggym.envs.grid_world import viewer
-
-            self._viewer = viewer.GWViewer(
-                "Pursuit-Evasion Env",
-                (min(grid.height, 8), min(grid.width, 8)),
-                num_agent_displays=len(self.possible_agents),
-            )
-            self._viewer.show(block=False)
-
-        if self._renderer is None:
-            self._renderer = render_lib.GWRenderer(
-                len(self.possible_agents), grid, [], render_blocks=True
-            )
-
-        agent_obs_coords = tuple(
-            list(
-                grid.get_fov(
+        observed_coords = []
+        for i in range(len(self.agents)):
+            observed_coords.extend(
+                model.grid.get_fov(
                     self._state[2 * i],
                     self._state[2 * i + 1],
                     self.model.FOV_EXPANSION_INCR,
                     self._max_obs_distance,
                 )
             )
-            for i in range(len(self.possible_agents))
-        )
-        agent_coords = (evader_coord, pursuer_coord)
-        agent_dirs = (self._state[1], self._state[3])
 
-        other_objs = [
-            render_lib.GWObject(goal_coord, "green", render_lib.Shape.RECTANGLE)
+        render_objects = [
+            render_lib.GWRectangle(
+                goal_coord, self.renderer.cell_size, render_lib.get_color("green")
+            )
         ]
 
-        env_img = self._renderer.render(
-            agent_coords,
-            agent_obs_coords,
-            agent_dirs=agent_dirs,
-            other_objs=other_objs,
-            agent_colors=None,
-        )
+        agent_coords_and_dirs = {
+            0: (evader_coord, self._state[1]),
+            1: (pursuer_coord, self._state[3]),
+        }
+        for i, (c, d) in agent_coords_and_dirs.items():
+            agent_img = self._agent_imgs[i]
+            agent_img.coord = c
+            agent_img.facing_dir = d
+            render_objects.append(agent_img)
 
-        agent_obs_imgs = self._renderer.render_all_agent_obs(
-            env_img,
-            agent_coords,
-            agent_dirs,
-            agent_obs_dims=self._obs_dims,
-            out_of_bounds_obj=render_lib.GWObject(
-                (0, 0), "grey", render_lib.Shape.RECTANGLE
-            ),
-            agent_obs_coords=agent_obs_coords,
-        )
-
-        if self.render_mode == "human":
-            self._viewer.update_img(env_img, agent_idx=None)
-            for i, obs_img in enumerate(agent_obs_imgs):
-                self._viewer.update_img(obs_img, agent_idx=i)
-            self._viewer.display_img()
-        elif self.render_mode == "rgb_array":
-            return env_img
-        else:
-            # rgb_array_dict
-            return dict(enumerate(agent_obs_imgs))
+        return self.renderer.render(render_objects, observed_coords)
 
     def close(self) -> None:
-        if self._viewer is not None:
-            self._viewer.close()  # type: ignore
-            self._viewer = None
+        if self.renderer is not None:
+            self.renderer.close()
+            self.renderer = None
 
 
 class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):

@@ -16,20 +16,18 @@ with Finite-State Models of Other Agents.” Autonomous Agents and
 Multi-Agent Systems 31 (4): 861–904.
 
 """
-from os import path
 import itertools
 import random
+from os import path
 from typing import Dict, List, Optional, Set, SupportsFloat, Tuple, Union
 
-import numpy as np
 from gymnasium import spaces
 
-from posggym import logger
 import posggym.model as M
+from posggym import logger
 from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import Coord, Direction, Grid
 from posggym.utils import seeding
-from posggym.error import DependencyNotInstalled
 
 
 UAVState = Tuple[Coord, Coord]
@@ -112,22 +110,13 @@ class UAVEnv(DefaultEnv[UAVState, UAVObs, UAVAction]):
     Multi-Agent Systems 31 (4): 861–904.
     """
 
-    metadata = {"render_modes": ["human", "ansi", "rgb_array"], "render_fps": 4}
+    metadata = {"render_modes": ["human", "ansi", "rgb_array"], "render_fps": 15}
 
     def __init__(self, grid_name: str, render_mode: Optional[str] = None, **kwargs):
         super().__init__(UAVModel(grid_name, **kwargs), render_mode=render_mode)
-
-        grid: UAVGrid = self.model.grid   # type: ignore
-        self.window_size = (min(64 * grid.width, 512), min(64 * grid.height, 512))
-        self.cell_size = (
-            self.window_size[0] // grid.width,
-            self.window_size[1] // grid.height
-        )
-        self.window_surface = None
-        self.clock = None
+        self.renderer = None
         self.uav_img = None
         self.fug_img = None
-        self.house_img = None
 
     def render(self):
         if self.render_mode is None:
@@ -160,78 +149,47 @@ class UAVEnv(DefaultEnv[UAVState, UAVObs, UAVAction]):
         return "\n".join(output) + "\n"
 
     def _render_gui(self):
-        try:
-            import pygame
-        except ImportError as e:
-            raise DependencyNotInstalled(
-                "pygame is not installed, run `pip install posggym[grid-world]`"
-            ) from e
+        grid: UAVGrid = self.model.grid  # type: ignore
 
-        if self.window_surface is None:
-            pygame.init()
+        import posggym.envs.grid_world.render as render_lib
 
-            if self.render_mode == "human":
-                pygame.display.init()
-                pygame.display.set_caption("UAV")
-                self.window_surface = pygame.display.set_mode(self.window_size)
-            elif self.render_mode == "rgb_array":
-                self.window_surface = pygame.Surface(self.window_size)
+        if self.renderer is None:
+            self.renderer = render_lib.GWRenderer(
+                self.render_mode,
+                grid,
+                render_fps=self.metadata["render_fps"],
+                env_name="UAV",
+                bg_color=(255, 255, 255),
+                grid_line_color=(0, 0, 0)
+            )
 
-        assert (
-            self.window_surface is not None
-        ), "Something went wrong with pygame. This should never happen."
-
-        if self.clock is None:
-            self.clock = pygame.time.Clock()
+            # add house to static objects list
+            img_path = path.join(path.dirname(__file__), "img", "house.png")
+            img = render_lib.load_img_file(img_path, self.renderer.cell_size)
+            house_img = render_lib.GWImage(
+                grid.safe_house_coord, self.renderer.cell_size, img
+            )
+            self.renderer.static_objects.append(house_img)
 
         if self.uav_img is None:
-            file_name = path.join(path.dirname(__file__), "img/drone.png")
-            self.uav_img = pygame.transform.scale(
-                pygame.image.load(file_name), self.cell_size
-            )
+            img_path = path.join(path.dirname(__file__), "img", "drone.png")
+            img = render_lib.load_img_file(img_path, self.renderer.cell_size)
+            self.uav_img = render_lib.GWImage((0, 0), self.renderer.cell_size, img)
+
         if self.fug_img is None:
-            file_name = path.join(path.dirname(__file__), "img/robber.png")
-            self.fug_img = pygame.transform.scale(
-                pygame.image.load(file_name), self.cell_size
-            )
-        if self.house_img is None:
-            file_name = path.join(path.dirname(__file__), "img/house.png")
-            self.house_img = pygame.transform.scale(
-                pygame.image.load(file_name), self.cell_size
-            )
+            img_path = path.join(path.dirname(__file__), "img", "robber.png")
+            img = render_lib.load_img_file(img_path, self.renderer.cell_size)
+            self.fug_img = render_lib.GWImage((0, 0), self.renderer.cell_size, img)
 
-        self.window_surface.fill((255, 255, 255))
+        self.uav_img.coord = self._state[0]
+        self.fug_img.coord = self._state[1]
 
-        grid: UAVGrid = self.model.grid  # type: ignore
-        uav_coord, fug_coord = self._state
-        for y in range(grid.height):
-            for x in range(grid.width):
-                pos = (x * self.cell_size[0], y * self.cell_size[1])
-                rect = (*pos, *self.cell_size)
-
-                if (x, y) == grid.safe_house_coord:
-                    self.window_surface.blit(self.house_img, pos)
-                if (x, y) == fug_coord:
-                    self.window_surface.blit(self.fug_img, pos)
-                if (x, y) == uav_coord:
-                    self.window_surface.blit(self.uav_img, pos)
-
-                pygame.draw.rect(self.window_surface, (0, 0, 0), rect, 1)
-
-        if self.render_mode == "human":
-            pygame.event.pump()
-            pygame.display.update()
-            self.clock.tick(self.metadata["render_fps"])
-        elif self.render_mode == "rgb_array":
-            return np.transpose(
-                np.array(pygame.surfarray.pixels3d(self.window_surface)), axes=(1, 0, 2)
-            )
+        return self.renderer.render([self.uav_img, self.fug_img])
 
     def close(self):
-        if self.window_surface is not None:
-            import pygame
-            pygame.display.quit()
-            pygame.quit()
+        if self.renderer is not None:
+            self.renderer.close()
+            self.renderer = None
 
 
 class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):

@@ -231,6 +231,139 @@ class Grid:
             components.append(current_component)
         return components
 
+    def map_relative_to_absolute_coord(
+        self,
+        rel_coord: Coord,
+        origin: Coord,
+        facing_dir: Direction,
+        forward_dim: int,
+        side_dim: int,
+    ) -> Coord:
+        """Map a coord relative origin to coord on the grid.
+
+        This is useful for mapping from coords in agent observations to coords in the
+        actual grid.
+
+        Arguments
+        ---------
+        rel_coord: the relative coordinate. This is the coordinate relative to the
+            origin coordinate.
+        origin: the origin coordinate. This is the coordinate in the actual grid that
+            the relative coordinate is based on.
+        facing_dir: the direction the relative grid is oriented.
+        forward_dim: the distance from the origin in the facing dir that the relative
+            grid reaches. Defines where the zeroth row of the relative grid is relative
+            to the origin.
+        side_dim: the distance from the origin perpendicular to the facing dir that the
+            relative grid reaches. Defines where the zeroth column of the grid is
+            relative to the origin.
+
+        Returns
+        -------
+        The relative coord mapped to the actual grid.
+
+        """
+        grid_col, grid_row = origin
+
+        if facing_dir == Direction.NORTH:
+            grid_row += rel_coord[1] - forward_dim
+            grid_col += rel_coord[0] - side_dim
+        elif facing_dir == Direction.EAST:
+            grid_row += rel_coord[0] - side_dim
+            grid_col += -rel_coord[1] + forward_dim
+        elif facing_dir == Direction.SOUTH:
+            grid_row += -rel_coord[1] + forward_dim
+            grid_col += -rel_coord[0] + side_dim
+        else:
+            grid_row += -rel_coord[0] + side_dim
+            grid_col += rel_coord[1] - forward_dim
+        return (grid_col, grid_row)
+
+    def get_rectangular_bounds(
+        self, origin: Coord, facing_dir: Direction, rect_size: Tuple[int, int, int, int]
+    ) -> Tuple[int, int, int, int]:
+        """Get rectangular bounds for a rectangle with given origin and size.
+
+        Arguments
+        ---------
+        origin: the origin coordinate for the rectangle
+        facing_dir: which direction the rectangle is oriented
+        rect_size: the size of the rectangle relative to the origin. Specifically,
+            rect_size[0] = number of cells in front
+            rect_size[1] = number of cells behind
+            rect_size[2] = number of cells left
+            rect_size[3] = number of cells right
+
+        Returns
+        -------
+        min_col, max_col, min_row, max_row of rectangle that is within the grid's
+            bounds. Note that this may be smaller than the rectangle as specified by the
+            rect_size.
+
+        """
+        assert 0 <= origin[0] < self.width and 0 <= origin[1] < self.height
+        assert all(d >= 0 for d in rect_size)
+        col, row = origin
+
+        # rotate rectangle sizes based on direction so they are treated as if
+        # direction was NORTH
+        front, back, left, right = rect_size
+        if facing_dir == Direction.SOUTH:
+            front, back, left, right = back, front, right, left
+        elif facing_dir == Direction.EAST:
+            front, back, left, right = left, right, back, front
+        elif facing_dir == Direction.WEST:
+            front, back, left, right = right, left, front, back
+
+        min_col = max(0, col-left)
+        max_col = min(self.width-1, col+right)
+        min_row = max(0, row-front)
+        max_row = min(self.height-1, row+back)
+        return min_col, max_col, min_row, max_row
+
+    def get_rectangular_padding(
+        self, origin: Coord, facing_dir: Direction, rect_size: Tuple[int, int, int, int]
+    ) -> Tuple[Tuple[int, int], Tuple[int, int]]:
+        """Get padding for a rectangle with given origin and size.
+
+        The padding quantities are the number of cells the rectangle is out-of-bounds
+        on each dimension.
+
+        Arguments
+        ---------
+        origin: the origin coordinate for the rectangle
+        facing_dir: which direction the rectangle is oriented
+        rect_size: the size of the rectangle relative to the origin. Specifically,
+            rect_size[0] = number of cells in front
+            rect_size[1] = number of cells behind
+            rect_size[2] = number of cells left
+            rect_size[3] = number of cells right
+
+        Returns
+        -------
+        (before_col, after_col), (before_row, after_row padding)
+
+        """
+        assert 0 <= origin[0] < self.width and 0 <= origin[1] < self.height
+        assert all(d >= 0 for d in rect_size)
+        col, row = origin
+
+        # rotate rectangle sizes based on direction so they are treated as if
+        # direction was NORTH
+        front, back, left, right = rect_size
+        if facing_dir == Direction.SOUTH:
+            front, back, left, right = back, front, right, left
+        elif facing_dir == Direction.EAST:
+            front, back, left, right = left, right, back, front
+        elif facing_dir == Direction.WEST:
+            front, back, left, right = right, left, front, back
+
+        before_col = -min(0, col-left)
+        after_col = max(0, col+right-self.width+1)
+        before_row = -min(0, row-front)
+        after_row = max(0, row+back-self.height+1)
+        return (before_col, after_col), (before_row, after_row)
+
 
 class GridGenerator:
     """Class for generating grid layouts.

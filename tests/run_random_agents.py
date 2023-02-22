@@ -1,6 +1,7 @@
 """Run a random agent on an environment."""
 import argparse
-from typing import Optional, Dict, List
+import os.path as osp
+from typing import Dict, List, Optional
 
 import posggym
 import posggym.model as M
@@ -23,17 +24,17 @@ def run_random_agent(
     else:
         env = posggym.make(env_id, render_mode=render_mode)
 
-    # if record_env:
-    #     video_save_dir = os.path.join(os.path.expanduser("~"), "posggym_video")
-    #     print(f"Saving video to {video_save_dir}")
-    #     env = wrappers.RecordVideo(env, video_save_dir)
+    if record_env:
+        video_save_dir = osp.join(osp.expanduser("~"), "posggym_video")
+        print(f"Saving video to {video_save_dir}")
+        name_prefix = f"random-{env_id}"
+        env = posggym.wrappers.RecordVideo(env, video_save_dir, name_prefix=name_prefix)
 
     env.reset(seed=seed)
 
     dones = 0
     episode_steps = []
     episode_rewards: Dict[M.AgentID, List[float]] = {i: [] for i in env.possible_agents}
-    # episode_outcomes = []  # type: ignore
     for ep_num in range(num_episodes):
         env.reset()
 
@@ -62,7 +63,7 @@ def run_random_agent(
                 break
 
             for i, r_i in r.items():
-                rewards[i] += r_i   # type: ignore
+                rewards[i] += r_i  # type: ignore
 
         dones += int(done)
         episode_steps.append(t)
@@ -78,11 +79,6 @@ def run_random_agent(
     print(f"Mean episode steps = {mean_steps:.2f}")
     mean_returns = {i: sum(r) / len(r) for i, r in episode_rewards.items()}
     print(f"Mean Episode returns {mean_returns}")
-
-    # outcome_counts = _get_outcome_counts(episode_outcomes, env.n_agents)
-    # print("Outcomes")
-    # for k, v in outcome_counts.items():
-    #     print(f"{k} = {v}")
 
 
 if __name__ == "__main__":
@@ -102,9 +98,7 @@ if __name__ == "__main__":
         default=None,
         help="Max number of steps to run each epsiode for.",
     )
-    parser.add_argument(
-        "--seed", type=int, default=None, help="Random Seed."
-    )
+    parser.add_argument("--seed", type=int, default=None, help="Random Seed.")
     parser.add_argument(
         "--render_mode",
         type=str,
