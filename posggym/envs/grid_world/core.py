@@ -373,18 +373,18 @@ class ContinousWorld:
         self,
         width: int,
         height: int,
-        block_coords: Optional[List[Tuple[Position, float]]] = None,
+        block_coords: Optional[List[Object]] = None,
     ):
         self.width = width
         self.height = height
         self.agent_size = 0.5
 
         if block_coords is None:
-            block_coords = set()
+            block_coords = []
         self.block_coords = block_coords
 
     @staticmethod
-    def manhattan_dist(coord1: Position, coord2: Position) -> int:
+    def manhattan_dist(coord1: Position, coord2: Position) -> float:
         """Get manhattan distance between two coordinates on the grid."""
         return abs(coord1[0] - coord2[0]) + abs(coord1[1] - coord2[1])
 
@@ -444,7 +444,7 @@ class ContinousWorld:
 
     def check_collision(self, object: Object) -> bool:
         object_pos, agent_radius = object
-        for (pos, _), radius in self.block_coords:
+        for pos, radius in self.block_coords:
             if ContinousWorld.manhattan_dist(object_pos, pos) < (radius + agent_radius):
                 return True
         return False
