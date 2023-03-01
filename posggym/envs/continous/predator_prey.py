@@ -30,7 +30,6 @@ from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import ContinousWorld, Object, Position
 from posggym.utils import seeding
 
-
 class PPState(NamedTuple):
     """A state in the Predator-Prey Environment."""
 
@@ -139,7 +138,7 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
     """
 
     metadata = {
-        "render_modes": ["human", "ansi", "rgb_array", "rgb_array_dict"],
+        "render_modes": ["human"],
         "render_fps": 4,
     }
 
@@ -166,10 +165,21 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
         )
         self._obs_dim = obs_dim
         self._viewer = None
-        self._renderer: Optional[render_lib.GWRenderer] = None
+        self._renderer: Optional[render_lib.GWContinousRender] = None
+        self.render_mode = render_mode
 
     def render(self):
-        pass
+        if self.render_mode == "human":
+            import posggym.envs.grid_world.render as render_lib
+
+            if self._renderer is None:
+                self._renderer = render_lib.GWContinousRender(
+                    self.render_mode,
+                    self.model.grid,
+                    render_fps=self.metadata["render_fps"],
+                    env_name="PredatorPreyContinous",
+                )
+
 
     def close(self) -> None:
         pass
@@ -212,7 +222,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         # if isinstance(grid, str):
         # grid = load_grid("5x5")
 
-        print(num_predators)
+        # print(num_predators)
 
         assert 1 < num_predators <= 8
         assert 0 < num_prey
@@ -233,18 +243,18 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         self.grid.prey_start_coords = center_coords
 
         def _coord_space():
-            # return spaces.Tuple
-            return spaces.Tuple(
-                (spaces.Box(low=0, high=self.grid.width), spaces.Box(low=0, high=self.grid.height))
-            )
+            return [spaces.Box(low=0, high=self.grid.width), spaces.Box(low=0, high=self.grid.height), spaces.Box(low=0, high=math.pi*2)]
 
+        def _coord_space2():
+            return spaces.Tuple((spaces.Box(low=0, high=self.grid.width), spaces.Box(low=0, high=self.grid.height), spaces.Box(low=0, high=math.pi*2)))
+        
         self.possible_agents = tuple(range(self.num_predators))
         self.state_space = spaces.Tuple(
             (
                 # coords of each agent
-                spaces.Tuple(tuple(_coord_space() for _ in range(self.num_predators))),
+                spaces.Tuple(tuple(_coord_space2() for _ in range(self.num_predators))),
                 # prey coords
-                spaces.Tuple(tuple(_coord_space() for _ in range(self.num_prey))),
+                spaces.Tuple(tuple(_coord_space2() for _ in range(self.num_prey))),
                 # prey caught/not
                 spaces.Tuple(tuple(spaces.Discrete(2) for _ in range(self.num_prey))),
             )
@@ -255,15 +265,12 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         }
 
         # Observe everyones location
-        agent_obs = spaces.Tuple(_coord_space() for i in range(self.num_predators + self.num_prey))
+        nested_space = [_coord_space() for _ in range(self.num_predators + self.num_prey)]                     
+        agent_obs = spaces.Tuple(tuple([item for sublist in nested_space for item in sublist]))
+
 
         self.observation_spaces = {
-            i: spaces.Tuple(
-                tuple(
-                    agent_obs
-                    for _ in range(self.num_predators + self.num_prey)
-                )
-            )
+            i: agent_obs
             for i in self.possible_agents
         }
         self.observation_first = True
@@ -301,7 +308,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         return PPState(tuple(predator_coords), tuple(prey_coords_list), prey_caught)
 
     def sample_initial_obs(self, state: PPState) -> Dict[M.AgentID, PPObs]:
-        print(state, state)
+        # print(state, state)
         return self._get_obs(state, state)
 
     def step(
@@ -312,7 +319,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         obs = self._get_obs(state, next_state)
         rewards = self._get_rewards(state, next_state)
 
-        print(rewards)
+        # print(rewards)
 
         all_done = all(next_state.prey_caught)
         truncated = {i: False for i in self.possible_agents}
@@ -508,7 +515,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
             if self.grid.check_collision((coord, self.grid.agent_size)):
                 next_coord = coord
-                print("in collision")
+                # print("in collision")
             potential_next_coords.append(next_coord)
 
         # handle collisions
@@ -520,7 +527,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
                 if i == j:
                     continue
                 elif self.grid.agents_collide(coord_i, potential_next_coords[j]):
-                    print("in collision2")
+                    # print("in collision2")
                     collision = True
                     break
             if collision:
@@ -547,33 +554,36 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
                     for c in next_predator_coords
                 ]
                 num_adj_predators = sum(d <= collision_distance for d in predator_dists)
-                print(predator_dists)
+                # print(predator_dists)
                 prey_caught.append(int(num_adj_predators >= self.prey_strength))
         return tuple(prey_caught)
 
     def _get_obs(self, state: PPState, next_state: PPState) -> Dict[M.AgentID, PPObs]:
-        
-        return {
+
+        a = {
             i: self._get_local_obs(i, state, next_state)
             for i in self.possible_agents
         }
+        print("a[0]", a[0])
+        return a
 
     def _get_local_obs(
         self, agent_id: M.AgentID, state: PPState, next_state: PPState
-    ) -> PPObs:
+    ) -> Tuple[float, ...]:
         assert isinstance(agent_id, int)
 
         obs : List[float] = []
         
-        obs += list(state.predator_coords[agent_id])
+        obs += state.predator_coords[agent_id]
         for i in range(len(state.predator_coords)):
             if i == agent_id:
                 continue
-            obs += list(state.predator_coords[i])
+            obs += state.predator_coords[i]
         
         for i in range(len(state.prey_coords)):
             # print(state.prey_coords)
-            obs += list(state.prey_coords[i])
+            obs += state.prey_coords[i]
+
         return tuple(obs)
 
     def _get_rewards(
