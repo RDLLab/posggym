@@ -333,6 +333,7 @@ class GWRenderer:
             highlight_obj.render(self.window_surface)
 
         if self.render_mode == "human":
+            print("update")
             pygame.event.pump()
             pygame.display.update()
             self.clock.tick(self.render_fps)
