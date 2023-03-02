@@ -7,13 +7,11 @@ import numpy as np
 from gymnasium import spaces
 
 import posggym
-from posggym import error
-
 
 try:
     from pettingzoo.utils.env import ActionDict, AgentID, ObsDict, ParallelEnv
 except ImportError as e:
-    raise error.DependencyNotInstalled(
+    raise posggym.error.DependencyNotInstalled(
         "pettingzoo is not installed, run `pip install pettingzoo` or visit "
         "'https://github.com/Farama-Foundation/PettingZoo#installation' for details on "
         "installing pettingzoo."
@@ -24,6 +22,11 @@ class PettingZoo(ParallelEnv):
     """Converts POSGGym environment into a PettingZoo environment.
 
     Converts into a pettingzoo.ParallelEnv environment.
+
+    This involves:
+    - treating agent IDs as strings (instead of ints in some environments)
+    - handling case where an individual agent is done in environment before the episode
+      is over
 
     Ref:
     https://pettingzoo.farama.org/api/parallel/
