@@ -102,7 +102,7 @@ Both the `env` and `model` classes support a number of other methods, please see
 ## Authors
 
 **Jonathon Schwartz** - Jonathon.schwartz@anu.edu.au
-
+**Rhys Newbury** - Rhys.newbury@anu.edu.au
 
 ## License
 
