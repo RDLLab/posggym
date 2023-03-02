@@ -51,7 +51,7 @@ AGENT_TYPE = [PREDATOR, PREY]
 PPObs = Tuple[float, ...]
 # Cell Obs
 
-collision_distance = 5
+collision_distance = 1
 
 class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
     """The Predator-Prey Grid World Environment.
@@ -181,10 +181,11 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
                     render_fps=self.metadata["render_fps"],
                     env_name="PredatorPreyContinous",
                     domain_size=self.model.grid.width,
-                    num_colors=2
+                    num_colors=3
                 )
-            colored_prey =  tuple(t + (0,) for t in self._state.prey_coords)
-            colored_pred =  tuple(t + (1,) for t in self._state.predator_coords)
+            colored_pred =  tuple(t + (0,) for t in self._state.predator_coords)
+            colored_prey =  tuple(t + (1 + caught,) for t, caught in zip(self._state.prey_coords, self.state.prey_caught))
+
             self._renderer.render(colored_prey + colored_pred)
 
 
@@ -374,6 +375,8 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             next_coord = self._move_away_from_predators(
                 prey_coord, state.predator_coords, list(occupied_coords)
             )
+            print(next_coord)
+            print(prey_coord)
             if next_coord:
                 next_prey_coords[i] = next_coord
                 occupied_coords.remove(prey_coord)
@@ -409,6 +412,9 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             else:
                 # possibility for collision between random moving prey
                 neighbours = [c for c in neighbours if c not in occupied_coords]
+                
+                print("neighbours", neighbours)
+
                 if len(neighbours) == 0:
                     next_coord = prey_coord
                 else:
@@ -436,14 +442,18 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             if predator_dists[i] == min_predator_dist
         ]
         closest_predator_coord = self.rng.choice(all_closest_predator_coords)
-
+        # import pdb
+        # pdb.set_trace()
         if all(
             abs(a - b) > self.obs_dim
-            for a, b in zip(prey_coord, closest_predator_coord)
+            for a, b in zip(prey_coord[:2], closest_predator_coord[:2])
         ):
             # closes predator out of obs range
+            # import pdb
+            # pdb.set_trace()
             return None
-
+        # import pdb
+        # pdb.set_trace()
         # move into furthest away free cell, includes current coord
         neighbours = list(
             (self.grid.manhattan_dist(c, closest_predator_coord), c)
@@ -454,7 +464,11 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         neighbours.sort()
         for (d, c) in reversed(neighbours):
             if c == prey_coord or self._coord_available_for_prey(c, occupied_coords):
+                print("c", c)
+                print("prey_coord", prey_coord)
+                # input()
                 return c
+
 
         raise AssertionError("Something has gone wrong, please investigate.")
 
@@ -501,12 +515,13 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         neighbours = self.grid.get_neighbours(
             coord, ignore_blocks=False, include_out_of_bounds=False
         )
+        non_collide_neighbours = []
         for c in neighbours:
             for c2 in occupied_coords:
-                if self.grid.agents_collide(c, c2):
-                    neighbours.remove(c)
+                if not self.grid.agents_collide(c, c2):
+                    non_collide_neighbours.append(c)
 
-        return len(neighbours) >= self.prey_strength
+        return len(non_collide_neighbours) >= self.prey_strength
 
     def _get_next_predator_state(
         self,
@@ -554,7 +569,9 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         next_predator_coords: Tuple[Position, ...],
     ) -> Tuple[int, ...]:
         prey_caught = []
-
+        print("yoooo")
+        import pdb
+        # pdb.set_trace()
         for i in range(self.num_prey):
             if state.prey_caught[i]:
                 prey_caught.append(1)
@@ -564,7 +581,6 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
                     for c in next_predator_coords
                 ]
                 num_adj_predators = sum(d <= collision_distance for d in predator_dists)
-                # print(predator_dists)
                 prey_caught.append(int(num_adj_predators >= self.prey_strength))
         return tuple(prey_caught)
 
