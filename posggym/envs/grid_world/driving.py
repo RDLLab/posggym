@@ -22,7 +22,6 @@ Quantifying the Effects of Environment and Population Diversity in Multi-Agent
 Reinforcement Learning. Autonomous Agents and Multi-Agent Systems 36, 1 (2022), 1–16
 
 """
-from os import path
 import enum
 from itertools import product
 from typing import (
@@ -257,7 +256,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
                 self.render_mode,
                 model.grid,
                 render_fps=self.metadata["render_fps"],
-                env_name="Driving"
+                env_name="Driving",
             )
 
         if self._agent_imgs is None:
@@ -266,7 +265,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
                     (0, 0),
                     self.renderer.cell_size,
                     render_lib.get_agent_color(i)[0],
-                    Direction.NORTH
+                    Direction.NORTH,
                 )
                 for i in self.possible_agents
             }
@@ -306,7 +305,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
                     render_lib.GWCircle(
                         vs.coord,
                         self.renderer.cell_size,
-                        render_lib.get_color("yellow")
+                        render_lib.get_color("yellow"),
                     )
                 )
 
@@ -316,7 +315,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
             render_objects,
             agent_coords_and_dirs,
             agent_obs_dims=(*self._obs_dim, self._obs_dim[-1]),
-            observed_coords=observed_coords
+            observed_coords=observed_coords,
         )
 
     def close(self) -> None:
@@ -400,7 +399,7 @@ class DrivingGenEnv(DrivingEnv):
         else:
             grid = self._gen.generate()
 
-        self.model.grid = grid   # type: ignore
+        self.model.grid = grid  # type: ignore
 
         if self.render_mode != "ansi" and self.renderer is not None:
             self.renderer.grid = grid
@@ -659,8 +658,13 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         collision_types = [CollisionType.NONE] * len(self.possible_agents)
 
         for i in exec_order:
-            action_i = actions[i]
             state_i = state[i]
+            if i not in actions:
+                assert state_i.crashed or state_i.dest_reached
+                action_i = DO_NOTHING
+            else:
+                action_i = actions[i]
+
             next_state_i = next_state[i]
             if state_i.dest_reached or next_state_i.crashed:
                 # already at destination or crashed, or was crashed into this

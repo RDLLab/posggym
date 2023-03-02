@@ -23,8 +23,8 @@ from typing import (
     TypeVar,
 )
 
+import numpy as np
 from gymnasium import spaces
-from gymnasium.core import RenderFrame
 
 from posggym.model import ActType, AgentID, ObsType, POSGModel, StateType
 
@@ -189,7 +189,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
 
     def render(
         self,
-    ) -> RenderFrame | Dict[AgentID, RenderFrame] | List[RenderFrame] | None:
+    ) -> None | np.ndarray | str | Dict[AgentID, np.ndarray] | Dict[AgentID, str]:
         """Render the environment as specified by environment :attr:`render_mode`.
 
         The render mode attribute :attr:`render_mode` is set during the initialization
@@ -608,7 +608,7 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
 
     def render(
         self,
-    ) -> RenderFrame | Dict[AgentID, RenderFrame] | List[RenderFrame] | None:
+    ) -> None | np.ndarray | str | Dict[AgentID, np.ndarray] | Dict[AgentID, str]:
         return self.env.render()
 
     def close(self):

@@ -34,13 +34,18 @@ dynamic = ["version"]
 
 [project.optional-dependencies]
 # Update dependencies in `all` if any are added or removed
-grid-world = ["matplotlib >=3.5", "pygame ==2.1.3.dev8"]
+grid-world = ["pygame >=2.0"]
+continous = ["pygame >=2.0"]
+pettingzoo= ["pettingzoo >=1.22"]
 all = [
 	# All dependencies above
 	# NOTE: No need to manually remove the duplicates, setuptools automatically does that.
 	# grid-world
-	"matplotlib >=3.5",
-	"pygame==2.1.3.dev8"
+	"pygame >=2.0",
+	# continous
+	"pygame >=2.0",
+	# pettingzoo
+	"pettingzoo >=1.22",
 ]
 testing = ["pytest >=7.2"]
 
