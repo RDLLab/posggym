@@ -69,6 +69,7 @@ for t in range(50):
 :caption: Introduction
 
 intro/getting_started
+intro/installation
 
 ```
 
