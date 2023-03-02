@@ -3,16 +3,18 @@ from argparse import ArgumentParser
 import os.path as osp
 from typing import Dict, List, Optional
 
-from gym import spaces
+import numpy as np
+from gymnasium import spaces
 
 import posggym
 import posggym.model as M
 
 
-def _get_action(env, keyboard_agent_ids):
+def get_discrete_action(env: posggym.Env, keyboard_agent_ids: List[M.AgentID]):
+    """Get discrete action from user."""
     actions = {}
-    for i in range(env.agents):
-        action_space = env.action_spaces[i]
+    for i in env.agents:
+        action_space: spaces.Discrete = env.action_spaces[i]    # type: ignore
         if i in keyboard_agent_ids:
             while True:
                 try:
@@ -26,9 +28,34 @@ def _get_action(env, keyboard_agent_ids):
     return actions
 
 
+def get_continuous_action(env: posggym.Env, keyboard_agent_ids: List[M.AgentID]):
+    """Get continuous action from user."""
+    actions = {}
+    for i in env.agents:
+        action_space: spaces.Box = env.action_spaces[i]   # type: ignore
+        if i in keyboard_agent_ids:
+            action = []
+            for dim in range(action_space.shape[0]):
+                low, high = action_space.low[dim], action_space.high[dim]
+                while True:
+                    try:
+                        a = float(
+                            input(f"Select action for agent {i} ({low}, {high}): ")
+                        )
+                        assert low <= a <= high
+                        action.append(a)
+                        break
+                    except (ValueError, AssertionError):
+                        print("Invalid selection. Try again.")
+            actions[i] = np.array(action)
+        else:
+            actions[i] = action_space.sample()
+    return actions
+
+
 def run_keyboard_agent(
     env_id: str,
-    keyboard_agent_ids: List[int],
+    keyboard_agent_ids: List[M.AgentID],
     num_episodes: int,
     episode_step_limit: Optional[int] = None,
     seed: Optional[int] = None,
@@ -44,11 +71,26 @@ def run_keyboard_agent(
     else:
         env = posggym.make(env_id, render_mode=render_mode)
 
+    # get agent ID's in correct format
+    if isinstance(env.possible_agents[0], int):
+        keyboard_agent_ids = [int(i) for i in keyboard_agent_ids]
+
     action_spaces = env.action_spaces
-    assert all(
-        isinstance(action_spaces[i], spaces.Discrete)
-        for i in keyboard_agent_ids
-    )
+    if all(isinstance(action_spaces[i], spaces.Discrete) for i in keyboard_agent_ids):
+        get_action_fn = get_discrete_action
+    elif all(isinstance(action_spaces[i], spaces.Box) for i in keyboard_agent_ids):
+        assert all(
+            len(action_spaces[i].shape) == 1   # type: ignore
+            for i in keyboard_agent_ids
+        ), (
+            "Only 1D continous actions supported."
+        )
+        get_action_fn = get_continuous_action
+    else:
+        raise AssertionError(
+            "Only discrete and 1D continous action spaces supported for keyboard "
+            "agents."
+        )
 
     if record_env:
         video_save_dir = osp.join(osp.expanduser("~"), "posggym_video")
@@ -74,7 +116,7 @@ def run_keyboard_agent(
         done = False
         rewards = {i: 0.0 for i in env.possible_agents}
         while episode_step_limit is None or t < episode_step_limit:
-            a = _get_action(env, keyboard_agent_ids)
+            a = get_action_fn(env, keyboard_agent_ids)
             _, r, _, _, done, _ = env.step(a)
             t += 1
 
@@ -110,10 +152,10 @@ def run_keyboard_agent(
 
 if __name__ == "__main__":
     parser = ArgumentParser(conflict_handler="resolve")
-    parser.add_argument("env_name", type=str, help="Name of environment to run")
+    parser.add_argument("env_id", type=str, help="Name of environment to run")
     parser.add_argument(
         "keyboard_agent_ids",
-        type=int,
+        type=str,
         nargs="+",
         help="IDs of agents to run as keyboard agents.",
     )
