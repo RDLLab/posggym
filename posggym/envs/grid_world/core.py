@@ -416,8 +416,10 @@ class ContinousWorld:
             new_yaw = new_yaw - 2 * math.pi
 
         velocity = 0.25
-        x += self.clamp(0, self.width, velocity * math.cos(new_yaw))
-        y += self.clamp(0, self.height, velocity * math.sin(new_yaw))
+        x += velocity * math.cos(new_yaw)
+        y += velocity * math.sin(new_yaw)
+        x = self.clamp(0, self.height, x)
+        y = self.clamp(0, self.width, y)
 
         new_coord = ( x, y, new_yaw)
 

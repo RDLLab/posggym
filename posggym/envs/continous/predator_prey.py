@@ -29,7 +29,7 @@ import posggym.model as M
 from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import ContinousWorld, Object, Position
 from posggym.utils import seeding
-
+import math
 class PPState(NamedTuple):
     """A state in the Predator-Prey Environment."""
 
@@ -173,12 +173,22 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
             import posggym.envs.grid_world.render as render_lib
 
             if self._renderer is None:
+                # print("recreate")
+                # input()
                 self._renderer = render_lib.GWContinousRender(
                     self.render_mode,
                     self.model.grid,
                     render_fps=self.metadata["render_fps"],
                     env_name="PredatorPreyContinous",
+                    domain_size=self.model.grid.width,
+                    num_colors=2
                 )
+            colored_prey =  tuple(t + (0,) for t in self._state.prey_coords)
+            colored_pred =  tuple(t + (1,) for t in self._state.predator_coords)
+            self._renderer.render(colored_prey + colored_pred)
+
+
+
 
 
     def close(self) -> None:
