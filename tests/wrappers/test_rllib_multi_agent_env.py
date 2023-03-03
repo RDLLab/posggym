@@ -1,6 +1,8 @@
 """Tests for the Rllib MultiAgentEnv wrapper."""
 import pytest
 
+from ray.rllib.utils.pre_checks.env import check_env
+
 import posggym
 from tests.envs.utils import all_testing_env_specs
 
@@ -25,6 +27,4 @@ def test_make_rllib_multi_agent_env(spec):
     env = posggym.make(spec.id, disable_env_checker=True)
     rllib_env = RllibMultiAgentEnv(env)
 
-    rllib_env.reset()
-    rllib_env.step(rllib_env.action_space.sample())
-    rllib_env.close()
+    check_env(rllib_env)
