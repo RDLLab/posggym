@@ -9,11 +9,6 @@ import math
 # (x, y) coord = (col, row) coord
 Coord = Tuple[int, int]
 
-# (x, y, radius) in continous world
-Position = Tuple[float, float, float]
-
-# Position, radius
-Object = Tuple[Position, float]
 class Direction(enum.IntEnum):
     """A direction in a grid."""
 

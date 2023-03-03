@@ -3,7 +3,6 @@ import abc
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
-import math
 from posggym.envs.grid_world.core import Coord, Direction, Grid
 from posggym.error import DependencyNotInstalled
 from posggym.model import AgentID

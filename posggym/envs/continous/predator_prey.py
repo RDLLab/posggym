@@ -27,7 +27,7 @@ from gymnasium import spaces
 import posggym.envs.grid_world.render as render_lib
 import posggym.model as M
 from posggym.core import DefaultEnv
-from posggym.envs.grid_world.core import ContinousWorld, Object, Position
+from posggym.envs.continous.core import ContinousWorld, Object, Position
 from posggym.utils import seeding
 import math
 class PPState(NamedTuple):
@@ -170,7 +170,7 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
 
     def render(self):
         if self.render_mode == "human":
-            import posggym.envs.grid_world.render as render_lib
+            import posggym.envs.continous.render as render_lib
 
             if self._renderer is None:
                 # print("recreate")
