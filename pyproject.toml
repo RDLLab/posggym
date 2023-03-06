@@ -67,11 +67,19 @@ posggym = [
 ]
 
 # Linters and Test tools #######################################################
-[tool.black]
-safe = true
+[tool.ruff]
+extend-select = ["C4", "SIM", "TCH"]
+show-fixed = true
+# Same as Black.
 line-length = 88
+# Assume Python 3.8.
+target-version = "py38"
 
-[tool.isort]
+[tool.ruff.mccabe]
+# Unlike Flake8, default to a complexity level of 10.
+max-complexity = 10
+
+[tool.ruff.isort]
 atomic = true
 profile = "black"
 src_paths = ["posggym", "tests"]
@@ -80,7 +88,11 @@ indent = 4
 lines_after_imports = 2
 multi_line_output = 3
 
-# [tool.pylsp-mypy]
-# enabled = true
-# live_mode = true
-# strict = false
+[tool.black]
+safe = true
+line-length = 88
+
+[tool.pylsp-mypy]
+enabled = true
+live_mode = true
+strict = false
