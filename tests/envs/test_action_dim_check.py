@@ -3,15 +3,17 @@
 Ref:
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/test_action_dim_check.py
 """
-from typing import Dict
+from typing import Dict, TYPE_CHECKING
 
 import numpy as np
 import pytest
 from gymnasium import spaces
 
 import posggym
-from posggym.model import AgentID
 from tests.envs.utils import all_testing_initialised_envs
+
+if TYPE_CHECKING:
+    import posggym.model as M
 
 
 DISCRETE_ENVS = list(
@@ -80,7 +82,7 @@ def test_box_actions_out_of_bound(env: posggym.Env):
     oob_env = posggym.make(env.spec.id, disable_env_checker=True)
     oob_env.reset(seed=42)
 
-    action_spaces: Dict[AgentID, spaces.Box] = env.action_spaces  # type: ignore
+    action_spaces: Dict[M.AgentID, spaces.Box] = env.action_spaces  # type: ignore
     assert all(
         isinstance(act_space, spaces.Box) for act_space in action_spaces.values()
     )

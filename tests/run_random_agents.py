@@ -1,10 +1,12 @@
 """Run a random agent on an environment."""
 import argparse
 import os.path as osp
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
 
 import posggym
-import posggym.model as M
+
+if TYPE_CHECKING:
+    import posggym.model as M
 
 
 def run_random_agent(

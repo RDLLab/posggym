@@ -3,8 +3,6 @@
 Ref:
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/test_rendering.py
 """
-from typing import Union, get_args, get_origin
-
 import numpy as np
 import pytest
 
@@ -14,17 +12,12 @@ from posggym.model import AgentID
 from tests.envs.utils import all_testing_env_specs
 
 
-assert (
-    get_origin(AgentID) is Union
-), "Tests assume `AgentID` type is a Union of types. Update tests if this has changed."
-
-
 def check_rendered(rendered_frame, mode: str):
     """Check that the rendered frame is as expected."""
     if mode == "rgb_array_dict":
         assert isinstance(rendered_frame, dict)
         for i, agent_frame in rendered_frame.items():
-            assert isinstance(i, get_args(AgentID))
+            assert isinstance(i, AgentID)
             check_rendered(agent_frame, "rgb_array")
     elif mode == "rgb_array":
         assert isinstance(rendered_frame, np.ndarray)
@@ -34,7 +27,7 @@ def check_rendered(rendered_frame, mode: str):
     elif mode == "ansi_dict":
         assert isinstance(rendered_frame, dict)
         for i, agent_frame in rendered_frame.items():
-            assert isinstance(i, get_args(AgentID))
+            assert isinstance(i, AgentID)
             check_rendered(agent_frame, "ansi")
     elif mode == "ansi":
         assert isinstance(rendered_frame, str)
@@ -56,17 +49,9 @@ def test_render_modes(spec: EnvSpec):
 
     for mode in env.metadata["render_modes"]:
         if mode != "human":
-            new_env = spec.make(render_mode=mode)
+            new_env = spec.make(render_mode=mode, disable_env_checker=True)
 
             new_env.reset()
-            if not new_env.observation_first:
-                new_env.step(
-                    {
-                        i: act_space.sample()
-                        for i, act_space in new_env.action_spaces.items()
-                    }
-                )
-
             rendered = new_env.render()  # type: ignore
             check_rendered(rendered, mode)
 

@@ -19,8 +19,6 @@ def test_make_petting_zoo(spec):
 
     env = posggym.make(spec.id, disable_env_checker=True)
     pz_env = PettingZoo(env)
-
-    if env.observation_first:
-        # convert to AEC env so we can use PettingZoo's API test
-        aec_env = parallel_to_aec_wrapper(pz_env)
-        api_test(aec_env)
+    # convert to AEC env so we can use PettingZoo's API test
+    aec_env = parallel_to_aec_wrapper(pz_env)
+    api_test(aec_env)

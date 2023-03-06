@@ -56,13 +56,12 @@ def test_record_simple():
     rec = VideoRecorder(env)
     env.reset()
     rec.capture_frame()
-
     rec.close()
 
     assert not rec.broken
     assert os.path.exists(rec.path)
-    f = open(rec.path)
-    assert os.fstat(f.fileno()).st_size > 100
+    with open(rec.path) as f:
+        assert os.fstat(f.fileno()).st_size > 100
 
 
 def test_no_frames():

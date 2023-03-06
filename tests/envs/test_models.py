@@ -95,43 +95,38 @@ def test_model_determinism_rollout(env_spec: EnvSpec):
         model_1.get_agents(initial_state_1), model_2.get_agents(initial_state_2)
     )
 
-    if model_1.observation_first:
-        initial_obs_1 = model_1.sample_initial_obs(initial_state_1)
-        initial_obs_2 = model_2.sample_initial_obs(initial_state_2)
-        assert_equals(initial_obs_1, initial_obs_2)
-        # obs_2 verified by previous assertion
-        assert all(
-            model_1.observation_spaces[i].contains(o_i)
-            for i, o_i in initial_obs_1.items()
-        )
-        assert all(i in initial_obs_1 for i in model_1.get_agents(initial_state_1))
+    initial_obs_1 = model_1.sample_initial_obs(initial_state_1)
+    initial_obs_2 = model_2.sample_initial_obs(initial_state_2)
+    assert_equals(initial_obs_1, initial_obs_2)
+    # obs_2 verified by previous assertion
+    assert all(
+        model_1.observation_spaces[i].contains(o_i)
+        for i, o_i in initial_obs_1.items()
+    )
+    assert all(i in initial_obs_1 for i in model_1.get_agents(initial_state_1))
 
-        try:
-            for i in model_1.get_agents(initial_state_1):
-                agent_initial_state_1 = model_1.sample_agent_initial_state(
-                    i, initial_obs_1[i]
-                )
-                agent_initial_state_2 = model_2.sample_agent_initial_state(
-                    i, initial_obs_2[i]
-                )
-                assert_equals(
-                    agent_initial_state_1,
-                    agent_initial_state_2,
-                    "[sample_agent_initial_state]",
-                )
-                if model_1.state_space is not None:
-                    assert model_1.state_space.contains(agent_initial_state_1)
-        except NotImplementedError:
-            pass
+    try:
+        for i in model_1.get_agents(initial_state_1):
+            agent_initial_state_1 = model_1.sample_agent_initial_state(
+                i, initial_obs_1[i]
+            )
+            agent_initial_state_2 = model_2.sample_agent_initial_state(
+                i, initial_obs_2[i]
+            )
+            assert_equals(
+                agent_initial_state_1,
+                agent_initial_state_2,
+                "[sample_agent_initial_state]",
+            )
+            if model_1.state_space is not None:
+                assert model_1.state_space.contains(agent_initial_state_1)
+    except NotImplementedError:
+        pass
 
     # state checked for equality at each step
     state = initial_state_1
     for rollout_mode in [True, False]:
-
-        if rollout_mode:
-            num_steps = NUM_STEPS
-        else:
-            num_steps = NUM_INIT_STEPS + NUM_REPEAT_STEPS
+        num_steps = NUM_STEPS if rollout_mode else NUM_INIT_STEPS + NUM_REPEAT_STEPS
 
         for t in range(num_steps):
             # We don't evaluate the determinism of actions

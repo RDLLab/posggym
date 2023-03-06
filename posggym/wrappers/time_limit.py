@@ -1,8 +1,11 @@
 """Wrapper for limiting the time steps of an environment."""
-from typing import Set, Optional
+from typing import Set, Optional, TYPE_CHECKING
 
 import posggym
-import posggym.model as M
+
+
+if TYPE_CHECKING:
+    from posggym.model import AgentID
 
 
 class TimeLimit(posggym.Wrapper):
@@ -26,7 +29,7 @@ class TimeLimit(posggym.Wrapper):
             self.env.spec.max_episode_steps = max_episode_steps
         self._max_episode_steps = max_episode_steps
         self._elapsed_steps = 0
-        self._terminated_agents: Set[M.AgentID] = set()
+        self._terminated_agents: Set[AgentID] = set()
 
     def step(self, actions):
         obs, rewards, terminated, truncated, done, info = self.env.step(actions)

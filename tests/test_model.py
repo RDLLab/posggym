@@ -14,14 +14,7 @@ class ExampleModel(M.POSGModel[int, int, int]):
         self.possible_agents = (0, 1)
         self.action_spaces = {i: spaces.Discrete(2) for i in self.possible_agents}
         self.observation_spaces = {i: spaces.Discrete(2) for i in self.possible_agents}
-
-    @property
-    def observation_first(self) -> bool:
-        return True
-
-    @property
-    def is_symmetric(self) -> bool:
-        return True
+        self.is_symmetric = True
 
     @property
     def rng(self) -> seeding.RNG:

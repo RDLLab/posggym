@@ -74,7 +74,7 @@ def assert_equals(a, b, prefix=None):
     assert type(a) == type(b), f"{prefix}Differing types: {a} and {b}"
     if isinstance(a, dict):
         assert list(a.keys()) == list(b.keys()), f"{prefix}Key sets differ: {a} and {b}"
-        for k in a.keys():
+        for k in a:
             v_a = a[k]
             v_b = b[k]
             assert_equals(v_a, v_b, prefix)

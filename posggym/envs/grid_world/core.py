@@ -220,7 +220,7 @@ class Grid:
 
         while len(to_explore) > 0:
             coord = to_explore.pop()
-            current_component = set([coord])
+            current_component = set({coord})
             to_expand: Queue[Coord] = Queue()
             to_expand.put(coord)
 
@@ -396,7 +396,7 @@ class ContinousWorld:
         self, coord: Position, delta_yaw: float, ignore_blocks: bool = False
     ) -> Position:
         return self._get_next_coord(coord, delta_yaw, ignore_blocks)[0]
-    
+
     def _get_next_coord(
         self, coord: Position, delta_yaw: float, ignore_blocks: bool = False
     ) -> Tuple[Position, bool]:
@@ -428,7 +428,7 @@ class ContinousWorld:
 
     def clamp(self, min_bound, max_bound, value):
         return min(max_bound, max(value, min_bound))
-    
+
     def get_neighbours(self, coord : Position, num_samples = 20, ignore_blocks=False, include_out_of_bounds=False):
         points = [i * (2 * math.pi) / (num_samples - 1) for i in range(num_samples)]
         output = []
@@ -448,7 +448,7 @@ class ContinousWorld:
             if ContinousWorld.manhattan_dist(object_pos, pos) < (radius + agent_radius):
                 return True
         return False
-        
+
     def sample_coords_within_dist(self, center : Position, min_dist_from_center : float, ignore_blocks=False, max_attempts=100) -> Position:
         import random
         for _ in range(max_attempts):
@@ -462,7 +462,7 @@ class ContinousWorld:
 
             if not self.check_collision((new_coord, self.agent_size)):
                 return new_coord
-            
+
         raise Exception(f"Cannot sample coordinate within distance {min_dist_from_center} from {center} within {max_attempts}")
 class GridGenerator:
     """Class for generating grid layouts.

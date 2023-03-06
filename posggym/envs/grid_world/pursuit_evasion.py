@@ -33,7 +33,6 @@ from typing import (
     NamedTuple,
     Optional,
     Set,
-    SupportsFloat,
     Tuple,
     Union,
 )
@@ -225,7 +224,7 @@ class PursuitEvasionEnv(DefaultEnv):
 
     def reset(
         self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
-    ) -> Tuple[Optional[Dict[M.AgentID, M.ObsType]], Dict[M.AgentID, Dict]]:
+    ) -> Tuple[Dict[M.AgentID, M.ObsType], Dict[M.AgentID, Dict]]:
         # reset renderer since goal location can change between episodes
         self._renderer = None
         return super().reset(seed=seed, options=options)
@@ -299,8 +298,8 @@ class PursuitEvasionEnv(DefaultEnv):
         ]
 
         agent_coords_and_dirs = {
-            0: (evader_coord, self._state[1]),
-            1: (pursuer_coord, self._state[3]),
+            "0": (evader_coord, self._state[1]),
+            "1": (pursuer_coord, self._state[3]),
         }
         for i, (c, d) in agent_coords_and_dirs.items():
             agent_img = self._agent_imgs[i]
@@ -363,7 +362,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
                 (spaces.Discrete(self.grid.width), spaces.Discrete(self.grid.height))
             )
 
-        self.possible_agents = tuple(range(self.NUM_AGENTS))
+        self.possible_agents = tuple(str(i) for i in range(self.NUM_AGENTS))
         # s = Tuple[Coord, Direction, Coord, Direction, Coord, Coord, Coord, int]
         # e_coord, e_dir, p_coord, p_dir, e_start, p_start, e_goal, max_sp
         self.state_space = spaces.Tuple(
@@ -394,11 +393,10 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             )
             for i in self.possible_agents
         }
-        self.observation_first = True
         self.is_symmetric = False
 
     @property
-    def reward_ranges(self) -> Dict[M.AgentID, Tuple[SupportsFloat, SupportsFloat]]:
+    def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
         max_reward = self.R_CAPTURE
         if self._use_progress_reward:
             max_reward += self.R_PROGRESS
@@ -474,8 +472,8 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
     def _get_next_state(
         self, state: PEState, actions: Dict[M.AgentID, PEAction]
     ) -> PEState:
-        evader_a = actions[self.EVADER_IDX]
-        pursuer_a = actions[self.PURSUER_IDX]
+        evader_a = actions[str(self.EVADER_IDX)]
+        pursuer_a = actions[str(self.PURSUER_IDX)]
 
         if (
             self._action_probs[self.EVADER_IDX] < 1.0
@@ -542,7 +540,10 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             # pursuer doesn't observe evader goal coord
             (0, 0),
         )
-        return {self.EVADER_IDX: evader_obs, self.PURSUER_IDX: pursuer_obs}, bool(seen)
+        return {
+            str(self.EVADER_IDX): evader_obs,
+            str(self.PURSUER_IDX): pursuer_obs,
+        }, bool(seen)
 
     def _get_agent_obs(
         self, agent_coord: Coord, agent_dir: Direction, opp_coord: Coord
@@ -572,7 +573,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
 
     def _get_reward(
         self, state: PEState, next_state: PEState, evader_seen: bool
-    ) -> Dict[M.AgentID, SupportsFloat]:
+    ) -> Dict[M.AgentID, float]:
         evader_coord = next_state.evader_coord
         pursuer_coord = next_state.pursuer_coord
         evader_goal_coord = next_state.evader_goal_coord
@@ -589,7 +590,10 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         if self._normalize_reward:
             evader_reward = self._get_normalized_reward(evader_reward)
 
-        return {self.EVADER_IDX: evader_reward, self.PURSUER_IDX: -evader_reward}
+        return {
+            str(self.EVADER_IDX): evader_reward,
+            str(self.PURSUER_IDX): -evader_reward,
+        }
 
     def _is_done(self, state: PEState) -> bool:
         evader_coord, pursuer_coord = state.evader_coord, state.pursuer_coord
@@ -605,14 +609,15 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         evader_coord, pursuer_coord = state.evader_coord, state.pursuer_coord
         evader_goal_coord = state.evader_goal_coord
         pursuer_dir = state.pursuer_dir
+        evader_id, pursuer_id = str(self.EVADER_IDX), str(self.PURSUER_IDX)
         # check this first before relatively expensive detection check
         if evader_coord == pursuer_coord:
-            return {self.EVADER_IDX: M.Outcome.LOSS, self.PURSUER_IDX: M.Outcome.WIN}
+            return {evader_id: M.Outcome.LOSS, pursuer_id: M.Outcome.WIN}
         if evader_coord == evader_goal_coord:
-            return {self.EVADER_IDX: M.Outcome.WIN, self.PURSUER_IDX: M.Outcome.LOSS}
+            return {evader_id: M.Outcome.WIN, pursuer_id: M.Outcome.LOSS}
         if self._get_opponent_seen(pursuer_coord, pursuer_dir, evader_coord):
-            return {self.EVADER_IDX: M.Outcome.LOSS, self.PURSUER_IDX: M.Outcome.WIN}
-        return {self.EVADER_IDX: M.Outcome.DRAW, self.PURSUER_IDX: M.Outcome.DRAW}
+            return {evader_id: M.Outcome.LOSS, pursuer_id: M.Outcome.WIN}
+        return {evader_id: M.Outcome.DRAW, pursuer_id: M.Outcome.DRAW}
 
     def _get_normalized_reward(self, reward: float) -> float:
         """Normalize reward in [-1, 1] interval."""
@@ -684,7 +689,7 @@ class PEGrid(Grid):
         elif isinstance(goal_coord, list):
             goal_coords = set(goal_coord)
         else:
-            goal_coords = set([goal_coord])
+            goal_coords = {goal_coord}
 
         grid_repr = []
         for row in range(self.height):
@@ -718,7 +723,7 @@ class PEGrid(Grid):
             else:
                 grid_repr[coord[1]][coord[0]] = "C"
 
-        return "\n".join(list(list((" ".join(r) for r in grid_repr))))
+        return "\n".join([" ".join(r) for r in grid_repr])
 
     def get_init_ascii_repr(self) -> str:
         """Get ascii repr of initial grid."""
@@ -741,10 +746,10 @@ class PEGrid(Grid):
         """
         assert widening_increment > 0
         assert max_depth > 0
-        fov = set([origin])
+        fov = {origin}
 
         frontier_queue: Deque[Coord] = deque([origin])
-        visited = set([origin])
+        visited = {origin}
 
         while len(frontier_queue):
             coord = frontier_queue.pop()
@@ -842,8 +847,8 @@ def get_5x5_grid() -> PEGrid:
         ascii_map,
         5,
         5,
-        pursuer_start_symbols=set(["5"]),
-        evader_start_symbols=set(["0", "1", "8", "9"]),
+        pursuer_start_symbols={"5"},
+        evader_start_symbols={"0", "1", "8", "9"},
         evader_goal_symbol_map={
             "0": ["8", "9"],
             "1": ["8", "9"],
@@ -982,9 +987,9 @@ def _convert_map_to_grid(
     assert len(ascii_map) == height * width
 
     if pursuer_start_symbols is None:
-        pursuer_start_symbols = set(["3", "4", "5", "6"])
+        pursuer_start_symbols = {"3", "4", "5", "6"}
     if evader_start_symbols is None:
-        evader_start_symbols = set(["0", "1", "2", "7", "8", "9"])
+        evader_start_symbols = {"0", "1", "2", "7", "8", "9"}
     if evader_goal_symbol_map is None:
         evader_goal_symbol_map = {
             "0": ["7", "8", "9"],

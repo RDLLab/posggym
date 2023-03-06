@@ -4,7 +4,7 @@ Adapted from:
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/test_core.py
 
 """
-from typing import Optional, Dict, Tuple, Any, SupportsFloat
+from typing import Optional, Dict, Tuple, Any
 
 import numpy as np
 from gymnasium.spaces import Box
@@ -48,14 +48,14 @@ class ExampleWrapper(Wrapper):
 
     def reset(
         self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
-    ) -> Tuple[Optional[Dict[M.AgentID, WrapperObsType]], Dict[M.AgentID, Dict]]:
+    ) -> Tuple[Dict[M.AgentID, WrapperObsType], Dict[M.AgentID, Dict]]:
         return super().reset(seed=seed, options=options)
 
     def step(
         self, actions: Dict[M.AgentID, WrapperActType]
     ) -> Tuple[
         Dict[M.AgentID, WrapperObsType],
-        Dict[M.AgentID, SupportsFloat],
+        Dict[M.AgentID, float],
         Dict[M.AgentID, bool],
         Dict[M.AgentID, bool],
         bool,
@@ -97,8 +97,8 @@ class ExampleRewardWrapper(RewardWrapper):
     """Example reward wrapper for testing."""
 
     def rewards(
-        self, rewards: Dict[M.AgentID, SupportsFloat]
-    ) -> Dict[M.AgentID, SupportsFloat]:
+        self, rewards: Dict[M.AgentID, float]
+    ) -> Dict[M.AgentID, float]:
         return {i: 1 for i in rewards}
 
 
@@ -133,7 +133,7 @@ class ActionWrapperTestEnv(DefaultEnv[int, int, int]):
         self, actions: Dict[M.AgentID, int]
     ) -> Tuple[
         Dict[M.AgentID, int],
-        Dict[M.AgentID, SupportsFloat],
+        Dict[M.AgentID, float],
         Dict[M.AgentID, bool],
         Dict[M.AgentID, bool],
         bool,

@@ -77,7 +77,7 @@ def test_register(
     if version is not None:
         full_name = f"{full_name}-v{version}"
 
-    assert full_name in posggym.envs.registry.keys()
+    assert full_name in posggym.envs.registry
 
     del posggym.envs.registry[env_id]
 

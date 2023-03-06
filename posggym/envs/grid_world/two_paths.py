@@ -22,7 +22,7 @@ Conference on Intelligent Robots and Systems (IROS), pp. 8770-8777. IEEE, 2022.
 """
 import itertools
 from os import path
-from typing import Dict, List, Optional, Set, SupportsFloat, Tuple, Union
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 from gymnasium import spaces
 
@@ -178,14 +178,12 @@ class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
                 self.render_mode,
                 grid,
                 render_fps=self.metadata["render_fps"],
-                env_name="Two Paths"
+                env_name="Two Paths",
             )
 
             goal_imgs = [
                 render_lib.GWRectangle(
-                    coord,
-                    self.renderer.cell_size,
-                    render_lib.get_color("green")
+                    coord, self.renderer.cell_size, render_lib.get_color("green")
                 )
                 for coord in grid.goal_coords
             ]
@@ -214,13 +212,13 @@ class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
         return self.renderer.render_agents(
             render_objects,
             {
-                0: (self._state[0], Direction.NORTH),
-                1: (self._state[1], Direction.NORTH),
+                "0": (self._state[0], Direction.NORTH),
+                "1": (self._state[1], Direction.NORTH),
             },
             agent_obs_dims=1,
             observed_coords=observed_coords,
             # mask corners of obs square
-            agent_obs_mask=[(0, 0), (0, 2), (2, 0), (2, 2)]
+            agent_obs_mask=[(0, 0), (0, 2), (2, 0), (2, 2)],
         )
 
     def close(self) -> None:
@@ -268,7 +266,7 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
             action_probs = (action_probs, action_probs)
         self._action_probs = action_probs
 
-        self.possible_agents = tuple(range(self.NUM_AGENTS))
+        self.possible_agents = tuple(str(i) for i in range(self.NUM_AGENTS))
         self.state_space = spaces.Tuple(
             tuple(
                 spaces.Tuple(
@@ -299,11 +297,10 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
             )
             for i in self.possible_agents
         }
-        self.observation_first = True
         self.is_symmetric = False
 
     @property
-    def reward_ranges(self) -> Dict[M.AgentID, Tuple[SupportsFloat, SupportsFloat]]:
+    def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
         return {i: (self.R_CAPTURE, self.R_SAFE) for i in self.possible_agents}
 
     @property
@@ -361,8 +358,8 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
     ) -> TPState:
         runner_coord = state[self.RUNNER_IDX]
         chaser_coord = state[self.CHASER_IDX]
-        runner_a = actions[self.RUNNER_IDX]
-        chaser_a = actions[self.CHASER_IDX]
+        runner_a = actions[str(self.RUNNER_IDX)]
+        chaser_a = actions[str(self.CHASER_IDX)]
 
         if self.rng.random() > self._action_probs[self.CHASER_IDX]:
             other_as = [a for a in Direction if a != chaser_a]
@@ -388,11 +385,11 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
         runner_coord = state[self.RUNNER_IDX]
         chaser_coord = state[self.CHASER_IDX]
         return {
-            self.RUNNER_IDX: (
+            str(self.RUNNER_IDX): (
                 self._get_adj_obs(runner_coord, chaser_coord),
                 int(terminal),
             ),
-            self.CHASER_IDX: (
+            str(self.CHASER_IDX): (
                 self._get_adj_obs(chaser_coord, runner_coord),
                 int(terminal),
             ),
@@ -412,7 +409,7 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
                 adj_obs.append(EMPTY)
         return tuple(adj_obs)  # type: ignore
 
-    def _get_rewards(self, state: TPState) -> Dict[M.AgentID, SupportsFloat]:
+    def _get_rewards(self, state: TPState) -> Dict[M.AgentID, float]:
         runner_coord = state[self.RUNNER_IDX]
         chaser_coord = state[self.CHASER_IDX]
         r_runner, r_chaser = (self.R_ACTION, self.R_ACTION)
@@ -422,11 +419,14 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
             chaser_coord, True
         ):
             r_runner, r_chaser = (self.R_CAPTURE, -self.R_CAPTURE)
-        return {self.RUNNER_IDX: r_runner, self.CHASER_IDX: r_chaser}
+        return {str(self.RUNNER_IDX): r_runner, str(self.CHASER_IDX): r_chaser}
 
     def _get_outcome(self, state: TPState) -> Dict[M.AgentID, M.Outcome]:
         if self._infinite_horizon:
-            return {self.RUNNER_IDX: M.Outcome.NA, self.CHASER_IDX: M.Outcome.NA}
+            return {
+                str(self.RUNNER_IDX): M.Outcome.NA,
+                str(self.CHASER_IDX): M.Outcome.NA,
+            }
 
         # Assuming state is terminal
         runner_coord = state[self.RUNNER_IDX]
@@ -438,7 +438,10 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
             chaser_coord, True
         ):
             runner_outcome, chaser_outcome = (M.Outcome.LOSS, M.Outcome.WIN)
-        return {self.RUNNER_IDX: runner_outcome, self.CHASER_IDX: chaser_outcome}
+        return {
+            str(self.RUNNER_IDX): runner_outcome,
+            str(self.CHASER_IDX): chaser_outcome,
+        }
 
     def _state_is_terminal(self, state: TPState) -> bool:
         runner_coords = state[self.RUNNER_IDX]
@@ -491,7 +494,7 @@ class TPGrid(Grid):
             else:
                 grid_repr[chaser_coord[1]][chaser_coord[0]] = "C"
 
-        return "\n".join(list(list((" ".join(r) for r in grid_repr))))
+        return "\n".join([" ".join(r) for r in grid_repr])
 
     def get_init_ascii_repr(self) -> str:
         """Get ascii repr of initial grid."""
@@ -512,8 +515,8 @@ def get_3x3_grid() -> TPGrid:
     return TPGrid(
         grid_height=3,
         grid_width=3,
-        block_coords=set([(1, 1)]),
-        goal_coords=set([(0, 0), (2, 1)]),
+        block_coords={(1, 1)},
+        goal_coords={(0, 0), (2, 1)},
         init_runner_coord=(1, 2),
         init_chaser_coord=(1, 0),
     )
@@ -531,21 +534,18 @@ def get_4x4_grid() -> TPGrid:
       ######
 
     """
-    block_coords = set(
-        [
-            #
-            (1, 1),
-            (2, 1),
-            (1, 2),
-            (3, 3),
-        ]
-    )
+    block_coords = {
+        (1, 1),
+        (2, 1),
+        (1, 2),
+        (3, 3),
+    }
 
     return TPGrid(
         grid_height=4,
         grid_width=4,
         block_coords=block_coords,
-        goal_coords=set([(0, 0), (3, 1)]),
+        goal_coords={(0, 0), (3, 1)},
         init_runner_coord=(2, 3),
         init_chaser_coord=(2, 0),
     )
@@ -566,42 +566,39 @@ def get_7x7_grid() -> TPGrid:
       #########
 
     """
-    block_coords = set(
-        [
-            #
-            (1, 1),
-            (2, 1),
-            (3, 1),
-            (4, 1),
-            (5, 1),
-            (1, 2),
-            (2, 2),
-            (3, 2),
-            (4, 2),
-            (2, 3),
-            (3, 3),
-            (4, 3),
-            (6, 3),
-            (0, 4),
-            (2, 4),
-            (3, 4),
-            (4, 4),
-            (6, 4),
-            (0, 5),
-            (3, 5),
-            (6, 5),
-            (0, 6),
-            (1, 6),
-            (5, 6),
-            (6, 6),
-        ]
-    )
+    block_coords = {
+        (1, 1),
+        (2, 1),
+        (3, 1),
+        (4, 1),
+        (5, 1),
+        (1, 2),
+        (2, 2),
+        (3, 2),
+        (4, 2),
+        (2, 3),
+        (3, 3),
+        (4, 3),
+        (6, 3),
+        (0, 4),
+        (2, 4),
+        (3, 4),
+        (4, 4),
+        (6, 4),
+        (0, 5),
+        (3, 5),
+        (6, 5),
+        (0, 6),
+        (1, 6),
+        (5, 6),
+        (6, 6),
+    }
 
     return TPGrid(
         grid_height=7,
         grid_width=7,
         block_coords=block_coords,
-        goal_coords=set([(0, 0), (6, 2)]),
+        goal_coords={(0, 0), (6, 2)},
         init_runner_coord=(3, 6),
         init_chaser_coord=(4, 0),
     )

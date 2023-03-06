@@ -21,7 +21,6 @@ from typing import (
     Optional,
     Sequence,
     Set,
-    SupportsFloat,
     Tuple,
     Union,
 )
@@ -259,12 +258,12 @@ class PPEnv(DefaultEnv[PPState, PPObs, PPAction]):
 
         # Add agents
         for i, coord in enumerate(self._state.predator_coords):
-            agent_obj = self._predator_imgs[i]
+            agent_obj = self._predator_imgs[str(i)]
             agent_obj.coord = coord
             render_objects.append(agent_obj)
 
         agent_coords_and_dirs = {
-            i: (coord, Direction.NORTH)
+            str(i): (coord, Direction.NORTH)
             for i, coord in enumerate(self._state.predator_coords)
         }
 
@@ -322,8 +321,8 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             grid = load_grid(grid)
 
         assert 1 < num_predators <= 8
-        assert 0 < num_prey
-        assert 0 < obs_dim
+        assert num_prey > 0
+        assert obs_dim > 0
         assert 0 < prey_strength <= min(4, num_predators)
         assert grid.prey_start_coords is None or len(grid.prey_start_coords) >= num_prey
 
@@ -344,7 +343,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
                 (spaces.Discrete(self.grid.width), spaces.Discrete(self.grid.height))
             )
 
-        self.possible_agents = tuple(range(self.num_predators))
+        self.possible_agents = tuple(str(i) for i in range(self.num_predators))
         self.state_space = spaces.Tuple(
             (
                 # coords of each agent
@@ -367,11 +366,10 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             )
             for i in self.possible_agents
         }
-        self.observation_first = True
         self.is_symmetric = True
 
     @property
-    def reward_ranges(self) -> Dict[M.AgentID, Tuple[SupportsFloat, SupportsFloat]]:
+    def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
         return {i: (0.0, self.R_MAX) for i in self.possible_agents}
 
     @property
@@ -524,10 +522,10 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             return None
 
         # move into furthest away free cell, includes current coord
-        neighbours = list(
+        neighbours = [
             (self.grid.manhattan_dist(c, closest_predator_coord), c)
             for c in self.grid.get_neighbours(prey_coord) + [prey_coord]
-        )
+        ]
         neighbours.sort()
         for (d, c) in reversed(neighbours):
             if c == prey_coord or self._coord_available_for_prey(c, occupied_coords):
@@ -559,10 +557,10 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             return None
 
         # move into furthest away free cell, includes current coord
-        neighbours = list(
+        neighbours = [
             (self.grid.manhattan_dist(c, closest_prey_coord), c)
             for c in self.grid.get_neighbours(prey_coord) + [prey_coord]
-        )
+        ]
         neighbours.sort()
         for (d, c) in reversed(neighbours):
             if c == prey_coord or self._coord_available_for_prey(c, occupied_coords):
@@ -591,10 +589,10 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
     ) -> Tuple[Coord, ...]:
         potential_next_coords = []
         for i, coord in enumerate(state.predator_coords):
-            if actions[i] == 0:
+            if actions[str(i)] == 0:
                 next_coord = coord
             else:
-                a_dir = ACTION_TO_DIR[actions[i]]
+                a_dir = ACTION_TO_DIR[actions[str(i)]]
                 next_coord = self.grid.get_next_coord(
                     coord, a_dir, ignore_blocks=False  # type: ignore
                 )
@@ -641,16 +639,15 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
     def _get_obs(self, state: PPState, next_state: PPState) -> Dict[M.AgentID, PPObs]:
         return {
-            i: self._get_local_cell__obs(i, state, next_state)
+            i: self._get_local_cell__obs(int(i), state, next_state)
             for i in self.possible_agents
         }
 
     def _get_local_cell__obs(
-        self, agent_id: M.AgentID, state: PPState, next_state: PPState
+        self, agent_idx: int, state: PPState, next_state: PPState
     ) -> Tuple[int, ...]:
-        assert isinstance(agent_id, int)
         obs_size = (2 * self.obs_dim) + 1
-        agent_coord = next_state.predator_coords[agent_id]
+        agent_coord = next_state.predator_coords[agent_idx]
 
         cell_obs = []
         for col, row in product(range(obs_size), repeat=2):
@@ -696,7 +693,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
     def _get_rewards(
         self, state: PPState, next_state: PPState
-    ) -> Dict[M.AgentID, SupportsFloat]:
+    ) -> Dict[M.AgentID, float]:
         new_caught_prey = []
         for i in range(self.num_prey):
             if not state.prey_caught[i] and next_state.prey_caught[i]:
@@ -724,7 +721,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
             predator_reward = self._per_prey_reward / len(involved_predators)
             for i in involved_predators:
-                rewards[i] += predator_reward
+                rewards[str(i)] += predator_reward
         return rewards  # type: ignore
 
 
@@ -743,11 +740,11 @@ class PPGrid(Grid):
         self.size = grid_size
         # predators start in corners or half-way along a side
         if predator_start_coords is None:
-            predator_start_coords = list(
+            predator_start_coords = [
                 c  # type: ignore
                 for c in product([0, grid_size // 2, grid_size - 1], repeat=2)
                 if c[0] in (0, grid_size - 1) or c[1] in (0, grid_size - 1)
-            )
+            ]
         self.predator_start_coords = predator_start_coords
         self.prey_start_coords = prey_start_coords
 
@@ -775,9 +772,7 @@ class PPGrid(Grid):
             for c in prey_coords:
                 grid_repr[c[0]][c[1]] = "p"
 
-        return (
-            str(self) + "\n" + "\n".join(list(list((" ".join(r) for r in grid_repr))))
-        )
+        return str(self) + "\n" + "\n".join([" ".join(r) for r in grid_repr])
 
     def get_unblocked_center_coords(self, num: int) -> List[Coord]:
         """Get at least num closest coords to the center of grid.

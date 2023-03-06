@@ -83,15 +83,14 @@ def test_make_deprecated():
         entry_point="tests.envs.utils_envs:DummyEnv",
     )
 
-    with warnings.catch_warnings(record=True):
-        with pytest.raises(
-            posggym.error.Error,
-            match=re.escape(
-                "Environment version v0 for `DummyEnv` is deprecated. Please use "
-                "`DummyEnv-v1` instead."
-            ),
-        ):
-            posggym.make("DummyEnv-v0", disable_env_checker=True)
+    with warnings.catch_warnings(record=True), pytest.raises(
+        posggym.error.Error,
+        match=re.escape(
+            "Environment version v0 for `DummyEnv` is deprecated. Please use "
+            "`DummyEnv-v1` instead."
+        ),
+    ):
+        posggym.make("DummyEnv-v0", disable_env_checker=True)
 
     del posggym.envs.registration.registry["DummyEnv-v1"]
 

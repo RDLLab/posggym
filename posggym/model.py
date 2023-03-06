@@ -11,24 +11,22 @@ from typing import (
     Generic,
     List,
     Optional,
-    SupportsFloat,
     Tuple,
     TypeVar,
-    Union,
 )
 
 import numpy as np
-from gymnasium import spaces
 
 from posggym import error
 from posggym.utils import seeding
 
 
 if TYPE_CHECKING:
+    from gymnasium import spaces
     from posggym.envs.registration import EnvSpec
 
 
-AgentID = Union[int, str]
+AgentID = str
 StateType = TypeVar("StateType")
 ActType = TypeVar("ActType")
 ObsType = TypeVar("ObsType")
@@ -47,7 +45,7 @@ class JointTimestep(Generic[StateType, ObsType]):
 
     state: StateType
     observations: Dict[AgentID, ObsType]
-    rewards: Dict[AgentID, SupportsFloat]
+    rewards: Dict[AgentID, float]
     terminated: Dict[AgentID, bool]
     truncated: Dict[AgentID, bool]
     all_done: bool
@@ -91,7 +89,6 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
     - :attr:`observations_spaces` - The observation space for each agent
     - :attr:`reward_ranges` - The minimum and maximum possible rewards over an episode
       for each agent. The default reward range is set to :math:`(-\infty,+\infty)`.
-    - :attr:`observation_first` - Whether the environment is observation or action first
     - :attr:`is_symmetric` - Whether the environment is symmetric or asymmetric. That is
       whether all agents are identical irrespective of their ID (i.e. same actions,
       observation, and reward spaces and dynamics)
@@ -100,17 +97,24 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
     - :attr:`rng` - the model's internal random number generator (RNG).
 
     Custom environments should inherit from this class and implement the
-    :meth:`get_agents`, :meth:`sample_initial_state`, :meth:`step` methods and the
-    :attr:`possible_agents`, :attr:`action_spaces`, :attr:`observations_spaces`,
-    :attr:`observation_first`, :attr:`is_symmetric`, :attr:`rng` attributes.
-
-    Furthermore, if the environment is an `observation_first` environment (which is the
-    case for most environments) it must also implement the
-    :meth:`sample_initial_obs` method.
+    :meth:`get_agents`, :meth:`sample_initial_state`, :meth:`sample_initial_obs`,
+    :meth:`step` methods and the :attr:`possible_agents`, :attr:`action_spaces`,
+    :attr:`observations_spaces`, :attr:`is_symmetric`, :attr:`rng` attributes.
 
     Custom environments may optionally provide implementations for the
-    :meth:`sample_agent_initial_state` method (`observation_first` environments only)
-    and :attr:`state_space` attribute.
+    :meth:`sample_agent_initial_state` method and :attr:`state_space` attribute.
+
+    Note
+    ----
+    The POSGGym Model API models all environments as environments that are
+    `observation_first`, that is the environment provides an initial observation before
+    any action is taken (rather than action first, where agents perform an action
+    before any observation is recieved). `observation_first` environments are the
+    standard in reinforcement learning problems and also for most real world problems,
+    and are becoming the more common model API. It's also trivial to convert an
+    `action_first` model into `observation_first` by just returning a default or dummy
+    initial observation (e.g. the initial observation is always the first observation
+    in the list of possible observations).
 
     """
 
@@ -126,15 +130,13 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
     action_spaces: Dict[AgentID, spaces.Space]
     # Observation space for each agent
     observation_spaces: Dict[AgentID, spaces.Space]
-    # Whether environment is observation or action first.
-    observation_first: bool
     # Whether the environment is symmetric or not (is asymmetric)
     is_symmetric: bool
     # Random number generator, created as needed by `rng` method.
     _rng: seeding.RNG | None = None
 
     @property
-    def reward_ranges(self) -> Dict[AgentID, Tuple[SupportsFloat, SupportsFloat]]:
+    def reward_ranges(self) -> Dict[AgentID, Tuple[float, float]]:
         r"""A mapping from Agent ID to min and max possible rewards for that agent.
 
         Each reward tuple corresponding to the minimum and maximum possible rewards for
@@ -143,7 +145,7 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
 
         Returns
         -------
-        Dict[AgentID, Tuple[SupportsFloat, SupportsFloat]]
+        Dict[AgentID, Tuple[float, float]]
 
         """
         return {i: (-float("inf"), float("inf")) for i in self.possible_agents}
@@ -175,10 +177,9 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
 
         """
 
+    @abc.abstractmethod
     def sample_initial_obs(self, state: StateType) -> Dict[AgentID, ObsType]:
         """Sample initial agent observations given an initial state.
-
-        This method must be implemented for `observation_first` models.
 
         Arguments
         ---------
@@ -190,19 +191,7 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
         Dict[AgentID, ObsType]
           A mapping from AgentID to initial observation.
 
-        Raises
-        ------
-        AssertionError
-          If this method is called for action first model.
-
         """
-        if self.observation_first:
-            raise NotImplementedError
-        raise AssertionError(
-            "Model is action_first so expects agents to perform an action "
-            "before the initial observations are generated. This is done "
-            "using the step() function."
-        )
 
     @abc.abstractmethod
     def step(
@@ -274,8 +263,6 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
     def sample_agent_initial_state(self, agent_id: AgentID, obs: ObsType) -> StateType:
         """Sample an initial state for an agent given it's initial observation.
 
-        Only applicable in observation first environments.
-
         It is optional to implement this method but can helpful in environments that are
         used for planning and where there are a huge number of possible initial states.
 
@@ -293,18 +280,11 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
 
         Raises
         ------
-        AssertionError
-          If this method is called for action first model.
         NotImplementedError
           If this method is not implemented.
 
         """
-        if self.observation_first:
-            raise NotImplementedError
-        raise AssertionError(
-            "The `sample_agent_initial_state` method is not supported for action first "
-            "environments. Use the `sample_initial_state` method instead."
-        )
+        raise NotImplementedError
 
 
 class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
@@ -399,7 +379,7 @@ class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
     @abc.abstractmethod
     def reward_fn(
         self, state: StateType, actions: Dict[AgentID, ActType]
-    ) -> Dict[AgentID, SupportsFloat]:
+    ) -> Dict[AgentID, float]:
         """The reward Function :math:`R(s, a)`.
 
         Arguments
@@ -411,7 +391,7 @@ class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
 
         Returns
         -------
-        Dict[AgentID, SupportsFloat]
+        Dict[AgentID, float]
           The reward each agent recieves given joint action `a` was performed in state
           `s`.
 

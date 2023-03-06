@@ -149,7 +149,7 @@ class VideoRecorder:
                 )
                 self.broken = True
                 return
-            frame = frame['env']
+            frame = frame["env"]
 
         if self._closed:
             logger.warn(

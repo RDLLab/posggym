@@ -15,10 +15,9 @@ import re
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterable, List, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Tuple, TYPE_CHECKING
 
 from posggym import error, logger
-from posggym.core import Env
 from posggym.wrappers import OrderEnforcing, PassiveEnvChecker, TimeLimit
 
 
@@ -26,6 +25,10 @@ if sys.version_info < (3, 10):
     import importlib_metadata as metadata  # type: ignore
 else:
     import importlib.metadata as metadata
+
+
+if TYPE_CHECKING:
+    from posggym.core import Env
 
 
 # [namespace/](env-name)-v(version)

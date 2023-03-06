@@ -19,7 +19,7 @@ Multi-Agent Systems 31 (4): 861–904.
 import itertools
 import random
 from os import path
-from typing import Dict, List, Optional, Set, SupportsFloat, Tuple, Union
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 from gymnasium import spaces
 
@@ -197,8 +197,8 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
 
     NUM_AGENTS = 2
 
-    UAV_IDX = 0
-    FUG_IDX = 1
+    UAV_ID = "0"
+    FUG_ID = "1"
 
     R_ACTION = -0.04
     R_CAPTURE = 1.0  # UAV reward, fugitive = -R_CAPTURE
@@ -212,7 +212,7 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
         self.grid = load_grid(grid_name)
         self._rng = random.Random(None)
 
-        self.possible_agents = tuple(range(self.NUM_AGENTS))
+        self.possible_agents = tuple(str(i) for i in range(self.NUM_AGENTS))
         self.state_space = spaces.Tuple(
             tuple(
                 spaces.Tuple(
@@ -232,11 +232,10 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
         )
         self.observation_spaces = {
             # UAV Obs = (uav coords, fug coords)
-            self.UAV_IDX: spaces.Tuple((coord_space, coord_space)),
+            self.UAV_ID: spaces.Tuple((coord_space, coord_space)),
             # FUG ubs = (safe house dir)
-            self.FUG_IDX: spaces.Discrete(len(DIR_OBS)),
+            self.FUG_ID: spaces.Discrete(len(DIR_OBS)),
         }
-        self.observation_first = True
         self.is_symmetric = False
 
         # cache for sampling obs conditioned init state for fug
@@ -244,7 +243,7 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
         self._valid_fug_coords_dist: Tuple[List[Coord], List[float]] = ([], [])
 
     @property
-    def reward_ranges(self) -> Dict[M.AgentID, Tuple[SupportsFloat, SupportsFloat]]:
+    def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
         return {i: (self.R_SAFE, self.R_CAPTURE) for i in self.possible_agents}
 
     @property
@@ -265,7 +264,7 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
         return uav_coord, fug_coord
 
     def sample_agent_initial_state(self, agent_id: M.AgentID, obs: UAVObs) -> UAVState:
-        if agent_id == self.UAV_IDX:
+        if agent_id == self.UAV_ID:
             assert isinstance(obs, tuple)
             return self._sample_uav_obs(obs)  # type: ignore
 
@@ -374,7 +373,7 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
     def _sample_next_state(
         self, state: UAVState, actions: Dict[M.AgentID, UAVAction]
     ) -> UAVState:
-        uav_a, fug_a = actions[self.UAV_IDX], actions[self.FUG_IDX]
+        uav_a, fug_a = actions[self.UAV_ID], actions[self.FUG_ID]
         uav_coord, fug_coord = state
         uav_next_coord = self.grid.get_next_coord(uav_coord, Direction(uav_a))
         # fugitive reseting is handled in step function
@@ -394,8 +393,8 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
 
     def _sample_obs(self, state: UAVState) -> Dict[M.AgentID, UAVObs]:
         return {
-            self.UAV_IDX: self._sample_uav_obs(state),
-            self.FUG_IDX: self._sample_fug_obs(state),
+            self.UAV_ID: self._sample_uav_obs(state),
+            self.FUG_ID: self._sample_fug_obs(state),
         }
 
     def _sample_uav_obs(self, state: UAVState) -> UAVUAVObs:
@@ -435,19 +434,19 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
             return true_obs
         return self.rng.choice([OBSNORTH, OBSSOUTH, OBSLEVEL])
 
-    def _get_reward(self, next_state: UAVState) -> Dict[M.AgentID, SupportsFloat]:
+    def _get_reward(self, next_state: UAVState) -> Dict[M.AgentID, float]:
         uav_coord, fug_coord = next_state
-        rewards: Dict[M.AgentID, SupportsFloat] = {
-            self.UAV_IDX: self.R_ACTION,
-            self.FUG_IDX: self.R_ACTION,
-        }
+        uav_reward, fug_reward = self.R_ACTION, self.R_ACTION
         if fug_coord == self.grid.safe_house_coord:
-            rewards[self.UAV_IDX] = self.R_SAFE
-            rewards[self.FUG_IDX] = -self.R_SAFE
+            uav_reward = self.R_SAFE
+            fug_reward = -self.R_SAFE
         elif fug_coord == uav_coord:
-            rewards[self.UAV_IDX] = self.R_CAPTURE
-            rewards[self.FUG_IDX] = -self.R_CAPTURE
-        return rewards
+            uav_reward = self.R_CAPTURE
+            fug_reward = -self.R_CAPTURE
+        return {
+            self.UAV_ID: uav_reward,
+            self.FUG_ID: fug_reward,
+        }
 
 
 class UAVGrid(Grid):
@@ -495,9 +494,7 @@ class UAVGrid(Grid):
             else:
                 grid_repr[uav_coord[0]][uav_coord[1]] = "U"
 
-        return (
-            str(self) + "\n" + "\n".join(list(list((" ".join(r) for r in grid_repr))))
-        )
+        return str(self) + "\n" + "\n".join([" ".join(r) for r in grid_repr])
 
 
 def _empty_uav_grid(width, height, safe_house_coord) -> UAVGrid:

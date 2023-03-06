@@ -251,9 +251,5 @@ def check_env(env: posggym.Env, skip_render_check: bool = False):
             assert env.spec is not None
             new_env = env.spec.make(render_mode=render_mode)
             new_env.reset()
-            if not new_env.observation_first:
-                new_env.step(
-                    {i: new_env.action_spaces[i].sample() for i in new_env.agents}
-                )
             env_render_passive_checker(new_env)
             new_env.close()

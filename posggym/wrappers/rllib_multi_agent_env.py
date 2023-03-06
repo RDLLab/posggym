@@ -32,15 +32,13 @@ class RllibMultiAgentEnv(MultiAgentEnv):
     """
 
     def __init__(self, env: posggym.Env):
+        self.env = env
+        self._done_agents: Set[AgentID] = set()
+
         # must assign this first before calling super().__init__() so that
         # property functions are initialized before super().__init__() is
         # called
-        self.env = env
-        self._agent_ids = set(str(i) for i in self.env.possible_agents)
-
-        self._int_ids = isinstance(self.env.possible_agents[0], int)
-        self._done_agents: Set[AgentID] = set()
-
+        self._agent_ids = set(self.env.possible_agents)
         # Do the action and observation spaces map from agent ids to spaces
         # for the individual agents?
         self._action_space_in_preferred_format = True
@@ -54,9 +52,7 @@ class RllibMultiAgentEnv(MultiAgentEnv):
 
         This is a dictionary mapping agent IDs to the agent's observation space
         """
-        return spaces.Dict(
-            {str(i): self.env.observation_spaces[i] for i in self.env.possible_agents}
-        )
+        return spaces.Dict(self.env.observation_spaces)
 
     @property
     def action_space(self):
@@ -64,9 +60,7 @@ class RllibMultiAgentEnv(MultiAgentEnv):
 
         This is a dictionary mapping agent IDs to the agent's action space
         """
-        return spaces.Dict(
-            {str(i): self.env.action_spaces[i] for i in self.env.possible_agents}
-        )
+        return spaces.Dict(self.env.action_spaces)
 
     def get_agent_ids(self) -> Set[AgentID]:
         """Return a set of agent ids in the environment."""
@@ -78,14 +72,8 @@ class RllibMultiAgentEnv(MultiAgentEnv):
         seed: Optional[int] = None,
         options: Optional[dict] = None,
     ) -> Tuple[MultiAgentDict, MultiAgentDict]:
-        obs, info = self.env.reset(seed=seed, options=options)
-        if obs is None:
-            obs = {str(i): None for i in self.env.agents}
         self._done_agents = set()
-        return (
-            {str(i): o for i, o in obs.items()},
-            {str(i): o for i, o in info.items()}
-        )
+        return self.env.reset(seed=seed, options=options)
 
     def step(  # type: ignore
         self, action_dict: MultiAgentDict
@@ -107,9 +95,6 @@ class RllibMultiAgentEnv(MultiAgentEnv):
         infos: info values for each agent id (may be empty dicts).
 
         """
-        if self._int_ids:
-            action_dict = {int(i): a for i, a in action_dict.items()}
-
         obs, rewards, terminated, truncated, all_done, info = self.env.step(action_dict)
 
         # remove obs for already done agents, since pettingzoo expects no output for
@@ -131,13 +116,7 @@ class RllibMultiAgentEnv(MultiAgentEnv):
         terminated["__all__"] = all_done
         truncated["__all__"] = all(truncated.values())
 
-        return (
-            {str(i): v for i, v in obs.items()},
-            {str(i): float(v) for i, v in rewards.items()},
-            {str(i): v for i, v in terminated.items()},
-            {str(i): v for i, v in truncated.items()},
-            {str(i): v for i, v in info.items()},
-        )
+        return obs, rewards, terminated, truncated, info
 
     def render(self):
         output = self.env.render()

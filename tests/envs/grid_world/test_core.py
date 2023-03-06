@@ -1,3 +1,4 @@
+"""Tests for envs.grid_world.core."""
 from posggym.envs.grid_world.core import Grid, Direction
 
 
@@ -34,7 +35,7 @@ class TestGrid:
     def test_get_neighbours(self):
         """Test Grid.get_neighbours function."""
         width, height = (3, 3)
-        block_coords = set([(1, 1)])
+        block_coords = {(1, 1)}
         grid = Grid(width, height, block_coords)
 
         # test with including out of bounds and ignoring blocks
@@ -76,7 +77,7 @@ class TestGrid:
 
     def test_get_next_coord(self):
         width, height = (3, 3)
-        block_coords = set([(1, 1)])
+        block_coords = {(1, 1)}
         grid = Grid(width, height, block_coords)
 
         expected_map = {
@@ -112,8 +113,8 @@ class TestGrid:
         ...#    ...#
 
         """
-        single_component_grid = Grid(4, 4, set([(0, 0), (1, 1), (3, 3)]))
-        two_component_grid = Grid(4, 4, set([(0, 0), (1, 1), (2, 2), (3, 3)]))
+        single_component_grid = Grid(4, 4, {(0, 0), (1, 1), (3, 3)})
+        two_component_grid = Grid(4, 4, {(0, 0), (1, 1), (2, 2), (3, 3)})
 
         components = single_component_grid.get_connected_components()
         unblocked_coords = single_component_grid.unblocked_coords
@@ -122,7 +123,7 @@ class TestGrid:
 
         components = two_component_grid.get_connected_components()
         unblocked_coords = two_component_grid.unblocked_coords
-        exp_component_0 = set([(0, 1), (0, 2), (1, 2), (0, 3), (1, 3), (2, 3)])
+        exp_component_0 = {(0, 1), (0, 2), (1, 2), (0, 3), (1, 3), (2, 3)}
         exp_component_1 = set(unblocked_coords).difference(exp_component_0)
         assert len(components) == 2
         assert len(components[0].difference(exp_component_0)) == 0

@@ -29,7 +29,7 @@ import math
 from collections import defaultdict
 from itertools import product
 from os import path
-from typing import Dict, List, NamedTuple, Optional, SupportsFloat, Tuple, Union
+from typing import Dict, List, NamedTuple, Optional, Tuple, Union
 
 import numpy as np
 from gymnasium import spaces
@@ -183,7 +183,7 @@ class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
 
     metadata = {
         "render_modes": ["human", "rgb_array", "rgb_array_dict"],
-        "render_fps": 15
+        "render_fps": 15,
     }
 
     def __init__(
@@ -240,7 +240,7 @@ class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
                 self.render_mode,
                 model.grid,
                 render_fps=self.metadata["render_fps"],
-                env_name="LevelBasedForaging"
+                env_name="LevelBasedForaging",
             )
 
         if self.agent_imgs is None:
@@ -248,7 +248,7 @@ class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
             agent_img = render_lib.load_img_file(img_path, self.renderer.cell_size)
             font = render_lib.load_font(
                 "Comic Sans MC",
-                render_lib.get_default_font_size(self.renderer.cell_size)
+                render_lib.get_default_font_size(self.renderer.cell_size),
             )
             self.agent_imgs = {
                 i: render_lib.GWImageAndText(
@@ -262,7 +262,7 @@ class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
             food_img = render_lib.load_img_file(img_path, self.renderer.cell_size)
             font = render_lib.load_font(
                 "Comic Sans MC",
-                render_lib.get_default_font_size(self.renderer.cell_size)
+                render_lib.get_default_font_size(self.renderer.cell_size),
             )
             self.food_imgs = [
                 render_lib.GWImageAndText(
@@ -274,7 +274,7 @@ class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
         render_objects = []
         observed_coords = []
         for i, player in enumerate(self._state.players):
-            img_obj = self.agent_imgs[i]
+            img_obj = self.agent_imgs[str(i)]
             img_obj.coord = player.coord
             img_obj.text = str(player.level)
             render_objects.append(img_obj)
@@ -287,7 +287,7 @@ class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
             render_objects.append(img_obj)
 
         agent_coords_and_dirs = {
-            i: (player.coord, Direction.NORTH)
+            str(i): (player.coord, Direction.NORTH)
             for i, player in enumerate(self._state.players)
         }
 
@@ -297,7 +297,7 @@ class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
             render_objects,
             agent_coords_and_dirs,
             agent_obs_dims=model.sight,
-            observed_coords=observed_coords
+            observed_coords=observed_coords,
         )
 
     def close(self):
@@ -367,14 +367,13 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         self.observation_mode = observation_mode
         self._penalty = penalty
 
-        self.possible_agents = tuple(range(num_agents))
+        self.possible_agents = tuple(str(i) for i in range(num_agents))
         self.action_spaces = {
             i: spaces.Discrete(len(LBFAction)) for i in self.possible_agents
         }
         self.observation_spaces = {
             i: self.get_agent_observation_space() for i in self.possible_agents
         }
-        self.observation_first = True
         self.is_symmetric = True
 
         self.grid = Grid(
@@ -451,7 +450,7 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         )
 
     @property
-    def reward_ranges(self) -> Dict[M.AgentID, Tuple[SupportsFloat, SupportsFloat]]:
+    def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
         if self._normalize_reward:
             reward_range = (self._penalty, 1.0)
         else:
@@ -627,7 +626,7 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
 
     def _get_next_state(
         self, state: LBFState, actions: Dict[M.AgentID, LBFAction]
-    ) -> Tuple[LBFState, Dict[M.AgentID, SupportsFloat]]:
+    ) -> Tuple[LBFState, Dict[M.AgentID, float]]:
         next_food = {f.coord: f for f in state.food}
 
         # try move agents
@@ -636,7 +635,7 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         loading_players = set()
         for player in state.players:
             i = player.idx
-            a_i = actions[i]
+            a_i = actions[str(i)]
             if a_i == LBFAction.NONE:
                 next_coord = player.coord
             elif a_i == LBFAction.LOAD:
@@ -672,7 +671,7 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
                 if adj_player_level < adj_food.level:
                     # failed to load
                     for p in adj_players:
-                        rewards[p.idx] -= self._penalty
+                        rewards[str(p.idx)] -= self._penalty
                 else:
                     # food was loaded and each player scores points
                     for p in adj_players:
@@ -681,7 +680,7 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
                             p_reward = p_reward / float(
                                 adj_player_level * state.food_spawned
                             )
-                        rewards[p.idx] += p_reward
+                        rewards[str(p.idx)] += p_reward
                     # and food is removed
                     next_food.pop(adj_coord)
         next_state = LBFState(
@@ -774,10 +773,7 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
             if o.level == 0:
                 # player unobserved
                 continue
-            if o.is_self:
-                p_idx = 0
-            else:
-                p_idx = i * 3 if i > agent_id else (i + 1) * 3
+            p_idx = 0 if o.is_self else i * 3 if i > agent_id else (i + 1) * 3
             obs[p_idx : p_idx + 3] = (*o.coord, o.level)
 
         food_start_idx = len(self.possible_agents) * 3
@@ -803,12 +799,8 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         # cells containing players and food will be made inaccessible in next steps
         agent_x, agent_y = agent_coord
         for x, y in product(
-            range(
-                max(agent_x - self.sight, 0), min(self._cols, agent_x + self.sight)
-            ),
-            range(
-                max(agent_y - self.sight, 0), min(self._rows, agent_y + self.sight)
-            ),
+            range(max(agent_x - self.sight, 0), min(self._cols, agent_x + self.sight)),
+            range(max(agent_y - self.sight, 0), min(self._rows, agent_y + self.sight)),
         ):
             obs_x = x - agent_x + self.sight
             obs_y = y - agent_y + self.sight

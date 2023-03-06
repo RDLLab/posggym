@@ -7,7 +7,7 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/utils/pass
 import inspect
 import random
 from functools import partial
-from typing import Callable, Dict, Optional, Sequence, get_args
+from typing import Callable, Dict, Optional, Sequence
 
 import gymnasium.utils.passive_env_checker as gym_passive_env_checker
 import numpy as np
@@ -36,7 +36,7 @@ def data_equivalence(data_1, data_2) -> bool:
     if type(data_1) == type(data_2):
         if isinstance(data_1, dict):
             return data_1.keys() == data_2.keys() and all(
-                data_equivalence(data_1[k], data_2[k]) for k in data_1.keys()
+                data_equivalence(data_1[k], data_2[k]) for k in data_1
             )
         elif isinstance(data_1, (tuple, list)):
             return len(data_1) == len(data_2) and all(
@@ -98,13 +98,13 @@ def _check_box_state_space(state_space: spaces.Box):
         logger.warn(
             "A Box state space maximum and minimum values are equal. "
             "Actual equal coordinates: "
-            f"{[x for x in zip(*np.where(state_space.low == state_space.high))]}"
+            f"{list(zip(*np.where(state_space.low == state_space.high)))}"
         )
     elif np.any(state_space.high < state_space.low):
         logger.warn(
             "A Box state space low value is greater than a high value. "
             "Actual less than coordinates: "
-            f"{[x for x in zip(*np.where(state_space.high < state_space.low))]}"
+            f"{list(zip(*np.where(state_space.high < state_space.low)))}"
         )
 
 
@@ -114,7 +114,7 @@ def check_agent_spaces(
     check_box_space_fn: Callable[[spaces.Box], None],
 ):
     """A passive check of environment spaces that should not affect the environment."""
-    assert all(isinstance(i, get_args(M.AgentID)) for i in agent_spaces)
+    assert all(isinstance(i, M.AgentID) for i in agent_spaces)
     for i, space_i in agent_spaces.items():
         try:
             gym_passive_env_checker.check_space(space_i, space_type, check_box_space_fn)
@@ -173,7 +173,7 @@ def check_agent_obs(
             raise AssertionError("Invalid observation for agent `{i}`.") from e
 
 
-def check_reset_obs(obs: Optional[Dict[M.AgentID, M.ObsType]], model: M.POSGModel):
+def check_reset_obs(obs: Dict[M.AgentID, M.ObsType], model: M.POSGModel):
     """Check agent observations returned by the environment `reset()` method are valid.
 
     Arguments
@@ -182,12 +182,6 @@ def check_reset_obs(obs: Optional[Dict[M.AgentID, M.ObsType]], model: M.POSGMode
     model: The environment model
 
     """
-    if not model.observation_first:
-        assert (
-            obs is None
-        ), "Expected None from `env.reset()` for `action_first` environment."
-        return
-
     assert isinstance(obs, dict), (
         "Expected observation from `env.reset()` to be a dictionary, mapping agent IDs "
         " to agent obs."
@@ -312,12 +306,12 @@ def model_step_passive_checker(
     if not all(isinstance(t_i, (bool, np.bool_)) for t_i in terminated.values()):
         logger.warn(
             "Expects `terminated` signal to be a boolean for every agent, "
-            f"actual types: {list(type(t_i) for t_i in terminated.values())}."
+            f"actual types: {[type(t_i) for t_i in terminated.values()]}."
         )
     if not all(isinstance(t_i, (bool, np.bool_)) for t_i in truncated.values()):
         logger.warn(
             "Expects `truncated` signal to be a boolean for every agent, "
-            f"actual types: {list(type(t_i) for t_i in truncated.values())}."
+            f"actual types: {[type(t_i) for t_i in truncated.values()]}."
         )
 
     if not isinstance(done, (bool, np.bool_)):
@@ -336,7 +330,7 @@ def model_step_passive_checker(
         logger.warn(
             "The reward returned for each agent by `step()` must be a float, int, "
             "np.integer or np.floating, "
-            f"actual types: {list(type(r_i) for r_i in reward.values())}."
+            f"actual types: {[type(r_i) for r_i in reward.values()]}."
         )
     else:
         for i, r_i in reward.items():
@@ -381,12 +375,12 @@ def env_step_passive_checker(env: posggym.Env, actions: Dict[M.AgentID, M.ActTyp
         if not all(isinstance(t_i, (bool, np.bool_)) for t_i in terminated.values()):
             logger.warn(
                 "Expects `terminated` signal to be a boolean for every agent, "
-                f"actual types: {list(type(t_i) for t_i in terminated.values())}."
+                f"actual types: {[type(t_i) for t_i in terminated.values()]}."
             )
         if not all(isinstance(t_i, (bool, np.bool_)) for t_i in truncated.values()):
             logger.warn(
                 "Expects `truncated` signal to be a boolean for every agent, "
-                f"actual types: {list(type(t_i) for t_i in truncated.values())}."
+                f"actual types: {[type(t_i) for t_i in truncated.values()]}."
             )
 
         if not isinstance(done, (bool, np.bool_)):
@@ -412,7 +406,7 @@ def env_step_passive_checker(env: posggym.Env, actions: Dict[M.AgentID, M.ActTyp
         logger.warn(
             "The reward returned for each agent by `step()` must be a float, int, "
             "np.integer or np.floating, "
-            f"actual types: {list(type(r_i) for r_i in reward.values())}."
+            f"actual types: {[type(r_i) for r_i in reward.values()]}."
         )
     else:
         for i, r_i in reward.items():

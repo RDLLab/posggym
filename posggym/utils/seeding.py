@@ -32,7 +32,7 @@ def np_random(seed: Optional[int] = None) -> Tuple[np.random.Generator, int]:
     Error: if seed is not None or a non-negative integer.
 
     """
-    if seed is not None and not (isinstance(seed, int) and 0 <= seed):
+    if seed is not None and not (isinstance(seed, int) and seed >= 0):
         if isinstance(seed, int) is False:
             raise error.Error(
                 f"Seed must be a python integer, actual type: {type(seed)}"
@@ -67,7 +67,7 @@ def std_random(seed: Optional[int] = None) -> Tuple[random.Random, int]:
     Error: if seed is not None or a non-negative integer.
 
     """
-    if seed is not None and not (isinstance(seed, int) and 0 <= seed):
+    if seed is not None and not (isinstance(seed, int) and seed >= 0):
         if isinstance(seed, int) is False:
             raise error.Error(
                 f"Seed must be a python integer, actual type: {type(seed)}"

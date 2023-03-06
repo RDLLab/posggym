@@ -32,9 +32,9 @@ AGENT_COLORS = [
 ]
 
 
-def get_agent_color(agent_id: int) -> Tuple[ColorTuple, ColorTuple]:
+def get_agent_color(agent_id: AgentID) -> Tuple[ColorTuple, ColorTuple]:
     """Get color for agent."""
-    return AGENT_COLORS[agent_id]
+    return AGENT_COLORS[int(agent_id)]
 
 
 def get_color(color_name: str) -> ColorTuple:
@@ -349,7 +349,7 @@ class GWRenderer:
         agent_obs_dims: Union[int, Tuple[int, int, int, int]],
         observed_coords: Optional[List[Coord]] = None,
         agent_obs_mask: Optional[List[Coord]] = None,
-    ) -> Dict[Union[str, AgentID], np.ndarray]:
+    ) -> Dict[AgentID, np.ndarray]:
         """Generate environment and agent-centric grid-world renders."""
         if agent_obs_mask is None:
             agent_obs_mask = []
@@ -444,12 +444,14 @@ class GWRenderer:
 
 
 class GWContinousRender:
-    def __init__(self,
+    def __init__(
+        self,
         render_mode: str,
         grid: Grid,
         render_fps: int = 30,
         env_name: str = "",
         bg_color: ColorTuple = (0, 0, 0),
         grid_line_color: ColorTuple = (255, 255, 255),
-        block_color: ColorTuple = (131, 139, 139),):
+        block_color: ColorTuple = (131, 139, 139),
+    ):
         pass

@@ -18,18 +18,16 @@ from typing import (
     Generic,
     List,
     Optional,
-    SupportsFloat,
     Tuple,
     TypeVar,
 )
-
-import numpy as np
-from gymnasium import spaces
 
 from posggym.model import ActType, AgentID, ObsType, POSGModel, StateType
 
 
 if TYPE_CHECKING:
+    import numpy as np
+    from gymnasium import spaces
     from posggym.envs.registration import EnvSpec
 
 
@@ -64,7 +62,6 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
     - :attr:`observation_spaces` - The observation space for each agent
     - :attr:`reward_ranges` - The minimum and maximum possible rewards over an episode
       for each agent. The default reward range is set to :math:`(-\infty,+\infty)`.
-    - :attr:`observation_first` - Whether the environment is observation or action first
     - :attr:`is_symmetric` - Whether the environment is symmetric or asymmetric
     - :attr:`spec` - An environment spec that contains the information used to
       initialize the environment from :meth:`posggym.make`
@@ -95,7 +92,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
         self, actions: Dict[AgentID, ActType]
     ) -> Tuple[
         Dict[AgentID, ObsType],
-        Dict[AgentID, SupportsFloat],
+        Dict[AgentID, float],
         Dict[AgentID, bool],
         Dict[AgentID, bool],
         bool,
@@ -115,7 +112,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
         -------
         observations : Dict[AgentID, ObsType]
           the joint observation containing one observation per agent.
-        rewards : Dict[AgentID, SupportsFloat]
+        rewards : Dict[AgentID, float]
           the joint rewards containing one reward per agent.
         terminated : Dict[AgentID, bool]
           whether each agent has reached a terminal state in the environment.
@@ -141,7 +138,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
 
     def reset(
         self, *, seed: int | None = None, options: Dict[str, Any] | None = None
-    ) -> Tuple[Optional[Dict[AgentID, ObsType]], Dict[AgentID, Dict]]:
+    ) -> Tuple[Dict[AgentID, ObsType], Dict[AgentID, Dict]]:
         """Resets the environment and returns an initial observations and info.
 
         This method generates a new starting state often with some randomness. This
@@ -185,7 +182,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
         # initialize the RNG if the seed is manually passed
         if seed is not None:
             self.model.seed(seed)
-        return None, {}
+        return {}, {}
 
     def render(
         self,
@@ -290,7 +287,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
         return self.model.observation_spaces
 
     @property
-    def reward_ranges(self) -> Dict[AgentID, Tuple[SupportsFloat, SupportsFloat]]:
+    def reward_ranges(self) -> Dict[AgentID, Tuple[float, float]]:
         r"""A mapping from Agent ID to min and max possible rewards for that agent.
 
         Each reward tuple corresponding to the minimum and maximum possible rewards for
@@ -299,38 +296,10 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
 
         Returns
         -------
-        Dict[AgentID, Tuple[SupportsFloat, SupportsFloat]]
+        Dict[AgentID, Tuple[float, float]]
 
         """
         return self.model.reward_ranges
-
-    @property
-    def observation_first(self) -> bool:
-        """Get whether environment is observation or action first.
-
-        "Observation first" environments start by providing the agents with an
-        observation from the initial belief before any action is taken. Most
-        Reinforcement Learning algorithms typically assume this setting.
-
-        "Action first" environments expect the agents to take an action from the initial
-        belief before providing an observation. Many planning algorithms use this
-        paradigm.
-
-        Note
-        ----
-        "Action first" environments can always be converted into "Observation first"
-          by introducing a dummy initial observation. Similarly, "Action first"
-          algorithms can be made compatible with "Observation first" environments by
-          introducing a single dummy action for the first step only.
-
-        Returns
-        -------
-        bool
-          ``True`` if environment is observation first, ``False`` if environment is
-          action first.
-
-        """
-        return self.model.observation_first
 
     @property
     def is_symmetric(self) -> bool:
@@ -417,18 +386,16 @@ class DefaultEnv(Env[StateType, ObsType, ActType]):
         self.render_mode = render_mode
 
         self._state = self.model.sample_initial_state()
-        self._last_obs: Dict[AgentID, ObsType] | None = None
-        if self.model.observation_first:
-            self._last_obs = self.model.sample_initial_obs(self._state)
+        self._last_obs = self.model.sample_initial_obs(self._state)
         self._step_num = 0
         self._last_actions: Dict[AgentID, ActType] | None = None
-        self._last_rewards: Dict[AgentID, SupportsFloat] | None = None
+        self._last_rewards: Dict[AgentID, float] | None = None
 
     def step(
         self, actions: Dict[AgentID, ActType]
     ) -> Tuple[
         Dict[AgentID, ObsType],
-        Dict[AgentID, SupportsFloat],
+        Dict[AgentID, float],
         Dict[AgentID, bool],
         Dict[AgentID, bool],
         bool,
@@ -451,13 +418,10 @@ class DefaultEnv(Env[StateType, ObsType, ActType]):
 
     def reset(
         self, *, seed: int | None = None, options: Dict[str, Any] | None = None
-    ) -> Tuple[Optional[Dict[AgentID, ObsType]], Dict[AgentID, Dict]]:
+    ) -> Tuple[Dict[AgentID, ObsType], Dict[AgentID, Dict]]:
         super().reset(seed=seed)
         self._state = self.model.sample_initial_state()
-        if self.model.observation_first:
-            self._last_obs = self.model.sample_initial_obs(self._state)
-        else:
-            self._last_obs = None
+        self._last_obs = self.model.sample_initial_obs(self._state)
         self._last_actions = None
         self._last_rewards = None
         self._step_num = 0
@@ -493,7 +457,7 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         self._action_spaces: Dict[AgentID, spaces.Space] | None = None
         self._observation_spaces: Dict[AgentID, spaces.Space] | None = None
         self._reward_ranges: Dict[
-            AgentID, Tuple[SupportsFloat, SupportsFloat]
+            AgentID, Tuple[float, float]
         ] | None = None
         self._metadata: Dict[str, Any] | None = None
 
@@ -549,14 +513,14 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         self._observation_spaces = observation_spaces
 
     @property
-    def reward_ranges(self) -> Dict[AgentID, Tuple[SupportsFloat, SupportsFloat]]:
+    def reward_ranges(self) -> Dict[AgentID, Tuple[float, float]]:
         if self._reward_ranges is None:
             return self.env.reward_ranges
         return self._reward_ranges
 
     @reward_ranges.setter
     def reward_ranges(
-        self, reward_ranges: Dict[AgentID, Tuple[SupportsFloat, SupportsFloat]]
+        self, reward_ranges: Dict[AgentID, Tuple[float, float]]
     ):
         self._reward_ranges = reward_ranges
 
@@ -593,7 +557,7 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         self, actions: Dict[AgentID, WrapperActType]
     ) -> Tuple[
         Dict[AgentID, WrapperObsType],
-        Dict[AgentID, SupportsFloat],
+        Dict[AgentID, float],
         Dict[AgentID, bool],
         Dict[AgentID, bool],
         bool,
@@ -603,7 +567,7 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
 
     def reset(
         self, *, seed: int | None = None, options: Dict[str, Any] | None = None
-    ) -> Tuple[Optional[Dict[AgentID, WrapperObsType]], Dict[AgentID, Dict]]:
+    ) -> Tuple[Dict[AgentID, WrapperObsType], Dict[AgentID, Dict]]:
         return self.env.reset(seed=seed, options=options)  # type: ignore
 
     def render(
@@ -641,7 +605,7 @@ class ObservationWrapper(Wrapper[StateType, WrapperObsType, ActType]):
 
     def reset(
         self, *, seed: int | None = None, options: Dict[str, Any] | None = None
-    ) -> Tuple[Optional[Dict[AgentID, WrapperObsType]], Dict[AgentID, Dict]]:
+    ) -> Tuple[Dict[AgentID, WrapperObsType], Dict[AgentID, Dict]]:
         obs, info = self.env.reset(seed=seed, options=options)
         if obs is None:
             return obs, info
@@ -651,7 +615,7 @@ class ObservationWrapper(Wrapper[StateType, WrapperObsType, ActType]):
         self, actions: Dict[AgentID, ActType]
     ) -> Tuple[
         Dict[AgentID, WrapperObsType],
-        Dict[AgentID, SupportsFloat],
+        Dict[AgentID, float],
         Dict[AgentID, bool],
         Dict[AgentID, bool],
         bool,
@@ -680,7 +644,7 @@ class RewardWrapper(Wrapper[StateType, ObsType, ActType]):
         self, actions: Dict[AgentID, ActType]
     ) -> Tuple[
         Dict[AgentID, ObsType],
-        Dict[AgentID, SupportsFloat],
+        Dict[AgentID, float],
         Dict[AgentID, bool],
         Dict[AgentID, bool],
         bool,
@@ -690,8 +654,8 @@ class RewardWrapper(Wrapper[StateType, ObsType, ActType]):
         return obs, self.rewards(reward), term, trunc, done, info  # type: ignore
 
     def rewards(
-        self, rewards: Dict[AgentID, SupportsFloat]
-    ) -> Dict[AgentID, SupportsFloat]:
+        self, rewards: Dict[AgentID, float]
+    ) -> Dict[AgentID, float]:
         """Transforms rewards recieved from wrapped environment."""
         raise NotImplementedError
 
@@ -709,7 +673,7 @@ class ActionWrapper(Wrapper[StateType, ObsType, WrapperActType]):
         self, actions: Dict[AgentID, ActType]
     ) -> Tuple[
         Dict[AgentID, ObsType],
-        Dict[AgentID, SupportsFloat],
+        Dict[AgentID, float],
         Dict[AgentID, bool],
         Dict[AgentID, bool],
         bool,

@@ -15,9 +15,8 @@ def test_time_limit_reset_info():
     env = posggym.make("MultiAccessBroadcastChannel-v0", disable_env_checker=True)
     env = TimeLimit(env)
     obs, info = env.reset()
-    assert not env.observation_first
     assert env.is_symmetric
-    assert obs is None
+    assert isinstance(obs, dict)
     assert isinstance(info, dict)
 
 

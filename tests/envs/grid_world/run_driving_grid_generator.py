@@ -1,6 +1,6 @@
 """Script for manually running and visualizing DrivingGridGenerator."""
-import sys
 import argparse
+import sys
 
 from posggym.envs.grid_world.driving.gen import DrivingGridGenerator
 

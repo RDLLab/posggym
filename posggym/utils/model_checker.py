@@ -15,7 +15,7 @@ These projects are covered by the MIT License.
 """
 import inspect
 from copy import deepcopy
-from typing import get_args, Optional
+from typing import Optional
 
 import posggym.model as M
 from posggym import logger
@@ -72,25 +72,13 @@ def check_initial_obs_type(model: M.POSGModel, state: Optional[M.StateType] = No
     if state is None:
         state = model.sample_initial_state()
 
-    if model.observation_first:
-        try:
-            obs = model.sample_initial_obs(state)
-            check_agent_obs(obs, model.observation_spaces, "sample_initial_obs")
-        except NotImplementedError:
-            raise AssertionError(
-                "Observation first model requires the ``sample_initial_obs`` method to "
-                "be implemented."
-            )
-    else:
-        try:
-            model.sample_initial_obs(state)
-        except (AssertionError, NotImplementedError):
-            pass
-        else:
-            raise AssertionError(
-                "Action first model should raise assertion error when "
-                "``sample_initial_obs`` method is used."
-            )
+    try:
+        obs = model.sample_initial_obs(state)
+        check_agent_obs(obs, model.observation_spaces, "sample_initial_obs")
+    except NotImplementedError:
+        raise AssertionError(
+            "Model requires the ``sample_initial_obs`` method to be implemented."
+        )
 
 
 def check_initial_sampling_seed(model: M.POSGModel):
@@ -115,9 +103,8 @@ def check_initial_sampling_seed(model: M.POSGModel):
         model.seed(seed=123)
         state_1 = model.sample_initial_state()
         check_state(state_1, model)
-        if model.observation_first:
-            obs_1 = model.sample_initial_obs(state_1)
-            check_agent_obs(obs_1, model.observation_spaces, "sample_initial_obs")
+        obs_1 = model.sample_initial_obs(state_1)
+        check_agent_obs(obs_1, model.observation_spaces, "sample_initial_obs")
 
         assert model._rng is not None, (  # pyright: ignore [reportPrivateUsage]
             "Expects the random number generator to have been generated given a "
@@ -130,20 +117,18 @@ def check_initial_sampling_seed(model: M.POSGModel):
         model.seed(seed=123)
         state_2 = model.sample_initial_state()
         check_state(state_2, model)
-        if model.observation_first:
-            obs_2 = model.sample_initial_obs(state_2)
-            check_agent_obs(obs_2, model.observation_spaces, "sample_initial_obs")
+        obs_2 = model.sample_initial_obs(state_2)
+        check_agent_obs(obs_2, model.observation_spaces, "sample_initial_obs")
 
         if model.spec is not None and model.spec.nondeterministic is False:
             assert data_equivalence(state_1, state_2), (
                 "Using `model.seed(seed=123)` is non-deterministic as the "
                 "initial states are not equivalent."
             )
-            if model.observation_first:
-                assert data_equivalence(obs_1, obs_2), (
-                    "Using `model.seed(seed=123)` is non-deterministic as the "
-                    "initial observations are not equivalent."
-                )
+            assert data_equivalence(obs_1, obs_2), (
+                "Using `model.seed(seed=123)` is non-deterministic as the "
+                "initial observations are not equivalent."
+            )
 
         check_rng_equality(
             model._rng,  # pyright: ignore [reportPrivateUsage]
@@ -158,9 +143,8 @@ def check_initial_sampling_seed(model: M.POSGModel):
         model.seed(seed=456)
         state_3 = model.sample_initial_state()
         check_state(state_3, model)
-        if model.observation_first:
-            obs_3 = model.sample_initial_obs(state_3)
-            check_agent_obs(obs_3, model.observation_spaces, "sample_initial_obs")
+        obs_3 = model.sample_initial_obs(state_3)
+        check_agent_obs(obs_3, model.observation_spaces, "sample_initial_obs")
 
         try:
             check_rng_equality(
@@ -225,20 +209,12 @@ def check_model(model: M.POSGModel):
         "Model `possible_agents` should be tuple (so it's immutable). "
         f"Actual type: {type(model.possible_agents)}."
     )
-    assert all(isinstance(i, get_args(M.AgentID)) for i in model.possible_agents), (
-        "Model agent IDs in `possible_agents` must be have type in "
-        f"{get_args(M.AgentID)}. "
-        f"Actual types: {list(type(i) for i in model.possible_agents)}."
+    assert all(isinstance(i, M.AgentID) for i in model.possible_agents), (
+        f"Model agent IDs in `possible_agents` must be have type {M.AgentID}. "
+        f"Actual types: {[type(i) for i in model.possible_agents]}."
     )
 
     # ============= Check basic model properties =============
-    assert hasattr(
-        model, "observation_first"
-    ), f"The model must specify whether it's observation first or not. {more_info_msg}"
-    assert isinstance(model.observation_first, bool), (
-        "Model `observation_first` should be bool. "
-        f"Actual type: {type(model.observation_first)}."
-    )
     assert hasattr(
         model, "is_symmetric"
     ), f"The model must specify whether it's symmetric or not. {more_info_msg}"
@@ -248,7 +224,7 @@ def check_model(model: M.POSGModel):
     assert all(i in model.reward_ranges for i in model.possible_agents), (
         "Model `reward_ranges` should be defined for all agents in `possible_agents`."
         "Missing: "
-        f"{list(i for i in model.possible_agents if i not in model.reward_ranges)}."
+        f"{[i for i in model.possible_agents if i not in model.reward_ranges]}."
     )
 
     # ============= Check the spaces (action, observation and state) =============
