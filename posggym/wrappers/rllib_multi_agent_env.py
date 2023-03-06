@@ -41,6 +41,11 @@ class RllibMultiAgentEnv(MultiAgentEnv):
         self._int_ids = isinstance(self.env.possible_agents[0], int)
         self._done_agents: Set[AgentID] = set()
 
+        # Do the action and observation spaces map from agent ids to spaces
+        # for the individual agents?
+        self._action_space_in_preferred_format = True
+        self._obs_space_in_preferred_format = True
+
         super().__init__()
 
     @property
@@ -76,10 +81,10 @@ class RllibMultiAgentEnv(MultiAgentEnv):
         obs, info = self.env.reset(seed=seed, options=options)
         if obs is None:
             obs = {str(i): None for i in self.env.agents}
-
+        self._done_agents = set()
         return (
             {str(i): o for i, o in obs.items()},
-            {str(i): o for i, o in info.items()},
+            {str(i): o for i, o in info.items()}
         )
 
     def step(  # type: ignore
@@ -124,6 +129,7 @@ class RllibMultiAgentEnv(MultiAgentEnv):
 
         # need to add RLlib specific special key to signify episode termination
         terminated["__all__"] = all_done
+        truncated["__all__"] = all(truncated.values())
 
         return (
             {str(i): v for i, v in obs.items()},
