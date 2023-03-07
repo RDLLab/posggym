@@ -49,6 +49,23 @@ register(
     }
 )
 
+register(
+    id="TPContinousEnv-v0",
+    entry_point="posggym.envs.continous.two_paths:TwoPathsContinousEnv",
+    kwargs={"grid_name": "TwoPaths", "action_probs": 1.0, "infinite_horizon": False},
+)
+
+
+register(
+    id="MAPEContinousEnv-v0",
+    entry_point="posggym.envs.continous.MultiAgentPursuitEvasion:MAPEEnv",
+    kwargs={
+        "num_agents": 3,
+        "n_communicating_purusers": 3,
+        "velocity_control": True,
+        "use_curriculum": False,
+    })
+
 # Grid World
 # -------------------------------------------
 
