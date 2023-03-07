@@ -282,7 +282,7 @@ def test_import_module_during_make(register_make_testing_envs):
     # Tests that the module of a custom environment is imported during registration
     # This ensures the custom env is registered before attempting to be made (assuming
     # custom environment module registers the custom env in the posggym registry during
-    # modul initialization.)
+    # module initialization.)
     env = posggym.make(
         "tests.envs.utils:RegisterDuringMakeEnv-v0", disable_env_checker=True
     )

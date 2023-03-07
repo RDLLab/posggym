@@ -6,9 +6,9 @@ firstpage:
 
 # Getting Started
 
-POSGGym is a library that provides an API for multi-agent, partially observable reinforcement learning and planning environments represented as a Partially Observable Stochastic Game (POSG) from multi-agent reinforcement learning and planning theory. The thing that distinguishes POSGGym from existing libaries (e.g. [Gymnasium](https://gymnasium.farama.org/) and [PettingZoo](https://pettingzoo.farama.org/) is full support for environment models, which can be used for planning.
+POSGGym is a library that provides an API for multi-agent, partially observable reinforcement learning and planning environments represented as a Partially Observable Stochastic Game (POSG) from multi-agent reinforcement learning and planning theory. The thing that distinguishes POSGGym from existing libraries (e.g. [Gymnasium](https://gymnasium.farama.org/) and [PettingZoo](https://pettingzoo.farama.org/) is full support for environment models, which can be used for planning.
 
-The main API of POSGGym is adopted from the Gymnasium and PettingZoo libraries so should be fairly familiar if you have used either of those libaries before.
+The main API of POSGGym is adopted from the Gymnasium and PettingZoo libraries so should be fairly familiar if you have used either of those libraries before.
 
 
 ## Initializing Environments
@@ -26,7 +26,7 @@ Furthermore, most environments included in POSGGym can be initialized with diffe
 
 ## Interacting with the Environment
 
-POSGGym models the environment as a Partially Observable Stochastic Game where **all agents act simoultaneously**. So each step all agents perform their action simoultaneously and then all agents recieve their observation and rewards. This is the classic "agent-environment" loop, but differs from multi-agent games like poker or chess where agents act one at a time.
+POSGGym models the environment as a Partially Observable Stochastic Game where **all agents act simoultaneously**. So each step all agents perform their action simoultaneously and then all agents receive their observation and rewards. This is the classic "agent-environment" loop, but differs from multi-agent games like poker or chess where agents act one at a time.
 
 The loop is implemented in posggym using the following code:
 
@@ -59,7 +59,7 @@ Next, agents performs their actions in the environment, ``step``, this can be im
 
 However, after some timesteps, the environment may end, this is called the terminal state. For instance, in the PursuitEvasion environment the evader may have reached it's goal or been spotted by the pursuer. POSGGym follows the gymnasium API with regards to terminal state; if the environment has terminated, this is returned by ``step``. Similarly, we may also want the environment to end after a fixed number of timesteps, in this case, the environment issues a truncated signal. Note however that in POSGGym there are multiple agents and it's possible that agents reach terminal states at different times, thus the whether an agent has reached a ``terminated`` or ``truncated`` state are returned in a dictionaries, again mapping from agent ID to their terminated or truncated value. In addition to ``terminated`` and ``truncated`` signals for each agent, POSGGym also returns an ``all_done`` signal which is `true` if **all** agents have reached **either** a ``terminated `` or ``truncated`` state. If ``all_done`` is `true`, then ``reset`` should be called next to restart the environment.
 
-> **_NOTE:_**  ``all_done`` is very much a convinience signal, it is possible to determine if an episode is completed using ``terminateds`` and ``truncateds`` returned by the ``step`` function, but for environments where the number of agents can change over time this requires some additional work by the user. The ``all_done`` is one of the main differences between Gymnasium/PettingZoo and POSGGym.
+> **_NOTE:_**  ``all_done`` is very much a convenience signal, it is possible to determine if an episode is completed using ``terminateds`` and ``truncateds`` returned by the ``step`` function, but for environments where the number of agents can change over time this requires some additional work by the user. The ``all_done`` is one of the main differences between Gymnasium/PettingZoo and POSGGym.
 
 
 ## Agents

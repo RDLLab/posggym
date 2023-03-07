@@ -195,9 +195,7 @@ class RockPaperScissorsModel(M.POSGFullModel[RPSState, RPSObs, RPSAction]):
 
     def _construct_obs_func(self) -> Dict:
         obs_func = {}
-        for (a, o) in product(
-            product(*self._action_spaces), product(*self._obs_spaces)
-        ):
+        for a, o in product(product(*self._action_spaces), product(*self._obs_spaces)):
             obs_func[(STATE0, a, o)] = 1.0 if a == o else 0.0
         return obs_func
 

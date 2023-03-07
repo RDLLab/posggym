@@ -5,8 +5,8 @@ Aerial Vehicle (UAV) and a fugitive. The UAV's goal is to capture the
 fugitive, while the fugitive's goal is to reach the safe house located at
 a known fixed location on the grid. The fugitive is considered caught if
 it is co-located with the UAV. The UAV observes it's own location and
-recieves a noisy observation of the fugitive's location. The fugitive does
-not know it's location but it recieves a noisy observation of its relative
+receives a noisy observation of the fugitive's location. The fugitive does
+not know it's location but it receives a noisy observation of its relative
 direction to the safe house when it is adjacent to the safe house.
 
 Reference
@@ -55,8 +55,8 @@ class UAVEnv(DefaultEnv[UAVState, UAVObs, UAVAction]):
     fugitive, while the fugitive's goal is to reach the safe house located at
     a known fixed location on the grid. The fugitive is considered caught if
     it is co-located with the UAV. The UAV observes it's own location and
-    recieves a noisy observation of the fugitive's location. The fugitive does
-    not know it's location but it recieves a noisy observation of its relative
+    receives a noisy observation of the fugitive's location. The fugitive does
+    not know it's location but it receives a noisy observation of its relative
     direction to the safe house when it is adjacent to the safe house.
 
     Agents
@@ -79,24 +79,24 @@ class UAVEnv(DefaultEnv[UAVState, UAVObs, UAVAction]):
 
     Observation
     -----------
-    The UAV observes its (x, y) coordinates and recieves a noisy observation
+    The UAV observes its (x, y) coordinates and receives a noisy observation
     of the fugitives (x, y) coordinates. The UAV observes the correct fugitive
     coordinates with p=0.9, and one of the adjacent locations to the true
     fugitive location with p=1-0.9.
 
     The fugitive can sense it's position with respect to the safe house, namely
     whether it is north of it (OBSNORTH=0), south of it (OBSSOUTH=1), or at the
-    same level (OBSLEVEL=3). These observations are recieved with accuracy 0.8,
+    same level (OBSLEVEL=3). These observations are received with accuracy 0.8,
     and only when the fugitive is adjacent to it. If the fugitive is not
-    adjacent to the safe house it recieves no observation (OBSNONE=4).
+    adjacent to the safe house it receives no observation (OBSNONE=4).
 
     Reward
     ------
     Both agents receive a penalty of -0.04 for each step.
-    If the fugitive reaches the safe house then the fugitive recieves a reward
-    of 1, while the UAV recieves a penalty of -1.
-    If the fugitive is caught by the UAV, then the fugitive recieves a penalty
-    of -1, while the UAV recieves a reward of 1.
+    If the fugitive reaches the safe house then the fugitive receives a reward
+    of 1, while the UAV receives a penalty of -1.
+    If the fugitive is caught by the UAV, then the fugitive receives a penalty
+    of -1, while the UAV receives a reward of 1.
 
     Transition Dynamics
     -------------------
@@ -160,7 +160,7 @@ class UAVEnv(DefaultEnv[UAVState, UAVObs, UAVAction]):
                 render_fps=self.metadata["render_fps"],
                 env_name="UAV",
                 bg_color=(255, 255, 255),
-                grid_line_color=(0, 0, 0)
+                grid_line_color=(0, 0, 0),
             )
 
             # add house to static objects list
@@ -376,7 +376,7 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
         uav_a, fug_a = actions[self.UAV_ID], actions[self.FUG_ID]
         uav_coord, fug_coord = state
         uav_next_coord = self.grid.get_next_coord(uav_coord, Direction(uav_a))
-        # fugitive reseting is handled in step function
+        # fugitive resetting is handled in step function
         # to allow for
         if uav_next_coord == fug_coord:
             # UAV considered to capture Fugitive

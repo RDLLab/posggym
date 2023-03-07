@@ -91,7 +91,7 @@ class PettingZoo(ParallelEnv):
                 d.pop(i, None)
 
         # add any newly done agents to set of done agents so they are handled
-        # appropriatly next step
+        # appropriately next step
         for i, done in terminated.items():
             if done:
                 self._done_agents.add(i)

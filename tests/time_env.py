@@ -61,7 +61,7 @@ if __name__ == "__main__":
         "--render_mode",
         type=str,
         default=None,
-        help="Mode to use for renderering. If None then doesn't render environment.",
+        help="Mode to use for rendering. If None then doesn't render environment.",
     )
     args = parser.parse_args()
     step_rate = time_env_step_rate(**vars(args))

@@ -222,7 +222,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
     def close(self):
         """Close environment and perform any necessary cleanup.
 
-        Should be overriden in subclasses as necessary.
+        Should be overridden in subclasses as necessary.
         """
         pass
 
@@ -441,7 +441,7 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
     """Wraps a :class:`posggym.Env` to allow a modular transformation.
 
     This class is the base class for all wrappers. The subclass could override
-    some methods to change the bahavior of the original environment without
+    some methods to change the behavior of the original environment without
     touching the original code.
 
     Note
@@ -456,9 +456,7 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
 
         self._action_spaces: Dict[AgentID, spaces.Space] | None = None
         self._observation_spaces: Dict[AgentID, spaces.Space] | None = None
-        self._reward_ranges: Dict[
-            AgentID, Tuple[float, float]
-        ] | None = None
+        self._reward_ranges: Dict[AgentID, Tuple[float, float]] | None = None
         self._metadata: Dict[str, Any] | None = None
 
     def __getattr__(self, name):
@@ -519,9 +517,7 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         return self._reward_ranges
 
     @reward_ranges.setter
-    def reward_ranges(
-        self, reward_ranges: Dict[AgentID, Tuple[float, float]]
-    ):
+    def reward_ranges(self, reward_ranges: Dict[AgentID, Tuple[float, float]]):
         self._reward_ranges = reward_ranges
 
     @property
@@ -627,14 +623,14 @@ class ObservationWrapper(Wrapper[StateType, WrapperObsType, ActType]):
     def observations(
         self, obs: Dict[AgentID, ObsType]
     ) -> Dict[AgentID, WrapperObsType]:
-        """Transforms observations recieved from wrapped environment."""
+        """Transforms observations received from wrapped environment."""
         raise NotImplementedError
 
 
 class RewardWrapper(Wrapper[StateType, ObsType, ActType]):
     """Wraps environment to allow modular transformations of rewards.
 
-    Subclasses should atleast implement the rewards function.
+    Subclasses should at least implement the rewards function.
     """
 
     def __init__(self, env: Env[StateType, ObsType, ActType]):
@@ -653,17 +649,15 @@ class RewardWrapper(Wrapper[StateType, ObsType, ActType]):
         obs, reward, term, trunc, done, info = self.env.step(actions)  # type: ignore
         return obs, self.rewards(reward), term, trunc, done, info  # type: ignore
 
-    def rewards(
-        self, rewards: Dict[AgentID, float]
-    ) -> Dict[AgentID, float]:
-        """Transforms rewards recieved from wrapped environment."""
+    def rewards(self, rewards: Dict[AgentID, float]) -> Dict[AgentID, float]:
+        """Transforms rewards received from wrapped environment."""
         raise NotImplementedError
 
 
 class ActionWrapper(Wrapper[StateType, ObsType, WrapperActType]):
     """Wraps environment to allow modular transformations of actions.
 
-    Subclasses should atleast implement the actions function.
+    Subclasses should at least implement the actions function.
     """
 
     def __init__(self, env: Env[StateType, ObsType, ActType]):

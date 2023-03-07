@@ -1,5 +1,5 @@
 # Custom additions
-envs_to_add
+tests/wrappers/videos/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

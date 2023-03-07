@@ -47,16 +47,14 @@ def gen_gif(env_id: str):
     #     mkdir(v_path)
 
     # obtain and save LENGTH frames worth of steps
-    frames = []   # type: ignore
+    frames = []  # type: ignore
     while True:
         env.reset()
         done = False
         while not done and len(frames) <= LENGTH:
-            frame = env.render()   # type: ignore
+            frame = env.render()  # type: ignore
             repeat = (
-                int(60 / env.metadata["render_fps"])
-                if env_type == "classic"
-                else 1
+                int(60 / env.metadata["render_fps"]) if env_type == "classic" else 1
             )
             for i in range(repeat):
                 frames.append(Image.fromarray(frame))
@@ -85,8 +83,10 @@ if __name__ == "__main__":
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument(
-        "--env_id", type=str, default=None,
-        help="ID of environment to run, if None then runs all registered envs."
+        "--env_id",
+        type=str,
+        default=None,
+        help="ID of environment to run, if None then runs all registered envs.",
     )
     args = parser.parse_args()
 
@@ -99,7 +99,7 @@ if __name__ == "__main__":
             try:
                 env = posggym.make(env_spec.id, disable_env_checker=True)
                 # the gymnasium needs to be rgb renderable
-                if not ("rgb_array" in env.metadata["render_modes"]):
+                if "rgb_array" not in env.metadata["render_modes"]:
                     continue
                 gen_gif(env_spec.id)
             except BaseException as e:

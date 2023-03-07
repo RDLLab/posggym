@@ -441,17 +441,3 @@ class GWRenderer:
         """Close renderer and perform any necessary cleanup."""
         pygame.display.quit()
         pygame.quit()
-
-
-class GWContinousRender:
-    def __init__(
-        self,
-        render_mode: str,
-        grid: Grid,
-        render_fps: int = 30,
-        env_name: str = "",
-        bg_color: ColorTuple = (0, 0, 0),
-        grid_line_color: ColorTuple = (255, 255, 255),
-        block_color: ColorTuple = (131, 139, 139),
-    ):
-        pass

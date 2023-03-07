@@ -163,7 +163,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
 
     Reward
     ------
-    All agents receive a penalty of 0.00 for each step. They also recieve a
+    All agents receive a penalty of 0.00 for each step. They also receive a
     penalty of -0.5 for hitting an obstacle (if ``obstacle_collision=True``),
     and -1.0 for hitting another vehicle. A reward of 1.0 is given if the agent
     reaches it's destination.
@@ -813,7 +813,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 idx,
                 [vs.coord for vs in state],
                 state[idx].facing_dir,
-                state[idx].dest_coord
+                state[idx].dest_coord,
             )
             obs[i] = (
                 local_cell_obs,
@@ -891,12 +891,9 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 # already in terminal/rewarded state
                 r_i = 0.0
             elif (
-                (
-                    self._obstacle_collisions
-                    and collision_types[idx] == CollisionType.OBSTACLE
-                )
-                or collision_types[idx] == CollisionType.VEHICLE
-            ):
+                self._obstacle_collisions
+                and collision_types[idx] == CollisionType.OBSTACLE
+            ) or collision_types[idx] == CollisionType.VEHICLE:
                 # Treat as if crashed into a vehicle
                 r_i = self.R_CRASH_VEHICLE
             elif next_state[idx].dest_reached:
@@ -986,7 +983,7 @@ def parse_grid_str(grid_str: str, supported_num_agents: int) -> DrivingGrid:
                    (a=0, b=1, ..., j=9)
     - = destination location for any agent
 
-    Examples (" " quotes and newline chars ommited):
+    Examples (" " quotes and newline chars omitted):
 
     1. A 3x3 grid with two agents, one block, and where each agent has a single
     starting location and a single destination location.

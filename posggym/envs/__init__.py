@@ -35,19 +35,9 @@ register(
     entry_point="posggym.envs.classic.rock_paper_scissors:RockPaperScissorsEnv",
 )
 
-# Continous
+# Continuous
 # -------------------------------------------
-register(
-    id="PPContinousEnv-v0",
-    entry_point="posggym.envs.continous.predator_prey:PPContinousEnv",
-    kwargs={
-        "num_predators": 3,
-        "num_prey": 1,
-        "cooperative": True,
-        "prey_strength": 1,
-        "obs_dim": 1,
-    }
-)
+
 
 # Grid World
 # -------------------------------------------

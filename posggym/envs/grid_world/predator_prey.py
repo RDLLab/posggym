@@ -101,12 +101,12 @@ class PPEnv(DefaultEnv[PPState, PPObs, PPAction]):
     ------
     There are two modes of play:
 
-    1. Fully cooperative: All predators share a reward and each agent recieves
+    1. Fully cooperative: All predators share a reward and each agent receives
     a reward of 1.0 / `num_prey` for each prey capture, independent of which
     predator agent/s were responsible for the capture.
 
-    2. Mixed cooperative: Predators only recieve a reward if they were part
-    of the prey capture, recieving 1.0 / `num_prey`.
+    2. Mixed cooperative: Predators only receive a reward if they were part
+    of the prey capture, receiving 1.0 / `num_prey`.
 
     In both modes prey can only been captured when at least `prey_strength`
     predators are in adjacent cells,
@@ -134,7 +134,7 @@ class PPEnv(DefaultEnv[PPState, PPObs, PPAction]):
 
     Initial Conditions
     ------------------
-    Predators start from random seperate locations along the edge of the grid
+    Predators start from random separate locations along the edge of the grid
     (either in a corner, or half-way along a side), while prey start together
     in the middle.
 
@@ -527,7 +527,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             for c in self.grid.get_neighbours(prey_coord) + [prey_coord]
         ]
         neighbours.sort()
-        for (d, c) in reversed(neighbours):
+        for d, c in reversed(neighbours):
             if c == prey_coord or self._coord_available_for_prey(c, occupied_coords):
                 return c
 
@@ -562,7 +562,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             for c in self.grid.get_neighbours(prey_coord) + [prey_coord]
         ]
         neighbours.sort()
-        for (d, c) in reversed(neighbours):
+        for d, c in reversed(neighbours):
             if c == prey_coord or self._coord_available_for_prey(c, occupied_coords):
                 return c
 
@@ -817,7 +817,7 @@ def parse_grid_str(grid_str: str) -> PPGrid:
     P = starting location for predator agents [optional] (defaults to edges)
     p = starting location for prey agent [optional] (defaults to center)
 
-    Examples (" " quotes and newline chars ommited):
+    Examples (" " quotes and newline chars omitted):
 
     1. A 10x10 grid with 4 groups of blocks and using the default predator
        and prey start locations.

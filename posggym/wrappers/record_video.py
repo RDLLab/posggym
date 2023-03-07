@@ -15,7 +15,7 @@ from posggym.wrappers.monitoring.video_recorder import VideoRecorder
 def capped_cubic_video_schedule(episode_id: int) -> bool:
     """Get cubic schedule.
 
-    Triggers recording of episodes numbers that are perfect cubes :math:`k^3` upto
+    Triggers recording of episodes numbers that are perfect cubes :math:`k^3` up to
     the 1000th episode, then every 1000 episodes after that:
     0, 1, 8, 27, 64, 125, 216, 343, 512, 729, 1000, 2000, 3000, ...
 
@@ -159,7 +159,7 @@ class RecordVideo(Wrapper):
                 if isinstance(render_output, dict):
                     if "env" not in render_output:
                         return recorded_frames
-                    return recorded_frames + render_output.get('env', [])
+                    return recorded_frames + render_output.get("env", [])
                 return recorded_frames + render_output
         else:
             return super().render(*args, **kwargs)

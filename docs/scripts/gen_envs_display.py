@@ -68,10 +68,7 @@ def generate_page(env, limit=-1, base_path=""):
     env_list = env["list"]
     cells = [create_grid_cell(env_type_id, env_id, base_path) for env_id in env_list]
     non_limited_page = limit == -1 or limit >= len(cells)
-    if non_limited_page:
-        cells = "\n".join(cells)
-    else:
-        cells = "\n".join(cells[:limit])
+    cells = "\n".join(cells) if non_limited_page else "\n".join(cells[:limit])
 
     more_btn = (
         """
@@ -112,42 +109,38 @@ if __name__ == "__main__":
         envs_path = f"../environments/{type_id}"
         if len(type_dict["list"]) > 20:
             page = generate_page(type_dict, limit=8)
-            fp = open(
+            with open(
                 os.path.join(os.path.dirname(__file__), envs_path, "list.html"),
                 "w",
                 encoding="utf-8",
-            )
-            fp.write(page)
-            fp.close()
+            ) as fp:
+                fp.write(page)
 
             page = generate_page(type_dict, base_path="../")
-            fp = open(
+            with open(
                 os.path.join(
                     os.path.dirname(__file__), envs_path, "complete_list.html"
                 ),
                 "w",
                 encoding="utf-8",
-            )
-            fp.write(page)
-            fp.close()
+            ) as fp:
+                fp.write(page)
 
-            fp = open(
+            with open(
                 os.path.join(os.path.dirname(__file__), envs_path, "complete_list.md"),
                 "w",
                 encoding="utf-8",
-            )
-            env_name = " ".join(type_id.split("_")).title()
-            fp.write(
-                f"# Complete List - {env_name}\n\n"
-                + "```{raw} html\n:file: complete_list.html\n```"
-            )
-            fp.close()
+            ) as fp:
+                env_name = " ".join(type_id.split("_")).title()
+                fp.write(
+                    f"# Complete List - {env_name}\n\n"
+                    + "```{raw} html\n:file: complete_list.html\n```"
+                )
         else:
             page = generate_page(type_dict)
-            fp = open(
+            with open(
                 os.path.join(os.path.dirname(__file__), envs_path, "list.html"),
                 "w",
                 encoding="utf-8",
-            )
-            fp.write(page)
-            fp.close()
+            ) as fp:
+                fp.write(page)

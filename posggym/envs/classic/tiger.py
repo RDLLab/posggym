@@ -86,7 +86,7 @@ class MultiAgentTigerEnv(DefaultEnv):
 
     Observation
     -----------
-    Agents recieve observations of the position tiger: `GROWLEFT` for tiger
+    Agents receive observations of the position tiger: `GROWLEFT` for tiger
     left, and `GROWLRIGHT` for tiger right. Additionally, they also observe
     if a door has creaked: `CREAKLEFT` for left door, `CREAKRIGHT` for right
     door, and `SILENCE` for silence.
@@ -106,14 +106,14 @@ class MultiAgentTigerEnv(DefaultEnv):
     they will perceive the correct door opening or not with probability
     creak_observation_prob=0.9.
 
-    If an agent opens either door they will recieve an observation uniformly at
+    If an agent opens either door they will receive an observation uniformly at
     random.
 
     Reward
     ------
-    Each agent recieves rewards independent of the other agent.
+    Each agent receives rewards independent of the other agent.
 
-    An agent recieves a reward of +10 for opening the door without a tiger
+    An agent receives a reward of +10 for opening the door without a tiger
     behind it, -100 for opening the door with the tiger behind it, and -1 for
     performing the listening action.
 
@@ -325,7 +325,7 @@ class MultiAgentTigerModel(M.POSGFullModel[MATState, MATObs, MATAction]):
     def _construct_trans_func(self) -> Dict:
         trans_map = {}
         uniform_prob = 1.0 / len(STATES)
-        for (s, a, s_next) in product(
+        for s, a, s_next in product(
             self._state_space, product(*self._action_spaces), self._state_space
         ):
             trans_map[(s, a, s_next)] = (
@@ -346,7 +346,7 @@ class MultiAgentTigerModel(M.POSGFullModel[MATState, MATObs, MATAction]):
     def _construct_obs_func(self) -> Dict:
         obs_func = {}
         uniform_o_prob = 1.0 / len(OBS_SPACE)
-        for (s_next, a, o) in product(
+        for s_next, a, o in product(
             self._state_space, product(*self._action_spaces), product(*self._obs_spaces)
         ):
             o_prob = 1.0
@@ -400,7 +400,7 @@ class MultiAgentTigerModel(M.POSGFullModel[MATState, MATObs, MATAction]):
     def _construct_rew_func(self) -> Dict:
         rew_map = {}
         joint_actions_space = product(*self._action_spaces)
-        for (s, a) in product(self._state_space, joint_actions_space):
+        for s, a in product(self._state_space, joint_actions_space):
             rew_map[(s, a)] = self._get_reward(
                 s, {str(i): a_i for i, a_i in enumerate(a)}
             )

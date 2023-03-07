@@ -13,7 +13,7 @@ References
   Conference on Decision and Control, 293–298.
 - Hansen, Eric A., Daniel S. Bernstein, and Shlomo Zilberstein. “Dynamic
   Programming for Partially Observable Stochastic Games.” In Proceedings of
-  the 19th National Conference on Artifical Intelligence, 709–715. AAAI’04.
+  the 19th National Conference on Artificial Intelligence, 709–715. AAAI’04.
   San Jose, California: AAAI Press, 2004.
 
 """
@@ -68,7 +68,7 @@ class MABCEnv(DefaultEnv[MABCState, MABCObs, MABCAction]):
 
     Observation
     -----------
-    At the end of each time step, each node recieves a noisy observation of
+    At the end of each time step, each node receives a noisy observation of
     whether there was a `COLLISION` or `NOCOLLISION`.
 
     Each agent observes the true outcome with probability `obs_prob`, which is
@@ -76,7 +76,7 @@ class MABCEnv(DefaultEnv[MABCState, MABCObs, MABCAction]):
 
     Reward
     ------
-    Each agent recieves a reward of `1` when a message is successfully
+    Each agent receives a reward of `1` when a message is successfully
     broadcast and a reward of `0` otherwise.
 
     Transition Dynamics
@@ -100,7 +100,7 @@ class MABCEnv(DefaultEnv[MABCState, MABCObs, MABCAction]):
       Conference on Decision and Control, 293–298.
     - Hansen, Eric A., Daniel S. Bernstein, and Shlomo Zilberstein. “Dynamic
       Programming for Partially Observable Stochastic Games.” In Proceedings of
-      the 19th National Conference on Artifical Intelligence, 709–715. AAAI’04.
+      the 19th National Conference on Artificial Intelligence, 709–715. AAAI’04.
       San Jose, California: AAAI Press, 2004.
 
     """
@@ -309,7 +309,7 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
     def _construct_trans_func(self) -> Dict:
         trans_map = {}
         agent_ids = [int(i) for i in self.possible_agents]
-        for (s, a, s_next) in product(
+        for s, a, s_next in product(
             self._state_space, product(*self._action_spaces), self._state_space
         ):
             trans_prob = 1.0
@@ -337,7 +337,7 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
     def _construct_obs_func(self) -> Dict:
         obs_map = {}
         agent_ids = [int(i) for i in self.possible_agents]
-        for (s_next, a, o) in product(
+        for s_next, a, o in product(
             self._state_space,
             product(*self._action_spaces),
             product(*self._observation_spaces),
@@ -363,7 +363,7 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
     def _construct_rew_func(self) -> Dict:
         rew_map = {}
         joint_actions_space = product(*self._action_spaces)
-        for (s, a) in product(self._state_space, joint_actions_space):
+        for s, a in product(self._state_space, joint_actions_space):
             reward = float(self._message_sent(s, a)) * self.R_SEND
             rew_map[(s, a)] = tuple(reward for _ in self.possible_agents)
         return rew_map

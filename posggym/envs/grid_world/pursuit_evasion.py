@@ -147,14 +147,14 @@ class PursuitEvasionEnv(DefaultEnv):
 
     Reward
     ------
-    The environment is zero-sum with the pursuer recieving the negative of the
+    The environment is zero-sum with the pursuer receiving the negative of the
     evader reward. Additionally, rewards are by default normalized so that
     returns are bounded between -1 and 1 (this can be disabled by the
     `normalize_reward` parameter).
 
-    The evader recieves a reward of 1 for reaching it's goal location and a
-    reward of -1 if it gets captured. Additionally, the evader recieves a small
-    reward of 0.01 each time it's minumum distance to it's goal along the
+    The evader receives a reward of 1 for reaching it's goal location and a
+    reward of -1 if it gets captured. Additionally, the evader receives a small
+    reward of 0.01 each time it's minimum distance to it's goal along the
     shortest path decreases. This is to make it so the environment is no
     longer sparesely rewarded and to help with exploration and learning (it
     can be disabled by the `use_progress_reward` parameter.)

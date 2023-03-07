@@ -111,7 +111,7 @@ class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
 
     https://github.com/semitable/lb-foraging
 
-    We provide a discription here for convinience.
+    We provide a description here for convenience.
 
     Agents
     ------
@@ -139,7 +139,7 @@ class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
     There are three observation modes:
 
     1. grid_observation
-       The agent recieves three 2D layers of size (1+2*`sight`, 1+2*`sight`).
+       The agent receives three 2D layers of size (1+2*`sight`, 1+2*`sight`).
        Each cell in each layer corresponds to a specific (x, y) coordinate
        relative to the observing agent.
        The layers are:
@@ -572,7 +572,7 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         assert max_level >= 1
         min_level = max_level if self._force_coop else 1
         food = []
-        for (x, y) in self._food_locations:
+        for x, y in self._food_locations:
             level = min_level
             if min_level != max_level:
                 level = self.rng.randint(min_level, max_level)  # type: ignore
@@ -598,7 +598,7 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
             if (x, y) in unavailable_coords:
                 continue
             # add coord and adjacent coord to unavailable set so food are always
-            # atleast one cell apart
+            # at least one cell apart
             for x_delta, y_delta in product([-1, 0, 1], repeat=2):
                 unavailable_coords.add((x + x_delta, y + y_delta))
             level = min_level
@@ -726,7 +726,7 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
 
         food_obs = []
         for f in state.food:
-            # note unobserved food are exluded since ordering can change for food obs
+            # note unobserved food are excluded since ordering can change for food obs
             # (unlike for players)
             if (
                 abs(f.coord[0] - ego_player.coord[0]) <= self.sight

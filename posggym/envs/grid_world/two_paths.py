@@ -2,7 +2,7 @@
 
 An adversarial 2D grid world problem involving two agents, a runner and
 a chaser. The runner's goal is to reach one of two goal location, with each
-goal located at the end of a seperate path. The lengths of the two paths
+goal located at the end of a separate path. The lengths of the two paths
 have different lengths. The goal of the chaser is to intercept the runner
 before it reaches a goal. The runner is considered caught if it is observed
 by the chaser, or occupies the same location. However, the chaser is only
@@ -52,7 +52,7 @@ class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
 
     An adversarial 2D grid world problem involving two agents, a runner and
     a chaser. The runner's goal is to reach one of two goal location, with each
-    goal located at the end of a seperate path. The lengths of the two paths
+    goal located at the end of a separate path. The lengths of the two paths
     have different lengths. The goal of the chaser is to intercept the runner
     before it reaches a goal. The runner is considered caught if it is observed
     by the chaser, or occupies the same location. However, the chaser is only
@@ -94,10 +94,10 @@ class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
     Reward
     ------
     Both agents receive a penalty of -0.01 for each step.
-    If the runner reaches the goal then the runner recieves a reward of 1.0,
-    while the chaser recieves a penalty of -1.0.
-    If the runner is observed by the chaser, then the runner recieves a penalty
-    of -1.0, while the chaser recieves a reward of 1.0.
+    If the runner reaches the goal then the runner receives a reward of 1.0,
+    while the chaser receives a penalty of -1.0.
+    If the runner is observed by the chaser, then the runner receives a penalty
+    of -1.0, while the chaser receives a reward of 1.0.
 
     The rewards make the environment adversarial, but not strictly zero-sum,
     due to the small penalty each step.
