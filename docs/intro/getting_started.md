@@ -35,7 +35,7 @@ import posggym
 env = posggym.make("PursuitEvasion-8x8-v0", render_mode="human")
 observations, infos = env.reset()
 
-for _ in range(1000):
+for _ in range(300):
     actions = {i: env.action_spaces[i].sample() for i in env.agents}
     observations, rewards, terminateds, truncateds, all_done, infos = env.step(actions)
 
@@ -47,7 +47,10 @@ env.close()
 
 The output should look something like this:
 
-**TODO**
+```{figure} ../_static/videos/grid_world/pursuit_evasion.gif
+   :width: 50%
+   :align: center
+```
 
 ### Explaining the code
 
@@ -76,11 +79,64 @@ Every environment should have the attributes ``action_spaces`` and ``observation
 
 ## Interacting with the Model
 
+A key feature of POSGGym is the inclusion of a dynamics model with each environment. The dynamics model is a ``POSGModel`` class and can be accessed using ``env.model``. ``POSGModel`` can be used in a similar manner to the ``Env`` class, with the key difference being that it is **stateless** (or purely functional). What this means is that most model functions also take the **state of the environment** as input and provide outputs conditioned on the input state. This is different to ``Env`` which maintains an internal state, accessible using ``env.state``, that is used within the ``reset()``, ``step()``, and ``render()`` functions.
+
+We can recreate the agent-environment interaction loop using ``POSGModel`` as follows:
+
+```python
+import posggym
+
+env = posggym.make("PursuitEvation-8x8-v0")
+model = env.model
+
+model.seed(seed=42)
+
+state = model.sample_initial_state()
+observations = model.sample_initial_obs(state)
+
+for t in range(300):
+    actions = {i: env.action_spaces[i].sample() for i in model.get_agents(state)}
+    state, observations, rewards, terminated, truncated, all_done, info = model.step(state, actions)
+
+    if all_done:
+        state = model.sample_initial_state()
+        observations = model.sample_initial_obs(state)
+```
+
+Note this is very similar to the agent-environment interaction loop using the ``Env`` class, except for the passing around the state and without support for rendering. Indeed, the ``Env`` class is just a wrapper around a ``POSGModel`` class which handles the ``state`` and also adds functionality for rendering the environment.
+
+The advantage of having access to the model is that it can be used for planning, making it easy to use POSGGym environments for both reinforcement learning and planning research, or the intersection of the two (e.g. model-based reinforcement learning).
 
 
 ## Modifying the environment using Wrappers
 
-Coming soon.
+Wrappers are a convenient way to modify an existing environment without having to alter the underlying code directly. Using wrappers will allow you to avoid a lot of boilerplate code and make your environment more modular. Wrappers can also be chained to combine their effects. Most environments that are generated via ``posggym.make`` will already be wrapped by default using the ``TimeLimit``, ``OrderEnforcing`` and ``PassiveEnvChecker``.
+
+In order to wrap an environment, you must first initialize a base environment. Then you can pass this environment along with (possibly optional) parameters to the wrapper's constructor:
+
+```python
+>>> import posggym
+>>> from posggym.wrappers import FlattenObservation
+>>> base_env = posggym.make("PursuitEvasion-8x8-v0")
+>>> base_env.observation_spaces['0']
+Tuple(Tuple(Discrete(2), Discrete(2), Discrete(2), Discrete(2), Discrete(2), Discrete(2)), Tuple(Discrete(8), Discrete(8)), Tuple(Discrete(8), Discrete(8)), Tuple(Discrete(8), Discrete(8)))
+>>> wrapped_env = FlattenObservation(base_env)
+>>> wrapped_env.observation_spaces['0']
+Box(0, 1, (60,), int64)
+```
+
+For a full list of implemented wrappers in POSGGym, see [wrappers](/api/wrappers). This includes wrappers for converting a POSGGym environment into PettingZoo and Rllib environments.
+
+If you have a wrapped environment, and you want to get the unwrapped environment underneath all the layers of wrappers (so that you can manually call a function or change some underlying aspect of the environment), you can use the `.unwrapped` attribute. If the environment is already a base environment, the `.unwrapped` attribute will just return itself.
+
+```python
+>>> wrapped_env
+<FlattenObservation<TimeLimit<OrderEnforcing<PassiveEnvChecker<PursuitEvasionEnv<PursuitEvasion-8x8-v0>>>>>>
+>>> wrapped_env.unwrapped
+<posggym.envs.grid_world.pursuit_evasion.PursuitEvasionEnv object at 0x7ff29cb5bc40>
+```
+
+> **_NOTE:_**  For compatibility purposed, the PettingZoo (`posggym.wrappers.petting_zoo.PettingZoo`) and Rllib (`posggym.wrappers.rllib_multi_agent_env.RllibMultiAgentEnv`) wrappers, `wrapped_env.unwrapped` returns will return pettingzoo and rllib Env classes, rather than the underlying ``posggym.Env`` class. The underlying env class can be accessed using `wrapped_env.unwrapped.env`.
 
 ## More information
 

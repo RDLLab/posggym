@@ -32,8 +32,7 @@ title: Model
 
 	The Space object corresponding to all valid states. If implemented, all valid states should be contained within this space.
 
-	Note however, implementing the ``state_space`` attribute is optional as many simulation-based algorithms
-    (including RL and MCTS) don't need it to function and the state space be cumbersome to define. In cases where it is not implemented it should be None.
+	Note however, implementing state_space attribute is optional as many simulation-based algorithms (including RL and MCTS) don't need it to function and the state space be cumbersome to define. In cases where it is not implemented it should be None.
 
 .. autoattribute:: posggym.POSGModel.action_spaces
 
@@ -44,18 +43,6 @@ title: Model
 	A mapping from Agent ID to the Space object corresponding to all valid observations for that agent.
 
 .. autoattribute:: posggym.POSGModel.reward_ranges
-.. autoattribute:: posggym.POSGModel.observation_first
-
-   Whether environment is observation or action first.
-
-   "Observation first" environments start by providing the agents with an observation from the initial belief before any action is taken. Most Reinforcement Learning algorithms typically assume this setting.
-
-    "Action first" environments expect the agents to take an action from the initial belief before providing an observation. Many planning algorithms use this paradigm.
-
-    Note
-    ----
-	"Action first" environments can always be converted into "Observation first" by introducing a dummy initial observation. Similarly, "Action first" algorithms can be made compatible with "Observation first" environments by introducing a single dummy action for the first step only.
-
 .. autoattribute:: posggym.POSGModel.is_symmetric
 
 	Whether the environment is symmetric or not (is asymmetric).

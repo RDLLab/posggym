@@ -107,12 +107,12 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
     Note
     ----
     The POSGGym Model API models all environments as environments that are
-    `observation_first`, that is the environment provides an initial observation before
+    `observation first`, that is the environment provides an initial observation before
     any action is taken (rather than action first, where agents perform an action
-    before any observation is received). `observation_first` environments are the
+    before any observation is received). `observation first` environments are the
     standard in reinforcement learning problems and also for most real world problems,
     and are becoming the more common model API. It's also trivial to convert an
-    `action_first` model into `observation_first` by just returning a default or dummy
+    `action first` model into `observation first` by just returning a default or dummy
     initial observation (e.g. the initial observation is always the first observation
     in the list of possible observations).
 
@@ -357,7 +357,7 @@ class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
         next_state: StateType,
         actions: Dict[AgentID, ActType],
     ) -> float:
-        """Observation function :math:`Z(o, s', a) `.
+        """Observation function :math:`Z(o, s', a)`.
 
         Arguments
         ---------
