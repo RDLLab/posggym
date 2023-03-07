@@ -35,6 +35,10 @@ class ContinousWorld:
         """Get manhattan distance between two coordinates on the grid."""
         return abs(coord1[0] - coord2[0]) + abs(coord1[1] - coord2[1])
 
+    @staticmethod
+    def euclidean_dist(coord1: Position, coord2: Position):
+        return math.sqrt((coord1[0] - coord2[0])**2 + (coord1[1] - coord2[1])**2)
+
     def coord_in_bounds(self, coord: Coord) -> bool:
         """Return whether a coordinate is inside the grid or not."""
         return 0 <= coord[0] < self.width and 0 <= coord[1] < self.height

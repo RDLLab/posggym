@@ -529,7 +529,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         actions: Dict[M.AgentID, PPAction],
         next_prey_coords: Tuple[Position, ...],
     ) -> Tuple[Position, ...]:
-        
+
         potential_next_coords = []
         for i, coord in enumerate(state.predator_coords):
 
@@ -537,10 +537,8 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
                 coord, actions[i][0], ignore_blocks=False  # type: ignore
             )
 
-
             if self.grid.check_collision((coord, self.grid.agent_size)):
                 next_coord = coord
-                # print("in collision")
             potential_next_coords.append(next_coord)
 
         # handle collisions
@@ -552,7 +550,6 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
                 if i == j:
                     continue
                 elif self.grid.agents_collide(coord_i, potential_next_coords[j]):
-                    # print("in collision2")
                     collision = True
                     break
             if collision:
@@ -569,9 +566,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         next_predator_coords: Tuple[Position, ...],
     ) -> Tuple[int, ...]:
         prey_caught = []
-        print("yoooo")
-        import pdb
-        # pdb.set_trace()
+
         for i in range(self.num_prey):
             if state.prey_caught[i]:
                 prey_caught.append(1)
