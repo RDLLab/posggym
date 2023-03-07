@@ -23,8 +23,8 @@ from typing import (
 )
 
 from gymnasium import spaces
+import posggym.envs.continous.render as render_lib
 
-import posggym.envs.grid_world.render as render_lib
 import posggym.model as M
 from posggym.core import DefaultEnv
 from posggym.envs.continous.core import ContinousWorld, Object, Position
@@ -177,11 +177,9 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
                 # input()
                 self._renderer = render_lib.GWContinousRender(
                     self.render_mode,
-                    self.model.grid,
-                    render_fps=self.metadata["render_fps"],
                     env_name="PredatorPreyContinous",
-                    domain_size=self.model.grid.width,
-                    num_colors=3
+                    domain_max=self.model.grid.width,
+                    num_colors=3,
                 )
             colored_pred =  tuple(t + (0,) for t in self._state.predator_coords)
             colored_prey =  tuple(t + (1 + caught,) for t, caught in zip(self._state.prey_coords, self.state.prey_caught))
@@ -259,7 +257,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         def _coord_space2():
             return spaces.Tuple((spaces.Box(low=0, high=self.grid.width), spaces.Box(low=0, high=self.grid.height), spaces.Box(low=0, high=math.pi*2)))
         
-        self.possible_agents = tuple(range(self.num_predators))
+        self.possible_agents = tuple((str(x) for x in range(self.num_predators)))
         self.state_space = spaces.Tuple(
             (
                 # coords of each agent
@@ -278,7 +276,6 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         # Observe everyones location
         nested_space = [_coord_space() for _ in range(self.num_predators + self.num_prey)]                     
         agent_obs = spaces.Tuple(tuple([item for sublist in nested_space for item in sublist]))
-
 
         self.observation_spaces = {
             i: agent_obs
@@ -330,7 +327,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         obs = self._get_obs(state, next_state)
         rewards = self._get_rewards(state, next_state)
 
-        # print(rewards)
+        print(rewards)
 
         all_done = all(next_state.prey_caught)
         truncated = {i: False for i in self.possible_agents}
@@ -534,7 +531,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         for i, coord in enumerate(state.predator_coords):
 
             next_coord = self.grid.get_next_coord(
-                coord, actions[i][0], ignore_blocks=False  # type: ignore
+                coord, actions[str(i)][0], ignore_blocks=False  # type: ignore
             )
 
             if self.grid.check_collision((coord, self.grid.agent_size)):
@@ -585,19 +582,16 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             i: self._get_local_obs(i, state, next_state)
             for i in self.possible_agents
         }
-        print("a[0]", a[0])
         return a
 
     def _get_local_obs(
         self, agent_id: M.AgentID, state: PPState, next_state: PPState
     ) -> Tuple[float, ...]:
-        assert isinstance(agent_id, int)
-
         obs : List[float] = []
         
-        obs += state.predator_coords[agent_id]
+        obs += state.predator_coords[int(agent_id)]
         for i in range(len(state.predator_coords)):
-            if i == agent_id:
+            if str(i) == agent_id:
                 continue
             obs += state.predator_coords[i]
         
@@ -609,7 +603,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
     def _get_rewards(
         self, state: PPState, next_state: PPState
-    ) -> Dict[M.AgentID, SupportsFloat]:
+    ) -> Dict[M.AgentID, float]:
         new_caught_prey = []
         for i in range(self.num_prey):
             if not state.prey_caught[i] and next_state.prey_caught[i]:
@@ -631,9 +625,9 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
                                          
             predator_reward = self._per_prey_reward / len(involved_predators)
             for i in involved_predators:
-                rewards[i] += predator_reward
+                rewards[str(i)] += predator_reward
 
-        return rewards  # type: ignore
+        return rewards 
 
 import random
 class PPWorld(ContinousWorld):

@@ -42,7 +42,7 @@ register(
     entry_point="posggym.envs.continous.predator_prey:PPContinousEnv",
     kwargs={
         "num_predators": 3,
-        "num_prey": 1,
+        "num_prey": 2,
         "cooperative": True,
         "prey_strength": 1,
         "obs_dim": 1,
