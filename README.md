@@ -50,11 +50,11 @@ env = posggym.make("TwoPaths-7x7-v0")
 observations, info = env.reset(seed=42)
 
 for t in range(50):
-	actions = {i: env.action_spaces[i].sample() for i in env.agents}
-	observations, rewards, terminated, truncated, done, info = env.step(actions)
+    actions = {i: env.action_spaces[i].sample() for i in env.agents}
+    observations, rewards, terminated, truncated, done, info = env.step(actions)
 
-	if done:
-		observation, info = env.reset()
+    if done:
+        observation, info = env.reset()
 
 env.close()
 ```
@@ -78,12 +78,12 @@ state = model.sample_initial_state()
 observations = model.sample_initial_obs(state)
 
 for t in range(50):
-	actions = {i: env.action_spaces[i].sample() for i in model.get_agents(state)}
-	state, observations, rewards, terminated, truncated, all_done, info = model.step(state, actions)
+    actions = {i: env.action_spaces[i].sample() for i in model.get_agents(state)}
+    state, observations, rewards, terminated, truncated, all_done, info = model.step(state, actions)
 
-	if all_done:
-		state = model.sample_initial_state()
-		observations = model.sample_initial_obs(state)
+    if all_done:
+        state = model.sample_initial_state()
+        observations = model.sample_initial_obs(state)
 ```
 
 The base model API is very similar to the environment API. The key difference that all methods are stateless so can be used repeatedly for planning. Indeed the `env` class for the built-in environments are mainly just a wrappers over the underlying `model` class that manage the state and add support for rendering.
