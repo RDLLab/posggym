@@ -248,9 +248,9 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
     def _render_img(self):
         model: DrivingModel = self.model  # type: ignore
 
-        import posggym.envs.grid_world.render as render_lib
-
         if self.renderer is None:
+            import posggym.envs.grid_world.render as render_lib
+
             self.renderer = render_lib.GWRenderer(
                 self.render_mode,
                 model.grid,

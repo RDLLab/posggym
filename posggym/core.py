@@ -382,6 +382,7 @@ class DefaultEnv(Env[StateType, ObsType, ActType]):
     """
 
     def __init__(self, model: POSGModel, render_mode: Optional[str] = None):
+        assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.model = model
         self.render_mode = render_mode
 

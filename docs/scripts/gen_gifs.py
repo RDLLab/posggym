@@ -30,20 +30,25 @@ LENGTH = 300
 HEIGHT = 256
 
 
-def gen_gif(env_id: str, ignore_existing: bool = False):
+def gen_gif(
+    env_id: str,
+    ignore_existing: bool = False,
+    custom_env: bool = False,
+    resize: bool = False,
+):
     """Gen gif for env."""
     print(env_id)
     env = posggym.make(env_id, disable_env_checker=True, render_mode="rgb_array")
 
     # extract env name/type from class path
     split = str(type(env.unwrapped)).split(".")
+    # get the env type (e.g. Box2D)
+    env_type = "custom_env" if custom_env else split[2]
 
     # get rid of version info
     env_name = env_id.split("-")[0]
     # convert NameLikeThis to name_like_this
     env_name = pattern.sub("_", env_name).lower()
-    # get the env type (e.g. Box2D)
-    env_type = split[2]
 
     # path for saving video
     v_dir_path = os.path.join(DOCS_DIR, "_static", "videos", env_type)
@@ -79,11 +84,12 @@ def gen_gif(env_id: str, ignore_existing: bool = False):
 
     env.close()
 
-    for i, img in enumerate(frames):
-        # h / w = H / w'
-        # w' = Hw/h
-        resized_img = img.resize((HEIGHT, int(HEIGHT * img.width / img.height)))
-        frames[i] = resized_img
+    if resize:
+        for i, img in enumerate(frames):
+            # h / w = H / w'
+            # w' = Hw/h
+            resized_img = img.resize((HEIGHT, int(HEIGHT * img.width / img.height)))
+            frames[i] = resized_img
 
     frames[0].save(
         os.path.join(v_file_path),
