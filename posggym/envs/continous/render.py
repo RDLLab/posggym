@@ -18,15 +18,13 @@ except ImportError as e:
     ) from e
 
 
-
-
 class GWContinousRender:
     def __init__(self,
-        render_mode: str,
-        env_name: str,
-        arena_type : ArenaTypes = ArenaTypes.Square,
-        screen_width=640, screen_height=480, arena_size=400, agent_size=20, domain_min=0, domain_max=1,
-        num_colors: int = 10):
+                 render_mode: str,
+                 env_name: str,
+                 arena_type: ArenaTypes = ArenaTypes.Square,
+                 screen_width=640, screen_height=480, arena_size=400, agent_size=20, domain_min=0, domain_max=1,
+                 num_colors: int = 10):
         # Initialize Pygame
         pygame.init()
 
@@ -60,15 +58,11 @@ class GWContinousRender:
         for i in range(num_colors):
             r = ((i + 1) * 55) % 255
             g = ((i + 1) * 155) % 255
-            b = ((i + 1)* 205) % 255
+            b = ((i + 1) * 205) % 255
             colors.append((r, g, b))
         return colors
 
-    def render(self, agents : Tuple[Tuple[float, float, float, int], ...], is_holonomic : Optional[List[bool]] = None, sizes: Optional[List[Optional[float]]] = None, ):
-
-        # import pdb
-        # pdb.set_trace()
-
+    def render(self, agents: Tuple[Tuple[float, float, float, int], ...], is_holonomic: Optional[List[bool]] = None, sizes: Optional[List[Optional[float]]] = None, ):
 
         scaled_agents = []
         for i, agent in enumerate(agents):
@@ -78,15 +72,17 @@ class GWContinousRender:
             center_x = self.arena_x + self.arena_size / 2
             center_y = self.arena_y + self.arena_size / 2
 
-            OldRange = (self.max_domain_size - self.min_domain_size)  
-            NewRange = self.arena_size * 2 
+            OldRange = (self.max_domain_size - self.min_domain_size)
+            NewRange = self.arena_size * 2
 
-            scaled_x = int((((x - self.min_domain_size) * NewRange) / OldRange) + (self.arena_x - self.arena_size / 2))
-            scaled_y = int((((y - self.min_domain_size) * NewRange) / OldRange) + (self.arena_y - self.arena_size / 2))
+            scaled_x = int((((x - self.min_domain_size) * NewRange) /
+                           OldRange) + (self.arena_x - self.arena_size / 2))
+            scaled_y = int((((y - self.min_domain_size) * NewRange) /
+                           OldRange) + (self.arena_y - self.arena_size / 2))
             if sizes is not None:
                 if sizes[i] is not None:
-                    sizes[i] =  int((sizes[i]) / (self.max_domain_size - self.min_domain_size) * self.arena_size)
-
+                    sizes[i] = int(
+                        (sizes[i]) / (self.max_domain_size - self.min_domain_size) * self.arena_size)
 
             scaled_agents.append((scaled_x, scaled_y, angle, color))
 
@@ -94,35 +90,37 @@ class GWContinousRender:
 
         # Draw the arena
         if self.arena_type == ArenaTypes.Square:
-            arena_rect = pygame.Rect(self.arena_x, self.arena_y, self.arena_size, self.arena_size)
+            arena_rect = pygame.Rect(
+                self.arena_x, self.arena_y, self.arena_size, self.arena_size)
             pygame.draw.rect(self.screen, self.BLACK, arena_rect, width=1)
         else:
             center_x = self.arena_x + self.arena_size / 2
             center_y = self.arena_y + self.arena_size / 2
-            pygame.draw.circle(self.screen, self.BLACK, (center_x, center_y), self.arena_size)
+            pygame.draw.circle(self.screen, self.BLACK,
+                               (center_x, center_y), self.arena_size)
 
         # Draw the agents
         for i, agent in enumerate(scaled_agents):
             x, y, angle, color = agent
 
-            size = self.agent_size if sizes is None else (sizes[i] or self.agent_size)
+            size = self.agent_size if sizes is None else (
+                sizes[i] or self.agent_size)
 
             if is_holonomic is not None and is_holonomic[i]:
-                pygame.draw.circle(self.screen, self.colors[color % len(self.colors)], (x,y), size)                
+                pygame.draw.circle(
+                    self.screen, self.colors[color % len(self.colors)], (x, y), size)
             else:
                 half_width = size / 2
                 tri_points = [
-                    (x + half_width * math.cos(angle), y + half_width * math.sin(angle)),
-                    (x + half_width * math.cos(angle + 2*math.pi/3), y + half_width * math.sin(angle + 2*math.pi/3)),
-                    (x + half_width * math.cos(angle - 2*math.pi/3), y + half_width * math.sin(angle - 2*math.pi/3))
+                    (x + half_width * math.cos(angle),
+                     y + half_width * math.sin(angle)),
+                    (x + half_width * math.cos(angle + 2*math.pi/3),
+                     y + half_width * math.sin(angle + 2*math.pi/3)),
+                    (x + half_width * math.cos(angle - 2*math.pi/3),
+                     y + half_width * math.sin(angle - 2*math.pi/3))
                 ]
-                pygame.draw.polygon(self.screen, self.colors[color % len(self.colors)], tri_points)
+                pygame.draw.polygon(
+                    self.screen, self.colors[color % len(self.colors)], tri_points)
 
         # Update the screen
         pygame.display.flip()
-
-
-
-
-
-
