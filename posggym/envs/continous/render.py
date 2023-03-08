@@ -1,13 +1,12 @@
 """Functions and classes for rendering grid world environments."""
 import abc
 from typing import Dict, List, Optional, Tuple, Union
-from enum import Enum
 import numpy as np
 import math
 from posggym.envs.grid_world.core import Coord, Direction, Grid
 from posggym.error import DependencyNotInstalled
 from posggym.model import AgentID
-
+from posggym.envs.continous.core import ArenaTypes
 
 ColorTuple = Union[Tuple[int, int, int], Tuple[int, int, int, int]]
 
@@ -18,9 +17,7 @@ except ImportError as e:
         "pygame is not installed, run `pip install posggym[grid-world]`"
     ) from e
 
-class ArenaTypes(Enum):
-    Square = 0
-    Circle = 1
+
 
 
 class GWContinousRender:

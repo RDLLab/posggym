@@ -28,7 +28,7 @@ from gymnasium import spaces
 import posggym.envs.continous.render as render_lib
 import posggym.model as M
 from posggym.core import DefaultEnv
-from posggym.envs.continous.core import ContinousWorld, Object, Position
+from posggym.envs.continous.core import CircularContinousWorld, Object, Position
 from posggym.utils import seeding
 import math
 class PPState(NamedTuple):
@@ -172,7 +172,8 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         self.velocity_control = velocity_control
 
         self.r_arena = 430
-        self.min_dist = None
+        self.observation_limit = 300
+        
 
         ACT_DIM = 2 if velocity_control else 1
 
@@ -199,75 +200,12 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             str(i): spaces.Box(low=actlow, high=acthigh) for i in self.possible_agents
         }
 
-        self.grid = PPWorld(grid_size=6, block_coords=None)
+        self.grid = CircularContinousWorld(radius=430, block_coords=None)
 
 
     def get_agents(self, state: PPState) -> List[M.AgentID]:
         return list(self.possible_agents)
 
-
-    def get_observation(self, state : PPState):
-        # Get observation for all pursuers
-
-        observation = {}
-        
-        for i in range(self.n_pursuers):
-
-            target = state.prey_coords
-            
-
-            """ getting the target engagement """
-            alpha_t, _, dist_t, Xit, Yit = self.engagmment(state.predator_coords[i], state.prey_coords, dist_factor=self.arena_dim_square)
-            
-            yaw = state.predator_coords[i][2]
-            alpha_t_prev, _, dist_t_prev, Xit_prev, Yit_prev = self.engagmment(state.prev_predator_coords[i], state.prev_prey_coords, dist_factor=self.arena_dim_square)
-
-            engagment = []
-
-            """ getting the relative engagement """
-            for j in range(self.n_pursuers):
-                if j != i:
-                    eng = self.engagmment(state.predator_coords[i], state.predator_coords[j], 
-                        dist_factor=self.arena_dim_square,
-                    )
-                    engagment.append(eng)
-
-            engagment = sorted(engagment, key=lambda x: x[2])
-            alphas, _, dists, Xs, Ys = list(zip(*engagment))
-
-           
-            # change in alpha
-            alpha_rate = alpha_t - alpha_t_prev
-            alpha_rate = math.asin(math.sin(alpha_rate)) / 4
-
-            # change in distance
-            dist_rate = (dist_t - dist_t_prev) / 0.03
-
-            # yaw + yaw rate
-            north = -state.predator_coords[i][2] / math.pi
-            north_prev = -state.prev_predator_coords[i][2] / math.pi
-            turn_rate = (north - north_prev) / 2
-
-            # normalise the alpha
-            alpha_t = alpha_t / math.pi
-
-            temp_observation = [
-                alpha_t,
-                dist_t,
-                north,
-                alpha_rate,
-                dist_rate,
-                turn_rate,
-            ]
-
-            # alpha and distance to each pursuer
-            for index in range(self.n_pursuers_com - 1):
-                temp_observation.append(alphas[index] / math.pi)
-                temp_observation.append(dists[index])
-
-            observation[str(i)] = temp_observation
-
-        return observation
 
     def sample_initial_state(self) -> PPState:
 
@@ -277,11 +215,12 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
                 x = 50 * (-math.floor(self.n_pursuers / 2) + i)  # distributes the agents based in their number
                 predator_coords.append((x, 0, 0))
                 prev_predator_coords.append((x,0,0))
+        
+        x=float(self.rng.random() * 600 - 300)
+        
+        y=float(self.rng.random() * 600 - 300)
 
-        x=float(random.randint(-300, 300))
-        y=float(random.randint(100, 300))
-
-        pursuer_vel=float(random.randint(0, self.vel_tar))
+        pursuer_vel=float(self.rng.random() * self.vel_tar)
 
         prey_coords = (x,y,0)
         prev_prey_coords = (x,y,0)
@@ -316,14 +255,97 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         return sum(map(abs, vector))
     
     def check_capture(self, prey_coords : Position, predator_coords: Position) -> bool:
-        dist = ContinousWorld.euclidean_dist(prey_coords, predator_coords)
-        self.min_dist = dist if self.min_dist is None else min(self.min_dist, dist)
+        dist = CircularContinousWorld.euclidean_dist(prey_coords, predator_coords)
         return dist < self.cap_rad
     
     def target_distance(self, state: PPState, index : int):
-        return ContinousWorld.euclidean_dist(state.predator_coords[index], state.prey_coords)
+        return CircularContinousWorld.euclidean_dist(state.predator_coords[index], state.prey_coords)
 
-    def check_conditions(self, state : PPState) -> Tuple[bool, Dict[M.AgentID, float]]:
+    def _get_next_state(self, state : PPState, actions):
+        prev_prey = state.prey_coords
+        prev_predator = state.predator_coords
+
+        new_prey_coords = self.target_move_repulsive(state.prey_coords, state)
+        new_predator_coords = []
+        for i, pred_pos in enumerate(state.predator_coords):
+            velocity_factor = 1 if not self.velocity_control else actions[str(i)][1]
+            new_coords, _ = self.grid._get_next_coord(pred_pos, actions[str(i)][0], state.pursuer_vel * velocity_factor, True)
+            new_predator_coords.append(new_coords)
+
+        return PPState(tuple(new_predator_coords), prev_predator, new_prey_coords, prev_prey, state.pursuer_vel)
+
+    def _get_obs(self, state : PPState) -> Dict[M.AgentID, PPObs]:
+        # Get observation for all pursuers
+
+        observation = {}
+        
+        for i in range(self.n_pursuers):
+
+            """ getting the target engagement """
+            (alpha_t, _, dist_t, _, _), target_suc = self.engagmment(state.predator_coords[i], state.prey_coords, dist_factor=self.arena_dim_square)
+            (alpha_t_prev, _, dist_t_prev, _, _), target_prev_suc = self.engagmment(state.prev_predator_coords[i], state.prev_prey_coords, dist_factor=self.arena_dim_square)
+
+            engagment = []
+
+            """ getting the relative engagement """
+            for j in range(self.n_pursuers):
+                if j != i:
+                    eng, _ = self.engagmment(state.predator_coords[i], state.predator_coords[j], 
+                        dist_factor=self.arena_dim_square,
+                    )
+                    engagment.append(eng)
+            # Put any invalid (-1) to the end
+            def key_func(t):
+                if t[1] == -1:
+                    return float('inf')
+                else:
+                    return t[1]
+
+            engagment = sorted(engagment, key=key_func)
+            alphas, _, dists, _, _ = list(zip(*engagment))
+           
+            # change in alpha
+            if not target_suc or not  target_prev_suc:
+                alpha_rate = -1
+                dist_rate = -1
+                if target_suc:
+                    north = -state.prev_predator_coords[i][2] / math.pi
+                else:
+                    north = -1
+                north_prev = -1
+                turn_rate = -1
+
+            else:
+                alpha_rate = alpha_t - alpha_t_prev
+                alpha_rate = math.asin(math.sin(alpha_rate)) / 4
+                north = -state.predator_coords[i][2] / math.pi
+                north_prev = -state.prev_predator_coords[i][2] / math.pi
+                turn_rate = (north - north_prev) / 2
+                dist_rate = (dist_t - dist_t_prev) / 0.03
+
+            # normalise the alpha
+            if target_suc:
+                alpha_t = alpha_t / math.pi
+
+            temp_observation = [
+                alpha_t,
+                dist_t,
+                north,
+                alpha_rate,
+                dist_rate,
+                turn_rate,
+            ]
+
+            # alpha and distance to each pursuer
+            for index in range(self.n_pursuers_com - 1):
+                temp_observation.append(alphas[index] / math.pi)
+                temp_observation.append(dists[index])
+
+            observation[str(i)] = temp_observation
+
+        return observation
+        
+    def _get_rewards(self, state : PPState):
         done = False
 
         reward : Dict[M.AgentID, float]  = {}
@@ -345,33 +367,10 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             for id in self.possible_agents:
                 reward[id] += 100
 
-        return done, reward
+        return done, reward           
 
-    def _get_next_state(self, state : PPState, actions):
-        prev_prey = state.prey_coords
-        prev_predator = state.predator_coords
-
-        new_prey_coords = self.target_move_repulsive(state.prey_coords, state)
-        new_predator_coords = []
-        for i, pred_pos in enumerate(state.predator_coords):
-            # import pdb
-            # pdb.set_trace()
-            velocity_factor = 1 if not self.velocity_control else actions[str(i)][1]
-            new_coords = self.evolution2(actions[str(i)][0], state.pursuer_vel, state.prey_coords, pred_pos, velocity_factor)
-            new_predator_coords.append(new_coords)
-
-        return PPState(tuple(new_predator_coords), prev_predator, new_prey_coords, prev_prey, state.pursuer_vel)
-
-    def _get_obs(self, state : PPState) -> Dict[M.AgentID, PPObs]:
-        return self.get_observation(state)
-    
-    def _get_rewards(self, state : PPState):
-        return self.check_conditions(state)       
-        
-
-
-    def engagmment(self, agent_i : Position, agent_j : Position, dist_factor : float):
-        dist = np.linalg.norm([agent_i[0] - agent_j[0], agent_i[1] - agent_j[1]])
+    def engagmment(self, agent_i : Position, agent_j : Position, dist_factor : float) -> Tuple[Tuple[float, ...], bool]:
+        dist = CircularContinousWorld.euclidean_dist(agent_i, agent_j)
 
         yaw = agent_i[2]
 
@@ -384,50 +383,16 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         T_p = R.dot(T_p)
         alpha = math.atan2(T_p[1], T_p[0])
 
+        if dist > self.observation_limit:
+            return tuple([-1] * 5), False
+
         return (
             alpha,
             Los_angle,
             dist / dist_factor,
             T_p[0] / dist_factor,
             T_p[1] / dist_factor,
-        )
-
-        
-    def evolution2(self, omega, velocity, target_pos : Position, predator_pos: Position, velocity_factor=1) -> Position:
-
-        # self.dist_prev = self.dist
-        dist = np.linalg.norm(
-            [target_pos[0] - predator_pos[0], target_pos[1] - predator_pos[1]]
-        )  # distance to target
-        
-        x,y,yaw = predator_pos
-
-        """Update states"""
-        r_max = self.r_arena
-        # self.x_prev = self.x  # store previous states
-        # self.y_prev = self.y
-        yaw += omega
-
-        yaw = yaw % (2 * math.pi)  # To avoid bigger thatn 360 degrees
-
-        if yaw > (math.pi):
-            yaw = yaw - 2 * math.pi
-        else:
-            yaw = yaw
-
-        x += velocity * math.cos(yaw) * velocity_factor
-        y += velocity * math.sin(yaw) * velocity_factor
-
-        """ Virtual limits """
-        # Calculating polar coordinates
-        r = np.linalg.norm([x,y])
-        gamma = math.atan2(y,x)
-        # Virtual barriere:
-        if r > r_max:
-            x = r_max * math.cos(gamma)
-            y = r_max * math.sin(gamma)
-
-        return (x,y,yaw)
+        ), True
 
     def get_closest(self, state : PPState) -> int:
         min_dist, min_index = None, None
@@ -443,7 +408,6 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         return min_index
 
     def get_unit_vectors(self, state : PPState) -> List[List[float]]:
-
         unit = []
         for p in state.predator_coords:
             dist = np.linalg.norm([p[0] - state.prey_coords[0], p[1] - state.prey_coords[1]])
@@ -486,12 +450,9 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             final_vector = self.scale_vector(vector, scale, final_vector)
 
         # Find closest point !!!! then put it in to the vectorial sum
-
         r_wall = self.r_arena
-        # r = numpy.linalg.norm([self.y, self.x])
         gamma = math.atan2(y, x)
 
-        # if r > r_wall*0.0:
         virtual_wall = [r_wall * math.cos(gamma), r_wall * math.sin(gamma)]
         vector = virtual_wall - xy_pos
         final_vector = self.scale_vector(vector, scale, final_vector, 0.5 * n_pursuer)
@@ -518,34 +479,5 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         if self._rng is None:
             self._rng, seed = seeding.std_random()
         return self._rng
-
-import random
-class PPWorld(ContinousWorld):
-    """A grid for the Predator-Prey Problem."""
-
-    def __init__(
-        self,
-        grid_size: int,
-        block_coords: Optional[List[Object]],
-        predator_start_coords: Optional[List[Position]] = None,
-        prey_start_coords: Optional[List[Position]] = None,
-        predator_angles: Optional[List[float]] = None,
-    ):
-        assert grid_size >= 3
-        super().__init__(grid_size, grid_size, block_coords)
-        self.size = grid_size
-        # predators start in corners or half-way along a side
-        if predator_start_coords is None:
-            predator_start_coords_ : List[Tuple[float, float]] = list(
-                (float(c[0]), float(c[1]))  # type: ignore
-                for c in product([0, grid_size // 2, grid_size - 1], repeat=2)
-                if c[0] in (0, grid_size - 1) or c[1] in (0, grid_size - 1)
-            )
-            predator_angles = [random.random() * math.pi for _ in range(len(predator_start_coords_))]
-
-            predator_start_coords = [x + (y,) for x,y in zip(predator_start_coords_, predator_angles)]
-
-        self.predator_start_coords = predator_start_coords
-        self.prey_start_coords = prey_start_coords
     
-
+    

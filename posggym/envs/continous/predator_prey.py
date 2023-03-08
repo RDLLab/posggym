@@ -327,8 +327,6 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         obs = self._get_obs(state, next_state)
         rewards = self._get_rewards(state, next_state)
 
-        print(rewards)
-
         all_done = all(next_state.prey_caught)
         truncated = {i: False for i in self.possible_agents}
         terminated = {i: all_done for i in self.possible_agents}
