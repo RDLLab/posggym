@@ -17,12 +17,19 @@ Initializing environments is very easy in POSGGym and can be done via the ``make
 
 ```python
 import posggym
-env = posggym.make('PursuitEvasion-8x8-v0')
+env = posggym.make('PursuitEvasion-v0')
 ```
 
 This will return an ``Env`` for users to interact with. To see all environments you can create, use ``posggym.pprint_registry()``.``make`` includes a number of additional parameters to adding wrappers, specifying keywords to the environment and more.
 
-Furthermore, most environments included in POSGGym can be initialized with different parameters. You can initialize environments with custom parameters either by passing them as keyword arguments to ``make``, or alternatively by loading the environment class directly (similar to PettingZoo).
+Furthermore, most environments included in POSGGym can be initialized with different parameters. You can initialize environments with custom parameters either by passing them as keyword arguments to ``make``, or alternatively by loading the environment class directly (similar to PettingZoo). To see the list of available parameters for a given environment check out it's documentation in the *environments* section of this documentation (e.g. for the [PursuitEvasion](/environments/grid_world/pursuit_evasion) environment) .
+
+As an example, we can initialize the `PursuitEvasion-v0` environment using the smaller 8-by-8 grid, instead of the default 16-by-16 grid, and reduce the max episode steps to 50, by using the following:
+
+```python
+import posggym
+env = posggym.make('PursuitEvasion-v0', grid="8x8", max_episode_steps=50)
+```
 
 ## Interacting with the Environment
 
@@ -32,7 +39,7 @@ The loop is implemented in posggym using the following code:
 
 ```python
 import posggym
-env = posggym.make("PursuitEvasion-8x8-v0", render_mode="human")
+env = posggym.make("PursuitEvasion-v0", render_mode="human")
 observations, infos = env.reset()
 
 for _ in range(300):
@@ -86,7 +93,7 @@ We can recreate the agent-environment interaction loop using ``POSGModel`` as fo
 ```python
 import posggym
 
-env = posggym.make("PursuitEvation-8x8-v0")
+env = posggym.make("PursuitEvation-v0")
 model = env.model
 
 model.seed(seed=42)
@@ -117,12 +124,12 @@ In order to wrap an environment, you must first initialize a base environment. T
 ```python
 >>> import posggym
 >>> from posggym.wrappers import FlattenObservation
->>> base_env = posggym.make("PursuitEvasion-8x8-v0")
+>>> base_env = posggym.make("PursuitEvasion-v0")
 >>> base_env.observation_spaces['0']
-Tuple(Tuple(Discrete(2), Discrete(2), Discrete(2), Discrete(2), Discrete(2), Discrete(2)), Tuple(Discrete(8), Discrete(8)), Tuple(Discrete(8), Discrete(8)), Tuple(Discrete(8), Discrete(8)))
+Tuple(Tuple(Discrete(2), Discrete(2), Discrete(2), Discrete(2), Discrete(2), Discrete(2)), Tuple(Discrete(16), Discrete(16)), Tuple(Discrete(16), Discrete(16)), Tuple(Discrete(16), Discrete(16)))
 >>> wrapped_env = FlattenObservation(base_env)
 >>> wrapped_env.observation_spaces['0']
-Box(0, 1, (60,), int64)
+Box(0, 1, (108,), int64)
 ```
 
 For a full list of implemented wrappers in POSGGym, see [wrappers](/api/wrappers). This includes wrappers for converting a POSGGym environment into PettingZoo and Rllib environments.
@@ -131,9 +138,11 @@ If you have a wrapped environment, and you want to get the unwrapped environment
 
 ```python
 >>> wrapped_env
-<FlattenObservation<TimeLimit<OrderEnforcing<PassiveEnvChecker<PursuitEvasionEnv<PursuitEvasion-8x8-v0>>>>>>
+<FlattenObservation<TimeLimit<OrderEnforcing<PassiveEnvChecker<PursuitEvasionEnv<PursuitEvasion-v0>>>>>>
+>>> wrapped_env.env
+<TimeLimit<OrderEnforcing<PassiveEnvChecker<PursuitEvasionEnv<PursuitEvasion-v0>>>>>
 >>> wrapped_env.unwrapped
-<posggym.envs.grid_world.pursuit_evasion.PursuitEvasionEnv object at 0x7ff29cb5bc40>
+<posggym.envs.grid_world.pursuit_evasion.PursuitEvasionEnv object at 0x7f4a94086d90>
 ```
 
 > **_NOTE:_**  For compatibility purposed, the PettingZoo (`posggym.wrappers.petting_zoo.PettingZoo`) and Rllib (`posggym.wrappers.rllib_multi_agent_env.RllibMultiAgentEnv`) wrappers, `wrapped_env.unwrapped` returns will return pettingzoo and rllib Env classes, rather than the underlying ``posggym.Env`` class. The underlying env class can be accessed using `wrapped_env.unwrapped.env`.

@@ -13,7 +13,9 @@ from posggym.wrappers import FlattenObservation
 
 
 def test_flatten_observation():
-    env = posggym.make("Driving-7x7RoundAbout-n2-v0", disable_env_checker=True)
+    env = posggym.make(
+        "Driving-v0", disable_env_checker=True, num_agents=2, grid="7x7RoundAbout"
+    )
     wrapped_env = FlattenObservation(env)
 
     obs, info = env.reset()

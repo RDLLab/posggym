@@ -26,7 +26,7 @@ POSGGym is directly inspired by and adapted from the [Gymnasium (formerly Open A
 ```{code-block} python
 import posggym
 
-env = posggym.make("TwoPaths-7x7-v0")
+env = posggym.make("PredatorPrey-v0")
 
 observations, info = env.reset(seed=42)
 
@@ -45,7 +45,7 @@ env.close()
 ```{code-block} python
 import posggym
 
-env = posggym.make("TwoPaths-7x7-v0")
+env = posggym.make("PredatorPrey-v0")
 model = env.model
 
 model.seed(seed=42)

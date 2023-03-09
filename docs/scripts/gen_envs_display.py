@@ -24,6 +24,7 @@ all_envs = [
         "id": "grid_world",
         "list": [
             "driving",
+            "driving_gen",
             "level_based_foraging",
             "predator_prey",
             "pursuit_evasion",

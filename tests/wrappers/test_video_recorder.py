@@ -49,9 +49,11 @@ class UnrecordableEnv(posggym.Env):
 
 def test_record_simple():
     env = posggym.make(
-        "Driving-7x7RoundAbout-n2-v0",
-        render_mode="rgb_array",
+        "Driving-v0",
         disable_env_checker=True,
+        render_mode="rgb_array",
+        num_agents=2,
+        grid="7x7RoundAbout",
     )
     rec = VideoRecorder(env)
     env.reset()

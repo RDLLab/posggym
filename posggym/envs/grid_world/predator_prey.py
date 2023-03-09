@@ -1,16 +1,4 @@
-"""The Predator-Prey Grid World Environment.
-
-A co-operative 2D grid world problem involving multiple predator agents working together
-to catch prey agents in the environment.
-
-Reference
----------
-- Ming Tan. 1993. Multi-Agent Reinforcement Learning: Independent vs. Cooperative Agents
-  In Proceedings of the Tenth International Conference on Machine Learning. 330–337.
-- J. Z. Leibo, V. F. Zambaldi, M. Lanctot, J. Marecki, and T. Graepel. 2017. Multi-Agent
-  Reinforcement Learning in Sequential Social Dilemmas. In AAMAS, Vol. 16. ACM, 464–473
-
-"""
+"""The Predator-Prey Grid World Environment."""
 import math
 from itertools import product
 from os import path
@@ -71,52 +59,49 @@ class PPEnv(DefaultEnv[PPState, PPObs, PPAction]):
     A co-operative 2D grid world problem involving multiple predator agents
     working together to catch prey agent/s in the environment.
 
-    Agents
-    ------
-    Varied number
+    Possible Agents
+    ---------------
+    From two to eight agents, with all agents always active.
 
-    State
-    -----
+    State Space
+    -----------
     Each state consists of:
 
-    1. tuple of the (x, y) position of all predators
-    2. tuple of the (x, y) position of all preys
-    3. tuple of whether each prey has been caught or not (0=no, 1=yes)
+    1. tuple of the `(x, y)` position of all predators
+    2. tuple of the `(x, y)` position of all preys
+    3. tuple of whether each prey has been caught or not (`0=no`, `1=yes`)
 
-    For the coordinate x=column, y=row, with the origin (0, 0) at the
-    top-left square of the grid.
+    For the coordinate `x`=column, `y`=row, with the origin (0, 0) at the top-left
+    square of the grid.
 
-    Actions
+    Action Space
+    ------------
+    Each agent has 5 actions: `DO_NOTHING=0`, `UP=1`, `DOWN=2`, `LEFT=3`, `RIGHT=4`
+
+    Observation Space
+    -----------------
+    Each agent observes the contents of cells in a local area aroun the agent. The size
+    of the local area observed is controlled by the `obs_dims` parameter which specifies
+    how many cells in each direction is observed (the default value is `2`, which means
+    the agent observes a 5x5 area). For each observed cell the agent receives one of
+    of four values depending on the contents of the cell: `EMPTY=0`, `WALL=1`,
+    `PREDATOR=2`, `PREY=3`.
+
+    Rewards
     -------
-    Each agent has 5 actions: DO_NOTHING=0, UP=1, DOWN=2, LEFT=3, RIGHT=4
-
-    Observation
-    -----------
-    Each agent observes the contents of local cells. The size of the
-    local area observed is controlled by the `obs_dims` parameter. For each
-    cell in the observed are the agent observes whether they are one of four
-    things: EMPTY=0, WALL=1, PREDATOR=2, PREY=3.
-
-    Reward
-    ------
     There are two modes of play:
 
-    1. Fully cooperative: All predators share a reward and each agent receives
-    a reward of 1.0 / `num_prey` for each prey capture, independent of which
-    predator agent/s were responsible for the capture.
+    1. *Fully cooperative*: All predators share a reward and each agent receives a
+    reward of `1.0 / num_prey` for each prey capture, independent of which predator
+    agent/s were responsible for the capture.
+    2. *Mixed cooperative*: Predators only receive a reward if they were part of the
+    prey capture, receiving `1.0 / num_prey` for each prey capture they were apart of.
 
-    2. Mixed cooperative: Predators only receive a reward if they were part
-    of the prey capture, receiving 1.0 / `num_prey`.
-
-    In both modes prey can only been captured when at least `prey_strength`
-    predators are in adjacent cells,
-    where 1 <= `prey_strength` <= `num_predators`.
-
-    Transition Dynamics
-    -------------------
-    Actions of the predator agents are deterministic and consist of moving in
-    to the adjacent cell in each of the four cardinal directions. If two or
-    more predators attempt to move into the same cell then no agent moves.
+    Dynamics
+    --------
+    Actions of the predator agents are deterministic and consist of moving to the
+    adjacent cell in each of the four cardinal directions. If two or more predators
+    attempt to move into the same cell then no agent moves.
 
     Prey move according to the following rules (in order of priority):
 
@@ -125,18 +110,80 @@ class PPEnv(DefaultEnv[PPState, PPObs, PPAction]):
     3. else move randomly
 
     Prey always move first and predators and prey cannot occupy the same cell.
-    The only exception being if a prey has been caught their final coord is
-    recorded in the state but predator and prey agents will be able to move
-    into the final coord.
+    The only exception being if a prey has been caught their final coordinate is
+    recorded in the state but predator and still alive prey will be able to move into
+    the final coordinate of caught prey.
 
-    Episodes ends when all prey have been captured or the episode step limit is
-    reached.
+    Prey are captured when at least `prey_strength` predators are in adjacent cells,
+    where `1 <= prey_strength <= min(4, num_predators)`.
 
-    Initial Conditions
-    ------------------
+    Starting State
+    --------------
     Predators start from random separate locations along the edge of the grid
     (either in a corner, or half-way along a side), while prey start together
     in the middle.
+
+    Episodes End
+    ------------
+    Episodes ends when all prey have been captured. By default a `max_episode_steps`
+    limit of `50` steps is also set. This may need to be adjusted when using larger
+    grids (this can be done by manually specifying a value for `max_episode_steps` when
+    creating the environment with `posggym.make`).
+
+    Arguments
+    ---------
+
+    - `grid` - the grid layout to use. This can either be a string specifying one of
+         the supported grids, or a custom :class:`PPGrid` object (default = `"10x10"`).
+    - `num_predators` - the number of predator (and thus controlled agents)
+        (default = `2`).
+    - `num_prey` - the number of prey (default = `3`)
+    - `cooperative` - whether agents share all rewards or only get rewards for prey they
+        are involved in capturing (default = 'True`)
+    - `prey_strength` - how many predators are required to capture each prey, minimum is
+        `1` and maximum is `min(4, num_predators)`. If `None` this is set to
+        `min(4, num_predators)` (default = 'None`)
+    - `obs_dim` - the local observation dimensions, specifying how many cells in each
+        direction each predator and prey agent observes (default = `2`, resulting in
+        the agent observing a 5x5 area)
+
+    Available variants
+    ------------------
+
+    The PredatorPrey environment comes with a number of pre-built grid layouts which can
+    be passed as an argument to `posggym.make`, to create different grids. All layouts
+    support 2 to 8 agents.
+
+    | Grid name         | Grid size |
+    |-------------------|-----------|
+    | `5x5`             | 5x5       |
+    | `5x5Blocks`       | 5x5       |
+    | `10x10`           | 10x10     |
+    | `10x10Blocks`     | 10x10     |
+    | `15x15`           | 15x15     |
+    | `15x15Blocks`     | 15x15     |
+    | `20x20`           | 20x20     |
+    | `20x20Blocks`     | 20x20     |
+
+
+    For example to use the Predator Prey environment with the `15x15Blocks` grid, 4
+    predators, 4 prey, and episode step limit of 100, and the default values for the
+    other parameters (`cooperative`, `obs_dim`, `prey_strength`) you would use:
+
+    ```python
+    import posggym
+    env = posgggym.make(
+        'PredatorPrey-v0',
+        max_episode_steps=100,
+        grid="15x15Blocks",
+        num_predators=4,
+        num_prey=4
+    )
+    ```
+
+    Version History
+    ---------------
+    - `v0`: Initial version
 
     Reference
     ---------
@@ -156,14 +203,13 @@ class PPEnv(DefaultEnv[PPState, PPObs, PPAction]):
 
     def __init__(
         self,
-        grid: Union[str, "PPGrid"],
-        num_predators: int,
-        num_prey: int,
-        cooperative: bool,
-        prey_strength: int,
-        obs_dim: int,
+        grid: Union[str, "PPGrid"] = "10x10",
+        num_predators: int = 2,
+        num_prey: int = 3,
+        cooperative: bool = True,
+        prey_strength: Optional[int] = None,
+        obs_dim: int = 2,
         render_mode: Optional[str] = None,
-        **kwargs,
     ):
         super().__init__(
             PPModel(
@@ -173,7 +219,6 @@ class PPEnv(DefaultEnv[PPState, PPObs, PPAction]):
                 cooperative,
                 prey_strength,
                 obs_dim,
-                **kwargs,
             ),
             render_mode=render_mode,
         )
@@ -297,7 +342,8 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         whether environment rewards are fully shared (True) or only awarded to
         capturing predators (i.e. mixed) (False)
     prey_strenth : int
-        the minimum number of predators needed to capture a prey
+        how many predators are required to capture each prey, minimum is `1` and maximum
+        is `min(4, num_predators)`. If `None` this is set to `min(4, num_predators)`
     obs_dims : int
         number of cells in each direction around the agent that the agent can
         observe
@@ -313,12 +359,18 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         num_predators: int,
         num_prey: int,
         cooperative: bool,
-        prey_strength: int,
+        prey_strength: Optional[int],
         obs_dim: int,
-        **kwargs,
     ):
         if isinstance(grid, str):
-            grid = load_grid(grid)
+            assert grid in SUPPORTED_GRIDS, (
+                f"Unsupported grid name '{grid}'. Grid name must be one of: "
+                f"{SUPPORTED_GRIDS.keys()}."
+            )
+            grid = SUPPORTED_GRIDS[grid][0]()
+
+        if prey_strength is None:
+            prey_strength = min(4, num_predators)
 
         assert 1 < num_predators <= 8
         assert num_prey > 0

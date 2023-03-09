@@ -20,30 +20,30 @@ In order to wrap an environment, you must first initialize a base environment. T
 ```python
 >>> import posggym
 >>> from posggym.wrappers import FlattenObservation
->>> base_env = posggym.make("PursuitEvasion-8x8-v0")
+>>> base_env = posggym.make("PursuitEvasion-v0")
 >>> base_env.observation_spaces['0']
-Tuple(Tuple(Discrete(2), Discrete(2), Discrete(2), Discrete(2), Discrete(2), Discrete(2)), Tuple(Discrete(8), Discrete(8)), Tuple(Discrete(8), Discrete(8)), Tuple(Discrete(8), Discrete(8)))
+Tuple(Tuple(Discrete(2), Discrete(2), Discrete(2), Discrete(2), Discrete(2), Discrete(2)), Tuple(Discrete(16), Discrete(16)), Tuple(Discrete(16), Discrete(16)), Tuple(Discrete(16), Discrete(16)))
 >>> wrapped_env = FlattenObservation(base_env)
 >>> wrapped_env.observation_spaces['0']
-Box(0, 1, (60,), int64)
+Box(0, 1, (108,), int64)
 ```
 
 You can access the environment underneath the top-most wrapper by using the `posggym.Wrapper.env` attribute. Since the `posggym.Wrapper` class inherits from `posggym.Env`, the environment from the `posggym.Wrapper.env` attribute can be another wrapper.
 
 ```python
 >>> wrapped_env
-<FlattenObservation<TimeLimit<OrderEnforcing<PassiveEnvChecker<PursuitEvasionEnv<PursuitEvasion-8x8-v0>>>>>>
+<FlattenObservation<TimeLimit<OrderEnforcing<PassiveEnvChecker<PursuitEvasionEnv<PursuitEvasion-v0>>>>>>
 >>> wrapped_env.env
-<TimeLimit<OrderEnforcing<PassiveEnvChecker<PursuitEvasionEnv<PursuitEvasion-8x8-v0>>>>>
+<TimeLimit<OrderEnforcing<PassiveEnvChecker<PursuitEvasionEnv<PursuitEvasion-v0>>>>>
 ```
 
 If you want to get to the environment underneath all of the layers of wrappers, you can use the `posggym.Wrapper.unwrapped` attribute. If the environment is already a bare environment, this will just return the environment itself.
 
 ```python
 >>> wrapped_env
-<FlattenObservation<TimeLimit<OrderEnforcing<PassiveEnvChecker<PursuitEvasionEnv<PursuitEvasion-8x8-v0>>>>>>
+<FlattenObservation<TimeLimit<OrderEnforcing<PassiveEnvChecker<PursuitEvasionEnv<PursuitEvasion-v0>>>>>>
 >>> wrapped_env.unwrapped
-<posggym.envs.grid_world.pursuit_evasion.PursuitEvasionEnv object at 0x7f9713bf4e80>
+<posggym.envs.grid_world.pursuit_evasion.PursuitEvasionEnv object at 0x7f4a94086d90>
 ```
 
 There are three common things you might want a wrapper to do:
