@@ -63,12 +63,9 @@ class GWContinousRender:
         return colors
 
     def render(self, agents: Tuple[Tuple[float, float, float, int], ...], is_holonomic: Optional[List[bool]] = None, sizes: Optional[List[Optional[float]]] = None, ):
-
         scaled_agents = []
         for i, agent in enumerate(agents):
             x, y, angle, color = agent
-            # scaled_x = int((x / self.domain_size) * self.arena_size) + self.arena_x
-            # scaled_y = int((y / self.domain_size) * self.arena_size) + self.arena_y
             center_x = self.arena_x + self.arena_size / 2
             center_y = self.arena_y + self.arena_size / 2
 
@@ -91,7 +88,7 @@ class GWContinousRender:
         # Draw the arena
         if self.arena_type == ArenaTypes.Square:
             arena_rect = pygame.Rect(
-                self.arena_x, self.arena_y, self.arena_size, self.arena_size)
+                self.arena_x - self.arena_size / 2, self.arena_y - self.arena_size / 2, self.arena_size * 2, self.arena_size * 2)
             pygame.draw.rect(self.screen, self.BLACK, arena_rect, width=1)
         else:
             center_x = self.arena_x + self.arena_size / 2

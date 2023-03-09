@@ -28,9 +28,13 @@ import posggym.envs.continous.render as render_lib
 
 import posggym.model as M
 from posggym.core import DefaultEnv
-from posggym.envs.continous.core import ContinousWorld, Object, Position
+from posggym.envs.continous.core import RectangularContinousWorld, Object, Position
 from posggym.utils import seeding
 import math
+
+WALL = 0
+PREDATOR=1
+PREY=2
 
 
 class PPState(NamedTuple):
@@ -184,6 +188,7 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
                     env_name="PredatorPreyContinous",
                     domain_max=self.model.grid.width,
                     num_colors=3,
+                    arena_size=200
                 )
             colored_pred = tuple(t + (0,) for t in self._state.predator_coords)
             colored_prey = tuple(
@@ -230,10 +235,6 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         obs_dim: int,
         **kwargs,
     ):
-        # if isinstance(grid, str):
-        # grid = load_grid("5x5")
-
-        # print(num_predators)
 
         assert 1 < num_predators <= 8
         assert 0 < num_prey
@@ -249,18 +250,21 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         self.prey_strength = prey_strength
         self._per_prey_reward = self.R_MAX / self.num_prey
 
+        self.communication_radius = 1
+
         # if self.grid.prey_start_coords is None:
         center_coords = self.grid.get_unblocked_center_coords(num_prey)
         self.grid.prey_start_coords = center_coords
 
         def _coord_space():
-            return [spaces.Box(low=0, high=self.grid.width), spaces.Box(low=0, high=self.grid.height), spaces.Box(low=0, high=math.pi*2)]
+            return [spaces.Box(low=-1, high=self.grid.width), spaces.Box(low=-1, high=self.grid.height), spaces.Box(low=-1, high=math.pi*2), spaces.Discrete(3)]
 
         def _coord_space2():
-            return spaces.Tuple((spaces.Box(low=0, high=self.grid.width), spaces.Box(low=0, high=self.grid.height), spaces.Box(low=0, high=math.pi*2)))
+            return spaces.Tuple((spaces.Box(low=-1, high=self.grid.width), spaces.Box(low=-1, high=self.grid.height), spaces.Box(low=-1, high=math.pi*2), spaces.Discrete(3)))
 
         self.possible_agents = tuple(
             (str(x) for x in range(self.num_predators)))
+        
         self.state_space = spaces.Tuple(
             (
                 # coords of each agent
@@ -280,8 +284,10 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         }
 
         # Observe everyones location
+        # Apart from your own
         nested_space = [_coord_space()
-                        for _ in range(self.num_predators + self.num_prey)]
+                        for _ in range(self.num_predators + self.num_prey - 1)]
+
         agent_obs = spaces.Tuple(
             tuple([item for sublist in nested_space for item in sublist]))
 
@@ -308,16 +314,24 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
     def sample_initial_state(self) -> PPState:
 
         assert self.grid.prey_start_coords is not None
+        import pdb
 
         predator_coords = [*self.grid.predator_start_coords]
         self.rng.shuffle(predator_coords)
         predator_coords = predator_coords[: self.num_predators]
 
-        prey_coords = set(self.grid.prey_start_coords)
-        prey_coords.difference_update(predator_coords)
-        prey_coords_list = list(prey_coords)
+        prey_coords_list = []
+        for prey in self.grid.prey_start_coords:
+            success = True
+            for predator in predator_coords:
+                if self.grid.agents_collide(prey, predator):
+                    success = False
+                    break
+            if success:
+                prey_coords_list.append(prey)
+
         self.rng.shuffle(prey_coords_list)
-        prey_coords_list = prey_coords_list[: self.num_prey]
+        prey_coords_list = prey_coords_list[:self.num_prey]
 
         prey_caught = (0,) * self.num_prey
 
@@ -380,8 +394,6 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             next_coord = self._move_away_from_predators(
                 prey_coord, state.predator_coords, list(occupied_coords)
             )
-            print(next_coord)
-            print(prey_coord)
             if next_coord:
                 next_prey_coords[i] = next_coord
                 occupied_coords.remove(prey_coord)
@@ -448,18 +460,13 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             if predator_dists[i] == min_predator_dist
         ]
         closest_predator_coord = self.rng.choice(all_closest_predator_coords)
-        # import pdb
-        # pdb.set_trace()
+
         if all(
             abs(a - b) > self.obs_dim
             for a, b in zip(prey_coord[:2], closest_predator_coord[:2])
         ):
-            # closes predator out of obs range
-            # import pdb
-            # pdb.set_trace()
             return None
-        # import pdb
-        # pdb.set_trace()
+
         # move into furthest away free cell, includes current coord
         neighbours = list(
             (self.grid.manhattan_dist(c, closest_predator_coord), c)
@@ -469,9 +476,6 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         neighbours.sort()
         for (d, c) in reversed(neighbours):
             if c == prey_coord or self._coord_available_for_prey(c, occupied_coords):
-                print("c", c)
-                print("prey_coord", prey_coord)
-                # input()
                 return c
 
         raise AssertionError("Something has gone wrong, please investigate.")
@@ -537,8 +541,8 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         potential_next_coords = []
         for i, coord in enumerate(state.predator_coords):
 
-            next_coord = self.grid.get_next_coord(
-                coord, actions[str(i)][0], ignore_blocks=False  # type: ignore
+            next_coord, _ = self.grid._get_next_coord(
+                coord, actions[str(i)][0], velocity=1.0, ignore_blocks=False  # type: ignore
             )
 
             if self.grid.check_collision((coord, self.grid.agent_size)):
@@ -598,16 +602,30 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
     ) -> Tuple[float, ...]:
         obs: List[float] = []
 
-        obs += state.predator_coords[int(agent_id)]
+
+
+        # Each agent observes the contents of local cells. The size of the
+        # local area observed is controlled by the `obs_dims` parameter. For each
+        # cell in the observed are the agent observes whether they are one of four
+        # things: EMPTY=0, WALL=1, PREDATOR=2, PREY=3.
+
+
+        self_pos = state.predator_coords[int(agent_id)]
         for i in range(len(state.predator_coords)):
             if str(i) == agent_id:
                 continue
-            obs += state.predator_coords[i]
-
+            if self.grid.euclidean_dist(self_pos, state.predator_coords[i]) < self.communication_radius:
+                obs += state.predator_coords[i] 
+            else:
+                obs += [-1] * len(state.predator_coords[i])
+            obs += [PREDATOR]
         for i in range(len(state.prey_coords)):
-            # print(state.prey_coords)
-            obs += state.prey_coords[i]
-
+            if self.grid.euclidean_dist(self_pos, state.prey_coords[i]) < self.communication_radius:
+                obs += state.prey_coords[i]
+            else:
+                obs += [-1] * len(state.prey_coords[i])
+            obs += [PREY]
+        
         return tuple(obs)
 
     def _get_rewards(
@@ -639,7 +657,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         return rewards
 
 
-class PPWorld(ContinousWorld):
+class PPWorld(RectangularContinousWorld):
     """A grid for the Predator-Prey Problem."""
 
     def __init__(
