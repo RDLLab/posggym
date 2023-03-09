@@ -43,11 +43,11 @@ posggym.pprint_registry()
 
 ## Environment API
 
-POSGGym models each environment as a python `env` class. Creating environment instances and interacting with them is very simple, and flows almost identically to the Gymnasium user flow. Here's an example using the `TwoPaths-v0` environment:
+POSGGym models each environment as a python `env` class. Creating environment instances and interacting with them is very simple, and flows almost identically to the Gymnasium user flow. Here's an example using the `PredatorPrey-v0` environment:
 
 ```python
 import posggym
-env = posggym.make("TwoPaths-7x7-v0")
+env = posggym.make("PredatorPrey-v0")
 
 observations, info = env.reset(seed=42)
 
@@ -71,7 +71,7 @@ The following is an example of accessing and using the environment model:
 
 ```python
 import posggym
-env = posggym.make("TwoPaths-7x7-v0")
+env = posggym.make("PredatorPrey-v0")
 model = env.model
 
 model.seed(seed=42)
