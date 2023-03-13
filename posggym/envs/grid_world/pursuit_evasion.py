@@ -592,10 +592,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             agent_coord, ignore_blocks=True, include_out_of_bounds=True
         )
         walls: Tuple[int, int, int, int] = tuple(  # type: ignore
-            int(
-                not self.grid.coord_in_bounds(agent_coord)
-                or agent_coord in self.grid.block_coords
-            )
+            int(not self.grid.coord_in_bounds(coord) or coord in self.grid.block_coords)
             for coord in adj_coords
         )
         seen = self._get_opponent_seen(agent_coord, agent_dir, opp_coord)

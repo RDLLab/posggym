@@ -18,8 +18,10 @@ def get_discrete_action(env: posggym.Env, keyboard_agent_ids: List[M.AgentID]):
         if i in keyboard_agent_ids:
             while True:
                 try:
-                    a = input(f"Select action for agent {i} (0, {action_space.n-1}): ")
-                    return int(a)
+                    agent_a = int(
+                        input(f"Select action for agent {i} (0, {action_space.n-1}): ")
+                    )
+                    break
                 except ValueError:
                     print("Invalid selection. Try again.")
         else:
@@ -101,7 +103,7 @@ def run_keyboard_agent(
     episode_steps = []
     episode_rewards: Dict[M.AgentID, List[float]] = {i: [] for i in env.possible_agents}
     for ep_num in range(num_episodes):
-        env.reset()
+        o, _ = env.reset()
 
         if render_mode:
             env.render()
@@ -109,12 +111,16 @@ def run_keyboard_agent(
         if pause_each_step:
             input("Press any key")
 
+        from pprint import pprint
+
         t = 0
         done = False
         rewards = {i: 0.0 for i in env.possible_agents}
         while episode_step_limit is None or t < episode_step_limit:
+            pprint(o)
+
             a = get_action_fn(env, keyboard_agent_ids)
-            _, r, _, _, done, _ = env.step(a)
+            o, r, _, _, done, _ = env.step(a)
             t += 1
 
             for i, r_i in r.items():
