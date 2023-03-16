@@ -109,8 +109,10 @@ class MAPEEnv(DefaultEnv[PPState, PPObs, PPAction]):
             size = [self.model.cap_rad] + [None] * \
                 len(self._state.predator_coords)
 
-            self._renderer.render(
+            self._renderer.clear_render()
+            self._renderer.draw_agents(
                 colored_prey + colored_pred, is_holomic, size)
+            self._renderer.render()
 
 
 class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
@@ -226,7 +228,6 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         return PPState(tuple(predator_coords), tuple(prev_predator_coords), prey_coords, tuple(prev_prey_coords), pursuer_vel)
 
     def sample_initial_obs(self, state: PPState) -> Dict[M.AgentID, PPObs]:
-        # print(state, state)
         return self._get_obs(state)
 
     def step(
@@ -445,7 +446,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         xy_pos = np.array(position[:2])
         x, y = xy_pos
 
-        scale = lambda x: 50000 / (abs(x) + 200) ** 2
+        def scale(x): return 50000 / (abs(x) + 200) ** 2
         n_pursuer = len(state.predator_coords)
         final_vector = (0.0, 0.0)
 

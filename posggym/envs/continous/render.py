@@ -62,17 +62,17 @@ class GWContinousRender:
             b = ((i + 1) * 205) % 255
             colors.append((r, g, b))
         return colors
-    
+
     # https://stackoverflow.com/questions/5389507/iterating-over-every-two-elements-in-a-list
     def pairwise(self, iterable):
         "s -> (s0, s1), (s2, s3), (s4, s5), ..."
         a = iter(iterable)
         return zip(a, a)
 
-    def render_lines(self, lines : Dict[AgentID, Tuple[Union[list, float]]], agents: Tuple[Tuple[float, float, float], ...]):
+    def render_lines(self, lines: Dict[AgentID, Tuple[Union[list, float]]], agents: Tuple[Tuple[float, float, float], ...]):
 
         for index, agent_pos in enumerate(agents):
-            x,y,agent_angle = agent_pos
+            x, y, agent_angle = agent_pos
             current_lines = lines[str(index)]
 
             for index, (type, distance) in enumerate(self.pairwise(current_lines)):
@@ -84,32 +84,13 @@ class GWContinousRender:
                     y + distance * math.sin(angle)
                 )
 
-                # Draw starting on outside of agent
-                start_pos = (
-                    x + 0.5 * math.cos(angle),
-                    y + 0.5 * math.sin(angle)
-                )
-                 
-                print(start_pos, end_pos)
-
-                scaled_start = self.scale(start_pos[0], start_pos[1])
+                scaled_start = self.scale(agent_pos[0], agent_pos[1])
                 scaled_end = self.scale(end_pos[0], end_pos[1])
-                
-                if distance > 0.5:
-                    pygame.draw.line(self.screen, self.colors[type], scaled_start, scaled_end)
 
+                pygame.draw.line(
+                    self.screen, self.colors[type], scaled_start, scaled_end)
 
-        print("update")
-        pygame.event.pump()
-        pygame.display.update()
-        self.clock.tick(1)
-        return None
-
-    def scale(self, x : float, y : float) -> Tuple[float, float]:
-        center_x = self.arena_x + self.arena_size / 2
-
-        center_y = self.arena_y + self.arena_size / 2
-
+    def scale(self, x: float, y: float) -> Tuple[float, float]:
         OldRange = (self.max_domain_size - self.min_domain_size)
         NewRange = self.arena_size * 2
 
@@ -118,33 +99,31 @@ class GWContinousRender:
         scaled_y = int((((y - self.min_domain_size) * NewRange) /
                         OldRange) + (self.arena_y - self.arena_size / 2))
         return (scaled_x, scaled_y)
-    
-    def scale_number(self, num : float) -> float:
+
+    def scale_number(self, num: float) -> float:
         return num / (self.max_domain_size - self.min_domain_size) * self.arena_size * 2
 
-
     def draw_circle_alpha(self, surface, color, center, radius):
-        target_rect = pygame.Rect(center, (0, 0)).inflate((radius * 2, radius * 2))
+        target_rect = pygame.Rect(center, (0, 0)).inflate(
+            (radius * 2, radius * 2))
         shape_surf = pygame.Surface(target_rect.size, pygame.SRCALPHA)
         pygame.draw.circle(shape_surf, color, (radius, radius), radius)
         surface.blit(shape_surf, target_rect)
 
-
-    def render(self, agents: Tuple[Tuple[float, float, float, int], ...], is_holonomic: Optional[List[bool]] = None, sizes: Optional[List[Optional[float]]] = None, ):
+    def draw_agents(self, agents: Tuple[Tuple[float, float, float, int], ...], is_holonomic: Optional[List[bool]] = None, sizes: Optional[List[Optional[float]]] = None, ):
         scaled_agents = []
         if sizes is None:
             sizes = list([None] * len(agents))
 
         for i, agent in enumerate(agents):
             x, y, angle, color = agent
-            
-            scaled_x, scaled_y = self.scale(x,y)
 
-            sizes[i] = self.agent_size if sizes[i] is None else int(self.scale_number(sizes[i]))
-                              
+            scaled_x, scaled_y = self.scale(x, y)
+
+            sizes[i] = self.agent_size if sizes[i] is None else int(
+                self.scale_number(sizes[i]))
+
             scaled_agents.append((scaled_x, scaled_y, angle, color))
-
-        self.screen.fill(self.WHITE)
 
         # Draw the arena
         if self.arena_type == ArenaTypes.Square:
@@ -155,7 +134,7 @@ class GWContinousRender:
             center_x = self.arena_x + self.arena_size / 2
             center_y = self.arena_y + self.arena_size / 2
             pygame.draw.circle(self.screen, self.BLACK,
-                               (center_x, center_y), self.arena_size)
+                               (center_x, center_y), self.arena_size, width=1)
 
         # Draw the agents
         for i, agent in enumerate(scaled_agents):
@@ -167,25 +146,26 @@ class GWContinousRender:
                 pygame.draw.circle(
                     self.screen, self.colors[color % len(self.colors)], (x, y), size)
             else:
-                half_width = size / 2
+                half_width = size
                 tri_points = [
                     (x + half_width * math.cos(angle),
                      y + half_width * math.sin(angle)),
-                    (x + half_width * math.cos(angle + 2*math.pi/3),
-                     y + half_width * math.sin(angle + 2*math.pi/3)),
-                    (x + half_width * math.cos(angle - 2*math.pi/3),
-                     y + half_width * math.sin(angle - 2*math.pi/3))
+                    (x + half_width * 0.5 * math.cos(angle + 2*math.pi/3),
+                     y + half_width * 0.5 * math.sin(angle + 2*math.pi/3)),
+                    (x + half_width * 0.5 * math.cos(angle - 2*math.pi/3),
+                     y + half_width * 0.5 * math.sin(angle - 2*math.pi/3))
                 ]
                 pygame.draw.polygon(
                     self.screen, self.colors[color % len(self.colors)], tri_points)
-                
-                # print(size)
-                self.draw_circle_alpha(self.screen, self.colors[color % len(self.colors)] + (100,), (x, y), size)
 
-        
+                self.draw_circle_alpha(
+                    self.screen, self.colors[color % len(self.colors)] + (100,), (x, y), size)
 
+    def clear_render(self):
+        self.screen.fill(self.WHITE)
 
-        # # Update the screen
-        # print("update screen -> flip")
-        # pygame.display.flip()
-        # print("update screen -> done")
+    def render(self):
+        pygame.event.pump()
+        pygame.display.update()
+        self.clock.tick(30)
+        return None

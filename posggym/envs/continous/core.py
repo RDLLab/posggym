@@ -186,7 +186,6 @@ class ContinousWorld(ABC):
         if closest_agent_pos is None:
             _, closest_agent_distance = self.check_collision_wall(coord, line_distance, angle)
             if closest_agent_distance is not None:
-                print("before return Wall", closest_agent_distance)
 
 
             if closest_agent_distance is not None:
