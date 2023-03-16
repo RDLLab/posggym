@@ -188,16 +188,17 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
                     self.render_mode,
                     env_name="PredatorPreyContinous",
                     domain_max=self.model.grid.width,
-                    num_colors=3,
+                    num_colors=4,
                     arena_size=200
                 )
             colored_pred = tuple(t + (0,) for t in self._state.predator_coords)
             colored_prey = tuple(
                 t + (1 + caught,) for t, caught in zip(self._state.prey_coords, self.state.prey_caught))
 
-            self._renderer.render(colored_prey + colored_pred)
-            # print(self._last_obs)
-            # self._renderer.render_lines(self._last_obs, self._state.predator_coords)
+            sizes = sizes=[self.model.grid.agent_size] * len(colored_prey + colored_pred)
+
+            self._renderer.render(colored_prey + colored_pred, sizes=sizes)
+            self._renderer.render_lines(self._last_obs, self._state.predator_coords)
 
     def close(self) -> None:
         pass
@@ -289,8 +290,8 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         # Observe everyones location
         # Apart from your own
         nested_space = [spaces.Discrete(3), spaces.Box(0, 30)]
-
-        agent_obs = spaces.Tuple(sum([nested_space for i in range(10)], []))
+        self.n_lines = 50
+        agent_obs = spaces.Tuple(sum([nested_space for i in range(self.n_lines)], []))
 
         self.observation_spaces = {
             i: agent_obs
@@ -596,6 +597,8 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             i: self._get_local_obs(i, state, next_state)
             for i in self.possible_agents
         }
+        # print(a)
+        # input()
         return a
 
     def _get_local_obs(
@@ -604,13 +607,13 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
     
         self_pos = state.predator_coords[int(agent_id)]
 
-        n = 10  # number of steps
-        line_dist = 10
+        # n = 50  # number of steps
+        line_dist = 2
         tmp_obs : List[Union[int, float]] = []
-        for i in range(n):
-            angle = 2 * math.pi * i / n
+        for i in range(self.n_lines):
+            angle = 2 * math.pi * i / self.n_lines
             closest_agent_index, closest_agent_distance = self.grid.check_collision_ray(self_pos, line_dist, angle,
-                                                                                        other_agents=(state.predator_coords + state.prey_coords),
+                                                                                        other_agents=(state.predator_coords),
                                                                                         skip_id=int(agent_id))
             if closest_agent_index is None:
                 agent_collision = NONE
@@ -622,7 +625,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
                 agent_collision = PREY 
             tmp_obs.append(agent_collision)
             tmp_obs.append(closest_agent_distance)
-       
+
         return tuple(tmp_obs) 
 
     def _get_rewards(

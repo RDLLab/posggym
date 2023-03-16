@@ -117,39 +117,88 @@ class ContinousWorld(ABC):
         return x_prime, y_prime
 
 
+    def check_circle_line_intersection(self, cx : float, cy : float, r : float, ax : float, ay : float, bx: float, by : float) -> Optional[float]:
+        # https://math.stackexchange.com/questions/275529/check-if-line-intersects-with-circles-perimeter
+        og_start = ax, ay
+        og_end = bx, by
+        # // parameters: ax ay bx by cx cy r
+        ax -= cx
+        ay -= cy
+        bx -= cx
+        by -= cy
+
+        a = (bx - ax)**2 + (by - ay)**2
+        
+        b = 2*(ax*(bx - ax) + ay*(by - ay))
+        c = ax**2 + ay**2 - r**2
+        disc = b**2 - 4*a*c
+
+        
+        if (disc <= 0):
+            print("no coll coz disc")
+            return None
+        
+        sqrtdisc = math.sqrt(disc)
+        t1 = (-b + sqrtdisc)/(2*a)
+        t2 = (-b - sqrtdisc)/(2*a)
+  
+        if (0 < t1 and t1 < 1):
+            # import pdb; pdb.set_trace()
+            intersection_x = ax + t2 * (bx - ax)
+            intersection_y = ay + t2 * (by - ay)
+            distance_to_intersection = math.sqrt((intersection_x - ax)**2 + (intersection_y - ay)**2)
+            return distance_to_intersection
+
+        if (0 < t2 and t2 < 1):
+            # import pdb; pdb.set_trace()
+            # distance_to_intersection = math.sqrt((cx - og_start[0])**2 + (cy - og_start[1])**2)
+            # print("colllision!!")
+            # import pdb
+            # pdb.set_trace()
+            intersection_x = ax + t2 * (bx - ax)
+            intersection_y = ay + t2 * (by - ay)
+            distance_to_intersection = math.sqrt((intersection_x - ax)**2 + (intersection_y - ay)**2)
+            return distance_to_intersection
+
+        print("no colllision???")
+        return None
+
+
     def check_collision_ray(self, coord: Position, line_distance : float, angle: float, other_agents : Tuple[Position, ...], skip_id : Optional[int] = None) -> Tuple[Optional[int], float]:
+        
         closest_agent_pos = None
         closest_agent_distance = float('inf')
         closest_agent_index = None
-        for index, agent_pos in enumerate(other_agents):
+
+        x, y, _ = coord
+
+        for index, (agent_pos) in enumerate(other_agents):
 
             if skip_id is not None and skip_id == index:
                 continue
 
-            dx = agent_pos[0] - coord[0]
-            dy = agent_pos[1] - coord[1]
-            dist = math.sqrt(dx**2 + dy**2) - (self.agent_size + self.agent_size) # subtract sum of radii of the two agents
-            
-            if dist < closest_agent_distance:
-                # Check if the line segment intersects with the other agent
-                agent_center_x, agent_center_y, agent_heading = agent_pos
-                # translate the line segment and agent position to the origin
-                translated_coord = (coord[0] - agent_center_x, coord[1] - agent_center_y)
-                # rotate the line segment and agent to align with the x-axis
-                rotated_coord = self.rotate_point_around_origin(translated_coord, -agent_heading)
-                rotated_line_distance = line_distance * math.cos(angle - agent_heading)
-                if abs(rotated_coord[1]) < self.agent_size + self.agent_size and rotated_coord[0] > 0 and rotated_coord[0] < rotated_line_distance:
-                    closest_agent_distance = dist
-                    closest_agent_pos = agent_pos
-                    closest_agent_index = index
+            other_agent_x, other_agent_y, _ = agent_pos
+
+            end_x = x + line_distance * math.cos(angle)
+            end_y = y + line_distance * math.sin(angle)
+
+            dist = self.check_circle_line_intersection(other_agent_x, other_agent_y, self.agent_size, x,y,end_x, end_y)
+
+            if dist is not None and dist < closest_agent_distance:
+                closest_agent_distance = line_distance
+                closest_agent_pos = agent_pos
+                closest_agent_index = index
+
+
+
+        # if closest_agent_pos is None:
+        #     _, closest_agent_distance = self.check_collision_wall(coord, line_distance, angle)
+
+        #     if closest_agent_distance is not None:
+        #         closest_agent_index = -1
 
         if closest_agent_pos is None:
-            _, closest_agent_distance = self.check_collision_wall(coord, line_distance, angle)
-
-            if closest_agent_distance is not None:
-                closest_agent_index = -1
-        
-        closest_agent_distance = closest_agent_distance or line_distance
+            closest_agent_distance = line_distance
 
         return (closest_agent_index, closest_agent_distance)
 

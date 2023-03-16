@@ -49,6 +49,7 @@ class GWContinousRender:
 
         self.min_domain_size = domain_min
         self.max_domain_size = domain_max
+        self.clock = pygame.time.Clock()
 
         self.colors = self.generate_colors(num_colors)
 
@@ -74,18 +75,26 @@ class GWContinousRender:
             current_lines = lines[str(index)]
 
             for index, (type, distance) in enumerate(self.pairwise(current_lines)):
-                angle = 2 * math.pi * index / len(current_lines)
+                angle = 2 * math.pi * index / (len(current_lines) // 2)
+                # angle += agent_pos[2]
+
                 end_pos = (
-                    agent_pos[0] + distance * math.cos(angle + agent_pos[2]),
-                    agent_pos[1] + distance * math.sin(angle + agent_pos[2])
+                    agent_pos[0] + distance * math.cos(angle),
+                    agent_pos[1] + distance * math.sin(angle)
                 )
+                # print(distance)
+
                 scaled_start = self.scale(agent_pos[0], agent_pos[1])
-                scaled_end = self.scale(*end_pos)
+                scaled_end = self.scale(end_pos[0], end_pos[1])
 
-                pygame.draw.line(self.screen, (255, 255, 255), scaled_start, scaled_end)
+                pygame.draw.line(self.screen, self.colors[type], scaled_start, scaled_end)
 
-        # # Update the screen
-        # pygame.display.flip()
+
+        print("update")
+        pygame.event.pump()
+        pygame.display.update()
+        self.clock.tick(1)
+        return None
 
     def scale(self, x : float, y : float) -> Tuple[float, float]:
         center_x = self.arena_x + self.arena_size / 2
@@ -100,19 +109,22 @@ class GWContinousRender:
         scaled_y = int((((y - self.min_domain_size) * NewRange) /
                         OldRange) + (self.arena_y - self.arena_size / 2))
         return (scaled_x, scaled_y)
+    
+    def scale_number(self, num : float) -> float:
+        return num / (self.max_domain_size - self.min_domain_size) * self.arena_size
         
     def render(self, agents: Tuple[Tuple[float, float, float, int], ...], is_holonomic: Optional[List[bool]] = None, sizes: Optional[List[Optional[float]]] = None, ):
         scaled_agents = []
+        if sizes is None:
+            sizes = list([None] * len(agents))
+
         for i, agent in enumerate(agents):
             x, y, angle, color = agent
             
             scaled_x, scaled_y = self.scale(x,y)
 
-            if sizes is not None:
-                if sizes[i] is not None:
-                    sizes[i] = int(
-                        (sizes[i]) / (self.max_domain_size - self.min_domain_size) * self.arena_size)
-
+            sizes[i] = self.agent_size if sizes[i] is None else int(self.scale_number(sizes[i]))
+                              
             scaled_agents.append((scaled_x, scaled_y, angle, color))
 
         self.screen.fill(self.WHITE)
@@ -132,24 +144,33 @@ class GWContinousRender:
         for i, agent in enumerate(scaled_agents):
             x, y, angle, color = agent
 
-            size = self.agent_size if sizes is None else (
-                sizes[i] or self.agent_size)
+            size = sizes[i]
 
             if is_holonomic is not None and is_holonomic[i]:
                 pygame.draw.circle(
                     self.screen, self.colors[color % len(self.colors)], (x, y), size)
             else:
-                half_width = size / 2
-                tri_points = [
-                    (x + half_width * math.cos(angle),
-                     y + half_width * math.sin(angle)),
-                    (x + half_width * math.cos(angle + 2*math.pi/3),
-                     y + half_width * math.sin(angle + 2*math.pi/3)),
-                    (x + half_width * math.cos(angle - 2*math.pi/3),
-                     y + half_width * math.sin(angle - 2*math.pi/3))
-                ]
-                pygame.draw.polygon(
-                    self.screen, self.colors[color % len(self.colors)], tri_points)
+                # half_width = size / 2
+                # tri_points = [
+                #     (x + half_width * math.cos(angle),
+                #      y + half_width * math.sin(angle)),
+                #     (x + half_width * math.cos(angle + 2*math.pi/3),
+                #      y + half_width * math.sin(angle + 2*math.pi/3)),
+                #     (x + half_width * math.cos(angle - 2*math.pi/3),
+                #      y + half_width * math.sin(angle - 2*math.pi/3))
+                # ]
+                # pygame.draw.polygon(
+                #     self.screen, self.colors[color % len(self.colors)], tri_points)
+                
+                print(size)
 
-        # Update the screen
-        pygame.display.flip()
+                pygame.draw.circle(
+                    self.screen, self.colors[color % len(self.colors)], (x, y), size)
+
+        
+
+
+        # # Update the screen
+        # print("update screen -> flip")
+        # pygame.display.flip()
+        # print("update screen -> done")
