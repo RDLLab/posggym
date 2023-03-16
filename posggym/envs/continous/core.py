@@ -61,6 +61,10 @@ class ContinousWorld(ABC):
     def clamp_coords(self, coord: Position) -> Position:
         """Return whether a coordinate is inside the grid or not."""
         pass
+    
+    @abstractmethod
+    def check_collision_wall(self, coord: Position, line_distance: float, angle: float) -> Tuple[bool, Optional[float]]:
+        pass
 
     def get_next_coord(
         self, coord: Position, delta_yaw: float, ignore_blocks: bool = False
@@ -96,6 +100,60 @@ class ContinousWorld(ABC):
 
     def clamp(self, min_bound, max_bound, value):
         return min(max_bound, max(value, min_bound))
+    
+    def rotate_point_around_origin(self, point: Tuple[float, float], angle: float) -> Tuple[float, float]:
+        """Rotate a point around the origin by a given angle in radians.
+
+        Args:
+            point (Tuple[float, float]): The (x, y) coordinates of the point to rotate.
+            angle (float): The angle in radians by which to rotate the point.
+
+        Returns:
+            Tuple[float, float]: The rotated (x', y') coordinates of the point.
+        """
+        x, y = point
+        x_prime = x * math.cos(angle) - y * math.sin(angle)
+        y_prime = x * math.sin(angle) + y * math.cos(angle)
+        return x_prime, y_prime
+
+
+    def check_collision_ray(self, coord: Position, line_distance : float, angle: float, other_agents : Tuple[Position, ...], skip_id : Optional[int] = None) -> Tuple[Optional[int], float]:
+        closest_agent_pos = None
+        closest_agent_distance = float('inf')
+        closest_agent_index = None
+        for index, agent_pos in enumerate(other_agents):
+
+            if skip_id is not None and skip_id == index:
+                continue
+
+            dx = agent_pos[0] - coord[0]
+            dy = agent_pos[1] - coord[1]
+            dist = math.sqrt(dx**2 + dy**2) - (self.agent_size + self.agent_size) # subtract sum of radii of the two agents
+            
+            if dist < closest_agent_distance:
+                # Check if the line segment intersects with the other agent
+                agent_center_x, agent_center_y, agent_heading = agent_pos
+                # translate the line segment and agent position to the origin
+                translated_coord = (coord[0] - agent_center_x, coord[1] - agent_center_y)
+                # rotate the line segment and agent to align with the x-axis
+                rotated_coord = self.rotate_point_around_origin(translated_coord, -agent_heading)
+                rotated_line_distance = line_distance * math.cos(angle - agent_heading)
+                if abs(rotated_coord[1]) < self.agent_size + self.agent_size and rotated_coord[0] > 0 and rotated_coord[0] < rotated_line_distance:
+                    closest_agent_distance = dist
+                    closest_agent_pos = agent_pos
+                    closest_agent_index = index
+
+        if closest_agent_pos is None:
+            _, closest_agent_distance = self.check_collision_wall(coord, line_distance, angle)
+
+            if closest_agent_distance is not None:
+                closest_agent_index = -1
+        
+        closest_agent_distance = closest_agent_distance or line_distance
+
+        return (closest_agent_index, closest_agent_distance)
+
+        
 
     def get_neighbours(self, coord: Position, num_samples=20, ignore_blocks=False, include_out_of_bounds=False):
         points = [i * (2 * math.pi) / (num_samples - 1)
@@ -152,6 +210,51 @@ class CircularContinousWorld(ContinousWorld):
         dist_from_center = ContinousWorld.euclidean_dist(coord, center)
         return dist_from_center < self.radius
 
+    def check_collision_wall(self, coord: Position, line_distance: float, angle: float) -> Tuple[bool, Optional[float]]:
+        """Checks if a line starting at position 'coord' and traveling at angle 'angle' relative to the agent's angle
+        collides with the circle.
+        
+        Args:
+            coord (Position): The starting position of the line.
+            line_distance (float): The maximum distance the line should travel.
+            angle (float): The angle at which the line is traveling relative to the agent's angle.
+            
+        Returns:
+            A tuple containing a boolean value indicating whether there was a collision or not, and the distance to the
+            wall if there was a collision, or None otherwise.
+        """
+        x, y, agent_angle = coord
+        line_angle = agent_angle + angle
+
+        end_x = x + line_distance * math.cos(line_angle)
+        end_y = y + line_distance * math.sin(line_angle)
+
+        # Check whether the line intersects with the circular boundary
+        dx = end_x - x
+        dy = end_y - y
+        a = dx**2 + dy**2
+        b = 2 * (dx*(x) + dy*(y))
+        c = x**2 + y**2 - self.radius**2
+        disc = b**2 - 4*a*c
+
+        if disc < 0:
+            return False, None
+        else:
+            sqrt_disc = math.sqrt(disc)
+            t1 = (-b - sqrt_disc) / (2*a)
+            t2 = (-b + sqrt_disc) / (2*a)
+
+            if 0 <= t1 <= 1:
+                x1 = x + t1*dx
+                y1 = y + t1*dy
+                return True, math.sqrt((x1 - x)**2 + (y1 - y)**2)
+            elif 0 <= t2 <= 1:
+                x1 = x + t2*dx
+                y1 = y + t2*dy
+                return True, math.sqrt((x1 - x)**2 + (y1 - y)**2)
+            else:
+                return False, None
+
     def clamp_coords(self, coord: Position) -> Position:
         x, y, yaw = coord
         # Calculating polar coordinates
@@ -175,12 +278,65 @@ class RectangularContinousWorld(ContinousWorld):
         super().__init__(world_type=ArenaTypes.Square, block_coords=block_coords)
         self.height = height
         self.width = width
+        self.eps = 10e-3
 
     def coord_in_bounds(self, coord: Position) -> bool:
         return 0 <= coord[0] < self.width and 0 <= coord[1] < self.height
 
     def clamp_coords(self, coord: Position) -> Position:
         x, y, yaw = coord
-        x = self.clamp(0, self.width, x)
-        y = self.clamp(0, self.height, y)
+        x = self.clamp(0 + self.eps, self.width - self.eps, x)
+        y = self.clamp(0 + self.eps, self.height - self.eps, y)
         return (x, y, yaw)
+
+
+    def check_collision_wall(self, coord: Position, line_distance: float, angle: float) -> Tuple[bool, Optional[float]]:
+        """Checks if a line starting at position 'coord' and traveling at angle 'angle' relative to the agent's angle
+        collides with the arena's walls.
+        
+        Args:
+            coord (Position): The starting position of the line.
+            line_distance (float): The maximum distance the line should travel.
+            angle (float): The angle at which the line is traveling relative to the agent's angle.
+            
+        Returns:
+            A tuple containing a boolean value indicating whether there was a collision or not, and the distance to the
+            wall if there was a collision, or None otherwise.
+        """
+
+        x, y, agent_angle = coord
+        line_angle = agent_angle + angle
+        end_x = x + line_distance * math.cos(line_angle)
+        end_y = y + line_distance * math.sin(line_angle)
+
+        # Check whether it intersects with L/R boundary
+        if end_x < 0 or end_x > self.width:
+            if end_x < 0:
+                x1 = 0
+            else:
+                x1 = self.width
+
+            # Compute the y-coordinate where the intersection occurs
+            y1 = (end_y - y) / (end_x - x) * (x1 - x) + y
+
+            if 0 <= y1 <= self.height:
+                # import pdb
+                # pdb.set_trace()
+                return True, math.sqrt((x1 - x) ** 2 + (y1 - y) ** 2)
+
+        # Check whether it intersects with Top/Bottom boundary            
+        if end_y < 0 or end_y > self.height:
+            if end_y < 0:
+                y1 = 0
+            else:
+                y1 = self.height
+
+            # Compute the x-coordinate where the intersection occurs
+            x1 = (end_x - x) / (end_y - y) * (y1 - y) + x
+
+            if 0 <= x1 <= self.width:
+                # import pdb
+                # pdb.set_trace()
+                return True, math.sqrt((x1 - x) ** 2 + (y1 - y) ** 2)
+
+        return False, None

@@ -61,21 +61,53 @@ class GWContinousRender:
             b = ((i + 1) * 205) % 255
             colors.append((r, g, b))
         return colors
+    
+    # https://stackoverflow.com/questions/5389507/iterating-over-every-two-elements-in-a-list
+    def pairwise(self, iterable):
+        "s -> (s0, s1), (s2, s3), (s4, s5), ..."
+        a = iter(iterable)
+        return zip(a, a)
 
+    def render_lines(self, lines : Dict[AgentID, Tuple[Union[list, float]]], agents: Tuple[Tuple[float, float, float], ...]):
+
+        for index, agent_pos in enumerate(agents):
+            current_lines = lines[str(index)]
+
+            for index, (type, distance) in enumerate(self.pairwise(current_lines)):
+                angle = 2 * math.pi * index / len(current_lines)
+                end_pos = (
+                    agent_pos[0] + distance * math.cos(angle + agent_pos[2]),
+                    agent_pos[1] + distance * math.sin(angle + agent_pos[2])
+                )
+                scaled_start = self.scale(agent_pos[0], agent_pos[1])
+                scaled_end = self.scale(*end_pos)
+
+                pygame.draw.line(self.screen, (255, 255, 255), scaled_start, scaled_end)
+
+        # # Update the screen
+        # pygame.display.flip()
+
+    def scale(self, x : float, y : float) -> Tuple[float, float]:
+        center_x = self.arena_x + self.arena_size / 2
+
+        center_y = self.arena_y + self.arena_size / 2
+
+        OldRange = (self.max_domain_size - self.min_domain_size)
+        NewRange = self.arena_size * 2
+
+        scaled_x = int((((x - self.min_domain_size) * NewRange) /
+                        OldRange) + (self.arena_x - self.arena_size / 2))
+        scaled_y = int((((y - self.min_domain_size) * NewRange) /
+                        OldRange) + (self.arena_y - self.arena_size / 2))
+        return (scaled_x, scaled_y)
+        
     def render(self, agents: Tuple[Tuple[float, float, float, int], ...], is_holonomic: Optional[List[bool]] = None, sizes: Optional[List[Optional[float]]] = None, ):
         scaled_agents = []
         for i, agent in enumerate(agents):
             x, y, angle, color = agent
-            center_x = self.arena_x + self.arena_size / 2
-            center_y = self.arena_y + self.arena_size / 2
+            
+            scaled_x, scaled_y = self.scale(x,y)
 
-            OldRange = (self.max_domain_size - self.min_domain_size)
-            NewRange = self.arena_size * 2
-
-            scaled_x = int((((x - self.min_domain_size) * NewRange) /
-                           OldRange) + (self.arena_x - self.arena_size / 2))
-            scaled_y = int((((y - self.min_domain_size) * NewRange) /
-                           OldRange) + (self.arena_y - self.arena_size / 2))
             if sizes is not None:
                 if sizes[i] is not None:
                     sizes[i] = int(
