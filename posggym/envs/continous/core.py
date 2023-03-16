@@ -135,7 +135,6 @@ class ContinousWorld(ABC):
 
         
         if (disc <= 0):
-            print("no coll coz disc")
             return None
         
         sqrtdisc = math.sqrt(disc)
@@ -143,24 +142,17 @@ class ContinousWorld(ABC):
         t2 = (-b - sqrtdisc)/(2*a)
   
         if (0 < t1 and t1 < 1):
-            # import pdb; pdb.set_trace()
             intersection_x = ax + t2 * (bx - ax)
             intersection_y = ay + t2 * (by - ay)
             distance_to_intersection = math.sqrt((intersection_x - ax)**2 + (intersection_y - ay)**2)
             return distance_to_intersection
 
         if (0 < t2 and t2 < 1):
-            # import pdb; pdb.set_trace()
-            # distance_to_intersection = math.sqrt((cx - og_start[0])**2 + (cy - og_start[1])**2)
-            # print("colllision!!")
-            # import pdb
-            # pdb.set_trace()
             intersection_x = ax + t2 * (bx - ax)
             intersection_y = ay + t2 * (by - ay)
             distance_to_intersection = math.sqrt((intersection_x - ax)**2 + (intersection_y - ay)**2)
             return distance_to_intersection
 
-        print("no colllision???")
         return None
 
 
@@ -170,7 +162,7 @@ class ContinousWorld(ABC):
         closest_agent_distance = float('inf')
         closest_agent_index = None
 
-        x, y, _ = coord
+        x, y, agent_angle = coord
 
         for index, (agent_pos) in enumerate(other_agents):
 
@@ -179,25 +171,28 @@ class ContinousWorld(ABC):
 
             other_agent_x, other_agent_y, _ = agent_pos
 
-            end_x = x + line_distance * math.cos(angle)
-            end_y = y + line_distance * math.sin(angle)
+            end_x = x + line_distance * math.cos(angle + agent_angle)
+            end_y = y + line_distance * math.sin(angle + agent_angle)
 
             dist = self.check_circle_line_intersection(other_agent_x, other_agent_y, self.agent_size, x,y,end_x, end_y)
 
             if dist is not None and dist < closest_agent_distance:
-                closest_agent_distance = line_distance
+                closest_agent_distance = dist
                 closest_agent_pos = agent_pos
                 closest_agent_index = index
 
 
 
-        # if closest_agent_pos is None:
-        #     _, closest_agent_distance = self.check_collision_wall(coord, line_distance, angle)
-
-        #     if closest_agent_distance is not None:
-        #         closest_agent_index = -1
-
         if closest_agent_pos is None:
+            _, closest_agent_distance = self.check_collision_wall(coord, line_distance, angle)
+            if closest_agent_distance is not None:
+                print("before return Wall", closest_agent_distance)
+
+
+            if closest_agent_distance is not None:
+                closest_agent_index = -1
+
+        if closest_agent_distance is None:
             closest_agent_distance = line_distance
 
         return (closest_agent_index, closest_agent_distance)
@@ -354,7 +349,7 @@ class RectangularContinousWorld(ContinousWorld):
         """
 
         x, y, agent_angle = coord
-        line_angle = agent_angle + angle
+        line_angle = angle + agent_angle
         end_x = x + line_distance * math.cos(line_angle)
         end_y = y + line_distance * math.sin(line_angle)
 
@@ -369,8 +364,9 @@ class RectangularContinousWorld(ContinousWorld):
             y1 = (end_y - y) / (end_x - x) * (x1 - x) + y
 
             if 0 <= y1 <= self.height:
-                # import pdb
-                # pdb.set_trace()
+                # if math.sqrt((x1 - x) ** 2 + (y1 - y) ** 2) > 0.9:
+                    # import pdb
+                    # pdb.set_trace()
                 return True, math.sqrt((x1 - x) ** 2 + (y1 - y) ** 2)
 
         # Check whether it intersects with Top/Bottom boundary            
@@ -384,8 +380,9 @@ class RectangularContinousWorld(ContinousWorld):
             x1 = (end_x - x) / (end_y - y) * (y1 - y) + x
 
             if 0 <= x1 <= self.width:
-                # import pdb
-                # pdb.set_trace()
+                # if math.sqrt((x1 - x) ** 2 + (y1 - y) ** 2) < 0.2:
+                #     import pdb
+                #     pdb.set_trace()
                 return True, math.sqrt((x1 - x) ** 2 + (y1 - y) ** 2)
 
         return False, None

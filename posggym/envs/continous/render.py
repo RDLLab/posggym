@@ -72,22 +72,31 @@ class GWContinousRender:
     def render_lines(self, lines : Dict[AgentID, Tuple[Union[list, float]]], agents: Tuple[Tuple[float, float, float], ...]):
 
         for index, agent_pos in enumerate(agents):
+            x,y,agent_angle = agent_pos
             current_lines = lines[str(index)]
 
             for index, (type, distance) in enumerate(self.pairwise(current_lines)):
                 angle = 2 * math.pi * index / (len(current_lines) // 2)
-                # angle += agent_pos[2]
+                angle += agent_angle
 
                 end_pos = (
-                    agent_pos[0] + distance * math.cos(angle),
-                    agent_pos[1] + distance * math.sin(angle)
+                    x + distance * math.cos(angle),
+                    y + distance * math.sin(angle)
                 )
-                # print(distance)
 
-                scaled_start = self.scale(agent_pos[0], agent_pos[1])
+                # Draw starting on outside of agent
+                start_pos = (
+                    x + 0.5 * math.cos(angle),
+                    y + 0.5 * math.sin(angle)
+                )
+                 
+                print(start_pos, end_pos)
+
+                scaled_start = self.scale(start_pos[0], start_pos[1])
                 scaled_end = self.scale(end_pos[0], end_pos[1])
-
-                pygame.draw.line(self.screen, self.colors[type], scaled_start, scaled_end)
+                
+                if distance > 0.5:
+                    pygame.draw.line(self.screen, self.colors[type], scaled_start, scaled_end)
 
 
         print("update")
@@ -111,8 +120,16 @@ class GWContinousRender:
         return (scaled_x, scaled_y)
     
     def scale_number(self, num : float) -> float:
-        return num / (self.max_domain_size - self.min_domain_size) * self.arena_size
-        
+        return num / (self.max_domain_size - self.min_domain_size) * self.arena_size * 2
+
+
+    def draw_circle_alpha(self, surface, color, center, radius):
+        target_rect = pygame.Rect(center, (0, 0)).inflate((radius * 2, radius * 2))
+        shape_surf = pygame.Surface(target_rect.size, pygame.SRCALPHA)
+        pygame.draw.circle(shape_surf, color, (radius, radius), radius)
+        surface.blit(shape_surf, target_rect)
+
+
     def render(self, agents: Tuple[Tuple[float, float, float, int], ...], is_holonomic: Optional[List[bool]] = None, sizes: Optional[List[Optional[float]]] = None, ):
         scaled_agents = []
         if sizes is None:
@@ -150,22 +167,20 @@ class GWContinousRender:
                 pygame.draw.circle(
                     self.screen, self.colors[color % len(self.colors)], (x, y), size)
             else:
-                # half_width = size / 2
-                # tri_points = [
-                #     (x + half_width * math.cos(angle),
-                #      y + half_width * math.sin(angle)),
-                #     (x + half_width * math.cos(angle + 2*math.pi/3),
-                #      y + half_width * math.sin(angle + 2*math.pi/3)),
-                #     (x + half_width * math.cos(angle - 2*math.pi/3),
-                #      y + half_width * math.sin(angle - 2*math.pi/3))
-                # ]
-                # pygame.draw.polygon(
-                #     self.screen, self.colors[color % len(self.colors)], tri_points)
+                half_width = size / 2
+                tri_points = [
+                    (x + half_width * math.cos(angle),
+                     y + half_width * math.sin(angle)),
+                    (x + half_width * math.cos(angle + 2*math.pi/3),
+                     y + half_width * math.sin(angle + 2*math.pi/3)),
+                    (x + half_width * math.cos(angle - 2*math.pi/3),
+                     y + half_width * math.sin(angle - 2*math.pi/3))
+                ]
+                pygame.draw.polygon(
+                    self.screen, self.colors[color % len(self.colors)], tri_points)
                 
-                print(size)
-
-                pygame.draw.circle(
-                    self.screen, self.colors[color % len(self.colors)], (x, y), size)
+                # print(size)
+                self.draw_circle_alpha(self.screen, self.colors[color % len(self.colors)] + (100,), (x, y), size)
 
         
 

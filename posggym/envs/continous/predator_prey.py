@@ -607,22 +607,23 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
     
         self_pos = state.predator_coords[int(agent_id)]
 
-        # n = 50  # number of steps
-        line_dist = 2
+        line_dist = 1
         tmp_obs : List[Union[int, float]] = []
         for i in range(self.n_lines):
             angle = 2 * math.pi * i / self.n_lines
             closest_agent_index, closest_agent_distance = self.grid.check_collision_ray(self_pos, line_dist, angle,
-                                                                                        other_agents=(state.predator_coords),
+                                                                                        other_agents=(state.predator_coords + state.prey_coords),
                                                                                         skip_id=int(agent_id))
             if closest_agent_index is None:
                 agent_collision = NONE
             elif closest_agent_index == -1:
                 agent_collision = WALL
+                print("propcessing Wall", closest_agent_distance)
             elif closest_agent_index < len(state.predator_coords):
                 agent_collision = PREDATOR
             else:
                 agent_collision = PREY 
+
             tmp_obs.append(agent_collision)
             tmp_obs.append(closest_agent_distance)
 
