@@ -23,6 +23,7 @@ class GWContinousRender:
                  render_mode: str,
                  env_name: str,
                  arena_type: ArenaTypes = ArenaTypes.Square,
+                 render_fps: int = 15,
                  screen_width=640, screen_height=480, arena_size=400, agent_size=20, domain_min=0, domain_max=1,
                  num_colors: int = 10):
         # Initialize Pygame
@@ -38,6 +39,8 @@ class GWContinousRender:
         self.WHITE = (255, 255, 255)
 
         self.arena_type = arena_type
+
+        self.render_fps = render_fps
 
         # Set up the agent size
         self.agent_size = agent_size
@@ -167,5 +170,5 @@ class GWContinousRender:
     def render(self):
         pygame.event.pump()
         pygame.display.update()
-        self.clock.tick(30)
+        self.clock.tick(self.render_fps)
         return None
