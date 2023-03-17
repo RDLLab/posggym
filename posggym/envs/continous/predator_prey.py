@@ -1,7 +1,9 @@
 """The Predator-Prey Grid World Environment.
 
-A co-operative 2D grid world problem involving multiple predator agents working together
+A co-operative 2D continous world problem involving multiple predator agents working together
 to catch prey agents in the environment.
+
+This intends to be an adaptaion of the 2D grid world to a more continous setting 
 
 Reference
 ---------
@@ -31,6 +33,7 @@ from posggym.core import DefaultEnv
 from posggym.envs.continous.core import RectangularContinousWorld, Object, Position
 from posggym.utils import seeding
 import math
+import numpy as np
 
 WALL = 0
 PREDATOR = 1
@@ -47,23 +50,14 @@ class PPState(NamedTuple):
 
 
 # Actions
-PPAction = float
-
-PREY = 0
-PREDATOR = 1
-AGENT_TYPE = [PREDATOR, PREY]
-
-
-# Observations
-# Obs = (adj_obs)
+PPAction = List[float]
 PPObs = Tuple[float, ...]
-# Cell Obs
-
 collision_distance = 1
 
+AGENT_TYPE = [PREDATOR, PREY]
 
 class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
-    """The Predator-Prey Grid World Environment.
+    """The Predator-Prey Continous Environment.
 
     A co-operative 2D grid world problem involving multiple predator agents
     working together to catch prey agent/s in the environment.
@@ -159,6 +153,7 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
         cooperative: bool,
         prey_strength: int,
         obs_dim: int,
+        use_holonomic : bool,
         render_mode: Optional[str] = None,
         **kwargs,
     ):
@@ -170,6 +165,7 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
                 cooperative,
                 prey_strength,
                 obs_dim,
+                use_holonomic,
                 **kwargs,
             ),
             render_mode=render_mode,
@@ -196,14 +192,20 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
             colored_prey = tuple(
                 t + (1 + caught,) for t, caught in zip(self._state.prey_coords, self.state.prey_caught))
 
-            sizes = sizes = [self.model.grid.agent_size] * \
-                len(colored_prey + colored_pred)
+            num_agents = len(colored_prey + colored_pred)
+
+            sizes = sizes = [self.model.grid.agent_size] * num_agents
+                
+            if self.model.use_holonomic_model:
+                holonomic = [True] * num_agents
+            else:
+                holonomic = [False] * num_agents            
 
             self._renderer.clear_render()
             self._renderer.render_lines(
                 self._last_obs, self._state.predator_coords)
             self._renderer.draw_agents(
-                colored_prey + colored_pred, sizes=sizes)
+                colored_prey + colored_pred, sizes=sizes, is_holonomic=holonomic)
             self._renderer.render()
 
     def close(self) -> None:
@@ -243,6 +245,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         cooperative: bool,
         prey_strength: int,
         obs_dim: int,
+        use_holonomic: bool,
         **kwargs,
     ):
 
@@ -252,7 +255,9 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         assert 0 < prey_strength <= min(4, num_predators)
         # assert grid.prey_start_coords is None or len(grid.prey_start_coords) >= num_prey
 
-        self.grid = PPWorld(grid_size=grid_size, block_coords=None)
+        self.use_holonomic_model = use_holonomic
+
+        self.grid = PPWorld(grid_size=grid_size, block_coords=None, use_holonomic_model=self.use_holonomic_model)
         self.obs_dim = obs_dim
         self.num_predators = num_predators
         self.num_prey = num_prey
@@ -290,7 +295,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         )
 
         self.action_spaces = {
-            i: spaces.Box(low=-1.0, high=1.0) for i in self.possible_agents
+            i: spaces.Box(low=np.array([-1.0, -1.0]), high=np.array([1.0, 1.0])) for i in self.possible_agents
         }
 
         # Observe everyones location
@@ -323,7 +328,6 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
     def sample_initial_state(self) -> PPState:
 
         assert self.grid.prey_start_coords is not None
-        import pdb
 
         predator_coords = [*self.grid.predator_start_coords]
         self.rng.shuffle(predator_coords)
@@ -549,7 +553,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
             next_coord, _ = self.grid._get_next_coord(
                 # type: ignore
-                coord, actions[str(i)][0], velocity=1.0, ignore_blocks=False
+                coord, actions[str(i)], ignore_blocks=False
             )
 
             if self.grid.check_collision((coord, self.grid.agent_size)):
@@ -667,14 +671,16 @@ class PPWorld(RectangularContinousWorld):
     def __init__(
         self,
         grid_size: int,
+        use_holonomic_model : bool,
         block_coords: Optional[List[Object]],
         predator_start_coords: Optional[List[Position]] = None,
         prey_start_coords: Optional[List[Position]] = None,
         predator_angles: Optional[List[float]] = None,
     ):
         assert grid_size >= 3
-        super().__init__(grid_size, grid_size, block_coords)
+        super().__init__(grid_size, grid_size, block_coords, use_holonomic_model)
         self.size = grid_size
+        self.use_holonomic_model = use_holonomic_model
         # predators start in corners or half-way along a side
         if predator_start_coords is None:
             predator_start_coords_: List[Tuple[float, float]] = list(
@@ -682,8 +688,11 @@ class PPWorld(RectangularContinousWorld):
                 for c in product([0, grid_size // 2, grid_size - 1], repeat=2)
                 if c[0] in (0, grid_size - 1) or c[1] in (0, grid_size - 1)
             )
-            predator_angles = [
-                random.random() * math.pi for _ in range(len(predator_start_coords_))]
+            if self.use_holonomic_model:
+                predator_angles = [0.0] * len(predator_start_coords_)
+            else:
+                predator_angles = [
+                    random.random() * math.pi for _ in range(len(predator_start_coords_))]
 
             predator_start_coords = [
                 x + (y,) for x, y in zip(predator_start_coords_, predator_angles)]

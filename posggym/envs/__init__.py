@@ -31,7 +31,7 @@ register(
     id="PPContinousEnv-v0",
     entry_point="posggym.envs.continous.predator_prey:PPContinousEnv",
     kwargs={
-        "grid_size": "10",
+        "grid_size": 10,
         "num_predators": 2,
         "num_prey": 3,
         "cooperative": True,

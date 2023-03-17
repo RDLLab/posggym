@@ -36,12 +36,15 @@ class ContinousWorld(ABC):
         self,
         world_type: ArenaTypes,
         agent_size: float = 0.5,
+        use_holonomic_model : bool = True,
         block_coords: Optional[List[Object]] = None,
     ):
         self.agent_size = agent_size
         if block_coords is None:
             block_coords = []
         self.block_coords = block_coords
+
+        self.use_holonomic_model = use_holonomic_model
 
     @staticmethod
     def manhattan_dist(coord1: Position, coord2: Position) -> float:
@@ -70,16 +73,15 @@ class ContinousWorld(ABC):
         self, coord: Position, delta_yaw: float, ignore_blocks: bool = False
     ) -> Position:
         return self._get_next_coord(coord, delta_yaw, ignore_blocks)[0]
+    
+    def _non_holonomic_model(self, coord: Position, action: List[float], ignore_blocks: bool = False):
+        
+        if len(action) == 0:           
+            delta_yaw = action[0]
+            velocity = 0.25
+        else:
+            delta_yaw, velocity = action
 
-    def _get_next_coord(
-        self, coord: Position, delta_yaw: float, velocity: float = 0.25, ignore_blocks: bool = False
-    ) -> Tuple[Position, bool]:
-        """Get next position given loc and movement direction.
-
-        If new position is outside of the grid boundary, or (ignore_blocks is
-        False and new coordinate is a block) then returns the original
-        coordinate.
-        """
         x, y, yaw = coord
 
         new_yaw = yaw + delta_yaw
@@ -97,6 +99,34 @@ class ContinousWorld(ABC):
             return (coord, False)
 
         return (new_coord, True)
+
+    def _holonomic_model(self, coord : Position, action : List[float], ignore_blocks : bool = False) -> Tuple[Position, bool]:
+        x, y, yaw = coord
+        delta_x, delta_y = action
+
+        x += delta_x
+        y += delta_y
+
+        new_coord = self.clamp_coords((x, y, yaw))
+
+        if not ignore_blocks and self.check_collision((new_coord, self.agent_size)):
+            return (coord, False)
+
+        return (new_coord, True)
+    
+    def _get_next_coord(
+        self, coord: Position, action : List[float], ignore_blocks: bool = False
+    ) -> Tuple[Position, bool]:
+        """Get next position given loc and movement direction.
+
+        If new position is outside of the grid boundary, or (ignore_blocks is
+        False and new coordinate is a block) then returns the original
+        coordinate.
+        """
+        if self.use_holonomic_model:
+            return self._holonomic_model(coord, action, ignore_blocks)
+        else:
+            return self._non_holonomic_model(coord, action, ignore_blocks)
 
     def clamp(self, min_bound, max_bound, value):
         return min(max_bound, max(value, min_bound))
@@ -201,8 +231,8 @@ class ContinousWorld(ABC):
                   for i in range(num_samples)]
         output = []
         for yaw in points:
-            new_coords, success = self._get_next_coord(
-                coord, yaw, ignore_blocks=ignore_blocks)
+            new_coords, success = self._non_holonomic_model(
+                coord, [yaw], ignore_blocks=ignore_blocks)
             if success:
                 output.append(new_coords)
 
@@ -226,7 +256,11 @@ class ContinousWorld(ABC):
 
             x = center[0] + distance*math.cos(angle)
             y = center[1] + distance*math.sin(angle)
-            yaw = 2*math.pi*random.random()
+            if self.use_holonomic_model:
+                yaw = 0
+            else:
+                yaw = 2*math.pi*random.random()
+                
             new_coord: Position = (x, y, yaw)
 
             if not self.check_collision((new_coord, self.agent_size)):
