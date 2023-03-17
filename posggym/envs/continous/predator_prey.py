@@ -75,7 +75,7 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
     3. tuple of whether each prey has been caught or not (0=no, 1=yes)
 
     For the coordinate x=column, y=row, with the origin (0, 0) at the
-    top-left square of the grid.
+    top-left square of the world.
 
     Actions
     -------
@@ -83,10 +83,12 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
 
     Observation
     -----------
-    Each agent observes the contents of local cells. The size of the
-    local area observed is controlled by the `obs_dims` parameter. For each
-    cell in the observed are the agent observes whether they are one of four
-    things: EMPTY=0, WALL=1, PREDATOR=2, PREY=3.
+    Each agent observes the contents of local cells. This is achieved by
+    a series of 'n_lines' lines starting at the agent which extend for a distance of
+    'obs_dim'. For each line the agent observes whether they are one of four
+    things: EMPTY=0, WALL=1, PREDATOR=2, PREY=3. They also observe the distance
+    to the object. If the object is empty, the distance will always be equal to
+    'obs_dim'
 
     Reward
     ------
@@ -125,7 +127,7 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
 
     Initial Conditions
     ------------------
-    Predators start from random seperate locations along the edge of the grid
+    Predators start from random seperate locations along the edge of the world
     (either in a corner, or half-way along a side), while prey start together
     in the middle.
 
@@ -147,12 +149,13 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
 
     def __init__(
         self,
-        grid_size: int,
+        grid_size: float,
         num_predators: int,
         num_prey: int,
         cooperative: bool,
         prey_strength: int,
-        obs_dim: int,
+        obs_dim: float,
+        n_lines : int,
         use_holonomic : bool,
         render_mode: Optional[str] = None,
         **kwargs,
@@ -165,6 +168,7 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
                 cooperative,
                 prey_strength,
                 obs_dim,
+                n_lines,
                 use_holonomic,
                 **kwargs,
             ),
@@ -196,10 +200,7 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
 
             sizes = sizes = [self.model.grid.agent_size] * num_agents
                 
-            if self.model.use_holonomic_model:
-                holonomic = [True] * num_agents
-            else:
-                holonomic = [False] * num_agents            
+            holonomic = [self.model.use_holonomic_model] * num_agents
 
             self._renderer.clear_render()
             self._renderer.render_lines(
@@ -217,7 +218,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
     Parameters
     ----------
-    grid_size : int
+    grid_size : float
         the size of the grid (height and width)
     num_predators : int
         the number of predator (and thus controlled agents)
@@ -228,7 +229,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         capturing predators (i.e. mixed) (False)
     prey_strenth : int
         the minimum number of predators needed to capture a prey
-    obs_dims : int
+    obs_dims : float
         number of cells in each direction around the agent that the agent can
         observe
 
@@ -239,12 +240,13 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
     def __init__(
         self,
-        grid_size : int,
+        grid_size : float,
         num_predators: int,
         num_prey: int,
         cooperative: bool,
         prey_strength: int,
-        obs_dim: int,
+        obs_dim: float,
+        n_lines: int,
         use_holonomic: bool,
         **kwargs,
     ):
@@ -301,7 +303,9 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         # Observe everyones location
         # Apart from your own
         nested_space = [spaces.Discrete(3), spaces.Box(0, 30)]
-        self.n_lines = 50
+
+        self.n_lines = n_lines
+
         agent_obs = spaces.Tuple(
             sum([nested_space for i in range(self.n_lines)], []))
 
@@ -614,7 +618,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         self_pos = state.predator_coords[int(agent_id)]
 
-        line_dist = 1
+        line_dist = self.obs_dim
         tmp_obs: List[Union[int, float]] = []
         for i in range(self.n_lines):
             angle = 2 * math.pi * i / self.n_lines
@@ -670,7 +674,7 @@ class PPWorld(RectangularContinousWorld):
 
     def __init__(
         self,
-        grid_size: int,
+        grid_size: float,
         use_holonomic_model : bool,
         block_coords: Optional[List[Object]],
         predator_start_coords: Optional[List[Position]] = None,

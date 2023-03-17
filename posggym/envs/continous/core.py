@@ -76,7 +76,7 @@ class ContinousWorld(ABC):
     
     def _non_holonomic_model(self, coord: Position, action: List[float], ignore_blocks: bool = False):
         
-        if len(action) == 0:           
+        if len(action) == 1:           
             delta_yaw = action[0]
             velocity = 0.25
         else:
@@ -275,8 +275,9 @@ class CircularContinousWorld(ContinousWorld):
         self,
         radius: float,
         block_coords: Optional[List[Object]] = None,
+        use_holonomic_model : bool = True
     ):
-        super().__init__(world_type=ArenaTypes.Circle, block_coords=block_coords)
+        super().__init__(world_type=ArenaTypes.Circle, block_coords=block_coords, use_holonomic_model=use_holonomic_model)
         self.radius = radius
 
     def coord_in_bounds(self, coord: Position) -> bool:
@@ -349,8 +350,9 @@ class RectangularContinousWorld(ContinousWorld):
         width: float,
         height: float,
         block_coords: Optional[List[Object]] = None,
+        use_holonomic_model : bool = True
     ):
-        super().__init__(world_type=ArenaTypes.Square, block_coords=block_coords)
+        super().__init__(world_type=ArenaTypes.Square, block_coords=block_coords, use_holonomic_model=use_holonomic)
         self.height = height
         self.width = width
         self.eps = 10e-3
