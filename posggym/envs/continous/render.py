@@ -113,14 +113,14 @@ class GWContinousRender:
         surface.blit(shape_surf, target_rect)
 
     def draw_blocks(self, blocks: List[Object]):
-        for i, agent in enumerate(blocks):
-            (x, y, _), radius = agent
+        for block in blocks:
+            (x, y, _), radius = block
 
             scaled_x, scaled_y = self.scale(x, y)
 
             radius = self.scale_number(radius)
 
-            pygame.draw.circle(self.screen, self.BLACK, (scaled_x, scaled_y), radius, width=1)
+            pygame.draw.circle(self.screen, self.BLACK, (scaled_x, scaled_y), radius)
 
 
     def draw_agents(self, agents: Tuple[Tuple[float, float, float, int], ...], is_holonomic: Optional[List[bool]] = None, sizes: Optional[List[Optional[float]]] = None, ):
