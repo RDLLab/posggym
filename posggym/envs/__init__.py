@@ -37,6 +37,8 @@ register(
         "cooperative": True,
         "prey_strength": None,
         "obs_dim": 2,
+        "n_lines": 10,
+        "use_holonomic": True
     }
 )
 

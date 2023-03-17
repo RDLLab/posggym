@@ -35,15 +35,14 @@ from posggym.utils import seeding
 import math
 import numpy as np
 
-WALL = 0
-PREDATOR = 1
-PREY = 2
-NONE = 3
+EMPTY = 0
+WALL = 1
+PREDATOR = 2
+PREY = 3
 
 
 class PPState(NamedTuple):
-    """A state in the Predator-Prey Environment."""
-
+    """A state in the Continious Predator-Prey Environment."""
     predator_coords: Tuple[Position, ...]
     prey_coords: Tuple[Position, ...]
     prey_caught: Tuple[int, ...]
@@ -131,6 +130,58 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
     (either in a corner, or half-way along a side), while prey start together
     in the middle.
 
+    Episodes End
+    ------------
+    Episodes ends when all prey have been captured. By default a `max_episode_steps`
+    limit of `50` steps is also set. This may need to be adjusted when using larger
+    grids (this can be done by manually specifying a value for `max_episode_steps` when
+    creating the environment with `posggym.make`).
+
+    Arguments
+    ---------
+
+    - `grid_size` - The world size to use. This must be a number specifying the dimenstion of the world.
+    - `num_predators` - the number of predator (and thus controlled agents)
+        (default = `2`).
+    - `num_prey` - the number of prey (default = `3`)
+    - `cooperative` - whether agents share all rewards or only get rewards for prey they
+        are involved in capturing (default = 'True`)
+    - `prey_strength` - how many predators are required to capture each prey, minimum is
+        `1` and maximum is `min(4, num_predators)`. If `None` this is set to
+        `min(4, num_predators)` (default = 'None`)
+    - `obs_dim` - the local observation dimensions, specifying how many cells in each
+        direction each predator and prey agent observes (default = `2`)
+    - `n_lines` - the number of lines eminating from the agent. The agent will observe
+        at n equidistance intervals over [0,2*pi]. (default = `10`)
+    - `use_holonomic` - the movement model to use. There are two modes - holonomic or
+        non holonmic, with a unicycle model. (default = 'true`). In the `holonomic` model
+        there is two actions, which are the change in x and change in y position. In 
+        the non-holonomic model, there is also two actions, which are the angular and linear
+        velocity. 
+
+    Available variants
+    ------------------
+   
+    For example to use the Continous Predator Prey environment with a `15x15` world, 4
+    predators, 4 prey, and episode step limit of 100, and the default values for the
+    other parameters (`cooperative`, `obs_dim`, `prey_strength`, `n_lines`, `use_holonomic`)
+    you would use:
+
+    ```python
+    import posggym
+    env = posgggym.make(
+        'PPContinousEnv-v0',
+        max_episode_steps=100,
+        grid_size=15,
+        num_predators=4,
+        num_prey=4
+    )
+    ```
+
+    Version History
+    ---------------
+    - `v0`: Initial version
+
     Reference
     ---------
     - Ming Tan. 1993. Multi-Agent Reinforcement Learning: Independent vs. Cooperative
@@ -149,20 +200,20 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
 
     def __init__(
         self,
-        grid_size: float,
-        num_predators: int,
-        num_prey: int,
-        cooperative: bool,
-        prey_strength: int,
-        obs_dim: float,
-        n_lines : int,
-        use_holonomic : bool,
+        grid: Union[str, "PPWorld"] = "10x10",
+        num_predators: int = 2,
+        num_prey: int = 3,
+        cooperative: bool = True,
+        prey_strength: Optional[int] = None,
+        obs_dim: float = 2,
+        n_lines : int = 10,
+        use_holonomic : bool = True,
         render_mode: Optional[str] = None,
         **kwargs,
     ):
         super().__init__(
             PPModel(
-                grid_size,
+                grid,
                 num_predators,
                 num_prey,
                 cooperative,
@@ -207,6 +258,7 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
                 self._last_obs, self._state.predator_coords)
             self._renderer.draw_agents(
                 colored_prey + colored_pred, sizes=sizes, is_holonomic=holonomic)
+            self._renderer.draw_blocks(self.model.grid.block_coords)
             self._renderer.render()
 
     def close(self) -> None:
@@ -240,11 +292,11 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
     def __init__(
         self,
-        grid_size : float,
+        grid: Union[str, "PPWorld"],
         num_predators: int,
         num_prey: int,
         cooperative: bool,
-        prey_strength: int,
+        prey_strength: Optional[int],
         obs_dim: float,
         n_lines: int,
         use_holonomic: bool,
@@ -254,12 +306,25 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         assert 1 < num_predators <= 8
         assert 0 < num_prey
         assert 0 < obs_dim
-        assert 0 < prey_strength <= min(4, num_predators)
         # assert grid.prey_start_coords is None or len(grid.prey_start_coords) >= num_prey
+
+        if prey_strength is None:
+            prey_strength = min(4, num_predators)
+
+        assert 0 < prey_strength <= min(4, num_predators)
+
 
         self.use_holonomic_model = use_holonomic
 
-        self.grid = PPWorld(grid_size=grid_size, block_coords=None, use_holonomic_model=self.use_holonomic_model)
+        if isinstance(grid, str):
+            assert grid in SUPPORTED_GRIDS, (
+                f"Unsupported grid name '{grid}'. Grid name must be one of: "
+                f"{SUPPORTED_GRIDS.keys()}."
+            )
+            grid = SUPPORTED_GRIDS[grid][0]()
+
+        self.grid = grid
+
         self.obs_dim = obs_dim
         self.num_predators = num_predators
         self.num_prey = num_prey
@@ -627,7 +692,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
                                                                                             state.predator_coords + state.prey_coords),
                                                                                         skip_id=int(agent_id))
             if closest_agent_index is None:
-                agent_collision = NONE
+                agent_collision = EMPTY
             elif closest_agent_index == -1:
                 agent_collision = WALL
             elif closest_agent_index < len(state.predator_coords):
@@ -675,16 +740,14 @@ class PPWorld(RectangularContinousWorld):
     def __init__(
         self,
         grid_size: float,
-        use_holonomic_model : bool,
         block_coords: Optional[List[Object]],
         predator_start_coords: Optional[List[Position]] = None,
         prey_start_coords: Optional[List[Position]] = None,
         predator_angles: Optional[List[float]] = None,
     ):
         assert grid_size >= 3
-        super().__init__(grid_size, grid_size, block_coords, use_holonomic_model)
+        super().__init__(grid_size, grid_size, block_coords)
         self.size = grid_size
-        self.use_holonomic_model = use_holonomic_model
         # predators start in corners or half-way along a side
         if predator_start_coords is None:
             predator_start_coords_: List[Tuple[float, float]] = list(
@@ -692,11 +755,9 @@ class PPWorld(RectangularContinousWorld):
                 for c in product([0, grid_size // 2, grid_size - 1], repeat=2)
                 if c[0] in (0, grid_size - 1) or c[1] in (0, grid_size - 1)
             )
-            if self.use_holonomic_model:
-                predator_angles = [0.0] * len(predator_start_coords_)
-            else:
-                predator_angles = [
-                    random.random() * math.pi for _ in range(len(predator_start_coords_))]
+            
+            predator_angles = [
+                random.random() * math.pi for _ in range(len(predator_start_coords_))]
 
             predator_start_coords = [
                 x + (y,) for x, y in zip(predator_start_coords_, predator_angles)]
@@ -718,3 +779,190 @@ class PPWorld(RectangularContinousWorld):
             center, min_dist_from_center, ignore_blocks=False) for _ in range(num)]
 
         return coords
+
+def parse_grid_str(grid_str: str) -> PPWorld:
+    """Parse a str representation of a grid into a grid object.
+
+    Notes on grid str representation:
+
+    . = empty/unallocated cell
+    # = a block
+    P = starting location for predator agents [optional] (defaults to edges)
+    p = starting location for prey agent [optional] (defaults to center)
+
+    Examples (" " quotes and newline chars omitted):
+
+    1. A 10x10 grid with 4 groups of blocks and using the default predator
+       and prey start locations.
+
+    ..........
+    ..........
+    ..##..##..
+    ..##..##..
+    ..........
+    ..........
+    ..##..##..
+    ..##..##..
+    ..........
+    ..........
+
+    2. Same as above but with predator and prey start locations defined for
+    up to 8 predators and 4 prey. (This would be the default layout for the
+    scenario where there are between 2 and 4 prey, i.e. if prey and predator
+    start locations were left unspecified as in example 1.)
+
+    P....P...P
+    ..........
+    ..##..##..
+    ..##..##..
+    ....pp....
+    P...pp...P
+    ..##..##..
+    ..##..##..
+    ..........
+    P....P...P
+
+    """
+    row_strs = grid_str.splitlines()
+    assert len(row_strs) > 1
+    assert all(len(row) == len(row_strs[0]) for row in row_strs)
+    assert len(row_strs[0]) > 1
+    assert len(row_strs) == len(row_strs[0])
+
+    grid_size = len(row_strs)
+    block_coords : set[Object] = set()
+    predator_coords = set()
+    prey_coords = set()
+    for r, c in product(range(grid_size), repeat=2):
+        coord = (c, r, 0)
+        char = row_strs[r][c]
+
+        if char == "#":
+            # Radius is 0.5
+            block_coords.add((coord, 0.5))
+        elif char == "P":
+            predator_coords.add(coord)
+        elif char == "p":
+            prey_coords.add(coord)
+        else:
+            assert char == "."
+
+    return PPWorld(
+        grid_size,
+        block_coords = list(block_coords),
+        predator_start_coords = None if len(predator_coords) == 0 else list(predator_coords),
+        prey_start_coords = None if len(prey_coords) == 0 else list(prey_coords),
+    )
+
+
+def get_5x5_grid() -> PPWorld:
+    """Generate 5x5 grid layou`t."""
+    return PPWorld(grid_size=5, block_coords=None)
+
+
+def get_5x5_blocks_grid() -> PPWorld:
+    """Generate 5x5 Blocks grid layou`t."""
+    grid_str = ".....\n" ".#.#.\n" ".....\n" ".#.#.\n" ".....\n"
+    return parse_grid_str(grid_str)
+
+
+def get_10x10_grid() -> PPWorld:
+    """Generate 10x10 grid layou`t."""
+    return PPWorld(grid_size=10, block_coords=None)
+
+
+def get_10x10_blocks_grid() -> PPWorld:
+    """Generate 10x10 Blocks grid layou`t."""
+    grid_str = (
+        "..........\n"
+        "..........\n"
+        "..##..##..\n"
+        "..##..##..\n"
+        "..........\n"
+        "..........\n"
+        "..##..##..\n"
+        "..##..##..\n"
+        "..........\n"
+        "..........\n"
+    )
+    return parse_grid_str(grid_str)
+
+
+def get_15x15_grid() -> PPWorld:
+    """Generate 15x15 grid layou`t."""
+    return PPWorld(grid_size=15, block_coords=None)
+
+def get_15x15_blocks_grid() -> PPWorld:
+    """Generate 10x10 Blocks grid layou`t."""
+    grid_str = (
+        "...............\n"
+        "...............\n"
+        "...............\n"
+        "...###...###...\n"
+        "...###...###...\n"
+        "...###...###...\n"
+        "...............\n"
+        "...............\n"
+        "...............\n"
+        "...###...###...\n"
+        "...###...###...\n"
+        "...###...###...\n"
+        "...............\n"
+        "...............\n"
+        "...............\n"
+    )
+    return parse_grid_str(grid_str)
+
+
+def get_20x20_grid() -> PPWorld:
+    """Generate 20x20 grid layou`t."""
+    return PPWorld(grid_size=20, block_coords=None)
+
+def get_20x20_blocks_grid() -> PPWorld:
+    """Generate 20x20 Blocks grid layou`t."""
+    grid_str = (
+        "....................\n"
+        "....................\n"
+        "....................\n"
+        "....................\n"
+        "....####....####....\n"
+        "....####....####....\n"
+        "....####....####....\n"
+        "....####....####....\n"
+        "....................\n"
+        "....................\n"
+        "....................\n"
+        "....................\n"
+        "....####....####....\n"
+        "....####....####....\n"
+        "....####....####....\n"
+        "....####....####....\n"
+        "....................\n"
+        "....................\n"
+        "....................\n"
+        "....................\n"
+    )
+    return parse_grid_str(grid_str)
+
+
+#  (grid_make_fn, step_limit)
+SUPPORTED_GRIDS = {
+    "5x5": (get_5x5_grid, 25),
+    "5x5Blocks": (get_5x5_blocks_grid, 50),
+    "10x10": (get_10x10_grid, 50),
+    "10x10Blocks": (get_10x10_blocks_grid, 50),
+    "15x15": (get_15x15_grid, 100),
+    "15x15Blocks": (get_15x15_blocks_grid, 100),
+    "20x20": (get_20x20_grid, 200),
+    "20x20Blocks": (get_20x20_blocks_grid, 200),
+}
+
+
+def load_grid(grid_name: str) -> PPWorld:
+    """Load grid with given name."""
+    grid_name = grid_name
+    assert grid_name in SUPPORTED_GRIDS, (
+        f"Unsupported grid name '{grid_name}'. Grid name must be one of: "
+        f"{SUPPORTED_GRIDS.keys()}."
+    )
+    return SUPPORTED_GRIDS[grid_name][0]()

@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 # (x, y) coord = (col, row) coord
 Coord = Tuple[int, int]
 
-# (x, y, radius) in continous world
+# (x, y, yaw) in continous world
 Position = Tuple[float, float, float]
 
 # Position, radius
@@ -275,9 +275,8 @@ class CircularContinousWorld(ContinousWorld):
         self,
         radius: float,
         block_coords: Optional[List[Object]] = None,
-        use_holonomic_model : bool = True
     ):
-        super().__init__(world_type=ArenaTypes.Circle, block_coords=block_coords, use_holonomic_model=use_holonomic_model)
+        super().__init__(world_type=ArenaTypes.Circle, block_coords=block_coords)
         self.radius = radius
 
     def coord_in_bounds(self, coord: Position) -> bool:
@@ -350,9 +349,8 @@ class RectangularContinousWorld(ContinousWorld):
         width: float,
         height: float,
         block_coords: Optional[List[Object]] = None,
-        use_holonomic_model : bool = True
     ):
-        super().__init__(world_type=ArenaTypes.Square, block_coords=block_coords, use_holonomic_model=use_holonomic)
+        super().__init__(world_type=ArenaTypes.Square, block_coords=block_coords)
         self.height = height
         self.width = width
         self.eps = 10e-3

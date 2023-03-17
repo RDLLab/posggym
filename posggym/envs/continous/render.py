@@ -3,10 +3,9 @@ import abc
 from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import math
-from posggym.envs.grid_world.core import Coord, Direction, Grid
 from posggym.error import DependencyNotInstalled
 from posggym.model import AgentID
-from posggym.envs.continous.core import ArenaTypes
+from posggym.envs.continous.core import ArenaTypes, Object
 
 ColorTuple = Union[Tuple[int, int, int], Tuple[int, int, int, int]]
 
@@ -112,6 +111,17 @@ class GWContinousRender:
         shape_surf = pygame.Surface(target_rect.size, pygame.SRCALPHA)
         pygame.draw.circle(shape_surf, color, (radius, radius), radius)
         surface.blit(shape_surf, target_rect)
+
+    def draw_blocks(self, blocks: List[Object]):
+        for i, agent in enumerate(blocks):
+            (x, y, _), radius = agent
+
+            scaled_x, scaled_y = self.scale(x, y)
+
+            radius = self.scale_number(radius)
+
+            pygame.draw.circle(self.screen, self.BLACK, (scaled_x, scaled_y), radius, width=1)
+
 
     def draw_agents(self, agents: Tuple[Tuple[float, float, float, int], ...], is_holonomic: Optional[List[bool]] = None, sizes: Optional[List[Optional[float]]] = None, ):
         scaled_agents = []
