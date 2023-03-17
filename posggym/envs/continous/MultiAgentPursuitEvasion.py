@@ -1,14 +1,16 @@
-"""The Predator-Prey Grid World Environment.
+"""A  Multi-Agent Pursuit Evastion Continous Environment.
 
-A co-operative 2D grid world problem involving multiple predator agents working together
-to catch prey agents in the environment.
+A co-operative 2D circular world problem involving multiple agents working together
+to catch a target agent in the environment.
+
+This is an adaption of the original code base to allow for partially observable environments.
 
 Reference
 ---------
-- Ming Tan. 1993. Multi-Agent Reinforcement Learning: Independent vs. Cooperative Agents
-  In Proceedings of the Tenth International Conference on Machine Learning. 330–337.
-- J. Z. Leibo, V. F. Zambaldi, M. Lanctot, J. Marecki, and T. Graepel. 2017. Multi-Agent
-  Reinforcement Learning in Sequential Social Dilemmas. In AAMAS, Vol. 16. ACM, 464–473
+- C. de Souza, R. Newbury, A. Cosgun, P. Castillo, B. Vidolov and D. Kulić,
+  "Decentralized Multi-Agent Pursuit Using Deep Reinforcement Learning," 
+  in IEEE Robotics and Automation Letters, vol. 6, no. 3, pp. 4552-4559,
+  July 2021, doi: 10.1109/LRA.2021.3068952.  
 
 """
 import math
@@ -33,32 +35,20 @@ from posggym.utils import seeding
 import math
 
 
-class PPState(NamedTuple):
-    """A state in the Predator-Prey Environment."""
-    predator_coords: Tuple[Position, ...]
-    prev_predator_coords: Tuple[Position, ...]
-    prey_coords: Position
-    prev_prey_coords: Position
-    pursuer_vel: float
+class MAPEState(NamedTuple):
+    """A state in the Multi-Agent Pursuit Evasion Environment."""
+    pursuer_coords: Tuple[Position, ...]
+    prev_pursuer_coords: Tuple[Position, ...]
+    target_coords: Position
+    prev_target_coords: Position
+    target_vel: float
 
 
 # Actions
-PPAction = float
+MAPEAction = List[float]
+MAPEObs = Tuple[float, ...]
 
-PREY = 0
-PREDATOR = 1
-AGENT_TYPE = [PREDATOR, PREY]
-
-
-# Observations
-# Obs = (adj_obs)
-PPObs = Tuple[float, ...]
-# Cell Obs
-
-collision_distance = 1
-
-
-class MAPEEnv(DefaultEnv[PPState, PPObs, PPAction]):
+class MAPEEnv(DefaultEnv[MAPEState, MAPEObs, MAPEAction]):
 
     metadata = {
         "render_modes": ["human"],
@@ -69,16 +59,19 @@ class MAPEEnv(DefaultEnv[PPState, PPObs, PPAction]):
         self,
         num_agents: int,
         n_communicating_purusers: int,
+        arena_size : float = 430,
         velocity_control: bool = False,
         use_curriculum: bool = False,
         render_mode: Optional[str] = None,
         **kwargs,
     ):
         super().__init__(
-            PPModel(
+            MAPEModel(
                 num_agents,
                 n_communicating_purusers,
                 velocity_control,
+                use_curriculum=use_curriculum,
+                arena_size=arena_size,
                 **kwargs,
             ),
             render_mode=render_mode,
@@ -99,93 +92,101 @@ class MAPEEnv(DefaultEnv[PPState, PPObs, PPAction]):
                     domain_min=(-self.model.r_arena),
                     arena_size=200,
                     num_colors=3,
+                    render_fps=self.metadata["render_fps"],
                     arena_type=render_lib.ArenaTypes.Circle,
                     env_name="Multi-agent pursuit evasion",
                 )
-            colored_pred = tuple(t + (0,) for t in self._state.predator_coords)
-            colored_prey = tuple(((self._state.prey_coords + (1,),)))
+            colored_pred = tuple(t + (0,) for t in self._state.pursuer_coords)
+            colored_target = tuple(((self._state.target_coords + (1,),)))
 
-            is_holomic = [True] + ([False] * len(self._state.predator_coords))
+            is_holomic = [True] + ([False] * len(self._state.pursuer_coords))
             size = [self.model.cap_rad] + [None] * \
-                len(self._state.predator_coords)
+                len(self._state.pursuer_coords)
 
             self._renderer.clear_render()
             self._renderer.draw_agents(
-                colored_prey + colored_pred, is_holomic, size)
+                colored_target + colored_pred, is_holomic, size)
             self._renderer.render()
 
 
-class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
+class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
     """Predator-Prey Problem Model.
 
     Parameters
     ----------
-    size : int
-        the size of the grid (height and width)
-    num_predators : int
-        the number of predator (and thus controlled agents)
-    num_prey : int
-        the number of prey
-    cooperative : bool
-        whether environment rewards are fully shared (True) or only awarded to
-        capturing predators (i.e. mixed) (False)
-    prey_strenth : int
-        the minimum number of predators needed to capture a prey
-    obs_dims : int
-        number of cells in each direction around the agent that the agent can
-        observe
-
+    num_agents: int,
+        The number of agents which exist in the environment
+        Must be between 1 and 8
+    n_communicating_purusers: int
+        The maximum number of agents which an agent can recieve information from
+    velocity_control: bool 
+        If the agents have control of their linear velocity
+    arena_size : float
+        Size of the arena
+    observation_limit : float
+        The limit of which agents can see other agents
+    use_curriculum : bool
+        If curriculum learning is used, a large capture radius is used
+        The capture radius needs to be decreased using the 'decrease_cap_rad' function
     """
 
-    R_MAX = 1.0
-    PREY_CAUGHT_COORD = (0, 0)
+    R_MAX = 100
 
     def __init__(
         self,
-        # grid: Union[str, "PPGrid"],
         num_agents: int,
         n_communicating_purusers: int,
         velocity_control: bool = False,
+        arena_size : float = 430,
+        observation_limit : float = 300,
+        use_curriculum=False,
         **kwargs,
     ):
+        # The original paper used between 1 and 8 agents
         assert 1 < num_agents <= 8
 
         self.n_pursuers = num_agents
 
+        # Linear Velocity of pursuer
         self.vel_pur = 10
+        # Max linear velocity of target
         self.vel_tar = 20
+
+        # The angular velocity of the pursuer / target
         self.omega_max_pur = math.pi / 10
         self.omega_max_tar = math.pi / 10
 
-        self.obs_each_pursuer_evader = 2
-        self.obs_self_evader = 3
-
+        # Agent can see distance + angle to other pursuers
         self.obs_each_pursuer_pursuer = 2
+
+        # Agent can see more detailed info about target + self
         self.obs_self_pursuer = 6
 
-        self.obs_self = self.obs_self_pursuer
-        self.obs_pursuer = self.obs_each_pursuer_pursuer
-
-        self.velocity_control = False
+        # Number of communicating pursuers in environment
         self.n_pursuers_com = n_communicating_purusers
+
+        # TODO: remove this
         self.arena_dim_square = 1000
 
+        # If the agents have constant or variable velocity
         self.velocity_control = velocity_control
 
-        self.r_arena = 430
-        self.observation_limit = 300
-
-        ACT_DIM = 2 if velocity_control else 1
+        # Size of the world
+        self.r_arena = arena_size
+        # How larage of radius can agents communicate in
+        self.observation_limit = observation_limit
 
         OBS_DIM = (
             self.obs_self_pursuer
             + (self.n_pursuers_com - 1) * self.obs_each_pursuer_pursuer
         )
 
-        self.cap_rad = 60
+        # The capture radius needs to be manually decreased if using curriculum
+        self.cap_rad = 60 if use_curriculum else 30
 
         high = np.ones((self.n_pursuers, OBS_DIM), dtype=np.float64) * np.inf
-        # Second number is velocity
+
+        # act[0] = angular velocity, act[1] = linear velocity
         acthigh = np.array(
             [1]) if not self.velocity_control else np.array([1, 1])
         actlow = np.array(
@@ -201,40 +202,42 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             str(i): spaces.Box(low=actlow, high=acthigh) for i in self.possible_agents
         }
 
-        self.grid = CircularContinousWorld(radius=430, block_coords=None)
+        self.grid = CircularContinousWorld(radius=self.r_arena, block_coords=None)
 
-    def get_agents(self, state: PPState) -> List[M.AgentID]:
+    def get_agents(self, state: MAPEState) -> List[M.AgentID]:
         return list(self.possible_agents)
 
-    def sample_initial_state(self) -> PPState:
+    def sample_initial_state(self) -> MAPEState:
 
-        predator_coords = []
-        prev_predator_coords = []
+        pursuer_coords = []
+        prev_pursuer_coords = []
         for i in range(self.n_pursuers):
             # distributes the agents based in their number
             x = 50 * (-math.floor(self.n_pursuers / 2) + i)
-            predator_coords.append((x, 0, 0))
-            prev_predator_coords.append((x, 0, 0))
+            pursuer_coords.append((x, 0, 0))
+            prev_pursuer_coords.append((x, 0, 0))
 
-        x = float(self.rng.random() * 600 - 300)
+        bounds = self.r_arena * 0.7
+        x = float(self.rng.random() * (bounds * 2) - bounds)
+        y = float(self.rng.random() * (bounds * 2) - bounds)
 
-        y = float(self.rng.random() * 600 - 300)
+        # The velocity of the target varies
+        target_vel = float(self.rng.random() * self.vel_tar)
 
-        pursuer_vel = float(self.rng.random() * self.vel_tar)
+        target_coords = (x, y, 0)
+        prev_target_coords = (x, y, 0)
 
-        prey_coords = (x, y, 0)
-        prev_prey_coords = (x, y, 0)
+        return MAPEState(tuple(pursuer_coords), tuple(prev_pursuer_coords), target_coords, tuple(prev_target_coords), target_vel)
 
-        return PPState(tuple(predator_coords), tuple(prev_predator_coords), prey_coords, tuple(prev_prey_coords), pursuer_vel)
-
-    def sample_initial_obs(self, state: PPState) -> Dict[M.AgentID, PPObs]:
+    def sample_initial_obs(self, state: MAPEState) -> Dict[M.AgentID, MAPEObs]:
         return self._get_obs(state)
 
     def step(
-        self, state: PPState, actions: Dict[M.AgentID, PPAction]
-    ) -> M.JointTimestep[PPState, PPObs]:
+        self, state: MAPEState, actions: Dict[M.AgentID, MAPEAction]
+    ) -> M.JointTimestep[MAPEState, MAPEObs]:
         next_state = self._get_next_state(state, actions)
         obs = self._get_obs(state)
+        print(obs)
         done, rewards = self._get_rewards(state)
 
         dones = {}
@@ -252,54 +255,58 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
     def abs_sum(self, vector: List[float]) -> float:
         return sum(map(abs, vector))
-
-    def check_capture(self, prey_coords: Position, predator_coords: Position) -> bool:
+    def decrease_cap_rad(self):
+        self.cap_rad -= 5
+    def check_capture(self, target_coords: Position, pursuer_coords: Position) -> bool:
+        # Check distance between pursuer and target
         dist = CircularContinousWorld.euclidean_dist(
-            prey_coords, predator_coords)
+            target_coords, pursuer_coords)
         return dist < self.cap_rad
 
-    def target_distance(self, state: PPState, index: int):
-        return CircularContinousWorld.euclidean_dist(state.predator_coords[index], state.prey_coords)
+    def target_distance(self, state: MAPEState, index: int):
+        return CircularContinousWorld.euclidean_dist(state.pursuer_coords[index], state.target_coords)
 
-    def _get_next_state(self, state: PPState, actions):
-        prev_prey = state.prey_coords
-        prev_predator = state.predator_coords
+    def _get_next_state(self, state: MAPEState, actions):
+        prev_target = state.target_coords
+        prev_pursuer = state.pursuer_coords
 
-        new_prey_coords = self.target_move_repulsive(state.prey_coords, state)
-        new_predator_coords = []
-        for i, pred_pos in enumerate(state.predator_coords):
-            velocity_factor = 1 if not self.velocity_control else actions[str(
-                i)][1]
+        new_target_coords = self.target_move_repulsive(state.target_coords, state)
+        new_pursuer_coords = []
+        for i, pred_pos in enumerate(state.pursuer_coords):
+
+            # Force velocity to be 1, if only controlling angular speed
+            velocity_factor = 1 if not self.velocity_control else actions[str(i)][1]
+
             new_coords, _ = self.grid._get_next_coord(
-                pred_pos, actions[str(i)][0], state.pursuer_vel * velocity_factor, True)
-            new_predator_coords.append(new_coords)
+                pred_pos, actions[str(i)][0], self.vel_pur * velocity_factor, True)
 
-        return PPState(tuple(new_predator_coords), prev_predator, new_prey_coords, prev_prey, state.pursuer_vel)
+            new_pursuer_coords.append(new_coords)
 
-    def _get_obs(self, state: PPState) -> Dict[M.AgentID, PPObs]:
+        return MAPEState(tuple(new_pursuer_coords), prev_pursuer, new_target_coords, prev_target, state.target_vel)
+
+    def _get_obs(self, state: MAPEState) -> Dict[M.AgentID, MAPEObs]:
         # Get observation for all pursuers
-
         observation = {}
 
         for i in range(self.n_pursuers):
 
             """ getting the target engagement """
             (alpha_t, _, dist_t, _, _), target_suc = self.engagmment(
-                state.predator_coords[i], state.prey_coords, dist_factor=self.arena_dim_square)
+                state.pursuer_coords[i], state.target_coords, dist_factor=self.arena_dim_square)
             (alpha_t_prev, _, dist_t_prev, _, _), target_prev_suc = self.engagmment(
-                state.prev_predator_coords[i], state.prev_prey_coords, dist_factor=self.arena_dim_square)
+                state.prev_pursuer_coords[i], state.prev_target_coords, dist_factor=self.arena_dim_square)
 
             engagment = []
 
             """ getting the relative engagement """
             for j in range(self.n_pursuers):
                 if j != i:
-                    eng, _ = self.engagmment(state.predator_coords[i], state.predator_coords[j],
+                    eng, _ = self.engagmment(state.pursuer_coords[i], state.pursuer_coords[j],
                                              dist_factor=self.arena_dim_square,
                                              )
                     engagment.append(eng)
-            # Put any invalid (-1) to the end
 
+            # Put any invalid (-1) to the end
             def key_func(t):
                 if t[1] == -1:
                     return float('inf')
@@ -314,7 +321,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
                 alpha_rate = -1
                 dist_rate = -1
                 if target_suc:
-                    north = -state.prev_predator_coords[i][2] / math.pi
+                    north = -state.prev_pursuer_coords[i][2] / math.pi
                 else:
                     north = -1
                 north_prev = -1
@@ -323,8 +330,8 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             else:
                 alpha_rate = alpha_t - alpha_t_prev
                 alpha_rate = math.asin(math.sin(alpha_rate)) / 4
-                north = -state.predator_coords[i][2] / math.pi
-                north_prev = -state.prev_predator_coords[i][2] / math.pi
+                north = -state.pursuer_coords[i][2] / math.pi
+                north_prev = -state.prev_pursuer_coords[i][2] / math.pi
                 turn_rate = (north - north_prev) / 2
                 dist_rate = (dist_t - dist_t_prev) / 0.03
 
@@ -350,25 +357,25 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         return observation
 
-    def _get_rewards(self, state: PPState):
+    def _get_rewards(self, state: MAPEState):
         done = False
 
         reward: Dict[M.AgentID, float] = {}
 
         Q_formation = self.q_parameter(state)
 
-        for id in range(len(state.predator_coords)):
+        for id in range(len(state.pursuer_coords)):
+            # Reward function definition
             reward[str(id)] = 0
             reward[str(id)] -= Q_formation * 0.1
             reward[str(id)] -= 0.002 * self.target_distance(state, id)
 
-            # import pdb; pdb.set_trace()
-
-            if self.check_capture(state.prey_coords, state.predator_coords[id]):
+            if self.check_capture(state.target_coords, state.pursuer_coords[id]):
                 done = True
-                reward[str(id)] += 30  # 320% more than the others
+                reward[str(id)] += 30  # 30% more than the others
 
         if done:
+            # Large possible reward when done!
             for id in self.possible_agents:
                 reward[id] += 100
 
@@ -379,14 +386,16 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         yaw = agent_i[2]
 
+        # Roation matrix of yaw
         R = np.array(
             [[math.cos(yaw), math.sin(yaw)], [-math.sin(yaw), math.cos(yaw)]]
         )
 
         T_p = np.array([agent_i[0] - agent_j[0], agent_i[1] - agent_j[1]])
-        Los_angle = math.atan2(T_p[1], T_p[0])
         T_p = R.dot(T_p)
         alpha = math.atan2(T_p[1], T_p[0])
+
+        Los_angle = math.atan2(T_p[1], T_p[0])
 
         if dist > self.observation_limit:
             return tuple([-1] * 5), False
@@ -399,11 +408,13 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             T_p[1] / dist_factor,
         ), True
 
-    def get_closest(self, state: PPState) -> int:
+    def get_closest(self, state: MAPEState) -> int:
+        # Find closest agent to pursuer
         min_dist, min_index = None, None
-        for idx, p in enumerate(state.predator_coords):
-            dist = np.linalg.norm(
-                [p[0] - state.prey_coords[0], p[1] - state.prey_coords[1]])
+        for idx, p in enumerate(state.pursuer_coords):
+
+            dist = self.target_distance(state, idx)
+
             if min_dist is None or dist < min_dist:
                 min_index = idx
                 min_dist = dist
@@ -414,14 +425,16 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         return min_index
 
-    def get_unit_vectors(self, state: PPState) -> List[List[float]]:
+    def get_unit_vectors(self, state: MAPEState) -> List[List[float]]:
+        # Find unit vectors between target and pursuers
         unit = []
-        for p in state.predator_coords:
-            dist = self.grid.euclidean_dist(p, state.prey_coords)
+        for p in state.pursuer_coords:
+            dist = self.grid.euclidean_dist(p, state.target_coords)
             unit.append([p[0] / dist, p[1] / dist])
         return unit
 
-    def q_parameter(self, state: PPState) -> float:
+    def q_parameter(self, state: MAPEState) -> float:
+        # Q Parameter definition
         closest = self.get_closest(state)
         unit = self.get_unit_vectors(state)
         Qk = 0
@@ -441,16 +454,16 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         vector = f * vector
         return list(map(lambda x, y: x + y, final_vector, vector))
 
-    def target_move_repulsive(self, position: Position, state: PPState) -> Position:
-        # import pdb; pdb.set_trace()
+    def target_move_repulsive(self, position: Position, state: MAPEState) -> Position:
+        # Target behaviour
         xy_pos = np.array(position[:2])
         x, y = xy_pos
 
         def scale(x): return 50000 / (abs(x) + 200) ** 2
-        n_pursuer = len(state.predator_coords)
+        n_pursuer = len(state.pursuer_coords)
         final_vector = (0.0, 0.0)
 
-        for i in state.predator_coords:
+        for i in state.pursuer_coords:
             vector = np.array(i[:2]) - xy_pos
             final_vector = self.scale_vector(vector, scale, final_vector)
 
@@ -470,8 +483,8 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         dx, dy = scaled_move_dir[0], scaled_move_dir[1]
         d = np.linalg.norm([dx, dy])
-        x += self.vel_tar * (dx/d)
-        y += self.vel_tar * (dy/d)
+        x += state.target_vel * (dx/d)
+        y += state.target_vel * (dy/d)
 
         return x, y, 0
 
