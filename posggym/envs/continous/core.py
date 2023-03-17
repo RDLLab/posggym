@@ -46,6 +46,9 @@ class ContinousWorld(ABC):
 
         self.use_holonomic_model = use_holonomic_model
 
+    def set_holonomic_model(self, use_holonomic_model):
+        self.use_holonomic_model = use_holonomic_model
+
     @staticmethod
     def manhattan_dist(coord1: Position, coord2: Position) -> float:
         """Get manhattan distance between two coordinates on the grid."""

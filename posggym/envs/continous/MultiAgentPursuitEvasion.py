@@ -202,6 +202,7 @@ class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
         }
 
         self.grid = CircularContinousWorld(radius=self.r_arena, block_coords=None)
+        self.grid.set_holonomic_model(False)
 
     def get_agents(self, state: MAPEState) -> List[M.AgentID]:
         return list(self.possible_agents)
@@ -236,7 +237,6 @@ class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
     ) -> M.JointTimestep[MAPEState, MAPEObs]:
         next_state = self._get_next_state(state, actions)
         obs = self._get_obs(state)
-        print(obs)
         done, rewards = self._get_rewards(state)
 
         dones = {}
@@ -277,7 +277,7 @@ class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
             velocity_factor = 1 if not self.velocity_control else actions[str(i)][1]
 
             new_coords, _ = self.grid._get_next_coord(
-                pred_pos, actions[str(i)][0], self.vel_pur * velocity_factor, True)
+                pred_pos, [actions[str(i)][0], self.vel_pur * velocity_factor], True)
 
             new_pursuer_coords.append(new_coords)
 

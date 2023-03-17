@@ -321,9 +321,10 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
                 f"Unsupported grid name '{grid}'. Grid name must be one of: "
                 f"{SUPPORTED_GRIDS.keys()}."
             )
-            grid = SUPPORTED_GRIDS[grid][0]()
+            grid : PPWorld = SUPPORTED_GRIDS[grid][0]()
 
-        self.grid = grid
+        self.grid : PPWorld = grid
+        self.grid.set_holonomic_model(use_holonomic)
 
         self.obs_dim = obs_dim
         self.num_predators = num_predators
