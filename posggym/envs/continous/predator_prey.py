@@ -58,7 +58,7 @@ AGENT_TYPE = [PREDATOR, PREY]
 class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
     """The Predator-Prey Continous Environment.
 
-    A co-operative 2D grid world problem involving multiple predator agents
+    A co-operative 2D continous world problem involving multiple predator agents
     working together to catch prey agent/s in the environment.
 
     Agents
@@ -78,7 +78,9 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
 
     Actions
     -------
-    Each agent has 5 actions: DO_NOTHING=0, UP=1, DOWN=2, LEFT=3, RIGHT=4
+    Each agent has 2 actions. In the `holonomic` model there is two actions, which
+    are the change in x and change in y position. In  the non-holonomic model, there
+    is also two actions, which are the angular and linear velocity.
 
     Observation
     -----------
@@ -106,9 +108,9 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
 
     Transition Dynamics
     -------------------
-    Actions of the predator agents are deterministic and consist of moving in
-    to the adjacent cell in each of the four cardinal directions. If two or
-    more predators attempt to move into the same cell then no agent moves.
+    Actions of the predator agents are deterministic and consist of moving based on
+    the dynamic model. If two or more predators attempt to move into the same cell
+    then no agent moves.
 
     Prey move according to the following rules (in order of priority):
 
@@ -140,7 +142,8 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
     Arguments
     ---------
 
-    - `grid_size` - The world size to use. This must be a number specifying the dimenstion of the world.
+    - `grid` - the grid layout to use. This can either be a string specifying one of
+         the supported grids, or a custom :class:`PPWorld` object (default = `"10x10"`).
     - `num_predators` - the number of predator (and thus controlled agents)
         (default = `2`).
     - `num_prey` - the number of prey (default = `3`)
@@ -154,25 +157,37 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
     - `n_lines` - the number of lines eminating from the agent. The agent will observe
         at n equidistance intervals over [0,2*pi]. (default = `10`)
     - `use_holonomic` - the movement model to use. There are two modes - holonomic or
-        non holonmic, with a unicycle model. (default = 'true`). In the `holonomic` model
-        there is two actions, which are the change in x and change in y position. In 
-        the non-holonomic model, there is also two actions, which are the angular and linear
-        velocity. 
+        non holonmic, with a unicycle model. (default = 'true`). 
 
     Available variants
     ------------------
    
-    For example to use the Continous Predator Prey environment with a `15x15` world, 4
+    The PredatorPrey environment comes with a number of pre-built grid layouts which can
+    be passed as an argument to `posggym.make`, to create different grids. All layouts
+    support 2 to 8 agents.
+
+    | Grid name         | Grid size |
+    |-------------------|-----------|
+    | `5x5`             | 5x5       |
+    | `5x5Blocks`       | 5x5       |
+    | `10x10`           | 10x10     |
+    | `10x10Blocks`     | 10x10     |
+    | `15x15`           | 15x15     |
+    | `15x15Blocks`     | 15x15     |
+    | `20x20`           | 20x20     |
+    | `20x20Blocks`     | 20x20     |
+
+
+    For example to use the Predator Prey environment with the `15x15Blocks` grid, 4
     predators, 4 prey, and episode step limit of 100, and the default values for the
-    other parameters (`cooperative`, `obs_dim`, `prey_strength`, `n_lines`, `use_holonomic`)
-    you would use:
+    other parameters (`cooperative`, `obs_dim`, `prey_strength`) you would use:
 
     ```python
     import posggym
     env = posgggym.make(
         'PPContinousEnv-v0',
         max_episode_steps=100,
-        grid_size=15,
+        grid="15x15Blocks",
         num_predators=4,
         num_prey=4
     )
