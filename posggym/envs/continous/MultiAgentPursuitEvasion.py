@@ -48,6 +48,115 @@ MAPEAction = List[float]
 MAPEObs = Tuple[float, ...]
 
 class MAPEEnv(DefaultEnv[MAPEState, MAPEObs, MAPEAction]):
+    """A Multi Agent Pursuit Evasion Environment.
+
+    A co-operative 2D continous world problem involving multiple pursuer agents
+    working together to catch a targetr agent in the environment.
+
+    Agents
+    ------
+    Varied number (1-8)
+
+    State
+    -----
+    Each state consists of:
+
+    1. tuple of the (x, y) position of all pursuers
+    2. tuple of the (x, y) previous position of all pursuers
+    3. tuple of the (x, y) position of the target
+    4. tuple of the (x, y) previous position of the target
+    5. The speed of the target relative to the pursuer (0.0 -> 2.0)
+
+    For the coordinate x=column, y=row, with the origin (0, 0) at the
+    top-left square of the world.
+
+    Actions
+    -------
+    Each agent has either 1 or 2 actions. If 'velocity control' in False. The agent 
+    can only control their angular velocity. If 'velocity' control in True the agernt
+    has two actions, which are the angular and linear velocity, in that order.
+
+    Observation
+    -----------
+    Each agent observes the other pursuers and target. For each pursuer they will observe
+    the relative position and angle of the pusuer. They will observe their own heading and
+    change in heading. They will also observe the distance to the target, and the angle to
+    the target, as well as, their derivatives. The pursuers will be ordered by the relative
+    distance to the target.
+
+    However, their are two parameters to change this behaviour. Firstly, the observation
+    limit which serves as a maximum distance to see another agent. If they are outside this
+    radius, the observations of these agents will become (-1)
+
+    Their is also the n_communicating_purusers which will limit the maximum amount of other
+    pursuers an agent can observe.
+
+    Reward
+    ------
+    Each pursuer will recieve a reward is based on the Q parameter and the distance from the target
+    On succesful capture, the capturing pursuer will recieve a reward of +130, while other agents
+    will recieve 100.
+
+    Transition Dynamics
+    -------------------
+    Actions of the puruser agents are deterministic and consist of moving based on the non-holonomic model.
+    Episodes ends when the target has been captured or the episode step limit is reached.
+
+    The target will move following a holonomic model
+    
+    Initial Conditions
+    ------------------
+    Target will start near the outside of the circle, while pursuers will start in a line on the middle.
+    The pursuers will start with a random yaw.
+
+    Episodes End
+    ------------
+    Episodes ends when all prey have been captured. By default a `max_episode_steps`
+    limit of `50` steps is also set. This may need to be adjusted when using larger
+    grids (this can be done by manually specifying a value for `max_episode_steps` when
+    creating the environment with `posggym.make`).
+
+    Arguments
+    ---------
+
+    - `num_agents` - The number of agents which exist in the environment
+        Must be between 1 and 8 (default = `3`)
+    - `n_communicating_puruser - The maximum number of agents which an
+        agent can recieve information from (default = `3`)
+    - `velocity_control` - If the agents have control of their linear velocity
+        (default = `False`)
+    - `arena_size` - Size of the arena (default = `430`)
+    - `observation_limit` - The limit of which agents can see other agents
+        (default = `430`)
+    - `use_curriculum` - If curriculum learning is used, a large capture radius is used
+        the capture radius needs to be decreased using the 'decrease_cap_rad' function
+        (default = `False`)
+    
+    Available variants
+    ------------------
+   
+    For example to use the Continous Multiagent Pursuit Evation Prey environment with
+    8 communicating pursuers and episode step limit of 100, and the default values for
+    the other parameters  (`velocity_control`, `arena_size`, `observation_limit`, `use_curriculum`)
+    you would use:
+
+    ```python
+    import posggym
+    env = posgggym.make(
+        'PPContinousEnv-v0',
+        max_episode_steps=100,
+        num_agents=8,
+        n_communicating_puruser=4,
+    )
+    ```
+
+    Version History
+    ---------------
+    - `v0`: Initial version
+
+
+
+    """
 
     metadata = {
         "render_modes": ["human"],
@@ -56,9 +165,10 @@ class MAPEEnv(DefaultEnv[MAPEState, MAPEObs, MAPEAction]):
 
     def __init__(
         self,
-        num_agents: int,
-        n_communicating_purusers: int,
+        num_agents: int = 3,
+        n_communicating_purusers: int = 3,
         arena_size : float = 430,
+        observation_limit: float = 430,
         velocity_control: bool = False,
         use_curriculum: bool = False,
         render_mode: Optional[str] = None,
@@ -71,11 +181,12 @@ class MAPEEnv(DefaultEnv[MAPEState, MAPEObs, MAPEAction]):
                 velocity_control,
                 use_curriculum=use_curriculum,
                 arena_size=arena_size,
+                observation_limit=observation_limit,
                 **kwargs,
             ),
             render_mode=render_mode,
         )
-        # self._obs_dim = obs_dim
+
         self._viewer = None
         self._renderer: Optional[render_lib.GWContinousRender] = None
         self.render_mode = render_mode
@@ -129,7 +240,7 @@ class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
         The capture radius needs to be decreased using the 'decrease_cap_rad' function
     """
 
-    R_MAX = 100
+    R_MAX = 130
 
     def __init__(
         self,
@@ -137,7 +248,7 @@ class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
         n_communicating_purusers: int,
         velocity_control: bool = False,
         arena_size : float = 430,
-        observation_limit : float = 300,
+        observation_limit : float = 430,
         use_curriculum=False,
         **kwargs,
     ):
@@ -149,7 +260,7 @@ class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
         # Linear Velocity of pursuer
         self.vel_pur = 10
         # Max linear velocity of target
-        self.vel_tar = 20
+        self.max_vel_tar = 2.0
 
         # The angular velocity of the pursuer / target
         self.omega_max_pur = math.pi / 10
@@ -222,12 +333,12 @@ class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
         y = float(self.rng.random() * (bounds * 2) - bounds)
 
         # The velocity of the target varies
-        target_vel = float(self.rng.random() * self.vel_tar)
+        relative_target_vel = float(self.rng.random() * self.max_vel_tar)
 
         target_coords = (x, y, 0)
         prev_target_coords = (x, y, 0)
 
-        return MAPEState(tuple(pursuer_coords), tuple(prev_pursuer_coords), target_coords, tuple(prev_target_coords), target_vel)
+        return MAPEState(tuple(pursuer_coords), tuple(prev_pursuer_coords), target_coords, tuple(prev_target_coords), relative_target_vel)
 
     def sample_initial_obs(self, state: MAPEState) -> Dict[M.AgentID, MAPEObs]:
         return self._get_obs(state)
@@ -319,20 +430,16 @@ class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
             if not target_suc or not target_prev_suc:
                 alpha_rate = -1
                 dist_rate = -1
-                if target_suc:
-                    north = -state.prev_pursuer_coords[i][2] / math.pi
-                else:
-                    north = -1
-                north_prev = -1
                 turn_rate = -1
-
             else:
                 alpha_rate = alpha_t - alpha_t_prev
                 alpha_rate = math.asin(math.sin(alpha_rate)) / 4
-                north = -state.pursuer_coords[i][2] / math.pi
-                north_prev = -state.prev_pursuer_coords[i][2] / math.pi
-                turn_rate = (north - north_prev) / 2
                 dist_rate = (dist_t - dist_t_prev) / 0.03
+
+            north = -state.prev_pursuer_coords[i][2] / math.pi
+            north_prev = -state.prev_pursuer_coords[i][2] / math.pi
+            turn_rate = (north - north_prev) / 2
+
 
             # normalise the alpha
             if target_suc:
@@ -482,8 +589,8 @@ class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
 
         dx, dy = scaled_move_dir[0], scaled_move_dir[1]
         d = np.linalg.norm([dx, dy])
-        x += state.target_vel * (dx/d)
-        y += state.target_vel * (dy/d)
+        x += (state.target_vel * self.vel_pur) * (dx/d)
+        y += (state.target_vel * self.vel_pur) * (dy/d)
 
         return x, y, 0
 

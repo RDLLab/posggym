@@ -49,7 +49,9 @@ register(
     kwargs={
         "num_agents": 3,
         "n_communicating_purusers": 3,
-        "velocity_control": True,
+        "arena_size": 430,
+        "observation_limit": 430,
+        "velocity_control": False,
         "use_curriculum": False,
     })
 
