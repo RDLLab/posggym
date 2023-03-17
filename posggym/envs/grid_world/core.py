@@ -8,6 +8,7 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple
 # (x, y) coord = (col, row) coord
 Coord = Tuple[int, int]
 
+
 class Direction(enum.IntEnum):
     """A direction in a grid."""
 

@@ -3,6 +3,7 @@ import abc
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
+
 from posggym.envs.grid_world.core import Coord, Direction, Grid
 from posggym.error import DependencyNotInstalled
 from posggym.model import AgentID
@@ -332,7 +333,6 @@ class GWRenderer:
             highlight_obj.render(self.window_surface)
 
         if self.render_mode == "human":
-            print("update")
             pygame.event.pump()
             pygame.display.update()
             self.clock.tick(self.render_fps)
