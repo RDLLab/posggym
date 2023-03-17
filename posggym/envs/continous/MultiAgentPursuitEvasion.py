@@ -20,7 +20,6 @@ from typing import (
     List,
     NamedTuple,
     Optional,
-    SupportsFloat,
     Tuple,
 )
 import numpy as np
@@ -489,7 +488,7 @@ class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
         return x, y, 0
 
     @property
-    def reward_ranges(self) -> Dict[M.AgentID, Tuple[SupportsFloat, SupportsFloat]]:
+    def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
         return {i: (0.0, self.R_MAX) for i in self.possible_agents}
 
     @property

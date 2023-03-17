@@ -19,7 +19,6 @@ from typing import (
     List,
     NamedTuple,
     Optional,
-    SupportsFloat,
     Tuple,
     Union,
 )
@@ -309,7 +308,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         self.is_symmetric = True
 
     @property
-    def reward_ranges(self) -> Dict[M.AgentID, Tuple[SupportsFloat, SupportsFloat]]:
+    def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
         return {i: (0.0, self.R_MAX) for i in self.possible_agents}
 
     @property
