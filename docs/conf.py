@@ -8,9 +8,9 @@
 
 import posggym
 
-project = 'POSGGym'
-copyright = '2023, Jonathon Schwartz'
-author = 'Jonathon Schwartz'
+project = "POSGGym"
+copyright = "2023, Jonathon Schwartz"
+author = "Jonathon Schwartz"
 release = posggym.__version__
 
 # -- General configuration ---------------------------------------------------
@@ -21,13 +21,13 @@ extensions = [
     "sphinx.ext.doctest",
     "sphinx.ext.autodoc",
     "sphinx.ext.githubpages",
-    "myst_parser"
+    "myst_parser",
 ]
 
-source_suffix = ['.rst', '.md']
+source_suffix = [".rst", ".md"]
 
-templates_path = ['_templates']
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+templates_path = ["_templates"]
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # Napoleon settings
 napoleon_use_ivar = True
@@ -43,4 +43,8 @@ autodoc_preserve_defaults = True
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = "sphinx_rtd_theme"
-html_static_path = ['_static']
+# These folders are copied to the documentation's HTML output
+html_static_path = ["_static"]
+# These paths are either relative to html_static_path
+# or fully qualified paths (eg. https://...)
+html_css_files = ["css/envgrid.css"]

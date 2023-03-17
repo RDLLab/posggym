@@ -37,7 +37,8 @@ def try_make_env(env_spec: EnvSpec) -> Optional[posggym.Env]:
 
 # Tries to make all environment to test with
 _all_testing_initialised_envs: List[Optional[posggym.Env]] = [
-    try_make_env(env_spec) for env_spec in posggym.envs.registry.values()
+    try_make_env(env_spec)
+    for env_spec in posggym.envs.registry.values()
     if env_name_prefix is None or env_spec.id.startswith(env_name_prefix)
 ]
 all_testing_initialised_envs: List[posggym.Env] = [

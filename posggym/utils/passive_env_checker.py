@@ -264,9 +264,9 @@ def _check_agent_dict(
         )
     if expected_agents is not None:
         for i in expected_agents:
-            assert i in agent_dict, (
-                f"Expected agent ID `{i}` missing from {dict_type} dictionary."
-            )
+            assert (
+                i in agent_dict
+            ), f"Expected agent ID `{i}` missing from {dict_type} dictionary."
 
 
 def model_step_passive_checker(
@@ -279,9 +279,9 @@ def model_step_passive_checker(
     # List of agents still active in the state and which we expect to get data for
     step_agents = model.get_agents(state)
     for i in step_agents:
-        assert i in model.possible_agents, (
-            f"Agent ID not in list of possible IDs. Invalid agent ID '{i}'. "
-        )
+        assert (
+            i in model.possible_agents
+        ), f"Agent ID not in list of possible IDs. Invalid agent ID '{i}'. "
 
     # We don't check the actions as out-of-bounds values are allowed in some
     # environments
@@ -350,9 +350,9 @@ def env_step_passive_checker(env: posggym.Env, actions: Dict[M.AgentID, M.ActTyp
     # List of agents still active in the state and which we expect to get data for
     step_agents = env.agents
     for i in step_agents:
-        assert i in env.possible_agents, (
-            f"Agent ID not in list of possible IDs. Invalid agent ID '{i}'. "
-        )
+        assert (
+            i in env.possible_agents
+        ), f"Agent ID not in list of possible IDs. Invalid agent ID '{i}'. "
 
     # We don't check the actions as out-of-bounds values are allowed in some
     # environments
@@ -504,7 +504,7 @@ def env_render_passive_checker(env: posggym.Env):
                 f"Render mode: {env.render_mode}, modes: {render_modes}"
             )
 
-    result = env.render()    # type: ignore
+    result = env.render()  # type: ignore
     if env.render_mode is not None:
         _check_render_return(env.render_mode, result)
 

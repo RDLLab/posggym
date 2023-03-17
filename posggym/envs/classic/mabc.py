@@ -1,22 +1,4 @@
-"""The Multi-Access Broadcast problem.
-
-A cooperative game involving control of a multi-access broadcast channel. In this
-problem, each agent controls a node. Each node need to broadcast messages to each other
-over a shared channel, with only one node able to broadcast at a time. If more than one
-node broadcasts at the same time then there is a collision and no message is broadcast.
-The nodes share the common goal of maximizing the throughput of the channel.
-
-References
-----------
-- Ooi, J. M., and Wornell, G. W. 1996. Decentralized control of a multiple
-  access broadcast channel: Performance bounds. In Proceedings of the 35th
-  Conference on Decision and Control, 293–298.
-- Hansen, Eric A., Daniel S. Bernstein, and Shlomo Zilberstein. “Dynamic
-  Programming for Partially Observable Stochastic Games.” In Proceedings of
-  the 19th National Conference on Artifical Intelligence, 709–715. AAAI’04.
-  San Jose, California: AAAI Press, 2004.
-
-"""
+"""The Multi-Access Broadcast problem."""
 import sys
 from itertools import product
 from typing import Dict, List, Optional, Tuple, Union
@@ -51,47 +33,77 @@ class MABCEnv(DefaultEnv[MABCState, MABCObs, MABCAction]):
     """The Multi-Access Broadcast Channel Environment.
 
     A cooperative game involving control of a multi-access broadcast channel.
-    In this problem, each agent controls a node. Each node need to broadcast
-    messages to each other over a shared channel, with only one node able to
-    broadcast at a time. If more than one node broadcasts at the same time then
-    there is a collision and no message is broadcast. The nodes share the
-    common goal of maximizing the throughput of the channel.
+    In this problem, each agent controls a node in a network. Each node needs to
+    broadcast messages to each other over a shared channel, with only one node able to
+    broadcast at a time. If more than one node broadcasts at the same time then there
+    is a collision and no message is broadcast. The nodes share the common goal of
+    maximizing the throughput of the channel.
 
-    State
-    -----
-    Each node has a message buffer that can store up to one message at a time.
-    That is it can be either `EMPTY` or `FULL`.
+    Possible Agents
+    ---------------
+    The environment supports two or more agents, although the default version only
+    supports two agents. All agents are always active in the environment.
 
-    Actions
-    -------
-    At each timestep each agent can either `SEND` a message or not (`NOSEND`).
-
-    Observation
+    State Space
     -----------
-    At the end of each time step, each node recieves a noisy observation of
-    whether there was a `COLLISION` or `NOCOLLISION`.
+    Each node has a message buffer that can store up to one message at a time.
+    That is it can be either `EMPTY=0` or `FULL=1`.
+
+    Action Space
+    ------------
+    At each timestep each agent can either `SEND=0` a message or not `NOSEND=1`.
+
+    Observation Space
+    -----------------
+    At the end of each time step, each node receives a noisy observation of
+    whether there was a `COLLISION=0` or `NOCOLLISION=1`.
 
     Each agent observes the true outcome with probability `obs_prob`, which is
     0.9 in the default version.
 
-    Reward
-    ------
-    Each agent recieves a reward of `1` when a message is successfully
+    Rewards
+    -------
+    Each agent receives a reward of `1` when a message is successfully
     broadcast and a reward of `0` otherwise.
 
-    Transition Dynamics
-    -------------------
+    Dynamics
+    --------
     If a node's buffer is EMPTY then at each step it will become full with
-    probability `fill_probs[i]`, otherwise it will remain empty (independent
-    of the action performed).
+    probability `fill_probs[i]`,  otherwise it will remain empty (independent
+    of the action performed). Where `i` is the agent ID. By default
+    `fill_probs` for node 0 is 0.9, and for node 1 is 0.1 (as per the paper).
 
-    If a node's buffer is `FULL` then if the node does not send a message
-    - i.e. uses the `NOSEND` action - then the buffer remains `FULL`.
-    Otherwise - i.e. the agent chooses the `SEND` action - if no other nodes
-    sends a message (there is no COLLISION) the buffer will be FULL with
-    probability `fill_probs[i]`, otherwise it will be empty. If another node
-    did sent a message as well then there was a COLLISION and the node's buffer
-    remains `FULL`.
+    If a node's buffer is `FULL` and the node does not send a message - i.e. uses the
+    `NOSEND` action - then the buffer remains `FULL`. Otherwise - i.e. the agent chooses
+    the `SEND` action - if no other nodes sends a message (there is no COLLISION) the
+    buffer will be FULL with probability `fill_probs[i]`, otherwise it will be empty.
+    If another message was sent at the same time by another node then there will be a
+    COLLISION and the node's buffer remains `FULL`.
+
+    Starting State
+    --------------
+    Each node buffer starts as `FULL` with probability `init_buffer_dist[i]` (which is
+    `1.0` by default), otherwise the buffer starts as `EMPTY`.
+
+    Episode End
+    -----------
+    By default episodes continue infinitely long. To set a step limit, specify
+    `max_episode_steps` when initializing the environment with `posggym.make`.
+
+    Arguments
+    ---------
+
+    - `num_nodes` - the number of nodes (i.e. agents) in the network (default=`2.0`)
+    - `fill_probs` - the probability each nodes buffer is filled, should be a tuple with
+        an entry for each node (default = `None` = `(0.9, 0.1)`)
+    - `observation_prob` - the probability of correctly observing if there was a
+        collision or not (default = `0.9`)
+    - `init_buffer_dist` - the probability each node starts with a full buffer. Should
+        be a tuple with an entry for each node (default = `None` = `(1.0, 1.0)`)
+
+    Version History
+    ---------------
+    - `v0`: Initial version
 
     References
     ----------
@@ -100,7 +112,7 @@ class MABCEnv(DefaultEnv[MABCState, MABCObs, MABCAction]):
       Conference on Decision and Control, 293–298.
     - Hansen, Eric A., Daniel S. Bernstein, and Shlomo Zilberstein. “Dynamic
       Programming for Partially Observable Stochastic Games.” In Proceedings of
-      the 19th National Conference on Artifical Intelligence, 709–715. AAAI’04.
+      the 19th National Conference on Artificial Intelligence, 709–715. AAAI’04.
       San Jose, California: AAAI Press, 2004.
 
     """
@@ -114,12 +126,9 @@ class MABCEnv(DefaultEnv[MABCState, MABCObs, MABCAction]):
         observation_prob: float = 0.9,
         init_buffer_dist: Optional[Tuple[float, ...]] = None,
         render_mode: Optional[str] = None,
-        **kwargs,
     ):
         super().__init__(
-            MABCModel(
-                num_nodes, fill_probs, observation_prob, init_buffer_dist, **kwargs
-            ),
+            MABCModel(num_nodes, fill_probs, observation_prob, init_buffer_dist),
             render_mode=render_mode,
         )
 
@@ -163,7 +172,6 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
         fill_probs: Optional[Tuple[float, ...]] = None,
         observation_prob: float = 0.9,
         init_buffer_dist: Optional[Tuple[float, ...]] = None,
-        **kwargs,
     ):
         assert num_nodes >= 2
 
@@ -309,7 +317,7 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
     def _construct_trans_func(self) -> Dict:
         trans_map = {}
         agent_ids = [int(i) for i in self.possible_agents]
-        for (s, a, s_next) in product(
+        for s, a, s_next in product(
             self._state_space, product(*self._action_spaces), self._state_space
         ):
             trans_prob = 1.0
@@ -337,7 +345,7 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
     def _construct_obs_func(self) -> Dict:
         obs_map = {}
         agent_ids = [int(i) for i in self.possible_agents]
-        for (s_next, a, o) in product(
+        for s_next, a, o in product(
             self._state_space,
             product(*self._action_spaces),
             product(*self._observation_spaces),
@@ -363,7 +371,7 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
     def _construct_rew_func(self) -> Dict:
         rew_map = {}
         joint_actions_space = product(*self._action_spaces)
-        for (s, a) in product(self._state_space, joint_actions_space):
+        for s, a in product(self._state_space, joint_actions_space):
             reward = float(self._message_sent(s, a)) * self.R_SEND
             rew_map[(s, a)] = tuple(reward for _ in self.possible_agents)
         return rew_map

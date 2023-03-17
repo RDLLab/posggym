@@ -4,7 +4,6 @@ import itertools
 import random
 from queue import PriorityQueue, Queue
 from typing import Dict, Iterable, List, Optional, Set, Tuple
-import math
 
 # (x, y) coord = (col, row) coord
 Coord = Tuple[int, int]
@@ -190,7 +189,7 @@ class Grid:
         pq = PriorityQueue()  # type: ignore
         pq.put((dist[origin], origin))
 
-        visited = set([origin])
+        visited = {origin}
 
         while not pq.empty():
             _, coord = pq.get()
@@ -314,10 +313,10 @@ class Grid:
         elif facing_dir == Direction.WEST:
             front, back, left, right = right, left, front, back
 
-        min_col = max(0, col-left)
-        max_col = min(self.width-1, col+right)
-        min_row = max(0, row-front)
-        max_row = min(self.height-1, row+back)
+        min_col = max(0, col - left)
+        max_col = min(self.width - 1, col + right)
+        min_row = max(0, row - front)
+        max_row = min(self.height - 1, row + back)
         return min_col, max_col, min_row, max_row
 
     def get_rectangular_padding(
@@ -357,10 +356,10 @@ class Grid:
         elif facing_dir == Direction.WEST:
             front, back, left, right = right, left, front, back
 
-        before_col = -min(0, col-left)
-        after_col = max(0, col+right-self.width+1)
-        before_row = -min(0, row-front)
-        after_row = max(0, row+back-self.height+1)
+        before_col = -min(0, col - left)
+        after_col = max(0, col + right - self.width + 1)
+        before_row = -min(0, row - front)
+        after_row = max(0, row + back - self.height + 1)
         return (before_col, after_col), (before_row, after_row)
 
 
@@ -425,7 +424,7 @@ class GridGenerator:
         return obstacle
 
     def connect_grid_components(self, grid: Grid) -> Grid:
-        """Get grid with only a single conencted component.
+        """Get grid with only a single connected component.
 
         Removes blocks along shortest path between components until there is
         only a single connected component.
@@ -533,7 +532,7 @@ class GridGenerator:
                     row_repr.append(".")
             grid_repr.append(row_repr)
 
-        return "\n".join(list(list((" ".join(r) for r in grid_repr))))
+        return "\n".join([" ".join(r) for r in grid_repr])
 
 
 class GridCycler:

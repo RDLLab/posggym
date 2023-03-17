@@ -222,7 +222,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
     def close(self):
         """Close environment and perform any necessary cleanup.
 
-        Should be overriden in subclasses as necessary.
+        Should be overridden in subclasses as necessary.
         """
         pass
 
@@ -382,6 +382,7 @@ class DefaultEnv(Env[StateType, ObsType, ActType]):
     """
 
     def __init__(self, model: POSGModel, render_mode: Optional[str] = None):
+        assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.model = model
         self.render_mode = render_mode
 
@@ -440,39 +441,44 @@ WrapperActType = TypeVar("WrapperActType")
 class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
     """Wraps a :class:`posggym.Env` to allow a modular transformation.
 
-    This class is the base class for all wrappers. The subclass could override
-    some methods to change the bahavior of the original environment without
-    touching the original code.
+    This class is the base class for all wrappers. Wrappers that inherit from this class
+    can modify :attr:`action_spaces`, :attr:`observation_spaces`, :attr:`reward_ranges`
+    and :attr:`metadata` attributes , without changing the underlying environment's
+    attributes.
+
+    Moreover, the behavior of the :meth:`step` and :meth:`reset` methods can be changed
+    by these wrappers. Some attributes (:attr:`spec`, :attr:`render_mode`) will point
+    back to the wrapper's environment (i.e. to the corresponding attributes of
+    :attr:`env`).
 
     Note
     ----
-    Don't forget to call ``super().__init__(env)`` if the subclass overrides
-    the `__init__` method.
+    If you inherit from :class:`Wrapper`, don't forget to call ``super().__init__(env)``
+    if the subclass overrides the `__init__` method.
 
     """
 
     def __init__(self, env: Env[StateType, ObsType, ActType]):
         self.env = env
-
         self._action_spaces: Dict[AgentID, spaces.Space] | None = None
         self._observation_spaces: Dict[AgentID, spaces.Space] | None = None
-        self._reward_ranges: Dict[
-            AgentID, Tuple[float, float]
-        ] | None = None
+        self._reward_ranges: Dict[AgentID, Tuple[float, float]] | None = None
         self._metadata: Dict[str, Any] | None = None
 
     def __getattr__(self, name):
+        """Returns attribute with ``name``, unless ``name`` starts with underscore."""
         if name.startswith("_"):
             raise AttributeError(f"attempted to get missing private attribute '{name}'")
         return getattr(self.env, name)
 
     @classmethod
     def class_name(cls):
-        """Return the name of the wrapper class."""
+        """Returns the class name of the wrapper."""
         return cls.__name__
 
     @property
     def model(self) -> POSGModel:
+        """Returns the :attr:`Env` :attr:`model`."""
         return self.env.model
 
     @model.setter
@@ -481,18 +487,26 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
 
     @property
     def state(self) -> WrapperStateType:
+        """Returns the :attr:`Env` :attr:`state`."""
         return self.env.state  # type: ignore
 
     @property
     def possible_agents(self) -> Tuple[AgentID, ...]:
+        """Returns the :attr:`Env` :attr:`possible_agents`."""
         return self.env.possible_agents
 
     @property
     def agents(self) -> List[AgentID]:
+        """Returns the :attr:`Env` :attr:`agents`."""
         return self.env.agents
 
     @property
     def action_spaces(self) -> Dict[AgentID, spaces.Space]:
+        """Return the :attr:`Env` :attr:`action_spaces`.
+
+        This is the :attr:`Env` :attr:`action_spaces` unless it's overwritten then the
+        wrapper :attr:`action_spaces` is used.
+        """
         if self._action_spaces is None:
             return self.env.action_spaces
         return self._action_spaces
@@ -503,7 +517,11 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
 
     @property
     def observation_spaces(self) -> Dict[AgentID, spaces.Space]:
-        """Get the observation space for each agent."""
+        """Return the :attr:`Env` :attr:`observation_spaces`.
+
+        This is the :attr:`Env` :attr:`observation_spaces` unless it's overwritten then
+        the wrapper :attr:`observation_spaces` is used.
+        """
         if self._observation_spaces is None:
             return self.env.observation_spaces
         return self._observation_spaces
@@ -514,19 +532,22 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
 
     @property
     def reward_ranges(self) -> Dict[AgentID, Tuple[float, float]]:
+        """Return the :attr:`Env` :attr:`reward_ranges`.
+
+        This is the :attr:`Env` :attr:`reward_ranges`, unless it's overwritten, then
+        the wrapper :attr:`reward_ranges` is used.
+        """
         if self._reward_ranges is None:
             return self.env.reward_ranges
         return self._reward_ranges
 
     @reward_ranges.setter
-    def reward_ranges(
-        self, reward_ranges: Dict[AgentID, Tuple[float, float]]
-    ):
+    def reward_ranges(self, reward_ranges: Dict[AgentID, Tuple[float, float]]):
         self._reward_ranges = reward_ranges
 
     @property
     def metadata(self) -> Dict[str, Any]:
-        """Get wrapper metadata."""
+        """Returns the :attr:`Env` :attr:`metadata`."""
         if self._metadata is None:
             return self.env.metadata
         return self._metadata
@@ -563,19 +584,32 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         bool,
         Dict[AgentID, Dict],
     ]:
+        """Uses the :meth:`step` of the :attr:`env`.
+
+        Can be overwritten to change the returned data.
+        """
         return self.env.step(actions)  # type: ignore
 
     def reset(
         self, *, seed: int | None = None, options: Dict[str, Any] | None = None
     ) -> Tuple[Dict[AgentID, WrapperObsType], Dict[AgentID, Dict]]:
+        """Uses the :meth:`reset` of the :attr:`env`.
+
+        Can be overwritten to change the returned data.
+        """
         return self.env.reset(seed=seed, options=options)  # type: ignore
 
     def render(
         self,
     ) -> None | np.ndarray | str | Dict[AgentID, np.ndarray] | Dict[AgentID, str]:
+        """Uses the :meth:`render` of the :attr:`env`.
+
+        Can be overwritten to change the returned data.
+        """
         return self.env.render()
 
     def close(self):
+        """Closes the wrapper and :attr:`env`."""
         return self.env.close()
 
     @property
@@ -588,9 +622,11 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         return self.env.unwrapped
 
     def __str__(self):
+        """Returns the wrapper name and the :attr:`env` representation string."""
         return f"<{type(self).__name__}{self.env}>"
 
     def __repr__(self):
+        """Returns the string representation of the wrapper."""
         return str(self)
 
 
@@ -627,14 +663,14 @@ class ObservationWrapper(Wrapper[StateType, WrapperObsType, ActType]):
     def observations(
         self, obs: Dict[AgentID, ObsType]
     ) -> Dict[AgentID, WrapperObsType]:
-        """Transforms observations recieved from wrapped environment."""
+        """Transforms observations received from wrapped environment."""
         raise NotImplementedError
 
 
 class RewardWrapper(Wrapper[StateType, ObsType, ActType]):
     """Wraps environment to allow modular transformations of rewards.
 
-    Subclasses should atleast implement the rewards function.
+    Subclasses should at least implement the rewards function.
     """
 
     def __init__(self, env: Env[StateType, ObsType, ActType]):
@@ -653,17 +689,15 @@ class RewardWrapper(Wrapper[StateType, ObsType, ActType]):
         obs, reward, term, trunc, done, info = self.env.step(actions)  # type: ignore
         return obs, self.rewards(reward), term, trunc, done, info  # type: ignore
 
-    def rewards(
-        self, rewards: Dict[AgentID, float]
-    ) -> Dict[AgentID, float]:
-        """Transforms rewards recieved from wrapped environment."""
+    def rewards(self, rewards: Dict[AgentID, float]) -> Dict[AgentID, float]:
+        """Transforms rewards received from wrapped environment."""
         raise NotImplementedError
 
 
 class ActionWrapper(Wrapper[StateType, ObsType, WrapperActType]):
     """Wraps environment to allow modular transformations of actions.
 
-    Subclasses should atleast implement the actions function.
+    Subclasses should at least implement the actions function.
     """
 
     def __init__(self, env: Env[StateType, ObsType, ActType]):

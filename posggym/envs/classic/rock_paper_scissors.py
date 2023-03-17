@@ -1,11 +1,4 @@
-"""The classic Rock Paper Scissors problem.
-
-This is the classic game of rock, paper, scissors (RPS).
-
-This scenario involves two agents. Each step both agents choose an action
-out of 'ROCK', 'PAPER' or 'SCISSORS' and are rewarded based on the actions
-taken in comparison to their opponent.
-"""
+"""The classic Rock Paper Scissors problem."""
 import sys
 from itertools import product
 from typing import Dict, List, Optional, Tuple
@@ -44,42 +37,62 @@ class RockPaperScissorsEnv(DefaultEnv):
     out of 'ROCK', 'PAPER' or 'SCISSORS' and are rewarded based on the actions
     taken in comparison to their opponent.
 
-    State
-    -----
-    There is only a single state in RPS, the None state.
+    Possible Agents
+    ---------------
+    The environment supports two agents: '0' and '1'. Both agents are always active in
+    the environment.
 
-    Actions
-    -------
-    A_1 = A_2 = {`ROCK`, `PAPER`, `SCISSORS`}
-
-    Observation
+    State Space
     -----------
-    Agents observe the last action played by their opponent.
+    There is only a single state in RPS: state `0`.
 
-    O_1 = O_2 = {`ROCK`, `PAPER`, `SCISSORS`}
+    Action Space
+    ------------
+    Both agents have three available actions: `ROCK=0`, `PAPER=1`, `SCISSORS=2`.
 
-    Reward
-    ------
+    Observation Space
+    -----------------
+    Agents observe the last action played by their opponent: `ROCK=0`, `PAPER=1`,
+    `SCISSORS=2`
+
+    Rewards
+    -------
     Agents are rewarded based on the following pay-off matrix (shows pay-off
     for row agent):
 
-             | ROCK     | PAPER    | SCISSORS |
-    -------------------------------------------
-    ROCK     | 0        | -1       | 1        |
-    PAPER    | 1        | 0        | -1       |
-    SCISSORS | -1       | 1        | 0        |
+    |          | ROCK     | PAPER    | SCISSORS |
+    |----------|----------|----------|----------|
+    | ROCK     | 0        | -1       | 1        |
+    | PAPER    | 1        | 0        | -1       |
+    | SCISSORS | -1       | 1        | 0        |
 
-    Transition Dynamics
-    -------------------
-    There is only a single state so the transition function is the identity
-    function.
+    Dynamics
+    --------
+    There is only a single state so the transition function is the identity function.
+
+    Starting State
+    --------------
+    There is only a single state, which the environment always starts and remains in.
+
+    Episode End
+    -----------
+    By default episodes continue infinitely long. To set a step limit, specify
+    `max_episode_steps` when initializing the environment with `posggym.make`.
+
+    Arguments
+    ---------
+    No additional arguments are currently supported during construction.
+
+    Version History
+    ---------------
+    - `v0`: Initial version
 
     """
 
     metadata = {"render_modes": ["human", "ansi"], "render_fps": 4}
 
-    def __init__(self, render_mode: Optional[str] = None, **kwargs):
-        super().__init__(RockPaperScissorsModel(**kwargs), render_mode=render_mode)
+    def __init__(self, render_mode: Optional[str] = None):
+        super().__init__(RockPaperScissorsModel(), render_mode=render_mode)
 
     def render(self, mode: str = "human"):
         assert self._last_obs is not None
@@ -107,7 +120,7 @@ class RockPaperScissorsModel(M.POSGFullModel[RPSState, RPSObs, RPSAction]):
 
     R_MATRIX = [[0, -1.0, 1.0], [1.0, 0, -1.0], [-1.0, 1.0, 0]]
 
-    def __init__(self, **kwargs):
+    def __init__(self):
         self.possible_agents = tuple(str(i) for i in range(self.NUM_AGENTS))
         self.state_space = spaces.Discrete(len(STATES))
         self.action_spaces = {
@@ -195,9 +208,7 @@ class RockPaperScissorsModel(M.POSGFullModel[RPSState, RPSObs, RPSAction]):
 
     def _construct_obs_func(self) -> Dict:
         obs_func = {}
-        for (a, o) in product(
-            product(*self._action_spaces), product(*self._obs_spaces)
-        ):
+        for a, o in product(product(*self._action_spaces), product(*self._obs_spaces)):
             obs_func[(STATE0, a, o)] = 1.0 if a == o else 0.0
         return obs_func
 

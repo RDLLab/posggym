@@ -96,9 +96,7 @@ def test_posggym_wrapper():
 class ExampleRewardWrapper(RewardWrapper):
     """Example reward wrapper for testing."""
 
-    def rewards(
-        self, rewards: Dict[M.AgentID, float]
-    ) -> Dict[M.AgentID, float]:
+    def rewards(self, rewards: Dict[M.AgentID, float]) -> Dict[M.AgentID, float]:
         return {i: 1 for i in rewards}
 
 
@@ -108,7 +106,7 @@ class ExampleObservationWrapper(ObservationWrapper):
     def observations(
         self, obs: Dict[M.AgentID, M.ObsType]
     ) -> Dict[M.AgentID, WrapperObsType]:
-        return {i: np.array([1]) for i in obs}    # type: ignore
+        return {i: np.array([1]) for i in obs}  # type: ignore
 
 
 class ExampleActionWrapper(ActionWrapper):
@@ -117,7 +115,7 @@ class ExampleActionWrapper(ActionWrapper):
     def actions(
         self, actions: Dict[M.AgentID, M.ActType]
     ) -> Dict[M.AgentID, WrapperActType]:
-        return {i: np.array([1]) for i in actions}   # type: ignore
+        return {i: np.array([1]) for i in actions}  # type: ignore
 
 
 class ActionWrapperTestEnv(DefaultEnv[int, int, int]):

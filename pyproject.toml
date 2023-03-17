@@ -25,7 +25,7 @@ classifiers = [
     'Topic :: Scientific/Engineering :: Artificial Intelligence',
 ]
 dependencies = [
-	"gymnasium >=0.27",
+	"gymnasium >=0.26",
     "numpy >=1.21.0",
     "typing-extensions >=4.3.0",
 	"importlib-metadata >=4.8.0; python_version < '3.10'",
@@ -35,13 +35,13 @@ dynamic = ["version"]
 [project.optional-dependencies]
 # Update dependencies in `all` if any are added or removed
 grid-world = ["pygame >=2.0"]
-continous = ["pygame >=2.0"]
+continuous = ["pygame >=2.0"]
 all = [
 	# Dependencies for all environment types above
 	# NOTE: No need to manually remove the duplicates, setuptools automatically does that.
 	# grid-world
 	"pygame >=2.0",
-	# continous
+	# continuous
 	"pygame >=2.0",
 ]
 pettingzoo = ["pettingzoo >=1.22"]
@@ -69,7 +69,7 @@ posggym = [
 # Linters and Test tools #######################################################
 [tool.ruff]
 # https://beta.ruff.rs/docs/settings/
-src = ["posggym", "test"]
+src = ["posggym", "tests"]
 extend-select = ["C4", "SIM", "TCH"]
 show-fixes = true
 # Same as Black.
@@ -77,7 +77,7 @@ line-length = 88
 # Assume Python 3.8.
 target-version = "py38"
 
-# Ignore `E402` (import violations) in all `__init__.py` files,
+# Ignore `F401` (import violations) in all `__init__.py` files,
 [tool.ruff.per-file-ignores]
 "__init__.py" = ["F401"]
 

@@ -5,10 +5,11 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/docs/scripts/gen_env
 
 """
 import os
+import os.path as osp
 import sys
 
 
-CWD = os.path.dirname(__file__)
+DOCS_DIR = osp.abspath(osp.join(osp.dirname(osp.abspath(__file__)), os.pardir))
 
 all_envs = [
     {
@@ -23,6 +24,7 @@ all_envs = [
         "id": "grid_world",
         "list": [
             "driving",
+            "driving_gen",
             "level_based_foraging",
             "predator_prey",
             "pursuit_evasion",
@@ -36,13 +38,13 @@ all_envs = [
 def create_grid_cell(type_id, env_id, base_path):
     """Gen page cell for specific env ID."""
     if os.path.exists(
-        os.path.join("..", "_static", "videos", type_id, env_id + ".gif")
+        os.path.join(DOCS_DIR, "_static", "videos", type_id, env_id + ".gif")
     ):
         return f"""
             <a href="{base_path}{env_id}">
                 <div class="env-grid__cell">
                     <div class="cell__image-container">
-                        <img src="/_static/videos/{type_id}/{env_id}.gif">
+                        <img src="../../_static/videos/{type_id}/{env_id}.gif">
                     </div>
                     <div class="cell__title">
                         <span>{' '.join(env_id.split('_')).title()}</span>
@@ -68,10 +70,7 @@ def generate_page(env, limit=-1, base_path=""):
     env_list = env["list"]
     cells = [create_grid_cell(env_type_id, env_id, base_path) for env_id in env_list]
     non_limited_page = limit == -1 or limit >= len(cells)
-    if non_limited_page:
-        cells = "\n".join(cells)
-    else:
-        cells = "\n".join(cells[:limit])
+    cells = "\n".join(cells) if non_limited_page else "\n".join(cells[:limit])
 
     more_btn = (
         """
@@ -109,45 +108,37 @@ if __name__ == "__main__":
 
     for type_dict in type_dict_arr:
         type_id: str = type_dict["id"]  # type: ignore
-        envs_path = f"../environments/{type_id}"
+        envs_path = osp.join(DOCS_DIR, "environments", type_id)
         if len(type_dict["list"]) > 20:
             page = generate_page(type_dict, limit=8)
-            fp = open(
-                os.path.join(os.path.dirname(__file__), envs_path, "list.html"),
-                "w",
-                encoding="utf-8",
-            )
-            fp.write(page)
-            fp.close()
+            with open(
+                os.path.join(envs_path, "list.html"), "w", encoding="utf-8"
+            ) as fp:
+                fp.write(page)
 
             page = generate_page(type_dict, base_path="../")
-            fp = open(
-                os.path.join(
-                    os.path.dirname(__file__), envs_path, "complete_list.html"
-                ),
+            with open(
+                os.path.join(envs_path, "complete_list.html"),
                 "w",
                 encoding="utf-8",
-            )
-            fp.write(page)
-            fp.close()
+            ) as fp:
+                fp.write(page)
 
-            fp = open(
-                os.path.join(os.path.dirname(__file__), envs_path, "complete_list.md"),
+            with open(
+                os.path.join(envs_path, "complete_list.md"),
                 "w",
                 encoding="utf-8",
-            )
-            env_name = " ".join(type_id.split("_")).title()
-            fp.write(
-                f"# Complete List - {env_name}\n\n"
-                + "```{raw} html\n:file: complete_list.html\n```"
-            )
-            fp.close()
+            ) as fp:
+                env_name = " ".join(type_id.split("_")).title()
+                fp.write(
+                    f"# Complete List - {env_name}\n\n"
+                    + "```{raw} html\n:file: complete_list.html\n```"
+                )
         else:
             page = generate_page(type_dict)
-            fp = open(
-                os.path.join(os.path.dirname(__file__), envs_path, "list.html"),
+            with open(
+                os.path.join(envs_path, "list.html"),
                 "w",
                 encoding="utf-8",
-            )
-            fp.write(page)
-            fp.close()
+            ) as fp:
+                fp.write(page)

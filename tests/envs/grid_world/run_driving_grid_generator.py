@@ -25,11 +25,7 @@ def main(args):
                 sys.exit(1)
 
         grid_gen = DrivingGridGenerator(
-            args.width,
-            args.height,
-            max_obstacle_size,
-            max_num_obstacles=n,
-            seed=seed
+            args.width, args.height, max_obstacle_size, max_num_obstacles=n, seed=seed
         )
         seed += 1
         grid = grid_gen.generate()
@@ -40,20 +36,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
+    parser.add_argument("width", type=int, help="Width of grid")
+    parser.add_argument("height", type=int, help="Height of grid")
     parser.add_argument(
-        "width", type=int,
-        help="Width of grid"
+        "--max_obstacle_size",
+        type=int,
+        default=None,
+        help="Max size of obstacle. If None then uses min(width, height) // 4",
     )
-    parser.add_argument(
-        "height", type=int,
-        help="Heigh of grid"
-    )
-    parser.add_argument(
-        "--max_obstacle_size", type=int, default=None,
-        help="Max size of obstacle. If None then uses min(width, height) // 4"
-    )
-    parser.add_argument(
-        "--seed", type=int, default=None,
-        help="Random Seed"
-    )
+    parser.add_argument("--seed", type=int, default=None, help="Random Seed")
     main(parser.parse_args())

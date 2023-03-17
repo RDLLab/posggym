@@ -15,7 +15,7 @@ Then build the documentation once:
 
 ```
 cd docs
-make dirhtml _build
+make dirhtml
 ```
 
 To rebuild the documentation automatically every time a change is made:

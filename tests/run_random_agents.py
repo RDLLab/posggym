@@ -98,14 +98,14 @@ if __name__ == "__main__":
         "--episode_step_limit",
         type=int,
         default=None,
-        help="Max number of steps to run each epsiode for.",
+        help="Max number of steps to run each episode for.",
     )
     parser.add_argument("--seed", type=int, default=None, help="Random Seed.")
     parser.add_argument(
         "--render_mode",
         type=str,
         default=None,
-        help="Mode to use for renderering.",
+        help="Mode to use for rendering.",
     )
     parser.add_argument(
         "--pause_each_step", action="store_true", help="Pause execution after each step"

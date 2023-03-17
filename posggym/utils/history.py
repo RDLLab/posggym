@@ -62,7 +62,7 @@ class AgentHistory(Generic[M.ActType, M.ObsType]):
 
     def __str__(self):
         h_str = []
-        for (a, o) in self.history:
+        for a, o in self.history:
             h_str.append(f"({a}, {o})")
         h_str = ",".join(h_str)
         return f"h_{self.t}=<{h_str}>"

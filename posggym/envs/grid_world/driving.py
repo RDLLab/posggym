@@ -1,27 +1,4 @@
-"""The Driving Grid World Environment.
-
-A general-sum 2D grid world problem involving multiple agents. Each agent
-controls a vehicle and is tasked with driving the vehicle from it's start
-location to a destination location while avoiding crashing into obstacles
-or other vehicles.
-
-This environment requires each agent to navigate in the world while also
-taking care to avoid crashing into other players. The dynamics and
-observations of the environment are such that avoiding collisions requires
-some planning in order for the vehicle to brake in time or maintain a good
-speed. Depending on the grid layout, the environment will require agents to
-reason about and possibly coordinate with the other vehicles.
-
-References
-----------
-- Adam Lerer and Alexander Peysakhovich. 2019. Learning Existing Social Conventions via
-Observationally Augmented Self-Play. In Proceedings of the 2019 AAAI/ACM Conference on
-AI, Ethics, and Society. 107–114.
-- Kevin R. McKee, Joel Z. Leibo, Charlie Beattie, and Richard Everett. 2022.
-Quantifying the Effects of Environment and Population Diversity in Multi-Agent
-Reinforcement Learning. Autonomous Agents and Multi-Agent Systems 36, 1 (2022), 1–16
-
-"""
+"""The Driving Grid World Environment."""
 import enum
 from itertools import product
 from typing import (
@@ -45,8 +22,6 @@ from posggym.envs.grid_world.core import (
     Coord,
     Direction,
     Grid,
-    GridCycler,
-    GridGenerator,
 )
 from posggym.utils import seeding
 
@@ -119,72 +94,138 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
     or other vehicles.
 
     This environment requires each agent to navigate in the world while also
-    taking care to avoid crashing into other players. The dynamics and
+    taking care to avoid crashing into other agents. The dynamics and
     observations of the environment are such that avoiding collisions requires
     some planning in order for the vehicle to brake in time or maintain a good
     speed. Depending on the grid layout, the environment will require agents to
     reason about and possibly coordinate with the other vehicles.
 
+    Possible Agents
+    ---------------
+    The environment supports two or more agents, depending on the grid. It is possible
+    for some agents to finish the episode before other agents by either crashing or
+    reaching their destination, and so not all agents are guaranteed to be active at
+    the same time. All agents will be active at the start of the episode however.
 
-    Agents
-    ------
-    Varied number
-
-    State
-    -----
-    Each state is made up of the state of each vehicle, which in turn is
-    defined by:
-
-    - the (x, y) (x=column, y=row, with origin at the top-left square of the
-      grid) of the vehicle,
-    - the direction the vehicle is facing NORTH=0, SOUTH=1, EAST=2, WEST=3),
-    - the speed of the vehicle (REVERSE=-1, STOPPED=0, FORWARD_SLOW=1,
-      FORWARD_FAST=2),
-    - the (x, y) of the vehicles destination
-    - whether the vehicle has reached it's destination or not
-    - whether the vehicle has crashed or not
-
-    Actions
-    -------
-    Each agent has 5 actions: DO_NOTHING=0, ACCELERATE=1, DECELERATE=2,
-    TURN_RIGHT=3, TURN_LEFT=4
-
-    Observation
+    State Space
     -----------
-    Each agent observes their current speed along with the cells in their local
-    area. The size of the local area observed is controlled by the `obs_dims`
-    parameter. For each cell in the observed are the agent observes whether
-    they are one of four things: VEHICLE=0, WALL=1, EMPTY=2, DESTINATION=3.
-    Each agent also observes the (x, y) coordinates of their destination,
-    whether they have reached the destination, and whether they have crashed.
+    Each state is made up of the state of each vehicle, which in turn is defined by:
 
-    Each observation is represented as a tuple:
+    - the `(x, y)` coordinates (x=column, y=row, with origin at the top-left square of
+      the grid) of the vehicle,
+    - the direction the vehicle is facing `NORTH=0`, `EAST=1`, `SOUTH=2`, `WEST=3`,
+    - the speed of the vehicle: `REVERSE=0`, `STOPPED=1`, `FORWARD_SLOW=2`,
+      `FORWARD_FAST=2`,
+    - the `(x, y)` coordinate of the vehicles destination
+    - whether the vehicle has reached it's destination or not: `1` or `0`
+    - whether the vehicle has crashed or not: `1` or `0`
+    - the minimum distance to the destination achieved by the vehicle in the current
+      episode.
+
+    Action Space
+    ------------
+    Each agent has 5 actions: `DO_NOTHING=0`, `ACCELERATE=1`, `DECELERATE=2`,
+    `TURN_RIGHT=3`, `TURN_LEFT=4`
+
+    Observation Space
+    -----------------
+    Each agent observes the cells in their local area, as well as their current speed,
+    their destination location, whether they've reached their destination, and whether
+    they've crashed. The size of the local area observed is controlled by the `obs_dims`
+    parameter (default = `(3, 1, 1)`, 3 cells in front, one cell behind, and 1 cell each
+    side, giving a observation size of 5x3). For each cell in the observed area the
+    agent observes whether the cell contains a `VEHICLE=0`, `WALL=1`, `EMPTY=2`, or it's
+    `DESTINATION=3`.
+
+    All together each agent's observation is tuple of the form:
+
         ((local obs), speed, destination coord, destination reached, crashed)
 
-    Reward
-    ------
-    All agents receive a penalty of 0.00 for each step. They also recieve a
-    penalty of -0.5 for hitting an obstacle (if ``obstacle_collision=True``),
-    and -1.0 for hitting another vehicle. A reward of 1.0 is given if the agent
-    reaches it's destination.
+    Rewards
+    -------
+    All agents receive a penalty of `0.0` for each step. They receive a penalty of
+    `-1.0` for crashing (i.e. hitting another vehicle), and `-0.05` for moving into a
+    wall. A reward of `1.0` is given if the agent reaches it's destination and a reward
+    of `0.05` is given if the agent makes progress towards it's destination (i.e. it
+    reduces it's minimum distance achieved to the destination for the episode).
 
-    Transition Dynamics
-    -------------------
-    Actions are deterministic and movement is determined by direction the
-    vehicle is facing and it's speed:
+    If `obstacle_collision=True` then running into a wall is treated as crashing the
+    vehicle, and so results in a penalty of `-1.0`.
 
-    - Speed=-1 (REVERSE) - vehicle moves one cell in the opposite direction
-    - Speed=0 (STOPPED) - vehicle remains in same cell
-    - Speed=1 (FORWARD_SLOW) - vehicle move one cell in facing direction
-    - Speed=1 (FORWARD_FAST) - vehicle moves two cells in facing direction
+    Dynamics
+    --------
+    Actions are deterministic and movement is determined by direction the vehicle is
+    facing and it's speed:
 
-    Accelerating increases speed by 1, while deceleration decreased speed by 1.
-    If the vehicle will hit a wall or an other vehicle when moving from one
-    cell to another then it remains in it's current cell and its crashed state
-    variable is updated. Once a vehicle reaches it's destination it is stuck.
+    - Speed=0 (REVERSE) - vehicle moves one cell in the opposite direction to which it
+        is facing
+    - Speed=1 (STOPPED) - vehicle remains in same cell
+    - Speed=2 (FORWARD_SLOW) - vehicle move one cell in facing direction
+    - Speed=3 (FORWARD_FAST) - vehicle moves two cells in facing direction
 
-    Episodes ends when all agents have either reached their destination or
-    crashed, or the episode step limit is reached.
+    Accelerating increases speed by 1, while deceleration decreased speed by 1. If the
+    vehicle will hit a wall or another vehicle when moving from one cell to another then
+    it remains in it's current cell and it's crashed state variable is updated
+    appropriately.
+
+    Starting State
+    --------------
+    Each agent is randomly assigned to one of the possible starting locations on the
+    grid and one of the possible destination locations, with no two agents starting in
+    the same location or having the same destination location. The possible start and
+    destination locations are determined by the grid layout being used.
+
+    Episodes End
+    ------------
+    Episodes end when all agents have either reached their destination or crashed. By
+    default a `max_episode_steps` is also set for each Driving environment. The default
+    value is `50` steps, but this may need to be adjusted when using larger grids (this
+    can be done by manually specifying a value for `max_episode_steps` when creating the
+    environment with `posggym.make`).
+
+    Arguments
+    ---------
+
+    - `grid` - the grid layout to use. This can either be a string specifying one of
+         the supported grids, or a custom :class:`DrivingGrid` object
+         (default = `"14x14RoundAbout"`).
+    - `num_agents` - the number of agents in the environment (default = `2`).
+    - `obs_dim` - the local observation dimensions, specifying how many cells in front,
+         behind, and to each side the agent observes (default = `(3, 1, 1)`, resulting
+         in the agent observing a 5x3 area: 3 in front, 1 behind, 1 to each side.)
+    - `obstacle_collisions` -  whether running into a wall results in the agent's
+         vehicle crashing and thus the agent reaching a terminal state. This can make
+         the problem significantly harder (default = "False").
+
+    Available variants
+    ------------------
+
+    The Driving environment comes with a number of pre-built grid layouts which can be
+    passed as an argument to `posggym.make`, to create different grids:
+
+    | Grid name         | Max number of agents | Grid size |
+    |-------------------|----------------------|---------- |
+    | `3x3`             | 2                    | 3x3       |
+    | `6x6`             | 6                    | 6x6       |
+    | `7x7Blocks`       | 4                    | 7x7       |
+    | `7x7CrissCross`   | 6                    | 7x7       |
+    | `7x7RoundAbout`   | 4                    | 7x7       |
+    | `14x14Blocks`     | 4                    | 14x14     |
+    | `14x14CrissCross` | 8                    | 14x14     |
+    | `14x14RoundAbout` | 4                    | 14x14     |
+
+
+    For example to use the Driving environment with the `7x7RoundAbout` grid and 2
+    agents, you would use:
+
+    ```python
+    import posggym
+    env = posgggym.make('Driving-v0', grid="7x7RoundAbout", num_agents="2")
+    ```
+
+    Version History
+    ---------------
+    - `v0`: Initial version
 
     References
     ----------
@@ -204,15 +245,14 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
 
     def __init__(
         self,
-        grid: Union[str, "DrivingGrid"],
-        num_agents: int,
-        obs_dim: Tuple[int, int, int],
-        obstacle_collisions: bool,
+        grid: Union[str, "DrivingGrid"] = "7x7RoundAbout",
+        num_agents: int = 2,
+        obs_dim: Tuple[int, int, int] = (3, 1, 1),
+        obstacle_collisions: bool = False,
         render_mode: Optional[str] = None,
-        **kwargs,
     ):
         super().__init__(
-            DrivingModel(grid, num_agents, obs_dim, obstacle_collisions, **kwargs),
+            DrivingModel(grid, num_agents, obs_dim, obstacle_collisions),
             render_mode=render_mode,
         )
         self._obs_dim = obs_dim
@@ -323,87 +363,6 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
             self.renderer = None
 
 
-class DrivingGenEnv(DrivingEnv):
-    """The Generated Driving Grid World Environment.
-
-    This is the same as the Driving Environment except that a new grid is
-    generated at each reset.
-
-    The generated Grids can be:
-
-    1. set to be from some list of grids, in which case the grids in the list
-       will be cycled through (in the same order or shuffled)
-    2. generated a new each reset. Depending on grid size and generator
-       parameters this will lead to possibly unique grids each episode.
-
-    The seed parameter can be used to ensure the same grids are used on
-    different runs.
-
-    """
-
-    def __init__(
-        self,
-        num_agents: int,
-        obs_dim: Tuple[int, int, int],
-        obstacle_collisions: bool,
-        n_grids: Optional[int],
-        generator_params: Dict[str, Any],
-        shuffle_grid_order: bool = True,
-        render_mode: Optional[str] = None,
-        **kwargs,
-    ):
-        self._n_grids = n_grids
-        self._gen_params = generator_params
-        self._shuffle_grid_order = shuffle_grid_order
-        self._gen = DrivingGridGenerator(**generator_params)
-
-        if n_grids is not None:
-            grids = self._gen.generate_n(n_grids)
-            self._cycler = GridCycler(grids, shuffle_grid_order)
-            grid: "DrivingGrid" = grids[0]  # type: ignore
-        else:
-            self._cycler = None  # type: ignore
-            grid = self._gen.generate()
-
-        self._model_kwargs = {
-            "num_agents": num_agents,
-            "obs_dim": obs_dim,
-            "obstacle_collisions": obstacle_collisions,
-            **kwargs,
-        }
-
-        super().__init__(
-            grid,
-            num_agents,
-            obs_dim,
-            obstacle_collisions=obstacle_collisions,
-            render_mode=render_mode,
-            **kwargs,
-        )
-
-    def reset(
-        self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
-    ) -> Tuple[Dict[M.AgentID, DObs], Dict[M.AgentID, Dict]]:
-        if seed is not None:
-            self._model_seed = seed
-            self._gen_params["seed"] = seed
-            self._gen = DrivingGridGenerator(**self._gen_params)
-
-            if self._n_grids is not None:
-                grids = self._gen.generate_n(self._n_grids)
-                self._cycler = GridCycler(grids, self._shuffle_grid_order, seed=seed)
-
-        grid = self._cycler.next() if self._n_grids else self._gen.generate()
-
-        self.model.grid = grid  # type: ignore
-
-        if self.render_mode != "ansi" and self.renderer is not None:
-            self.renderer.grid = grid
-            self.renderer.reset_blocks()
-
-        return super().reset(seed=seed)
-
-
 class DrivingModel(M.POSGModel[DState, DObs, DAction]):
     """Driving Problem Model.
 
@@ -434,12 +393,28 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         num_agents: int,
         obs_dim: Tuple[int, int, int],
         obstacle_collisions: bool,
-        **kwargs,
     ):
         if isinstance(grid, str):
-            grid = load_grid(grid)
+            assert grid in SUPPORTED_GRIDS, (
+                f"Unsupported grid '{grid}'. If grid argument is a string it must be "
+                f"one of: {SUPPORTED_GRIDS.keys()}."
+            )
+            grid_info = SUPPORTED_GRIDS[grid]
+            supported_num_agents: int = grid_info["supported_num_agents"]
+            assert 0 < num_agents <= supported_num_agents, (
+                f"Driving grid `{grid}` does not support {num_agents} agents. The "
+                f"supported number of agents is from 1 up to {supported_num_agents}."
+            )
+            grid = parse_grid_str(
+                grid_info["grid_str"], grid_info["supported_num_agents"]
+            )
+        else:
+            assert 0 < num_agents <= grid.supported_num_agents, (
+                f"Supplied DrivingGrid `{grid}` does not support {num_agents} agents. "
+                "The supported number of agents is from 1 up to "
+                f"{grid.supported_num_agents}."
+            )
 
-        assert 0 < num_agents <= grid.supported_num_agents
         assert obs_dim[0] > 0 and obs_dim[1] >= 0 and obs_dim[2] >= 0
         self._grid = grid
         self._obs_front, self._obs_back, self._obs_side = obs_dim
@@ -813,7 +788,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 idx,
                 [vs.coord for vs in state],
                 state[idx].facing_dir,
-                state[idx].dest_coord
+                state[idx].dest_coord,
             )
             obs[i] = (
                 local_cell_obs,
@@ -891,12 +866,9 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 # already in terminal/rewarded state
                 r_i = 0.0
             elif (
-                (
-                    self._obstacle_collisions
-                    and collision_types[idx] == CollisionType.OBSTACLE
-                )
-                or collision_types[idx] == CollisionType.VEHICLE
-            ):
+                self._obstacle_collisions
+                and collision_types[idx] == CollisionType.OBSTACLE
+            ) or collision_types[idx] == CollisionType.VEHICLE:
                 # Treat as if crashed into a vehicle
                 r_i = self.R_CRASH_VEHICLE
             elif next_state[idx].dest_reached:
@@ -931,7 +903,6 @@ class DrivingGrid(Grid):
         assert len(start_coords) == len(dest_coords)
         self.start_coords = start_coords
         self.dest_coords = dest_coords
-
         self.shortest_paths = self.get_all_shortest_paths(set.union(*dest_coords))
 
     @property
@@ -986,7 +957,7 @@ def parse_grid_str(grid_str: str, supported_num_agents: int) -> DrivingGrid:
                    (a=0, b=1, ..., j=9)
     - = destination location for any agent
 
-    Examples (" " quotes and newline chars ommited):
+    Examples (" " quotes and newline chars omitted):
 
     1. A 3x3 grid with two agents, one block, and where each agent has a single
     starting location and a single destination location.
@@ -1074,234 +1045,115 @@ def parse_grid_str(grid_str: str, supported_num_agents: int) -> DrivingGrid:
     )
 
 
-def get_3x3_grid() -> DrivingGrid:
-    """Generate a simple Driving 3-by-3 grid layout."""
-    grid_str = "a1.\n" ".#.\n" ".0b\n"
-    return parse_grid_str(grid_str, 2)
-
-
-def get_4x4_intersection_grid() -> DrivingGrid:
-    """Generate a 4-by-4 intersection grid layout."""
-    grid_str = "#0b#\n" "d..3\n" "2..c\n" "#a1#\n"
-    return parse_grid_str(grid_str, 4)
-
-
-def get_6x6_intersection_grid() -> DrivingGrid:
-    """Generate a 6-by-6 intersection grid layout."""
-    grid_str = "##0b##\n" "##..##\n" "d....3\n" "2....c\n" "##..##\n" "##a1##\n"
-    return parse_grid_str(grid_str, 4)
-
-
-def get_7x7_crisscross_grid() -> DrivingGrid:
-    """Generate a 7-by-7 Criss-Cross grid layout."""
-    grid_str = (
-        "#-#-#-#\n"
-        "-.....+\n"
-        "#.#.#.#\n"
-        "-.....+\n"
-        "#.#.#.#\n"
-        "-.....+\n"
-        "#+#+#+#\n"
-    )
-    return parse_grid_str(grid_str, 6)
-
-
-def get_7x7_blocks_grid() -> DrivingGrid:
-    """Generate a 7-by-7 blocks grid layout."""
-    grid_str = (
-        "#-...-#\n"
-        "-##.##+\n"
-        ".##.##.\n"
-        ".......\n"
-        ".##.##.\n"
-        "-##.##+\n"
-        "#+...+#\n"
-    )
-    return parse_grid_str(grid_str, 4)
-
-
-def get_7x7_roundabout_grid() -> DrivingGrid:
-    """Generate a 7-by-7 round-about grid layout."""
-    grid_str = (
-        "#-...-#\n"
-        "-##.##+\n"
-        ".#...#.\n"
-        "...#...\n"
-        ".#...#.\n"
-        "-##.##+\n"
-        "#+...+#\n"
-    )
-    return parse_grid_str(grid_str, 4)
-
-
-def get_14x14_crisscross_grid() -> DrivingGrid:
-    """Generate a 14-by-14 Criss-Cross grid layout."""
-    grid_str = (
-        "##-##-##-##-##\n"
-        "##.##.##.##.##\n"
-        "-............+\n"
-        "##.##.##.##.##\n"
-        "##.##.##.##.##\n"
-        "-............+\n"
-        "##.##.##.##.##\n"
-        "##.##.##.##.##\n"
-        "-............+\n"
-        "##.##.##.##.##\n"
-        "##.##.##.##.##\n"
-        "-............+\n"
-        "##.##.##.##.##\n"
-        "##+##+##+##+##\n"
-    )
-    return parse_grid_str(grid_str, 4)
-
-
-def get_14x14_blocks_grid() -> DrivingGrid:
-    """Generate a 14-by-14 Blocks grid layout."""
-    grid_str = (
-        "#-..........-#\n"
-        "-###.####.###+\n"
-        ".###.####.###.\n"
-        ".###.####.###.\n"
-        "..............\n"
-        ".###.####.###.\n"
-        ".###.####.###.\n"
-        ".###.####.###.\n"
-        ".###.####.###.\n"
-        "..............\n"
-        ".###.####.###.\n"
-        ".###.####.###.\n"
-        "-###.####.###+\n"
-        "#+..........+#\n"
-    )
-    return parse_grid_str(grid_str, 4)
-
-
-def get_14x14_roundabout_grid() -> DrivingGrid:
-    """Generate a 14-by-14 Round About grid layout roads."""
-    grid_str = (
-        "#-..........-#\n"
-        "-#####..#####+\n"
-        ".#####..#####.\n"
-        ".#####..#####.\n"
-        ".###......###.\n"
-        ".###......###.\n"
-        "......##......\n"
-        "......##......\n"
-        ".###......###.\n"
-        ".###......###.\n"
-        ".#####..#####.\n"
-        ".#####..#####.\n"
-        "-#####..#####+\n"
-        "#+..........+#\n"
-    )
-    return parse_grid_str(grid_str, 4)
-
-
-class DrivingGridGenerator(GridGenerator):
-    """Class for generating grid layouts for Driving Environment.
-
-    Generates starting and destination coords in an alternating pattern along
-    the outside of edge of the grid.
-    """
-
-    def __init__(
-        self,
-        width: int,
-        height: int,
-        max_obstacle_size: int,
-        max_num_obstacles: int,
-        seed: Optional[int] = None,
-    ):
-        super().__init__(
-            width,
-            height,
-            self._generate_mask(width, height),
-            max_obstacle_size,
-            max_num_obstacles,
-            ensure_grid_connected=True,
-            seed=seed,
-        )
-
-        self._start_coords = [self.mask for _ in range(len(self.mask))]
-        self._dest_coords = [self.mask for _ in range(len(self.mask))]
-
-    def _generate_mask(self, width: int, height: int) -> Set[Coord]:
-        start = 1
-        mask = set()
-        for x in range(start, width, 2):
-            mask.add((x, 0))
-            mask.add((x, height - 1))
-
-        for y in range(start, height, 2):
-            mask.add((0, y))
-            mask.add((width - 1, y))
-
-        return mask
-
-    def generate(self) -> DrivingGrid:
-        """Generate a new Driving grid."""
-        base_grid = super().generate()
-        driving_grid = DrivingGrid(
-            base_grid.width,
-            base_grid.height,
-            base_grid.block_coords,
-            self._start_coords,
-            self._dest_coords,
-        )
-        return driving_grid
-
-
-# (generator params, finite horizon step limit)
-SUPPORTED_GEN_PARAMS = {
-    "7x7": (
-        {
-            "width": 7,
-            "height": 7,
-            "max_obstacle_size": 2,
-            "max_num_obstacles": 21,  # size * 3
-        },
-        50,
-    ),
-    "14x14": (
-        {
-            "width": 14,
-            "height": 14,
-            "max_obstacle_size": 3,
-            "max_num_obstacles": 42,  # size * 3
-        },
-        50,
-    ),
-    "28x28": (
-        {
-            "width": 28,
-            "height": 28,
-            "max_obstacle_size": 4,
-            "max_num_obstacles": 84,  # size * 3
-        },
-        100,
-    ),
-}
-
-
 #  (grid_make_fn, max step_limit, )
-SUPPORTED_GRIDS = {
-    "3x3": (get_3x3_grid, 15),
-    "4x4Intersection": (get_4x4_intersection_grid, 20),
-    "6x6Intersection": (get_6x6_intersection_grid, 20),
-    "7x7CrissCross": (get_7x7_crisscross_grid, 50),
-    "7x7Blocks": (get_7x7_blocks_grid, 50),
-    "7x7RoundAbout": (get_7x7_roundabout_grid, 50),
-    "14x14Blocks": (get_14x14_blocks_grid, 50),
-    "14x14CrissCross": (get_14x14_crisscross_grid, 50),
-    "14x14RoundAbout": (get_14x14_roundabout_grid, 50),
+SUPPORTED_GRIDS: Dict[str, Dict[str, Any]] = {
+    "3x3": {
+        "grid_str": ("a1.\n" ".#.\n" ".0b\n"),
+        "supported_num_agents": 2,
+        "max_episode_steps": 15,
+    },
+    "6x6Intersection": {
+        "grid_str": ("##0b##\n" "##..##\n" "d....3\n" "2....c\n" "##..##\n" "##a1##\n"),
+        "supperted_num_agets": 4,
+        "max_episode_steps": 20,
+    },
+    "7x7Blocks": {
+        "grid_str": (
+            "#-...-#\n"
+            "-##.##+\n"
+            ".##.##.\n"
+            ".......\n"
+            ".##.##.\n"
+            "-##.##+\n"
+            "#+...+#\n"
+        ),
+        "supported_num_agents": 4,
+        "max_episode_steps": 50,
+    },
+    "7x7CrissCross": {
+        "grid_str": (
+            "#-#-#-#\n"
+            "-.....+\n"
+            "#.#.#.#\n"
+            "-.....+\n"
+            "#.#.#.#\n"
+            "-.....+\n"
+            "#+#+#+#\n"
+        ),
+        "supported_num_agents": 6,
+        "max_episode_steps": 50,
+    },
+    "7x7RoundAbout": {
+        "grid_str": (
+            "#-...-#\n"
+            "-##.##+\n"
+            ".#...#.\n"
+            "...#...\n"
+            ".#...#.\n"
+            "-##.##+\n"
+            "#+...+#\n"
+        ),
+        "supported_num_agents": 4,
+        "max_episode_steps": 50,
+    },
+    "14x14Blocks": {
+        "grid_str": (
+            "#-..........-#\n"
+            "-###.####.###+\n"
+            ".###.####.###.\n"
+            ".###.####.###.\n"
+            "..............\n"
+            ".###.####.###.\n"
+            ".###.####.###.\n"
+            ".###.####.###.\n"
+            ".###.####.###.\n"
+            "..............\n"
+            ".###.####.###.\n"
+            ".###.####.###.\n"
+            "-###.####.###+\n"
+            "#+..........+#\n"
+        ),
+        "supported_num_agents": 4,
+        "max_episode_steps": 50,
+    },
+    "14x14CrissCross": {
+        "grid_str": (
+            "##-##-##-##-##\n"
+            "##.##.##.##.##\n"
+            "-............+\n"
+            "##.##.##.##.##\n"
+            "##.##.##.##.##\n"
+            "-............+\n"
+            "##.##.##.##.##\n"
+            "##.##.##.##.##\n"
+            "-............+\n"
+            "##.##.##.##.##\n"
+            "##.##.##.##.##\n"
+            "-............+\n"
+            "##.##.##.##.##\n"
+            "##+##+##+##+##\n"
+        ),
+        "supported_num_agents": 8,
+        "max_episode_steps": 50,
+    },
+    "14x14RoundAbout": {
+        "grid_str": (
+            "#-..........-#\n"
+            "-#####..#####+\n"
+            ".#####..#####.\n"
+            ".#####..#####.\n"
+            ".###......###.\n"
+            ".###......###.\n"
+            "......##......\n"
+            "......##......\n"
+            ".###......###.\n"
+            ".###......###.\n"
+            ".#####..#####.\n"
+            ".#####..#####.\n"
+            "-#####..#####+\n"
+            "#+..........+#\n"
+        ),
+        "supported_num_agents": 4,
+        "max_episode_steps": 50,
+    },
 }
-
-
-def load_grid(grid_name: str) -> DrivingGrid:
-    """Load grid with given name."""
-    grid_name = grid_name
-    assert grid_name in SUPPORTED_GRIDS, (
-        f"Unsupported grid name '{grid_name}'. Grid name must be one of: "
-        f"{SUPPORTED_GRIDS.keys()}."
-    )
-    return SUPPORTED_GRIDS[grid_name][0]()

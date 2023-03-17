@@ -1,29 +1,4 @@
-"""The Pursuit-Evasion Grid World Environment.
-
-An adversarial 2D grid world problem involving two agents, a evader and
-a pursuer. The evader's goal is to reach a goal location, on the other side
-of the grid, while the goal of the pursuer is to spot the evader
-before it reaches it's goal. The evader is considered caught if it is
-observed by the pursuer, or occupies the same location. The evader and
-pursuer have knowledge of each others starting locations. However, only the
-evader has knowledge of it's goal location. The pursuer only knowns that
-the goal location is somewhere on the opposite side of the grid to the
-evaders start location.
-
-This environment requires each agent to reason about the which path the
-other agent will take through the dense grid environment.
-
-References
-----------
-- [This Pursuit-Evasion implementation is directly inspired by the problem] Seaman, Iris
-  Rubi, Jan-Willem van de Meent, and David Wingate. 2018. “Nested Reasoning About
-  Autonomous Agents Using Probabilistic Programs.” ArXiv Preprint ArXiv:1812.01569.
-- Schwartz, Jonathon, Ruijia Zhou, and Hanna Kurniawati. "Online Planning for
-  Interactive-POMDPs using Nested Monte Carlo Tree Search." In 2022 IEEE/RSJ
-  International Conference on Intelligent Robots and Systems (IROS), pp. 8770-8777.
-  IEEE, 2022.
-
-"""
+"""The Pursuit-Evasion Grid World Environment."""
 from collections import deque
 from typing import (
     Any,
@@ -90,84 +65,140 @@ PEObs = Union[PEEvaderObs, PEPursuerObs]
 class PursuitEvasionEnv(DefaultEnv):
     """The Pursuit-Evasion Grid World Environment.
 
-    An adversarial 2D grid world problem involving two agents, a evader and
-    a pursuer. The evader's goal is to reach a goal location, on the other side
-    of the grid, while the goal of the pursuer is to spot the evader
-    before it reaches it's goal. The evader is considered caught if it is
-    observed by the pursuer, or occupies the same location. The evader and
-    pursuer have knowledge of each others starting locations. However, only the
-    evader has knowledge of it's goal location. The pursuer only knowns that
-    the goal location is somewhere on the opposite side of the grid to the
-    evaders start location.
+    An adversarial 2D grid world problem involving two agents: an evader and a pursuer.
+    The evader's goal is to reach a goal location, on the other side of the grid, while
+    the goal of the pursuer is to spot the evader before it reaches it's goal. The
+    evader is considered caught if it is observed by the pursuer, or occupies the same
+    location. The evader and pursuer have knowledge of each others starting locations.
+    However, only the evader has knowledge of it's goal location. The pursuer only
+    knowns that the evader's goal location is somewhere on the opposite side of the grid
+    to the evaders start location.
 
-    This environment requires each agent to reason about the which path the
-    other agent will take through the dense grid environment.
+    This environment requires each agent to reason about the which path the other agent
+    will take through the dense grid environment.
 
-    Agents
-    ------
-    Evader=0
-    Pursuer=1
+    Possible Agents
+    ---------------
+    - Evader = `"0"`
+    - Pursuer = `"1"`
 
-    State
-    -----
+    State Space
+    -----------
     Each state is made up of:
 
-    0. the (x, y) coordinate of the evader
+    0. the `(x, y)` coordinate of the evader
     1. the direction the evader is facing
-    2. the (x, y) coordinate of the pursuer
+    2. the `(x, y)` coordinate of the pursuer
     3. the direction the pursuer is facing
-    4. the (x, y) coordinate of the evader
-    5. the (x, y) coordinate of the evader's start location
-    6. the (x, y) coordinate of the pursuer's start location
+    4. the `(x, y)` coordinate of the evader
+    5. the `(x, y)` coordinate of the evader's start location
+    6. the `(x, y)` coordinate of the pursuer's start location
 
-    Actions
-    -------
-    Each agent has 4 actions corresponding to moving in the 4 available
-    directions w.r.t the direction the agent is currently faction
-    (FORWARD=0, BACKWARDS=1, LEFT=2, RIGHT=3).
+    Action Space
+    ------------
+    Each agent has 4 actions corresponding to moving in the 4 available directions with
+    respect to the direction the agent is currently facing: `FORWARD=0`, `BACKWARDS=1`,
+    `LEFT=2`, `RIGHT=3`.
 
-    Observation
-    -----------
+    Observation Space
+    -----------------
     Each agent observes:
 
-    1. whether there is a wall or not in the adjacent cells in the four
+    1. whether there is a wall (`1`) or not (`0`) in the adjacent cells in the four
        cardinal directions,
-    2. whether they see the other agent in a cone in front of them. The cone
-       projects forward up to 'max_obs_distance' (default=12) cells in front of
-       the agent.
-    3. whether they hear the other agent (whether the other agent is within
-       distance 2 from the agent in any direction),
-    4. the (x, y) coordinate of the evader's start location,
-    5. the (x, y) coordinate of the pursuer's start location,
-    6. Evader: the (x, y) coordinate of the evader's goal location.
-       Pursuer: blank coordinate = (0, 0).
+    2. whether they see the other agent in a cone in front of them (`1`) or not (`0`).
+       The cone projects forward up to 'max_obs_distance' (default=`12`) cells in front
+       of the agent.
+    3. whether they hear the other agent (`1`) or not (`0`). The other agent is heard if
+       they are within distance 2 from the agent in any direction.
+    4. the `(x, y)` coordinate of the evader's start location,
+    5. the `(x, y)` coordinate of the pursuer's start location,
+    6. Evader: the `(x, y)` coordinate of the evader's goal location.
+       Pursuer: blank coordinate `(0, 0)`.
 
-    Note, the goal and start coordinate observations do not change during a
-    single episode, but they do change between episodes.
+    Note, the goal and start coordinate observations do not change during a single
+    episode, but they do change between episodes.
 
-    Reward
-    ------
-    The environment is zero-sum with the pursuer recieving the negative of the
-    evader reward. Additionally, rewards are by default normalized so that
-    returns are bounded between -1 and 1 (this can be disabled by the
-    `normalize_reward` parameter).
+    Rewards
+    -------
+    The environment is zero-sum with the pursuer receiving the negative of the evader
+    reward. Additionally, rewards are by default normalized so that returns are bounded
+    between `-1` and `1` (this can be disabled by the `normalize_reward` parameter).
 
-    The evader recieves a reward of 1 for reaching it's goal location and a
-    reward of -1 if it gets captured. Additionally, the evader recieves a small
-    reward of 0.01 each time it's minumum distance to it's goal along the
-    shortest path decreases. This is to make it so the environment is no
-    longer sparesely rewarded and to help with exploration and learning (it
-    can be disabled by the `use_progress_reward` parameter.)
+    The evader receives a reward of `1` for reaching it's goal location and a
+    reward of `-1` if it gets captured. Additionally, the evader receives a small
+    reward of `0.01` each time it's minimum distance achieved to it's goal along the
+    shortest path decreases for the current episode. This is to make it so the
+    environment is no longer sparesely rewarded and helps with exploration and learning
+    (it can be disabled by the `use_progress_reward` parameter.)
 
-    Transition Dynamics
-    -------------------
-    By default actions are deterministic and an episode ends when either the
-    evader is caught, the evader reaches a goal, or the step limit is reached.
+    Dynamics
+    --------
+    By default actions are deterministic and will move the agent one cell in the target
+    direction if the cell is empty.
 
-    The environment can also be run in stochastic mode by changing the
-    `action_probs` parameter at initialization. This controls the probability
-    the agent will move in the desired direction each step, otherwise moving
-    randomly in one of the other 3 possible directions.
+    The environment can also be run in stochastic mode by changing the `action_probs`
+    parameter at initialization. This controls the probability the agent will move in
+    the desired direction each step, otherwise moving randomly in one of the other 3
+    possible directions.
+
+    Starting State
+    --------------
+    At the start of each episode the start location of the evader is selected at random
+    from all possible start locations. The evader's goal location is then chosen
+    randomly from the set of available goal locations given the evaders start location
+    (in the default maps the goal location is always on the opposite side of the map
+    from a start location). The pursuers start location is similarly chosen from it's
+    set of possible start locations.
+
+    Episode End
+    -----------
+    An episode ends when either the evader is caught or the evader reaches it's goal.
+    By default a `max_episode_steps` limit of `100` steps is also set. This may need to
+    be adjusted when using larger grids (this can be done by manually specifying a value
+    for `max_episode_steps` when creating the environment with `posggym.make`).
+
+    Arguments
+    ---------
+
+    - `grid` - the grid layout to use. This can either be a string specifying one of
+         the supported grids, or a custom :class:`PEGrid` object (default = `"16x16"`).
+    - `action_probs` - the action success probability for each agent. This can be a
+        single float (same value for both evader and pursuer agents) or a tuple with
+        separate values for each agent (default = `1.0`).
+    - `max_obs_distance` - the maximum number of cells in front each agent's field of
+        vision extends (default = `12`).
+    - `num_prey` - the number of prey (default = `3`)
+    - `normalize_reward` - whether to normalize both agents' rewards to be between `-1`
+        and `1` (default = 'True`)
+    - `use_progress_reward` - whether to reward the evader agent for making progress
+        towards it's goal. If False the evader will only be rewarded when it reaches
+        it's goal, making it a sparse reward problem (default = 'True`).
+
+    Available variants
+    ------------------
+
+    The PursuitEvasion environment comes with a number of pre-built grid layouts which
+    can be passed as an argument to `posggym.make`, to create different grids.
+
+    | Grid name         | Grid size |
+    |-------------------|-----------|
+    | `5x5`             | 8x8       |
+    | `16x16`           | 16x16     |
+    | `32x32`           | 32x32     |
+
+    For example to use the PursuitEvasion environment with the `32x32` grid layout, and
+    episode step limit of 200, and the default values for the other parameters you would
+    use:
+
+    ```python
+    import posggym
+    env = posgggym.make(
+        'PursuitEvasion-v0',
+        max_episode_steps=200,
+        grid="32x32",
+    )
+    ```
 
     References
     ----------
@@ -189,7 +220,7 @@ class PursuitEvasionEnv(DefaultEnv):
 
     def __init__(
         self,
-        grid_name: str,
+        grid: Union[str, "PEGrid"] = "16x16",
         action_probs: Union[float, Tuple[float, float]] = 1.0,
         max_obs_distance: int = 12,
         normalize_reward: bool = True,
@@ -198,23 +229,21 @@ class PursuitEvasionEnv(DefaultEnv):
         **kwargs,
     ):
         model = PursuitEvasionModel(
-            grid_name,
+            grid,
             action_probs=action_probs,
             max_obs_distance=max_obs_distance,
             normalize_reward=normalize_reward,
             use_progress_reward=use_progress_reward,
             **kwargs,
         )
-        super().__init__(
-            model,
-            render_mode=render_mode,
-        )
-        self._max_obs_distance = max_obs_distance
-        grid = model.grid
-        fov_width = grid.get_max_fov_width(model.FOV_EXPANSION_INCR, max_obs_distance)
+        super().__init__(model, render_mode=render_mode)
 
+        self._max_obs_distance = max_obs_distance
+        fov_width = model.grid.get_max_fov_width(
+            model.FOV_EXPANSION_INCR, max_obs_distance
+        )
         self._obs_dims = (
-            min(max_obs_distance, max(grid.width, grid.height)),
+            min(max_obs_distance, max(model.grid.width, model.grid.height)),
             0,
             fov_width // 2,
             fov_width // 2,
@@ -335,23 +364,29 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
 
     def __init__(
         self,
-        grid_name: str,
+        grid: Union[str, "PEGrid"],
         action_probs: Union[float, Tuple[float, float]] = 1.0,
         max_obs_distance: int = 12,
         normalize_reward: bool = True,
         use_progress_reward: bool = True,
-        **kwargs,
     ):
-        self._grid_name = grid_name
-        self.grid = load_grid(grid_name)
+        if isinstance(grid, str):
+            assert grid in SUPPORTED_GRIDS, (
+                f"Unsupported grid name '{grid}'. If grid is a string it must be one "
+                f"of: {SUPPORTED_GRIDS.keys()}."
+            )
+            grid = SUPPORTED_GRIDS[grid][0]()
+
         if isinstance(action_probs, float):
             action_probs = (action_probs, action_probs)
+
+        self._grid = grid
         self._action_probs = action_probs
         self._max_obs_distance = max_obs_distance
         self._normalize_reward = normalize_reward
         self._use_progress_reward = use_progress_reward
 
-        self._max_sp_distance = self.grid.get_max_shortest_path_distance()
+        self._max_sp_distance = self._grid.get_max_shortest_path_distance()
         self._max_raw_return = self.R_EVASION
         if self._use_progress_reward:
             self._max_raw_return += (self._max_sp_distance + 1) * self.R_PROGRESS
@@ -394,6 +429,11 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             for i in self.possible_agents
         }
         self.is_symmetric = False
+
+    @property
+    def grid(self) -> "PEGrid":
+        """The underlying grid for this model instance."""
+        return self._grid
 
     @property
     def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
@@ -552,10 +592,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             agent_coord, ignore_blocks=True, include_out_of_bounds=True
         )
         walls: Tuple[int, int, int, int] = tuple(  # type: ignore
-            int(
-                not self.grid.coord_in_bounds(agent_coord)
-                or agent_coord in self.grid.block_coords
-            )
+            int(not self.grid.coord_in_bounds(coord) or coord in self.grid.block_coords)
             for coord in adj_coords
         )
         seen = self._get_opponent_seen(agent_coord, agent_dir, opp_coord)
@@ -641,7 +678,6 @@ class PEGrid(Grid):
         self._goal_coords_map = goal_coords_map
         self.evader_start_coords = evader_start_coords
         self.pursuer_start_coords = pursuer_start_coords
-
         self.shortest_paths = self.get_all_shortest_paths(set(evader_start_coords))
 
     @property
@@ -831,33 +867,6 @@ class PEGrid(Grid):
         return min(max_depth, min(self.width, self.height))
 
 
-def get_5x5_grid() -> PEGrid:
-    """Generate the 5-by-5 PE grid layout.
-
-    - 0, 1, 2, 3 are possible evader start and goal locations
-    - 5 are possible pursuer start locations
-
-    The evader start and goal locations are always on opposite sides of the
-    map.
-
-    """
-    ascii_map = " 9  8" " # # " " #5  " " # # " "0  1 "
-
-    return _convert_map_to_grid(
-        ascii_map,
-        5,
-        5,
-        pursuer_start_symbols={"5"},
-        evader_start_symbols={"0", "1", "8", "9"},
-        evader_goal_symbol_map={
-            "0": ["8", "9"],
-            "1": ["8", "9"],
-            "8": ["0", "1"],
-            "9": ["0", "1"],
-        },
-    )
-
-
 def get_8x8_grid() -> PEGrid:
     """Generate the 8-by-8 PE grid layout.
 
@@ -1034,18 +1043,7 @@ def _convert_map_to_grid(
 
 # grid_name: (grid_make_fn, step_limit)
 SUPPORTED_GRIDS = {
-    "5x5": (get_5x5_grid, 20),
     "8x8": (get_8x8_grid, 50),
     "16x16": (get_16x16_grid, 100),
     "32x32": (get_32x32_grid, 200),
 }
-
-
-def load_grid(grid_name: str) -> PEGrid:
-    """Load grid with given name."""
-    grid_name = grid_name
-    assert grid_name in SUPPORTED_GRIDS, (
-        f"Unsupported grid name '{grid_name}'. Grid name must be one of: "
-        f"{SUPPORTED_GRIDS.keys()}."
-    )
-    return SUPPORTED_GRIDS[grid_name][0]()

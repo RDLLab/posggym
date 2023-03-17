@@ -59,7 +59,7 @@ def test_termination_on_last_step(double_wrap):
             {i: True for i in env.agents},
             {i: False for i in env.agents},
             True,
-            {i: {} for i in env.agents}
+            {i: {} for i in env.agents},
         )
 
     env.step = patched_step

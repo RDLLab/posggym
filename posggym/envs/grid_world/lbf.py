@@ -1,29 +1,4 @@
-"""The Level-Based Foraging Environment.
-
-This implementation uses and is based on the original implementation of the
-Level-Based Foraging environment:
-
-https://github.com/semitable/lb-foraging
-
-References
-----------
-- Stefano V. Albrecht and Subramanian Ramamoorthy. 2013. A Game-Theoretic Model and
-  Best-Response Learning Method for Ad Hoc Coordination in Multia-gent Systems.
-  In Proceedings of the 2013 International Conference on Autonomous Agents and
-  Multi-Agent Systems. 1155–1156.
-- S. V. Albrecht and Peter Stone. 2017. Reasoning about Hypothetical Agent
-  Behaviours and Their Parameters. In 16th International Conference on Autonomous
-  Agents and Multiagent Systems 2017. International Foundation for Autonomous
-  Agents and Multiagent Systems, 547–555
-- Filippos Christianos, Lukas Schäfer, and Stefano Albrecht. 2020. Shared Experience
-  Actor-Critic for Multi-Agent Reinforcement Learning. Advances in Neural
-  Information Processing Systems 33 (2020), 10707–10717
-- Georgios Papoudakis, Filippos Christianos, Lukas Schäfer, and Stefano V. Albrecht.
-  2021. Benchmarking Multi-Agent Deep Reinforcement Learning Algorithms in
-  Cooperative Tasks. In Thirty-Fifth Conference on Neural Information Processing
-  Systems Datasets and Benchmarks Track (Round 1)
-
-"""
+"""The Level-Based Foraging Environment."""
 import enum
 import math
 from collections import defaultdict
@@ -106,60 +81,133 @@ class LBFEntityObs(NamedTuple):
 class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
     """The Level-Based Foraging Environment.
 
-    This implementation uses and is based on the original implementation of
-    the Level-Based Foraging environment:
+    This implementation is based on the original implementation of Level-Based Foraging
+    environment: <https://github.com/semitable/lb-foraging>. We modify their original
+    version to support access to the environments dynamic's model as well as adding
+    more control over the layout of food in the world.
 
-    https://github.com/semitable/lb-foraging
+    The Level-Based Foraging is a 2D grid-world involving multiple agents each of which
+    is trying to collect as much food as possible. A finite amount of food is spread
+    throughout the world which the agents can collect. The key interesting feature is
+    that both the agents and the food have levels and a piece of food can only be picked
+    up if the sum of the levels of all the agents trying to pick up the food is greater
+    than the foods level. This incentivizes cooperation between agents.
 
-    We provide a discription here for convinience.
+    The problem can be set in two-modes: `cooperative` and `mixed`. In cooperative mode
+    agents share rewards and so are fully incentivized to work together. While in mixed
+    mode agents rewards are given individually so they are incentivized to cooperate to
+    collect food with higher levels, but also incentivized to act greedily to collect
+    lower level food by themselves, creating an interesting social-dilemma.
 
     Agents
     ------
-    Varied number
+    Between 2 and 4, with all agents active throughout every episode.
 
-    State
-    -----
-    The state of the environment is defined by a (x, y, level) triplet for each
-    agent and food object in the environment. The (x, y) components define the
-    position, starting from the bottom left square, while the level is the
-    level of the agent or food.
+    State Space
+    -----------
+    The state of the environment is defined by a `(x, y, level)` triplet for each agent
+    and food object in the environment. The `(x, y)` components define the position of
+    the agent or food, starting from the bottom left square. The `level` component is
+    the level of the agent or food.
 
-    Actions
-    -------
-    Each agent has six possible discrete actions [0-5] corresponding to:
-
-        Noop, Move North, Move South, Move West, Move East, Pickup
-
-    Observations
+    Action Space
     ------------
-    Each agent observes the (x, y, level) of food and other agent within their
-    field of vision, which is the grid `sight` distance away from the agent in
-    all directions.
+    Each agent has six possible discrete actions: `NOOP=0`, `NORTH=1`, `SOUTH=2`,
+    `WEST=3`, `EAST=4`, and `LOAD=5`. The NORTH, SOUTH, WEST, EAST actions move the
+    agent in the given direction, while the LOAD action attempts to pickup any adjacent
+    food. The NOOP action does nothing.
+
+    Observation Space
+    -----------------
+    Each agent observes the `(x, y, level)` of food and other agent within their field
+    of vision, which is `sight` distance away from the agent in all directions.
 
     There are three observation modes:
 
-    1. grid_observation
-       The agent recieves three 2D layers of size (1+2*`sight`, 1+2*`sight`).
-       Each cell in each layer corresponds to a specific (x, y) coordinate
-       relative to the observing agent.
-       The layers are:
-         i. agent level
-         ii. food level
-         iii. whether cell is free or blocked (e.g. out of bounds)
-    2. vector observation
-       A vector of (x, y, level) triplets for each food and agent in the
-       environment. If a given food or agent is not within the observing
-       agent's field of vision triplets have a value of [-1, -1, 0].
-       The size of the vector is (`num_agents` + `max_food`) * 3, with the
-       first `max_food` triplets being for the food, the `max_food`+1 triplet
-       being for the observing agent and the remaining `num_agents`-1
-       triplets for the other agents.
-       The ordering of the triplets for the other agents is consistent, while
-       the food obs triplets can change based on how many are visible and their
-       relative coordinates to the observing agent.
-    3. tuple observation
-       This is the same as the vector observation except observations are
-       Python tuples of integers instead of numpy arrays of floats.
+    1. *grid*
+        - The agent receives three 2D layers of size (`1+2*sight`, `1+2*sight`). Each
+          cell in each layer corresponds to a specific (x, y) coordinate relative to
+          the observing agent. The layers are:
+            1. agent level
+            2. food level
+            3. whether cell is free or blocked (e.g. out of bounds)
+    2. *vector*
+        - A vector of `(x, y, level)` triplets for each food and agent in the
+          environment. If a given food or agent is not within the observing agent's
+          field of vision triplets have a value of `(-1, -1, 0)`. The size of the vector
+          is `(num_agents + max_food) * 3`, with the first `max_food` triplets being
+          for the food, the `max_food+1` triplet being for the observing agent and the
+          remaining `num_agents-1` triplets for the other agents. The ordering of the
+          triplets for the other agents is consistent, while the food obs triplets can
+          change based on how many are visible and their relative coordinates to the
+          observing agent.
+    3. *tuple*
+       - This is the same as the vector observation except observations are Python
+         tuples of integers instead of numpy arrays of floats.
+
+    Rewards
+    -------
+    Agents receive a reward whenever they successfully pick-up food. The reward received
+    by each agent depends on the food's level and how many agents picked up the food and
+    their levels. In cooperative mode all agents receive the same reward.
+
+    Dynamics
+    --------
+    Actions are deterministic with each agent's movement action resulting in them moving
+    1 cell in the given direction so long as that cell is not occupied or out-of-bounds.
+    The `LOAD` action will only succeed if the agent is adjacent to a food object and
+    the agents level is higher than the food level, or other agents are attempting to
+    load the food at the same time, and the sum of the all loading agent's levels is
+    greater than the food's level. If a food is successfully loaded then it is removed
+    from the map.
+
+    Starting State
+    --------------
+    The initial state depends on if the environment is using a `static_layout` or not.
+
+    When using a static layout each agent will start from the same location, in one of
+    the corners or half-way along one of the grid's edges, each episodes and the food
+    will be in the same positions. The level of each agent and food will be selected
+    randomly. The static layout is useful when using a planner since the number of
+    possible initial states is significantly reduced.
+
+    When not using the static layout, agent starting and food locations are selected
+    randomly from all possible positions, and the agent and food levels are also
+    selected randomly.
+
+    Episodes End
+    ------------
+    Episodes end when all food has been collected. By default a `max_episode_steps` is
+    also set for each Driving environment. The default value is `50` steps, but this may
+    need to be adjusted when using larger grids (this can be done by manually specifying
+    a value for `max_episode_steps` when creating the environment with `posggym.make`).
+
+    Arguments
+    ---------
+
+    - `num_agents` - the number of agents in the environment (default = `2`).
+    - `max_agent_level` - the maximum level of an agent (default = `3`).
+    - `field_size` - the width and height of the grid world (default = `(10, 10)`).
+    - `max_food` - the maximum number of food that will appear in an episode
+        (default = `8`).
+    - `sight` - the local observation dimensions, specifying how many cells in each
+        direction the agent observes (default = `2`, resulting in the agent observing a
+        5x5 area)
+    - `force_coop` -  whether all agents share all rewards (i.e. fully cooperative mode)
+        (default = "False").
+    - `static_layout` - whether to use a static food layout. If true then the same
+        number of food will always appear each episode and always in the same locations.
+        The level of the food will be random each episode. If false, food location and
+        levels is random each episode (default = 'False`)
+    - `normalize_reward` - whether to normalize rewards so that the max sum of rewards
+        for an episode is 1.0 (default=`True`).
+    - `observation_mode` - the observation mode to use out of `grid`, `vector`, or
+        `tuple` (default=`tuple`)
+    - `penalty` - the penalty for failing to load food (default=0.0)
+
+    Version History
+    ---------------
+    - `v2`: Version adapted from <https://github.com/semitable/lb-foraging>
 
     References
     ----------
@@ -188,13 +236,13 @@ class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
 
     def __init__(
         self,
-        num_agents: int,
-        max_agent_level: int,
-        field_size: Tuple[int, int],
-        max_food: int,
-        sight: int,
-        force_coop: bool,
-        static_layout: bool,
+        num_agents: int = 2,
+        max_agent_level: int = 3,
+        field_size: Tuple[int, int] = (10, 10),
+        max_food: int = 8,
+        sight: int = 2,
+        force_coop: bool = False,
+        static_layout: bool = False,
         normalize_reward: bool = True,
         observation_mode: str = "tuple",
         penalty: float = 0.0,
@@ -332,7 +380,6 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
           - 'tuple' - observations are a tuple with same format as 'vector'
                       observations but as a hashable Python tuple object
                       containing integers instead of floats
-
     penalty : float, optional
         the penalty for failing to load food (default=0.0)
 
@@ -572,7 +619,7 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         assert max_level >= 1
         min_level = max_level if self._force_coop else 1
         food = []
-        for (x, y) in self._food_locations:
+        for x, y in self._food_locations:
             level = min_level
             if min_level != max_level:
                 level = self.rng.randint(min_level, max_level)  # type: ignore
@@ -598,7 +645,7 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
             if (x, y) in unavailable_coords:
                 continue
             # add coord and adjacent coord to unavailable set so food are always
-            # atleast one cell apart
+            # at least one cell apart
             for x_delta, y_delta in product([-1, 0, 1], repeat=2):
                 unavailable_coords.add((x + x_delta, y + y_delta))
             level = min_level
@@ -726,7 +773,7 @@ class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
 
         food_obs = []
         for f in state.food:
-            # note unobserved food are exluded since ordering can change for food obs
+            # note unobserved food are excluded since ordering can change for food obs
             # (unlike for players)
             if (
                 abs(f.coord[0] - ego_player.coord[0]) <= self.sight

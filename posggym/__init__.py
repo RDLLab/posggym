@@ -3,7 +3,12 @@
 # Need to import model and core before other modules
 from posggym.model import POSGFullModel, POSGModel
 from posggym.core import (
-    ActionWrapper, Env, DefaultEnv, ObservationWrapper, RewardWrapper, Wrapper
+    ActionWrapper,
+    Env,
+    DefaultEnv,
+    ObservationWrapper,
+    RewardWrapper,
+    Wrapper,
 )
 from posggym import envs, error, logger, utils, wrappers
 from posggym.envs import make, pprint_registry, register, registry, spec
@@ -32,4 +37,4 @@ __all__ = [
     "error",
     "logger",
 ]
-__version__ = "0.2.1"
+__version__ = "0.3.2"

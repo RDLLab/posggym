@@ -1,22 +1,4 @@
-"""The Unmanned Aerial Vehicle Grid World Environment.
-
-An adversarial 2D grid world problem involving two agents, a Unmanned
-Aerial Vehicle (UAV) and a fugitive. The UAV's goal is to capture the
-fugitive, while the fugitive's goal is to reach the safe house located at
-a known fixed location on the grid. The fugitive is considered caught if
-it is co-located with the UAV. The UAV observes it's own location and
-recieves a noisy observation of the fugitive's location. The fugitive does
-not know it's location but it recieves a noisy observation of its relative
-direction to the safe house when it is adjacent to the safe house.
-
-Reference
----------
-Panella, Alessandro, and Piotr Gmytrasiewicz. 2017. “Interactive POMDPs
-with Finite-State Models of Other Agents.” Autonomous Agents and
-Multi-Agent Systems 31 (4): 861–904.
-
-"""
-import itertools
+"""The Unmanned Aerial Vehicle Grid World Environment."""
 import random
 from os import path
 from typing import Dict, List, Optional, Set, Tuple, Union
@@ -55,65 +37,103 @@ class UAVEnv(DefaultEnv[UAVState, UAVObs, UAVAction]):
     fugitive, while the fugitive's goal is to reach the safe house located at
     a known fixed location on the grid. The fugitive is considered caught if
     it is co-located with the UAV. The UAV observes it's own location and
-    recieves a noisy observation of the fugitive's location. The fugitive does
-    not know it's location but it recieves a noisy observation of its relative
+    receives a noisy observation of the fugitive's location. The fugitive does
+    not know it's location but it receives a noisy observation of its relative
     direction to the safe house when it is adjacent to the safe house.
 
-    Agents
-    ------
-    UAV = 0
-    Fugitive = 1
+    Posgible Agents
+    ---------------
+    - UAV = '0'
+    - Fugitive = '1'
 
-    State
-    -----
-    Each state contains the (x, y) (x=column, y=row, with origin at the
-    top-left square of the grid) of the UAV and fugitive agent. Specifically,
-    a states is ((x_uav, y_uav), (x_fugitive, y_fugitive))
-
-    Initially, the location of both agents is chosen at random.
-
-    Actions
-    -------
-    Each agent has 4 actions corresponding to moving in the 4 cardinal
-    directions (NORTH=0, EAST=1, SOUTH=2, WEST=3).
-
-    Observation
+    State Space
     -----------
-    The UAV observes its (x, y) coordinates and recieves a noisy observation
-    of the fugitives (x, y) coordinates. The UAV observes the correct fugitive
-    coordinates with p=0.9, and one of the adjacent locations to the true
-    fugitive location with p=1-0.9.
+    Each state contains the `(x, y)` (x=column, y=row, with origin at the
+    top-left square of the grid) of the UAV and fugitive agents. Specifically,
+    a states is `((x_uav, y_uav), (x_fugitive, y_fugitive))`.
+
+    Action Space
+    ------------
+    Each agent has 4 actions corresponding to moving in the 4 cardinal
+    directions: `NORTH=0`, `EAST=1`, `SOUTH=2`, `WEST=3`.
+
+    Observation Space
+    -----------------
+    The UAV observes it's `(x, y)` coordinates and receives a noisy observation
+    of the fugitives `(x, y)` coordinates. The UAV observes the correct fugitive
+    coordinates with probability `p=0.9`, and one of the adjacent locations to the true
+    fugitive location with `p=1-0.9`.
 
     The fugitive can sense it's position with respect to the safe house, namely
-    whether it is north of it (OBSNORTH=0), south of it (OBSSOUTH=1), or at the
-    same level (OBSLEVEL=3). These observations are recieved with accuracy 0.8,
+    whether it is north of it (`OBSNORTH=0`), south of it (`OBSSOUTH=1`), or at the
+    same level (`OBSLEVEL=3`). These observations are received with accuracy of `0.8`,
     and only when the fugitive is adjacent to it. If the fugitive is not
-    adjacent to the safe house it recieves no observation (OBSNONE=4).
+    adjacent to the safe house it receives no observation (`OBSNONE=4`).
 
-    Reward
-    ------
-    Both agents receive a penalty of -0.04 for each step.
-    If the fugitive reaches the safe house then the fugitive recieves a reward
-    of 1, while the UAV recieves a penalty of -1.
-    If the fugitive is caught by the UAV, then the fugitive recieves a penalty
-    of -1, while the UAV recieves a reward of 1.
+    Rewards
+    -------
+    Both agents receive a penalty of `-0.04` for each step.
+    If the fugitive reaches the safe house then the fugitive receives a reward of `1`,
+    while the UAV receives a penalty of `-1`.
+    If the fugitive is caught by the UAV, then the fugitive receives a penalty of `-1`,
+    while the UAV receives a reward of `1`.
 
-    Transition Dynamics
-    -------------------
-    Actions are deterministic. The fugitive's position is reset at random if
+    Dynamics
+    --------
+    Actions are deterministic, so agents move into the next cell in the actions
+    direction if it is not out-of-bounds. The fugitive's position is reset at random if
     it reaches the safe house or gets caught by the UAV.
+
+    Starting State
+    --------------
+    Initially, the location of both agents is chosen at random, while the safe house
+    is always located in the same location depending on grid layout.
+
+    Episode End
+    -----------
+    Since the fugitive is reset each time it is caught. Episodes only end when the step
+    limit is reached, as specified by  `max_episode_steps` when initializing the
+    environment with `posggym.make` (default=`50`).
+
+    Arguments
+    ---------
+
+    - `grid` - the grid of the environment. This can be an integer specifying
+        the width and height of the grid, in which case an empty grid with the given
+        dimensions and default position for the safe house will be used. Alternatively,
+        it can be a `UAVGrid` instance. (default = `5`).
+
+    Problem Sizes
+    -------------
+
+    For reference, the table below contains the size of state, and observation
+    spaces for different grid sizes.
+
+    | Grid size | States | Observations UAV | Observations Fugitive |
+    |-----------|--------|------------------|-----------------------|
+    | `3x3`     | 81     | 81               | 4                     |
+    | `4x4`     | 256    | 256              | 4                     |
+    | `5x5`     | 625    | 625              | 4                     |
+    | `6x6`     | 1296   | 1296             | 4                     |
+
+    Version History
+    ---------------
+    - `v0`: Initial version
 
     Reference
     ---------
     Panella, Alessandro, and Piotr Gmytrasiewicz. 2017. “Interactive POMDPs
     with Finite-State Models of Other Agents.” Autonomous Agents and
     Multi-Agent Systems 31 (4): 861–904.
+
     """
 
     metadata = {"render_modes": ["human", "ansi", "rgb_array"], "render_fps": 15}
 
-    def __init__(self, grid_name: str, render_mode: Optional[str] = None, **kwargs):
-        super().__init__(UAVModel(grid_name, **kwargs), render_mode=render_mode)
+    def __init__(
+        self, grid: Union["UAVGrid", int] = 5, render_mode: Optional[str] = None
+    ):
+        super().__init__(UAVModel(grid), render_mode=render_mode)
         self.renderer = None
         self.uav_img = None
         self.fug_img = None
@@ -160,7 +180,7 @@ class UAVEnv(DefaultEnv[UAVState, UAVObs, UAVAction]):
                 render_fps=self.metadata["render_fps"],
                 env_name="UAV",
                 bg_color=(255, 255, 255),
-                grid_line_color=(0, 0, 0)
+                grid_line_color=(0, 0, 0),
             )
 
             # add house to static objects list
@@ -208,8 +228,12 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
     FUG_OBS_ACC = 0.8
     UAV_OBS_ACC = 0.9
 
-    def __init__(self, grid_name: str, **kwargs):
-        self.grid = load_grid(grid_name)
+    def __init__(self, grid: Union["UAVGrid", int]):
+        if isinstance(grid, int):
+            assert grid >= 3, "Grid size must be >= 3."
+            # grid specified size of grid,
+            grid = UAVGrid(grid, grid, None)
+        self.grid = grid
         self._rng = random.Random(None)
 
         self.possible_agents = tuple(str(i) for i in range(self.NUM_AGENTS))
@@ -376,7 +400,7 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
         uav_a, fug_a = actions[self.UAV_ID], actions[self.FUG_ID]
         uav_coord, fug_coord = state
         uav_next_coord = self.grid.get_next_coord(uav_coord, Direction(uav_a))
-        # fugitive reseting is handled in step function
+        # fugitive resetting is handled in step function
         # to allow for
         if uav_next_coord == fug_coord:
             # UAV considered to capture Fugitive
@@ -457,13 +481,23 @@ class UAVGrid(Grid):
         grid_width: int,
         grid_height: int,
         block_coords: Optional[Set[Coord]],
-        safe_house_coord: Coord,
-        init_fug_coords: List[Coord],
-        init_uav_coords: List[Coord],
+        safe_house_coord: Optional[Coord] = None,
+        init_fug_coords: Optional[List[Coord]] = None,
+        init_uav_coords: Optional[List[Coord]] = None,
     ):
         super().__init__(grid_width, grid_height, block_coords)
+        if safe_house_coord is None:
+            safe_house_coord = (grid_width // 2, grid_height // 4)
         self.safe_house_coord = safe_house_coord
+
+        if init_fug_coords is None:
+            init_fug_coords = self.all_coords
+            init_fug_coords.remove(self.safe_house_coord)
         self.init_fug_coords = init_fug_coords
+
+        if init_uav_coords is None:
+            init_uav_coords = self.all_coords
+            init_uav_coords.remove(self.safe_house_coord)
         self.init_uav_coords = init_uav_coords
 
         self.valid_coords = set(self.unblocked_coords)
@@ -495,120 +529,3 @@ class UAVGrid(Grid):
                 grid_repr[uav_coord[0]][uav_coord[1]] = "U"
 
         return str(self) + "\n" + "\n".join([" ".join(r) for r in grid_repr])
-
-
-def _empty_uav_grid(width, height, safe_house_coord) -> UAVGrid:
-    all_coords = set(
-        itertools.product(
-            range(
-                width,
-            ),
-            range(height),
-        )
-    )
-    all_coords.remove(safe_house_coord)
-
-    init_fug_coords = list(all_coords)
-    init_uav_coords = [*all_coords]
-
-    return UAVGrid(
-        grid_height=width,
-        grid_width=height,
-        block_coords=None,
-        safe_house_coord=safe_house_coord,
-        init_fug_coords=init_fug_coords,
-        init_uav_coords=init_uav_coords,
-    )
-
-
-def get_3x3_grid() -> UAVGrid:
-    """Generate UAV 3x3 grid layout.
-
-    .S.
-    ...
-    ...
-
-    FUG and UAV can start at any point on grid that is not the safe house.
-
-    |S| = 81
-    |A_uav| = |A_fug| = 4
-    |O_uav| = 81
-    |O_fug| = 4
-    """
-    return _empty_uav_grid(3, 3, (1, 0))
-
-
-def get_4x4_grid() -> UAVGrid:
-    """Generate UAV 4x4 grid layout.
-
-    ....
-    ..S.
-    ....
-    ....
-
-    FUG and UAV can start at any point on grid that is not the safe house
-
-    |S| = 256
-    |A_uav| = |A_fug| = 4
-    |O_uav| = 256
-    |O_fug| = 4
-    """
-    return _empty_uav_grid(4, 4, (2, 1))
-
-
-def get_5x5_grid() -> UAVGrid:
-    """Generate UAV 5x5 grid layout.
-
-    .....
-    ..S..
-    .....
-    .....
-    .....
-
-    FUG and UAV can start at any point on grid that is not the safe house
-
-    |S| = 625
-    |A_uav| = |A_fug| = 4
-    |O_uav| = 625
-    |O_fug| = 4
-    """
-    return _empty_uav_grid(5, 5, (2, 1))
-
-
-def get_6x6_grid() -> UAVGrid:
-    """Generate UAV 6x6 grid layout.
-
-    ......
-    ......
-    ..S...
-    ......
-    ......
-    ......
-
-    FUG and UAV can start at any point on grid that is not the safe house
-
-    |S| = 1296
-    |A_uav| = |A_fug| = 4
-    |O_uav| = 1296
-    |O_fug| = 4
-
-    """
-    return _empty_uav_grid(6, 6, (2, 2))
-
-
-SUPPORTED_GRIDS = {
-    "3x3": get_3x3_grid,
-    "4x4": get_4x4_grid,
-    "5x5": get_5x5_grid,
-    "6x6": get_6x6_grid,
-}
-
-
-def load_grid(grid_name: str) -> UAVGrid:
-    """Load grid with given name."""
-    grid_name = grid_name
-    assert grid_name in SUPPORTED_GRIDS, (
-        f"Unsupported grid name '{grid_name}'. Grid name must be one of: "
-        f"{SUPPORTED_GRIDS.keys()}."
-    )
-    return SUPPORTED_GRIDS[grid_name]()

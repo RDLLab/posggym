@@ -6,11 +6,15 @@ firstpage:
 
 # Installation
 
-The easiest way to install POSGGym is using ``pip``:
+The latest version of POSGGym can be installed by running:
 
 ```
 pip install posggym
 ```
+
+This will install the base dependencies for running the main environments, but may not include all dependencies for all environments or for rendering some environments. You can install all dependencies for a family of environments like `pip install posggym[grid_world]` or dependencies for all environments using `pip install posggym[all]`.
+
+We support and test for Python>=3.8.
 
 ## Common issues
 

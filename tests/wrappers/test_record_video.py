@@ -13,7 +13,11 @@ from posggym.wrappers.record_video import RecordVideo, capped_cubic_video_schedu
 
 def test_record_video_using_default_trigger():
     env = posggym.make(
-        "Driving-7x7RoundAbout-n2-v0", render_mode="rgb_array", disable_env_checker=True
+        "Driving-v0",
+        disable_env_checker=True,
+        render_mode="rgb_array",
+        num_agents=2,
+        grid="7x7RoundAbout",
     )
     env = RecordVideo(env, "videos")
 
@@ -35,7 +39,11 @@ def test_record_video_using_default_trigger():
 
 def test_record_video_reset():
     env = posggym.make(
-        "Driving-7x7RoundAbout-n2-v0", render_mode="rgb_array", disable_env_checker=True
+        "Driving-v0",
+        disable_env_checker=True,
+        render_mode="rgb_array",
+        num_agents=2,
+        grid="7x7RoundAbout",
     )
     env = RecordVideo(env, "videos", step_trigger=lambda x: x % 100 == 0)
 
@@ -50,10 +58,12 @@ def test_record_video_reset():
 
 def test_record_video_step_trigger():
     env = posggym.make(
-        "Driving-7x7RoundAbout-n2-v0",
-        render_mode="rgb_array",
+        "Driving-v0",
         disable_env_checker=True,
+        render_mode="rgb_array",
         max_episode_steps=20,
+        num_agents=2,
+        grid="7x7RoundAbout",
     )
     env = RecordVideo(env, "videos", step_trigger=lambda x: x % 100 == 0)
 

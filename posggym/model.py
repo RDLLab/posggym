@@ -107,12 +107,12 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
     Note
     ----
     The POSGGym Model API models all environments as environments that are
-    `observation_first`, that is the environment provides an initial observation before
+    `observation first`, that is the environment provides an initial observation before
     any action is taken (rather than action first, where agents perform an action
-    before any observation is recieved). `observation_first` environments are the
+    before any observation is received). `observation first` environments are the
     standard in reinforcement learning problems and also for most real world problems,
     and are becoming the more common model API. It's also trivial to convert an
-    `action_first` model into `observation_first` by just returning a default or dummy
+    `action first` model into `observation first` by just returning a default or dummy
     initial observation (e.g. the initial observation is always the first observation
     in the list of possible observations).
 
@@ -219,7 +219,7 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
         can be 2-3X faster than the numpy library when drawing single samples, providing
         a significant speed-up for many environments.
 
-        Theres also nothing stopping users from using other RNG libraries so long as
+        There's also nothing stopping users from using other RNG libraries so long as
         they implement the model API. However, explicit support in the form of tests
         and type hints is only provided for the random and numpy libraries.
 
@@ -308,7 +308,7 @@ class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
       the environment ended up in state `s'`
     - :meth:`reward_fn` : the reward function
       :math:`R(s, a) \rightarrow \mathbf{R}^n` where `n` is the number of agents,
-      defines the reward each agent recieves given joint action `a` was performed in
+      defines the reward each agent receives given joint action `a` was performed in
       state `s`.
 
 
@@ -357,7 +357,7 @@ class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
         next_state: StateType,
         actions: Dict[AgentID, ActType],
     ) -> float:
-        """Observation function :math:`Z(o, s', a) `.
+        """Observation function :math:`Z(o, s', a)`.
 
         Arguments
         ---------
@@ -392,7 +392,7 @@ class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
         Returns
         -------
         Dict[AgentID, float]
-          The reward each agent recieves given joint action `a` was performed in state
+          The reward each agent receives given joint action `a` was performed in state
           `s`.
 
         """
@@ -401,7 +401,7 @@ class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
 class Outcome(enum.Enum):
     """An enum for final episode Outcome of an agent.
 
-    This is supplied for user convinience. For environments where agents can WIN/LOSE,
+    This is supplied for user convenience. For environments where agents can WIN/LOSE,
     this class can be used to supply that information to users in a standard format via
     the ``info`` return value of the :meth:`POSGModel.step()` function.
 

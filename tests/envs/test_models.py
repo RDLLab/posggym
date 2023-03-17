@@ -100,8 +100,7 @@ def test_model_determinism_rollout(env_spec: EnvSpec):
     assert_equals(initial_obs_1, initial_obs_2)
     # obs_2 verified by previous assertion
     assert all(
-        model_1.observation_spaces[i].contains(o_i)
-        for i, o_i in initial_obs_1.items()
+        model_1.observation_spaces[i].contains(o_i) for i, o_i in initial_obs_1.items()
     )
     assert all(i in initial_obs_1 for i in model_1.get_agents(initial_state_1))
 

@@ -154,6 +154,7 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
 
     def __init__(
         self,
+        grid_size: int,
         num_predators: int,
         num_prey: int,
         cooperative: bool,
@@ -164,6 +165,7 @@ class PPContinousEnv(DefaultEnv[PPState, PPObs, PPAction]):
     ):
         super().__init__(
             PPModel(
+                grid_size,
                 num_predators,
                 num_prey,
                 cooperative,
@@ -214,7 +216,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
     Parameters
     ----------
-    size : int
+    grid_size : int
         the size of the grid (height and width)
     num_predators : int
         the number of predator (and thus controlled agents)
@@ -236,7 +238,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
     def __init__(
         self,
-        # grid: Union[str, "PPGrid"],
+        grid_size : int,
         num_predators: int,
         num_prey: int,
         cooperative: bool,
@@ -251,7 +253,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         assert 0 < prey_strength <= min(4, num_predators)
         # assert grid.prey_start_coords is None or len(grid.prey_start_coords) >= num_prey
 
-        self.grid = PPWorld(grid_size=6, block_coords=None)
+        self.grid = PPWorld(grid_size=grid_size, block_coords=None)
         self.obs_dim = obs_dim
         self.num_predators = num_predators
         self.num_prey = num_prey

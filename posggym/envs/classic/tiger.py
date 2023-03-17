@@ -1,17 +1,4 @@
-"""Model for the classic Multi-Agent Tiger problem.
-
-This is a general-sum multi-agent version of the classic Tiger problem. It involves two
-agents that are in a corridor facing two doors: `left` and `right`. Behind one door lies
-a hungry tiger and behind the other lies treasure, but the agents do not know the
-position of either the tiger or the treasure.
-
-References
-----------
-- Gmytrasiewicz, Piotr J., and Prashant Doshi. “A Framework for Sequential
-Planning in Multi-Agent Settings.” Journal of Artificial Intelligence
-Research 24 (2005): 49–79.
-
-"""
+"""Model for the classic Multi-Agent Tiger problem."""
 import sys
 from itertools import product
 from typing import Dict, List, Optional, Tuple
@@ -59,78 +46,97 @@ OTHER_AGENT_ID = {"0": "1", "1": "0"}
 class MultiAgentTigerEnv(DefaultEnv):
     """The Multi-Agent Tiger Environment.
 
-    This is a general-sum multi-agent version of the classic Tiger problem.
+    This is a general-sum multi-agent version of the classic Tiger problem. It involves
+    two agents that are in a corridor facing two doors: *left* and *right*. Behind one
+    door lies a hungry tiger and behind the other lies treasure, but the agents do not
+    know the position of either the tiger or the treasure. At each step each agent can
+    choose to open one of the doors, or choose to listen, in which case it receives a
+    noisy observation of if a door was opened and also the location of the tiger. If
+    a door is opened the treasure and tiger are randomly reset.
 
-    This scenario involves two agents that are in a corridor facing two doors:
-    `left` and `right`. Behind one door lies a hungry tiger and behind the
-    other lies treasure, but the agents do not know the position of either the
-    tiger or the treasure.
+    Possible Agents
+    ---------------
+    The environment supports two agents: '0' and '1'. Both agents are always active in
+    the environment.
 
-    State
-    -----
-    The state is defined by which door the tiger is behind. `TLEFT` for tiger
-    is behind the `left` door, and `TRIGHT` for the tiger is behind the `right`
-    door.
-
-    S = {`TLEFT`, `TRIGHT`}
-
-    The initial state is uniformly distributed between the possible states.
-
-    Actions
-    -------
-    Each agent can either open the left-hand door `OPENLEFT`, open the
-    right-hand door `OPENRIGHT`, or listen for the presence of the tiger
-    `LISTEN`.
-
-    A_1 = A_2 = {`OPENLEFT`, `OPENRIGHT`, `LISTEN`}
-
-    Observation
+    State Space
     -----------
-    Agents recieve observations of the position tiger: `GROWLEFT` for tiger
-    left, and `GROWLRIGHT` for tiger right. Additionally, they also observe
-    if a door has creaked: `CREAKLEFT` for left door, `CREAKRIGHT` for right
-    door, and `SILENCE` for silence.
+    The state is defined by which door the tiger is behind. `TLEFT=0` for tiger is
+    behind the left door, and `TRIGHT=1` for the tiger is behind the right door.
 
-    O_1 = O_2 = {
-        (`GROWLEFT`, `CREAKLEFT`),
-        (`GROWLEFT`, `CREAKRIGHT`),
-        (`GROWLEFT`, `SILENCE`),
-        (`GROWLRIGHT`, `CREAKLEFT`),
-        (`GROWLRIGHT`, `CREAKRIGHT`),
-        (`GROWLRIGHT`, `SILENCE`)
-    }
+    Action Space
+    ------------
+    Each agent can either open the left-hand door `OPENLEFT=0`, open the right-hand door
+    `OPENRIGHT=1`, or listen for the presence of the tiger `LISTEN=2`.
 
-    If an agent uses the `LISTEN` action they will perceive the correct
-    current position of the tiger with probability observation_prob=0.85,
-    independent of if the other agent opens a door or listens. Furthermore,
-    they will perceive the correct door opening or not with probability
-    creak_observation_prob=0.9.
+    Observation Space
+    -----------------
+    Each agent observation consists of the tiger position observation and a door opening
+    observation. The tiger position observation can be either: `GROWLEFT=0` for tiger
+    left, `GROWLRIGHT=1` for tiger right. While the door opening observation can be
+    either: `CREAKLEFT=0` for left door, `CREAKRIGHT=1` for right door, or `SILENCE=2`
+    for silence.
 
-    If an agent opens either door they will recieve an observation uniformly at
-    random.
+    Combined each agent has 6 possible observations:
 
-    Reward
-    ------
-    Each agent recieves rewards independent of the other agent.
+    1. `(GROWLEFT, CREAKLEFT)`
+    2. `(GROWLEFT, CREAKRIGHT)`
+    3. `(GROWLEFT, SILENCE)`
+    4. `(GROWRIGHT, CREAKLEFT)`
+    5. `(GROWRIGHT, CREAKRIGHT)`
+    6. `(GROWRIGHT, SILENCE)`
 
-    An agent recieves a reward of +10 for opening the door without a tiger
-    behind it, -100 for opening the door with the tiger behind it, and -1 for
-    performing the listening action.
+    If an agent uses the `LISTEN=2` action they will perceive the correct current
+    position of the tiger with probability `observation_prob` (default = `0.85`),
+    independent of if the other agent opens a door or listens. Furthermore, they will
+    perceive the correct door opening or not with probability `creak_observation_prob`
+    (default = `0.9`).
 
-    Although the game is general-sum, and not zero-sum, agents influence each
-    other by the way they influence the state.
+    If an agent opens either door they will receive an observation uniformly at random
+    from the set of all 6 possible observations.
 
-    Transition Dynamics
-    -------------------
-    The state is reset to `TLEFT` or `TRIGHT` with equal probability whenever
-    either agent opens one of the doors. Otherwise - when both agents perform
-    the `LISTEN` action - the state is unchanged.
+    Rewards
+    -------
+    Each agent receives rewards independent of the other agent.
+
+    An agent receives a reward of `+10` for opening the door without a tiger behind it,
+    `-100` for opening the door with the tiger behind it, and `-1` for performing the
+    listening action.
+
+    Although the game is general-sum, and not zero-sum, agents influence each other by
+    their effect on the state (i.e. resetting the tiger position).
+
+    Dynamics
+    --------
+    The state is reset to `TLEFT` or `TRIGHT` with equal probability whenever either
+    agent opens one of the doors. When both agents perform the `LISTEN` action - the
+    state is unchanged.
+
+    Starting State
+    --------------
+    The initial state is uniformly distributed between: `TLEFT` and `TRIGHT`.
+
+    Episode End
+    -----------
+    By default episodes continue infinitely long. To set a step limit, specify
+    `max_episode_steps` when initializing the environment with `posggym.make`.
+
+    Arguments
+    ---------
+
+    - `observation_prob` - the probability of correctly observing the position of the
+        tiger (default = `0.85`)
+    - `creak_observation_prob` - the probability of correctly observing which door was
+        opened by the other agent (default = `0.9`)
+
+    Version History
+    ---------------
+    - `v0`: Initial version
 
     References
     ----------
-    - Gmytrasiewicz, Piotr J., and Prashant Doshi. “A Framework for Sequential
-    Planning in Multi-Agent Settings.” Journal of Artificial Intelligence
-    Research 24 (2005): 49–79.
+    - Gmytrasiewicz, Piotr J., and Prashant Doshi. “A Framework for Sequential Planning
+    in Multi-Agent Settings.” Journal of Artificial Intelligence Research 24 (2005).
 
     """
 
@@ -141,10 +147,9 @@ class MultiAgentTigerEnv(DefaultEnv):
         observation_prob: float = 0.85,
         creak_observation_prob: float = 0.9,
         render_mode: Optional[str] = None,
-        **kwargs,
     ):
         super().__init__(
-            MultiAgentTigerModel(observation_prob, creak_observation_prob, **kwargs),
+            MultiAgentTigerModel(observation_prob, creak_observation_prob),
             render_mode=render_mode,
         )
 
@@ -184,10 +189,7 @@ class MultiAgentTigerModel(M.POSGFullModel[MATState, MATObs, MATAction]):
     LISTEN_R = -1.0
 
     def __init__(
-        self,
-        observation_prob: float = 0.85,
-        creak_observation_prob: float = 0.9,
-        **kwargs,
+        self, observation_prob: float = 0.85, creak_observation_prob: float = 0.9
     ):
         assert 0 <= observation_prob <= 1.0
         assert 0 <= creak_observation_prob <= 1.0
@@ -325,7 +327,7 @@ class MultiAgentTigerModel(M.POSGFullModel[MATState, MATObs, MATAction]):
     def _construct_trans_func(self) -> Dict:
         trans_map = {}
         uniform_prob = 1.0 / len(STATES)
-        for (s, a, s_next) in product(
+        for s, a, s_next in product(
             self._state_space, product(*self._action_spaces), self._state_space
         ):
             trans_map[(s, a, s_next)] = (
@@ -346,7 +348,7 @@ class MultiAgentTigerModel(M.POSGFullModel[MATState, MATObs, MATAction]):
     def _construct_obs_func(self) -> Dict:
         obs_func = {}
         uniform_o_prob = 1.0 / len(OBS_SPACE)
-        for (s_next, a, o) in product(
+        for s_next, a, o in product(
             self._state_space, product(*self._action_spaces), product(*self._obs_spaces)
         ):
             o_prob = 1.0
@@ -400,7 +402,7 @@ class MultiAgentTigerModel(M.POSGFullModel[MATState, MATObs, MATAction]):
     def _construct_rew_func(self) -> Dict:
         rew_map = {}
         joint_actions_space = product(*self._action_spaces)
-        for (s, a) in product(self._state_space, joint_actions_space):
+        for s, a in product(self._state_space, joint_actions_space):
             rew_map[(s, a)] = self._get_reward(
                 s, {str(i): a_i for i, a_i in enumerate(a)}
             )

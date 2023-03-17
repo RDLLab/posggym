@@ -10,11 +10,13 @@ __email__ = "sanderschulhoff@gmail.com"
 import os
 import re
 from functools import reduce
+from typing import List, Dict
 
 # import numpy as np
 from tqdm import tqdm
 
 import posggym
+from posggym.envs.registration import EnvSpec
 from utils import kill_strs, trim
 
 
@@ -25,7 +27,7 @@ pattern = re.compile(r"(?<!^)(?=[A-Z])")
 posggym.logger.set_level(posggym.logger.DISABLED)
 
 all_envs = list(posggym.envs.registry.values())
-filtered_envs_by_type = {}
+filtered_envs_by_type: Dict[str, Dict[str, EnvSpec]] = {}
 
 # Obtain filtered list
 for env_spec in tqdm(all_envs):
@@ -63,12 +65,14 @@ for env_spec in tqdm(all_envs):
         print(e)
 
 # Sort
-filtered_envs = list(
+filtered_envs: List = list(
     reduce(
-        lambda s, x: s + x,
-        map(
-            lambda arr: sorted(arr, key=lambda x: x.name),
-            map(lambda dic: list(dic.values()), list(filtered_envs_by_type.values())),
+        lambda s, x: s + x,  # type: ignore
+        (
+            sorted(arr, key=lambda x: x.name)
+            for arr in (
+                list(dic.values()) for dic in list(filtered_envs_by_type.values())
+            )
         ),
         [],
     )
@@ -96,11 +100,11 @@ for i, env_spec in tqdm(enumerate(filtered_envs)):
         title_env_name = snake_env_name.replace("_", " ").title()
         env_type_title = env_type.replace("_", " ").title()
         related_pages_meta = ""
-        if i == 0 or not env_type == filtered_envs[i - 1].entry_point.split(".")[2]:
+        if i == 0 or env_type != filtered_envs[i - 1].entry_point.split(".")[2]:
             related_pages_meta = "firstpage:\n"
         elif (
             i == len(filtered_envs) - 1
-            or not env_type == filtered_envs[i + 1].entry_point.split(".")[2]
+            or env_type != filtered_envs[i + 1].entry_point.split(".")[2]
         ):
             related_pages_meta = "lastpage:\n"
 
@@ -137,7 +141,6 @@ title: {title_env_name}
         env_table += f"| Possible Agents | {env.possible_agents} |\n"
         env_table += f"| Action Spaces | {env.action_spaces} |\n"
         env_table += f"| Observation Spaces | {env.observation_spaces} |\n"
-        env_table += f"| Observation First | {env.observation_first} |\n"
         env_table += f"| Symmetric | {env.is_symmetric} |\n"
 
         # if env.observation_space.shape:
@@ -183,8 +186,7 @@ title: {title_env_name}
 
 {docstring}
 """
-        file = open(v_path, "w", encoding="utf-8")
-        file.write(all_text)
-        file.close()
+        with open(v_path, "w", encoding="utf-8") as fp:
+            fp.write(all_text)
     except Exception as e:
         print(e)

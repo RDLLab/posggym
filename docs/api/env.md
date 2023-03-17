@@ -31,7 +31,6 @@ title: Env
 .. autoattribute:: posggym.Env.action_spaces
 .. autoattribute:: posggym.Env.observation_spaces
 .. autoattribute:: posggym.Env.reward_ranges
-.. autoattribute:: posggym.Env.observation_first
 .. autoattribute:: posggym.Env.is_symmetric
 .. autoattribute:: posggym.Env.spec
 mod

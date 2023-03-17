@@ -51,7 +51,7 @@ class PassiveEnvChecker(posggym.Wrapper):
             self.checked_step = True
             return env_step_passive_checker(self.env, actions)
         else:
-            return self.env.step(actions)   # type: ignore
+            return self.env.step(actions)  # type: ignore
 
     def reset(self, **kwargs):
         """Resets the environment.

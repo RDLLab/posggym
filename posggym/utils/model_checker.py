@@ -28,7 +28,7 @@ from posggym.utils.passive_env_checker import (
     check_agent_space_limits,
     check_state,
     check_state_space,
-    model_step_passive_checker
+    model_step_passive_checker,
 )
 
 
@@ -94,10 +94,9 @@ def check_initial_sampling_seed(model: M.POSGModel):
 
     """
     signature = inspect.signature(model.seed)
-    assert (
-        "seed" in signature.parameters or (
-            "kwargs" in signature.parameters
-            and signature.parameters["kwargs"].kind is inspect.Parameter.VAR_KEYWORD)
+    assert "seed" in signature.parameters or (
+        "kwargs" in signature.parameters
+        and signature.parameters["kwargs"].kind is inspect.Parameter.VAR_KEYWORD
     ), "The `seed` method does not provide a `seed` or `**kwargs` keyword argument."
     try:
         model.seed(seed=123)
@@ -253,5 +252,5 @@ def check_model(model: M.POSGModel):
     model_step_passive_checker(
         model,
         state,
-        {i: model.action_spaces[i].sample() for i in model.get_agents(state)}
+        {i: model.action_spaces[i].sample() for i in model.get_agents(state)},
     )

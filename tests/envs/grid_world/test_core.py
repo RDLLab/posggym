@@ -24,12 +24,9 @@ class TestGrid:
         assert len(grid.unblocked_coords) == 9
 
         assert grid.manhattan_dist((0, 0), (2, 2)) == 4
+        assert all(grid.coord_in_bounds(c) for c in [(0, 0), (0, 2), (2, 0), (2, 2)])
         assert all(
-            grid.coord_in_bounds(c) for c in [(0, 0), (0, 2), (2, 0), (2, 2)]
-        )
-        assert all(
-            not grid.coord_in_bounds(c)
-            for c in [(-1, 1), (1, -1), (3, 1), (1, 3)]
+            not grid.coord_in_bounds(c) for c in [(-1, 1), (1, -1), (3, 1), (1, 3)]
         )
 
     def test_get_neighbours(self):
@@ -42,7 +39,7 @@ class TestGrid:
         expected_neighbours_map = {
             (0, 0): [(-1, 0), (0, -1), (0, 1), (1, 0)],
             (1, 1): [(0, 1), (1, 0), (1, 2), (2, 1)],
-            (2, 2): [(1, 2), (2, 1), (3, 2), (2, 3)]
+            (2, 2): [(1, 2), (2, 1), (3, 2), (2, 3)],
         }
         for origin, expected_neighbours in expected_neighbours_map.items():
             neighbours = grid.get_neighbours(
@@ -54,7 +51,7 @@ class TestGrid:
         expected_neighbours_map = {
             (0, 0): [(0, 1), (1, 0)],
             (1, 1): [(0, 1), (1, 0), (1, 2), (2, 1)],
-            (2, 2): [(1, 2), (2, 1)]
+            (2, 2): [(1, 2), (2, 1)],
         }
         for origin, expected_neighbours in expected_neighbours_map.items():
             neighbours = grid.get_neighbours(
@@ -67,7 +64,7 @@ class TestGrid:
             (0, 0): [(0, 1), (1, 0)],
             (1, 1): [(0, 1), (1, 0), (1, 2), (2, 1)],
             (2, 2): [(1, 2), (2, 1)],
-            (1, 2): [(0, 2), (2, 2)]
+            (1, 2): [(0, 2), (2, 2)],
         }
         for origin, expected_neighbours in expected_neighbours_map.items():
             neighbours = grid.get_neighbours(

@@ -14,12 +14,14 @@ def get_discrete_action(env: posggym.Env, keyboard_agent_ids: List[M.AgentID]):
     """Get discrete action from user."""
     actions = {}
     for i in env.agents:
-        action_space: spaces.Discrete = env.action_spaces[i]    # type: ignore
+        action_space: spaces.Discrete = env.action_spaces[i]  # type: ignore
         if i in keyboard_agent_ids:
             while True:
                 try:
-                    a = input(f"Select action for agent {i} (0, {action_space.n-1}): ")
-                    return int(a)
+                    agent_a = int(
+                        input(f"Select action for agent {i} (0, {action_space.n-1}): ")
+                    )
+                    break
                 except ValueError:
                     print("Invalid selection. Try again.")
         else:
@@ -32,7 +34,7 @@ def get_continuous_action(env: posggym.Env, keyboard_agent_ids: List[M.AgentID])
     """Get continuous action from user."""
     actions = {}
     for i in env.agents:
-        action_space: spaces.Box = env.action_spaces[i]   # type: ignore
+        action_space: spaces.Box = env.action_spaces[i]  # type: ignore
         if i in keyboard_agent_ids:
             action = []
             for dim in range(action_space.shape[0]):
@@ -80,15 +82,12 @@ def run_keyboard_agent(
         get_action_fn = get_discrete_action
     elif all(isinstance(action_spaces[i], spaces.Box) for i in keyboard_agent_ids):
         assert all(
-            len(action_spaces[i].shape) == 1   # type: ignore
-            for i in keyboard_agent_ids
-        ), (
-            "Only 1D continous actions supported."
-        )
+            len(action_spaces[i].shape) == 1 for i in keyboard_agent_ids  # type: ignore
+        ), "Only 1D continuous actions supported."
         get_action_fn = get_continuous_action
     else:
         raise AssertionError(
-            "Only discrete and 1D continous action spaces supported for keyboard "
+            "Only discrete and 1D continuous action spaces supported for keyboard "
             "agents."
         )
 
@@ -104,7 +103,7 @@ def run_keyboard_agent(
     episode_steps = []
     episode_rewards: Dict[M.AgentID, List[float]] = {i: [] for i in env.possible_agents}
     for ep_num in range(num_episodes):
-        env.reset()
+        o, _ = env.reset()
 
         if render_mode:
             env.render()
@@ -112,16 +111,20 @@ def run_keyboard_agent(
         if pause_each_step:
             input("Press any key")
 
+        from pprint import pprint
+
         t = 0
         done = False
         rewards = {i: 0.0 for i in env.possible_agents}
         while episode_step_limit is None or t < episode_step_limit:
+            pprint(o)
+
             a = get_action_fn(env, keyboard_agent_ids)
-            _, r, _, _, done, _ = env.step(a)
+            o, r, _, _, done, _ = env.step(a)
             t += 1
 
             for i, r_i in r.items():
-                rewards[i] += r_i    # type: ignore
+                rewards[i] += r_i  # type: ignore
 
             if render_mode:
                 env.render()
@@ -169,14 +172,14 @@ if __name__ == "__main__":
         "--episode_step_limit",
         type=int,
         default=None,
-        help="Max number of steps to run each epsiode for (default=None)",
+        help="Max number of steps to run each episode for (default=None)",
     )
     parser.add_argument("--seed", type=int, default=None, help="Random Seed.")
     parser.add_argument(
         "--render_mode",
         type=str,
         default=None,
-        help="Mode to use for renderering.",
+        help="Mode to use for rendering.",
     )
     parser.add_argument(
         "--pause_each_step", action="store_true", help="Pause execution after each step"

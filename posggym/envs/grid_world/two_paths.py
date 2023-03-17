@@ -1,25 +1,4 @@
-"""The Two-Paths Grid World Environment.
-
-An adversarial 2D grid world problem involving two agents, a runner and
-a chaser. The runner's goal is to reach one of two goal location, with each
-goal located at the end of a seperate path. The lengths of the two paths
-have different lengths. The goal of the chaser is to intercept the runner
-before it reaches a goal. The runner is considered caught if it is observed
-by the chaser, or occupies the same location. However, the chaser is only
-able to effectively cover one of the two goal locations.
-
-This environment requires each agent to reason about the which path the
-other agent will choose. It offers an ideal testbed for planning under
-finite-nested reasoning assumptions since it is possible to map reasoning
-level to the expected path choice.
-
-Reference
----------
-Schwartz, Jonathon, Ruijia Zhou, and Hanna Kurniawati. "Online Planning for
-Interactive-POMDPs using Nested Monte Carlo Tree Search." In 2022 IEEE/RSJ International
-Conference on Intelligent Robots and Systems (IROS), pp. 8770-8777. IEEE, 2022.
-
-"""
+"""The Two-Paths Grid World Environment."""
 import itertools
 from os import path
 from typing import Dict, List, Optional, Set, Tuple, Union
@@ -35,8 +14,8 @@ from posggym.utils import seeding
 
 TPState = Tuple[Coord, Coord]
 TPAction = int
-# Obs = (adj_obs, terminal)
-TPObs = Tuple[Tuple[int, int, int, int], int]
+# Obs = adj_obs
+TPObs = Tuple[int, int, int, int]
 
 # Cell obs
 OPPONENT = 0
@@ -52,7 +31,7 @@ class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
 
     An adversarial 2D grid world problem involving two agents, a runner and
     a chaser. The runner's goal is to reach one of two goal location, with each
-    goal located at the end of a seperate path. The lengths of the two paths
+    goal located at the end of a separate path. The lengths of the two paths
     have different lengths. The goal of the chaser is to intercept the runner
     before it reaches a goal. The runner is considered caught if it is observed
     by the chaser, or occupies the same location. However, the chaser is only
@@ -65,55 +44,78 @@ class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
 
     The two agents start at opposite ends of the maps.
 
-    Agents
-    ------
-    Runner=0
-    Chaser=1
+    Possible Agents
+    ---------------
+    - Runner = '0'
+    - Chaser = '1'
 
-    State
-    -----
-    Each state contains the (x, y) (x=column, y=row, with origin at the
-    top-left square of the grid) of the runner and chaser agent. Specifically,
-    a states is ((x_runner, y_runner), (x_chaser, y_chaser))
-
-    Actions
-    -------
-    Each agent has 4 actions corresponding to moving in the 4 cardinal
-    directions (NORTH=0, EAST=1, SOUTH=2, WEST=3).
-
-    Observation
+    State Space
     -----------
+    Each state contains the `(x, y)` (x=column, y=row, with origin at the
+    top-left square of the grid) of the runner and chaser agent. Specifically,
+    a state is `((x_runner, y_runner), (x_chaser, y_chaser))`
+
+    Action Space
+    ------------
+    Each agent has 4 actions corresponding to moving in the 4 cardinal
+    directions: `NORTH=0`, `EAST=1`, `SOUTH=2`, `WEST=3`.
+
+    Observation Space
+    -----------------
     Each agent observes the adjacent cells in the four cardinal directions and
-    whether they are one of three things: OPPONENT=0, WALL=1, EMPTY=2.
-    Each agent also observes whether a terminal state was reach (0/1). This is
-    necessary for the infinite horizon model of the environment.
+    whether they are one of three things: `OPPONENT=0`, `WALL=1`, `EMPTY=2`.
 
     Each observation is represented as a tuple:
-        ((cell_north, cell_south, cell_east, cell_west), terminal)
+    `(cell_north, cell_south, cell_east, cell_west)`
 
-    Reward
-    ------
-    Both agents receive a penalty of -0.01 for each step.
-    If the runner reaches the goal then the runner recieves a reward of 1.0,
-    while the chaser recieves a penalty of -1.0.
-    If the runner is observed by the chaser, then the runner recieves a penalty
-    of -1.0, while the chaser recieves a reward of 1.0.
+    Rewards
+    -------
+    Both agents receive a penalty of `-0.01` for each step. If the runner reaches the
+    goal then the runner receives a reward of `1.0`, while the chaser receives a penalty
+    of `-1.0`. If the runner is observed by the chaser, then the runner receives a
+    penalty of `-1.0`, while the chaser receives a reward of `1.0`.
 
-    The rewards make the environment adversarial, but not strictly zero-sum,
-    due to the small penalty each step.
+    The rewards make the environment adversarial, but not strictly zero-sum, due to the
+    small penalty each step.
 
-    Transition Dynamics
-    -------------------
-    By default actions are deterministic and an episode ends when either the
-    runner is caught, the runner reaches a goal, or the step limit is reached.
+    Dynamics
+    --------
+    By default actions are deterministic and will lead to the agent moving one cell in
+    the action's direction, given the cell adjacent cell in that direction is empty and
+    not out-of-bounds.
 
-    The environment can also be run in stochastic mode by changing the
-    action_probs parameter at initialization. This controls the probability
-    the agent will move in the desired direction each step, otherwise moving
-    randomly in one of the other 3 possible directions.
+    The environment can also be run in stochastic mode by changing the `action_probs`
+    parameter at initialization. This controls the probability the agent will move in
+    the desired direction each step, otherwise moving randomly in one of the other 3
+    other possible directions.
 
-    Lastly, if using infinite_horizon mode then the environment resets to the
-    start state once a terminal state is reached.
+    Starting State
+    --------------
+    Both runner and chaser agents start at the same location on opposite ends of the
+    grid each episode, and the goal locations and grid layout are also the same. The
+    specific starting state and configuration depends on the grid layout used.
+
+    Episodes End
+    ------------
+    Episode ends when either the runner is caught, or reaches a goal. By default a
+    `max_episode_steps` limit of `20` is also set.
+
+    Arguments
+    ---------
+
+    - `grid_size` - the grid size to use. This can either `3`, `4`, or `7`, each size
+        `n` create a TwoPaths Env with a `n`-by-`n` grid layout (default = `7`).
+    - `action_probs` - the action success probability for each agent. This can be a
+        single float (same value for both runner and chaser agents) or a tuple with
+        separate values for the runner and chaser (default = `1.0`).
+
+    Reference
+    ---------
+    Schwartz, Jonathon, Ruijia Zhou, and Hanna Kurniawati. "Online Planning for
+    Interactive-POMDPs using Nested Monte Carlo Tree Search." In 2022 IEEE/RSJ
+    International Conference on Intelligent Robots and Systems (IROS), pp. 8770-8777.
+    IEEE, 2022.
+
     """
 
     metadata = {
@@ -123,14 +125,12 @@ class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
 
     def __init__(
         self,
-        grid_name: str,
+        grid_size: int = 7,
         action_probs: Union[float, Tuple[float, float]] = 1.0,
-        infinite_horizon: bool = False,
         render_mode: Optional[str] = None,
-        **kwargs,
     ):
         super().__init__(
-            TwoPathsModel(grid_name, action_probs, infinite_horizon, **kwargs),
+            TwoPathsModel(grid_size, action_probs),
             render_mode=render_mode,
         )
         self.renderer = None
@@ -238,9 +238,6 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
     action_probs : float or (float, float)
         the action success probability for each agent. By default the
         environment is deterministic (action_probs=1.0).
-    infinite_horizon : bool
-        whether problem should terminate once a terminal state is reached
-        (default, False) or reset to start position and continue (True).
 
     """
 
@@ -255,13 +252,15 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
 
     def __init__(
         self,
-        grid_name: str,
+        grid_size: int,
         action_probs: Union[float, Tuple[float, float]] = 1.0,
-        infinite_horizon: bool = False,
-        **kwargs,
     ):
-        self.grid = load_grid(grid_name)
-        self._infinite_horizon = infinite_horizon
+        assert grid_size in SUPPORTED_GRIDS, (
+            f"Unsupported grid_size of `{grid_size}`, must be one of: "
+            f"{SUPPORTED_GRIDS.keys()}."
+        )
+        self.grid = SUPPORTED_GRIDS[grid_size]()
+
         if isinstance(action_probs, float):
             action_probs = (action_probs, action_probs)
         self._action_probs = action_probs
@@ -284,15 +283,10 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
         self.observation_spaces = {
             i: spaces.Tuple(
                 (
-                    spaces.Tuple(
-                        (
-                            spaces.Discrete(len(CELL_OBS)),
-                            spaces.Discrete(len(CELL_OBS)),
-                            spaces.Discrete(len(CELL_OBS)),
-                            spaces.Discrete(len(CELL_OBS)),
-                        )
-                    ),
-                    spaces.Discrete(2),
+                    spaces.Discrete(len(CELL_OBS)),
+                    spaces.Discrete(len(CELL_OBS)),
+                    spaces.Discrete(len(CELL_OBS)),
+                    spaces.Discrete(len(CELL_OBS)),
                 )
             )
             for i in self.possible_agents
@@ -326,7 +320,7 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
         }
 
     def sample_initial_obs(self, state: TPState) -> Dict[M.AgentID, TPObs]:
-        return self._get_obs(state, False)
+        return self._get_obs(state)
 
     def step(
         self, state: TPState, actions: Dict[M.AgentID, TPAction]
@@ -341,11 +335,7 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
             for i, outcome in self._get_outcome(next_state).items():
                 info[i]["outcome"] = outcome
 
-        if self._infinite_horizon and terminal:
-            next_state = self.sample_initial_state()
-            terminal = False
-
-        obs = self._get_obs(next_state, terminal)
+        obs = self._get_obs(next_state)
         truncated = {i: False for i in self.possible_agents}
         terminated = {i: terminal for i in self.possible_agents}
 
@@ -381,18 +371,12 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
 
         return (runner_next_coord, chaser_next_coord)
 
-    def _get_obs(self, state: TPState, terminal: bool) -> Dict[M.AgentID, TPObs]:
+    def _get_obs(self, state: TPState) -> Dict[M.AgentID, TPObs]:
         runner_coord = state[self.RUNNER_IDX]
         chaser_coord = state[self.CHASER_IDX]
         return {
-            str(self.RUNNER_IDX): (
-                self._get_adj_obs(runner_coord, chaser_coord),
-                int(terminal),
-            ),
-            str(self.CHASER_IDX): (
-                self._get_adj_obs(chaser_coord, runner_coord),
-                int(terminal),
-            ),
+            str(self.RUNNER_IDX): self._get_adj_obs(runner_coord, chaser_coord),
+            str(self.CHASER_IDX): self._get_adj_obs(chaser_coord, runner_coord),
         }
 
     def _get_adj_obs(
@@ -422,12 +406,6 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
         return {str(self.RUNNER_IDX): r_runner, str(self.CHASER_IDX): r_chaser}
 
     def _get_outcome(self, state: TPState) -> Dict[M.AgentID, M.Outcome]:
-        if self._infinite_horizon:
-            return {
-                str(self.RUNNER_IDX): M.Outcome.NA,
-                str(self.CHASER_IDX): M.Outcome.NA,
-            }
-
         # Assuming state is terminal
         runner_coord = state[self.RUNNER_IDX]
         chaser_coord = state[self.CHASER_IDX]
@@ -604,19 +582,9 @@ def get_7x7_grid() -> TPGrid:
     )
 
 
-# grid_name: (grid_make_fn, episode step_limit)
+# grid_size: grid_make_fn
 SUPPORTED_GRIDS = {
-    "3x3": (get_3x3_grid, 20),
-    "4x4": (get_4x4_grid, 20),
-    "7x7": (get_7x7_grid, 20),
+    3: get_3x3_grid,
+    4: get_4x4_grid,
+    7: get_7x7_grid,
 }
-
-
-def load_grid(grid_name: str) -> TPGrid:
-    """Load grid with given name."""
-    grid_name = grid_name
-    assert grid_name in SUPPORTED_GRIDS, (
-        f"Unsupported grid name '{grid_name}'. Grid name must be one of: "
-        f"{SUPPORTED_GRIDS.keys()}."
-    )
-    return SUPPORTED_GRIDS[grid_name][0]()

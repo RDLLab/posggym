@@ -57,7 +57,7 @@ def main(args):
             if len(components) == 1:
                 print("Grid fully connected")
             else:
-                print(f"Grid divided into {len(components)} seperate parts.")
+                print(f"Grid divided into {len(components)} separate parts.")
                 print("Connecting grid")
                 grid = grid_gen.connect_grid_components(grid)
                 print("Et voila")
@@ -69,7 +69,7 @@ if __name__ == "__main__":
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument("width", type=int, help="Width of grid")
-    parser.add_argument("height", type=int, help="Heigh of grid")
+    parser.add_argument("height", type=int, help="Height of grid")
     parser.add_argument(
         "--use_random_mask",
         action="store_true",
