@@ -295,7 +295,7 @@ class PursuitEvasionEnv(DefaultEnv):
                 self.render_mode,
                 model.grid,
                 render_fps=self.metadata["render_fps"],
-                env_name="Driving",
+                env_name="PursuitEvasion",
             )
 
         if self._agent_imgs is None:
