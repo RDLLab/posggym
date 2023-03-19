@@ -27,7 +27,33 @@ register(
 
 # Continuous
 # -------------------------------------------
+register(
+    id="PPContinousEnv-v0",
+    entry_point="posggym.envs.continous.predator_prey:PPContinousEnv",
+    kwargs={
+        "grid_size": 10,
+        "num_predators": 2,
+        "num_prey": 3,
+        "cooperative": True,
+        "prey_strength": None,
+        "obs_dim": 2,
+        "n_lines": 10,
+        "use_holonomic": True
+    }
+)
 
+
+register(
+    id="MAPEContinousEnv-v0",
+    entry_point="posggym.envs.continous.MultiAgentPursuitEvasion:MAPEEnv",
+    kwargs={
+        "num_agents": 3,
+        "n_communicating_purusers": 3,
+        "arena_size": 430,
+        "observation_limit": 430,
+        "velocity_control": False,
+        "use_curriculum": False,
+    })
 
 # Grid World
 # -------------------------------------------
