@@ -332,9 +332,10 @@ class ContinuousWorld(ABC):
         distance=1,
         ignore_blocks=False,
         include_out_of_bounds=False,
+        force_non_colliding=False,
     ):
         points = [i * (2 * math.pi) / (num_samples - 1) for i in range(num_samples)]
-        output = []
+        output: List[Position] = []
         for yaw in points:
             new_coords, success = self._non_holonomic_model(
                 coord,
@@ -342,8 +343,13 @@ class ContinuousWorld(ABC):
                 ignore_blocks=ignore_blocks,
                 include_out_of_bounds=include_out_of_bounds,
             )
+
             if success:
-                output.append(new_coords)
+                if force_non_colliding:
+                    if not self.check_agent_collisions(new_coords, output):
+                        output.append(new_coords)
+                else:
+                    output.append(new_coords)
 
         return output
 
@@ -363,7 +369,7 @@ class ContinuousWorld(ABC):
         return False
 
     def check_agent_collisions(
-        self, coord: Position, other_coords: Tuple[Position, ...]
+        self, coord: Position, other_coords: Iterable[Position]
     ) -> bool:
         return any(self.agents_collide(coord, p) for p in other_coords)
 

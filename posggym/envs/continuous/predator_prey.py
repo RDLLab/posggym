@@ -636,7 +636,10 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         self, coord: Position, occupied_coords: List[Position]
     ) -> bool:
         neighbours = self.grid.get_neighbours(
-            coord, ignore_blocks=False, include_out_of_bounds=False
+            coord,
+            ignore_blocks=False,
+            include_out_of_bounds=False,
+            force_non_colliding=True,
         )
         non_collide_neighbours = []
         for c in neighbours:
