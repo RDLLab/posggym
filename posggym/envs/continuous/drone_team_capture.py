@@ -16,7 +16,6 @@ Reference
 """
 import math
 from typing import (
-    Any,
     Dict,
     List,
     NamedTuple,
@@ -45,7 +44,7 @@ class DTCState(NamedTuple):
 
 # Actions
 DTCAction = List[float]
-DTCObs = Any
+DTCObs = np.ndarray
 
 
 class DroneTeamCaptureContinousEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):

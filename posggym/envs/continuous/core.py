@@ -530,7 +530,7 @@ class RectangularContinuousWorld(ContinuousWorld):
 
 
 def clip_actions(
-    actions: Dict[M.AgentID, np.ndarray], action_spaces: Dict[M.AgentID, spaces.Space]
+    actions: Dict[M.AgentID, List[float]], action_spaces: Dict[M.AgentID, spaces.Space]
 ) -> Dict[M.AgentID, List[float]]:
     assert all([isinstance(action_spaces[i], spaces.Box) for i in action_spaces])
 
