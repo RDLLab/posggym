@@ -375,12 +375,14 @@ class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
         dist = CircularContinuousWorld.euclidean_dist(target_coords, pursuer_coord)
         return dist < self.cap_rad
 
-    def target_distance(self, state: MAPEState, index: int):
+    def target_distance(self, state: MAPEState, index: int) -> float:
         return CircularContinuousWorld.euclidean_dist(
             state.pursuer_coords[index], state.target_coords
         )
 
-    def _get_next_state(self, state: MAPEState, actions):
+    def _get_next_state(
+        self, state: MAPEState, actions: Dict[M.AgentID, List[float]]
+    ) -> MAPEState:
         prev_target = state.target_coords
         prev_pursuer = state.pursuer_coords
 
@@ -479,7 +481,7 @@ class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
 
         return observation
 
-    def _get_rewards(self, state: MAPEState):
+    def _get_rewards(self, state: MAPEState) -> Tuple[bool, Dict[M.AgentID, float]]:
         done = False
 
         reward: Dict[M.AgentID, float] = {}

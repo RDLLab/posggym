@@ -108,7 +108,7 @@ class ContinuousWorld(ABC):
 
     def _non_holonomic_model(
         self, coord: Position, action: List[float], ignore_blocks: bool = False
-    ):
+    ) -> Tuple[Position, bool]:
         if len(action) == 1:
             delta_yaw = action[0]
             velocity = 0.25
