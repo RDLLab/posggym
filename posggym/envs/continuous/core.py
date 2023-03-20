@@ -109,7 +109,11 @@ class ContinuousWorld(ABC):
         return self._get_next_coord(coord, action, ignore_blocks)[0]
 
     def _non_holonomic_model(
-        self, coord: Position, action: List[float], ignore_blocks: bool = False
+        self,
+        coord: Position,
+        action: List[float],
+        ignore_blocks: bool = False,
+        include_out_of_bounds: bool = True,
     ) -> Tuple[Position, bool]:
         if len(action) == 1:
             delta_yaw = action[0]
@@ -132,6 +136,10 @@ class ContinuousWorld(ABC):
 
         if not ignore_blocks and self.check_collision((new_coord, self.agent_size)):
             return (coord, False)
+
+        # Out of bounds is unsuccessful
+        if not include_out_of_bounds and new_coord != (x, y, new_yaw):
+            return (new_coord, False)
 
         return (new_coord, True)
 
@@ -321,6 +329,7 @@ class ContinuousWorld(ABC):
         self,
         coord: Position,
         num_samples=20,
+        distance=1,
         ignore_blocks=False,
         include_out_of_bounds=False,
     ):
@@ -328,7 +337,10 @@ class ContinuousWorld(ABC):
         output = []
         for yaw in points:
             new_coords, success = self._non_holonomic_model(
-                coord, [yaw], ignore_blocks=ignore_blocks
+                coord,
+                [yaw, distance],
+                ignore_blocks=ignore_blocks,
+                include_out_of_bounds=include_out_of_bounds,
             )
             if success:
                 output.append(new_coords)
@@ -336,7 +348,6 @@ class ContinuousWorld(ABC):
         return output
 
     def agents_collide(self, coord1: Position, coord2: Position, distance=None) -> bool:
-        # import pdb; pdb.set_trace()
         return ContinuousWorld.manhattan_dist(coord1, coord2) < (
             distance or (self.agent_size + self.agent_size)
         )
@@ -348,7 +359,13 @@ class ContinuousWorld(ABC):
                 radius + agent_radius
             ):
                 return True
+
         return False
+
+    def check_agent_collisions(
+        self, coord: Position, other_coords: Tuple[Position, ...]
+    ) -> bool:
+        return any(self.agents_collide(coord, p) for p in other_coords)
 
     def sample_coords_within_dist(
         self,

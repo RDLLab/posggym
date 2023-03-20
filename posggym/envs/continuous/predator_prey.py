@@ -25,6 +25,7 @@ from typing import (
     Set,
     Callable,
     Iterable,
+    cast,
 )
 
 from gymnasium import spaces
@@ -345,7 +346,9 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             )
             grid = SUPPORTED_GRIDS[grid][0]()
 
-        self.grid = grid
+        # Cannot be a string by this point.
+        self.grid = cast(PPWorld, grid)
+
         self.grid.set_holonomic_model(use_holonomic)
 
         self.obs_dim = obs_dim
@@ -582,10 +585,11 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         # move into furthest away free cell, includes current coord
         neighbours = [
             (self.grid.manhattan_dist(c, closest_predator_coord), c)
-            for c in self.grid.get_neighbours(prey_coord) + [prey_coord]
+            for c in self.grid.get_neighbours(prey_coord, distance=1) + [prey_coord]
         ]
 
         neighbours.sort()
+
         for d, c in reversed(neighbours):
             if c == prey_coord or self._coord_available_for_prey(c, occupied_coords):
                 return c
@@ -636,9 +640,15 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         )
         non_collide_neighbours = []
         for c in neighbours:
+            flag = True
             for c2 in occupied_coords:
-                if not self.grid.agents_collide(c, c2):
-                    non_collide_neighbours.append(c)
+                if self.grid.agents_collide(c, c2):
+                    flag = False
+                    break
+
+            # No collision
+            if flag:
+                non_collide_neighbours.append(c)
 
         return len(non_collide_neighbours) >= self.prey_strength
 
@@ -651,14 +661,14 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         potential_next_coords = []
         for i, coord in enumerate(state.predator_coords):
             next_coord, _ = self.grid._get_next_coord(
-                # type: ignore
                 coord,
                 actions[str(i)],
                 ignore_blocks=False,
             )
 
-            if self.grid.check_collision((coord, self.grid.agent_size)):
+            if self.grid.check_agent_collisions(coord, next_prey_coords):
                 next_coord = coord
+
             potential_next_coords.append(next_coord)
 
         # handle collisions
