@@ -28,8 +28,8 @@ register(
 # Continuous
 # -------------------------------------------
 register(
-    id="PredatorPreyContinuous -v0",
-    entry_point="posggym.envs.continuous.predator_prey:PredatorPreyContinuous ",
+    id="PredatorPreyContinuous-v0",
+    entry_point="posggym.envs.continuous.predator_prey:PredatorPreyContinuous",
     kwargs={
         "grid_size": 10,
         "num_predators": 2,

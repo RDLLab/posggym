@@ -1,9 +1,12 @@
 """General grid world problem utility functions and classes."""
 from queue import PriorityQueue
-from typing import Dict, Iterable, List, Optional, Tuple, TypeVar
+from typing import Dict, Iterable, List, Optional, Tuple, TypeVar, Callable
 import math
 from enum import Enum
 from abc import ABC, abstractmethod
+import posggym.model as M
+from gymnasium import spaces
+import numpy as np
 
 # (x, y) coord = (col, row) coord
 Coord = Tuple[int, int]
@@ -333,6 +336,7 @@ class ContinuousWorld(ABC):
         return output
 
     def agents_collide(self, coord1: Position, coord2: Position, distance=None) -> bool:
+        # import pdb; pdb.set_trace()
         return ContinuousWorld.manhattan_dist(coord1, coord2) < (
             distance or (self.agent_size + self.agent_size)
         )
@@ -350,18 +354,17 @@ class ContinuousWorld(ABC):
         self,
         center: Position,
         min_dist_from_center: float,
+        rng: Callable[[], float],
         ignore_blocks=False,
         max_attempts=100,
     ) -> Position:
-        import random
-
         for _ in range(max_attempts):
-            angle = 2 * math.pi * random.random()
-            distance = min_dist_from_center * math.sqrt(random.random())
+            angle = 2 * math.pi * rng()
+            distance = min_dist_from_center * math.sqrt(rng())
 
             x = center[0] + distance * math.cos(angle)
             y = center[1] + distance * math.sin(angle)
-            yaw = 0.0 if self.use_holonomic_model else 2 * math.pi * random.random()
+            yaw = 0.0 if self.use_holonomic_model else 2 * math.pi * rng()
 
             new_coord: Position = (x, y, yaw)
 
@@ -524,3 +527,14 @@ class RectangularContinuousWorld(ContinuousWorld):
                 return True, math.sqrt((x1 - x) ** 2 + (y1 - y) ** 2)
 
         return False, None
+
+
+def clip_actions(
+    actions: Dict[M.AgentID, np.ndarray], action_spaces: Dict[M.AgentID, spaces.Space]
+) -> Dict[M.AgentID, List[float]]:
+    assert all([isinstance(action_spaces[i], spaces.Box) for i in action_spaces])
+
+    return {
+        i: list(np.clip(actions[i], action_spaces[i].low, action_spaces[i].high))
+        for i in actions
+    }

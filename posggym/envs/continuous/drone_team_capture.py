@@ -16,6 +16,7 @@ Reference
 """
 import math
 from typing import (
+    Any,
     Dict,
     List,
     NamedTuple,
@@ -28,7 +29,7 @@ from gymnasium import spaces
 
 import posggym.model as M
 from posggym.core import DefaultEnv
-from posggym.envs.continuous.core import CircularContinuousWorld, Position
+from posggym.envs.continuous.core import CircularContinuousWorld, Position, clip_actions
 from posggym.utils import seeding
 
 
@@ -44,7 +45,7 @@ class DTCState(NamedTuple):
 
 # Actions
 DTCAction = List[float]
-DTCObs = Tuple[float, ...]
+DTCObs = Any
 
 
 class DroneTeamCaptureContinousEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
@@ -144,7 +145,7 @@ class DroneTeamCaptureContinousEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
     ```python
     import posggym
     env = posgggym.make(
-        'PredatorPreyContinuous -v0',
+        'PredatorPreyContinuous-v0',
         max_episode_steps=100,
         num_agents=8,
         n_communicating_puruser=4,
@@ -154,8 +155,6 @@ class DroneTeamCaptureContinousEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
     Version History
     ---------------
     - `v0`: Initial version
-
-
 
     """
 
@@ -293,16 +292,24 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
         # The capture radius needs to be manually decreased if using curriculum
         self.cap_rad = 60 if use_curriculum else 30
 
-        high = np.ones((self.n_pursuers, OBS_DIM), dtype=np.float64) * np.inf
+        high = np.ones(OBS_DIM, dtype=np.float32) * np.inf
 
         # act[0] = angular velocity, act[1] = linear velocity
-        acthigh = np.array([1]) if not self.velocity_control else np.array([1, 1])
-        actlow = np.array([-1]) if not self.velocity_control else np.array([-1, 0])
+        acthigh = (
+            np.array([1], dtype=np.float32)
+            if not self.velocity_control
+            else np.array([1, 1], dtype=np.float32)
+        )
+        actlow = (
+            np.array([-1], dtype=np.float32)
+            if not self.velocity_control
+            else np.array([-1, 0], dtype=np.float32)
+        )
 
         self.possible_agents = tuple(str(x) for x in range(self.n_pursuers))
 
         self.observation_spaces = {
-            str(i): spaces.Box(-high, high, dtype=np.float64)
+            str(i): spaces.Box(-high, high, dtype=np.float32)
             for i in self.possible_agents
         }
 
@@ -312,6 +319,9 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
 
         self.grid = CircularContinuousWorld(radius=self.r_arena, block_coords=None)
         self.grid.set_holonomic_model(False)
+
+        # Not sure what this means??
+        self.is_symmetric = True
 
     def get_agents(self, state: DTCState) -> List[M.AgentID]:
         return list(self.possible_agents)
@@ -349,7 +359,9 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
     def step(
         self, state: DTCState, actions: Dict[M.AgentID, DTCAction]
     ) -> M.JointTimestep[DTCState, DTCObs]:
-        next_state = self._get_next_state(state, actions)
+        clipped_actions = clip_actions(actions, self.action_spaces)
+
+        next_state = self._get_next_state(state, clipped_actions)
         obs = self._get_obs(state)
         done, rewards = self._get_rewards(state)
 
@@ -477,7 +489,7 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
                 temp_observation.append(alphas[index] / math.pi)
                 temp_observation.append(dists[index])
 
-            observation[str(i)] = tuple(temp_observation)
+            observation[str(i)] = np.array(temp_observation, dtype=np.float32)
 
         return observation
 
