@@ -171,7 +171,7 @@ title: {title_env_name}
         # else:
         #     env_table += f"| Observation Space | {env.observation_space} |\n"
 
-        env_table += f'| Import | `posggym.make("{env_spec.id}")` | \n'
+        env_table += f'| Import | `posggym.make("{env_spec.id}")` |\n'
 
         if docstring is None:
             docstring = "No information provided"

@@ -33,7 +33,7 @@ title: Env
 .. autoattribute:: posggym.Env.reward_ranges
 .. autoattribute:: posggym.Env.is_symmetric
 .. autoattribute:: posggym.Env.spec
-mod
+
     The ``EnvSpec`` of the environment normally set during :py:meth:`posggym.make`
 
 .. autoattribute:: posggym.Env.metadata

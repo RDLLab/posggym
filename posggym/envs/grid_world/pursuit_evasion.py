@@ -90,9 +90,12 @@ class PursuitEvasionEnv(DefaultEnv):
     1. the direction the evader is facing
     2. the `(x, y)` coordinate of the pursuer
     3. the direction the pursuer is facing
-    4. the `(x, y)` coordinate of the evader
-    5. the `(x, y)` coordinate of the evader's start location
-    6. the `(x, y)` coordinate of the pursuer's start location
+    4. the `(x, y)` coordinate of the evader's start location
+    5. the `(x, y)` coordinate of the pursuers's start location
+    6. the `(x, y)` coordinate of the evaders's goal location
+    7. the minimum distance to it's goal along the shortest path achieved by the evader
+       in the current episode (this is needed to correctly reward the agent for making
+       progress.)
 
     Action Space
     ------------

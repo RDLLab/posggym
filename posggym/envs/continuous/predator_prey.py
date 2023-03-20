@@ -1,9 +1,9 @@
-"""The Predator-Prey Grid World Environment.
+"""The Continuous Predator-Prey Environment.
 
 A co-operative 2D continuous world problem involving multiple predator agents working
 together to catch prey agents in the environment.
 
-This intends to be an adaptation of the 2D grid world to a more continuous setting
+This intends to be an adaptation of the 2D grid-world to the continuous setting.
 
 Reference
 ---------
@@ -11,6 +11,9 @@ Reference
   In Proceedings of the Tenth International Conference on Machine Learning. 330–337.
 - J. Z. Leibo, V. F. Zambaldi, M. Lanctot, J. Marecki, and T. Graepel. 2017. Multi-Agent
   Reinforcement Learning in Sequential Social Dilemmas. In AAMAS, Vol. 16. ACM, 464–473
+- Lowe, Ryan, Yi I. Wu, Aviv Tamar, Jean Harb, OpenAI Pieter Abbeel, and Igor Mordatch.
+  2017. “Multi-Agent Actor-Critic for Mixed Cooperative-Competitive Environments.”
+  Advances in Neural Information Processing Systems 30.
 
 """
 import math
@@ -29,6 +32,7 @@ from typing import (
 )
 
 from gymnasium import spaces
+import numpy as np
 
 import posggym.model as M
 from posggym.core import DefaultEnv
@@ -39,7 +43,7 @@ from posggym.envs.continuous.core import (
     clip_actions,
 )
 from posggym.utils import seeding
-import numpy as np
+
 
 EMPTY = 0
 WALL = 1
@@ -64,78 +68,74 @@ AGENT_TYPE = [PREDATOR, PREY]
 
 
 class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
-    """The Predator-Prey Continuous Environment.
+    """The Continuous Predator-Prey Environment.
 
     A co-operative 2D continuous world problem involving multiple predator agents
     working together to catch prey agent/s in the environment.
 
-    Agents
-    ------
+    Possible Agents
+    ---------------
     Varied number
 
-    State
-    -----
+    State Space
+    -----------
     Each state consists of:
 
     1. tuple of the (x, y) position of all predators
     2. tuple of the (x, y) position of all preys
     3. tuple of whether each prey has been caught or not (0=no, 1=yes)
 
-    For the coordinate x=column, y=row, with the origin (0, 0) at the
-    top-left square of the world.
+    For the coordinate x=column, y=row, with the origin (0, 0) at the top-left square
+    of the world.
 
-    Actions
-    -------
-    Each agent has 2 actions. In the `holonomic` model there is two actions, which
-    are the change in x and change in y position. In  the non-holonomic model, there
-    is also two actions, which are the angular and linear velocity.
+    Action Space
+    ------------
+    Each agent has 2 actions. In the `holonomic` model there are two actions, which
+    are the change in x and change in y position. In the non-holonomic model, there
+    are also two actions, which are the angular and linear velocity.
 
-    Observation
-    -----------
+    Observation Space
+    -----------------
     Each agent observes the contents of local cells. This is achieved by
     a series of 'n_lines' lines starting at the agent which extend for a distance of
-    'obs_dim'. For each line the agent observes whether they are one of four
-    things: EMPTY=0, WALL=1, PREDATOR=2, PREY=3. They also observe the distance
-    to the object. If the object is empty, the distance will always be equal to
+    'obs_dim'. For each line the agent observes whether they intersect with one of four
+    objects: `EMPTY=0`, `WALL=1`, `PREDATOR=2`, `PREY=3`. They also observe the distance
+    to the object. If the object is `EMPTY=0`, the distance will always be equal to
     'obs_dim'
 
-    Reward
-    ------
+    Rewards
+    -------
     There are two modes of play:
 
-    1. Fully cooperative: All predators share a reward and each agent receives
-    a reward of 1.0 / `num_prey` for each prey capture, independent of which
+    1. *Fully cooperative*: All predators share a reward and each agent receives
+    a reward of `1.0 / num_prey` for each prey capture, independent of which
     predator agent/s were responsible for the capture.
 
-    2. Mixed cooperative: Predators only receive a reward if they were part
-    of the prey capture, receiving 1.0 / `num_prey`.
+    2. *Mixed cooperative*: Predators only receive a reward if they were part
+    of the prey capture, receiving `1.0 / num_prey` per capture.
 
     In both modes prey can only been captured when at least `prey_strength`
-    predators are in adjacent cells,
-    where 1 <= `prey_strength` <= `num_predators`.
+    predators are in adjacent cells, where `1 <= prey_strength <= num_predators`.
 
-    Transition Dynamics
-    -------------------
+    Dynamics
+    --------
     Actions of the predator agents are deterministic and consist of moving based on
-    the dynamic model. If two or more predators attempt to move into the same cell
+    the dynamic model. If two or more predators attempt to move into the same location
     then no agent moves.
 
     Prey move according to the following rules (in order of priority):
 
-    1. if predator is within `obs_dim` cells, moves away from closest predator
-    2. if another prey is within `obs_dim` cells, moves away from closest prey
+    1. if predator is within `obs_dim` distance, moves away from closest predator
+    2. if another prey is within `obs_dim` distance, moves away from closest prey
     3. else move randomly
 
-    Prey always move first and predators and prey cannot occupy the same cell.
+    Prey always move first and predators and prey cannot occupy the same location.
     The only exception being if a prey has been caught their final coord is
     recorded in the state but predator and prey agents will be able to move
     into the final coord.
 
-    Episodes ends when all prey have been captured or the episode step limit is
-    reached.
-
-    Initial Conditions
-    ------------------
+    Starting State
+    --------------
     Predators start from random separate locations along the edge of the world
     (either in a corner, or half-way along a side), while prey start together
     in the middle.
@@ -160,12 +160,12 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
     - `prey_strength` - how many predators are required to capture each prey, minimum is
         `1` and maximum is `min(4, num_predators)`. If `None` this is set to
         `min(4, num_predators)` (default = 'None`)
-    - `obs_dim` - the local observation dimensions, specifying how many cells in each
-        direction each predator and prey agent observes (default = `2`)
+    - `obs_dim` - the local observation distance, specifying how far away in each
+        direction each predator and prey agent observes (default = `2`).
     - `n_lines` - the number of lines eminating from the agent. The agent will observe
-        at n equidistance intervals over [0,2*pi]. (default = `10`)
+        at `n` equidistance intervals over `[0, 2*pi]` (default = `10`).
     - `use_holonomic` - the movement model to use. There are two modes - holonomic or
-        non holonmic, with a unicycle model. (default = 'true`).
+        non holonmic, with a unicycle model (default = 'true`).
 
     Available variants
     ------------------
@@ -213,6 +213,9 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
     - J. Z. Leibo, V. F. Zambaldi, M. Lanctot, J. Marecki, and T. Graepel. 2017.
       Multi-Agent Reinforcement Learning in Sequential Social Dilemmas. In AAMAS,
       Vol. 16. ACM, 464–473
+    - Lowe, Ryan, Yi I. Wu, Aviv Tamar, Jean Harb, OpenAI Pieter Abbeel, and Igor
+      Mordatch. 2017. “Multi-Agent Actor-Critic for Mixed Cooperative-Competitive
+      Environments.” Advances in Neural Information Processing Systems 30.
 
     """
 

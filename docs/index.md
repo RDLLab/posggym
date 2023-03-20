@@ -87,6 +87,7 @@ api/wrappers
 :caption: Environments
 
 environments/classic
+environments/continuous
 environments/grid_world
 ```
 

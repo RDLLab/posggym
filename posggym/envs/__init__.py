@@ -44,8 +44,8 @@ register(
 
 
 register(
-    id="DroneTeamCaptureContinous-v0",
-    entry_point="posggym.envs.continuous.drone_team_capture:DroneTeamCaptureContinousEnv",
+    id="DroneTeamCapture-v0",
+    entry_point="posggym.envs.continuous.drone_team_capture:DroneTeamCaptureEnv",
     kwargs={
         "num_agents": 3,
         "n_communicating_purusers": 3,

@@ -1,4 +1,4 @@
-"""A  Multi-Agent Pursuit Evastion Continuous Environment.
+"""The Drone Team Capture Environment.
 
 A co-operative 2D circular world problem involving multiple agents working together
 to catch a target agent in the environment.
@@ -22,8 +22,8 @@ from typing import (
     Optional,
     Tuple,
 )
-import numpy as np
 
+import numpy as np
 from gymnasium import spaces
 
 import posggym.model as M
@@ -33,7 +33,7 @@ from posggym.utils import seeding
 
 
 class DTCState(NamedTuple):
-    """A state in the Multi-Agent Pursuit Evasion Environment."""
+    """A state in the Drone Team Capture Environment."""
 
     pursuer_coords: Tuple[Position, ...]
     prev_pursuer_coords: Tuple[Position, ...]
@@ -47,18 +47,18 @@ DTCAction = List[float]
 DTCObs = np.ndarray
 
 
-class DroneTeamCaptureContinous(DefaultEnv[DTCState, DTCObs, DTCAction]):
-    """A Multi Agent Pursuit Evasion Environment.
+class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
+    """The Drone Team Capture Environment.
 
-    A co-operative 2D continuous world problem involving multiple pursuer agents
-    working together to catch a targetr agent in the environment.
+    A co-operative 2D continuous world problem involving multiple pursuer drone agents
+    working together to catch a target agent in the environment.
 
-    Agents
-    ------
+    Possible Agents
+    ---------------
     Varied number (1-8)
 
-    State
-    -----
+    State Space
+    -----------
     Each state consists of:
 
     1. tuple of the (x, y) position of all pursuers
@@ -70,49 +70,48 @@ class DroneTeamCaptureContinous(DefaultEnv[DTCState, DTCObs, DTCAction]):
     For the coordinate x=column, y=row, with the origin (0, 0) at the
     top-left square of the world.
 
-    Actions
-    -------
-    Each agent has either 1 or 2 actions. If 'velocity control' in False. The agent
-    can only control their angular velocity. If 'velocity' control in True the agernt
+    Action Space
+    ------------
+    Each agent has either 1 or 2 actions. If 'velocity_control=False' then the agent
+    can only control their angular velocity. If 'velocity_control=True' then the agent
     has two actions, which are the angular and linear velocity, in that order.
 
-    Observation
-    -----------
+    Observation Space
+    -----------------
     Each agent observes the other pursuers and target. For each pursuer they will
-    observe the relative position and angle of the pusuer. They will observe
+    observe the relative position and angle of the pursuer. They will observe
     their own heading and change in heading. They will also observe the distance
     to the target, and the angle to the target, as well as, their derivatives.
     The pursuers will be ordered by the relative distance to the target.
 
-    However, their are two parameters to change this behaviour. Firstly, the observation
-    limit which serves as a maximum distance to see another agent. If they are outside
-    this radius, the observations of these agents will become (-1)
+    However, there are two parameters to change this behaviour. Firstly,
+    `observation_limit` which specifies the maximum distance another agent can be seen.
+    If they are outside this radius, the observations of these agents will be `-1`.
 
-    Their is also the n_communicating_purusers which will limit the maximum amount of
+    There is also the `n_communicating_purusers` which will limit the maximum amount of
     other pursuers an agent can observe.
 
-    Reward
-    ------
-    Each pursuer will receive a reward is based on the Q parameter and the distance from
+    Rewards
+    -------
+    Each pursuer will receive a reward based on the Q parameter and the distance from
     the target. On successful capture, the capturing pursuer will receive a reward of
-    +130, while other agents will receive 100.
+    `+130`, while other agents will receive `100`.
 
-    Transition Dynamics
-    -------------------
+    Dynamics
+    --------
     Actions of the puruser agents are deterministic and consist of moving based on the
-    non-holonomic model. Episodes ends when the target has been captured or the
-    episode step limit is reached.
+    non-holonomic model.
 
-    The target will move following a holonomic model
+    The target will move following a holonomic model TODO
 
-    Initial Conditions
-    ------------------
+    Starting State
+    --------------
     Target will start near the outside of the circle, while pursuers will start in a
     line on the middle. The pursuers will start with a random yaw.
 
     Episodes End
     ------------
-    Episodes ends when all prey have been captured. By default a `max_episode_steps`
+    Episodes ends when the target has been captured. By default a `max_episode_steps`
     limit of `50` steps is also set. This may need to be adjusted when using larger
     grids (this can be done by manually specifying a value for `max_episode_steps`when
     creating the environment with `posggym.make`).
@@ -136,15 +135,15 @@ class DroneTeamCaptureContinous(DefaultEnv[DTCState, DTCObs, DTCAction]):
     Available variants
     ------------------
 
-    For example to use the Continuous Multiagent Pursuit Evation Prey environment with
-    8 communicating pursuers and episode step limit of 100, and the default values for
-    the other parameters  (`velocity_control`, `arena_size`, `observation_limit`,
-    `use_curriculum`) you would use:
+    For example to use the Drone Team Capture environment with 8 communicating pursuers
+    and episode step limit of 100, and the default values for the other parameters
+    (`velocity_control`, `arena_size`, `observation_limit`, `use_curriculum`) you would
+    use:
 
     ```python
     import posggym
     env = posgggym.make(
-        'DroneTeamCaptureContinous-v0',
+        'DroneTeamCapture-v0',
         max_episode_steps=100,
         num_agents=8,
         n_communicating_puruser=4,
@@ -217,7 +216,7 @@ class DroneTeamCaptureContinous(DefaultEnv[DTCState, DTCObs, DTCAction]):
 
 
 class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
-    """Predator-Prey Problem Model.
+    """The Drone Team Capture problem model.
 
     Parameters
     ----------
