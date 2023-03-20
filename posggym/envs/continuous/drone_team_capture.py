@@ -32,7 +32,7 @@ from posggym.envs.continuous.core import CircularContinuousWorld, Position
 from posggym.utils import seeding
 
 
-class MAPEState(NamedTuple):
+class DTCState(NamedTuple):
     """A state in the Multi-Agent Pursuit Evasion Environment."""
 
     pursuer_coords: Tuple[Position, ...]
@@ -43,11 +43,11 @@ class MAPEState(NamedTuple):
 
 
 # Actions
-MAPEAction = List[float]
-MAPEObs = Tuple[float, ...]
+DTCAction = List[float]
+DTCObs = Tuple[float, ...]
 
 
-class MAPEEnv(DefaultEnv[MAPEState, MAPEObs, MAPEAction]):
+class DroneTeamCaptureContinousEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
     """A Multi Agent Pursuit Evasion Environment.
 
     A co-operative 2D continuous world problem involving multiple pursuer agents
@@ -144,7 +144,7 @@ class MAPEEnv(DefaultEnv[MAPEState, MAPEObs, MAPEAction]):
     ```python
     import posggym
     env = posgggym.make(
-        'PPContinuousEnv-v0',
+        'PredatorPreyContinuous -v0',
         max_episode_steps=100,
         num_agents=8,
         n_communicating_puruser=4,
@@ -176,7 +176,7 @@ class MAPEEnv(DefaultEnv[MAPEState, MAPEObs, MAPEAction]):
         **kwargs,
     ):
         super().__init__(
-            MAPEModel(
+            DTCModel(
                 num_agents,
                 n_communicating_purusers,
                 velocity_control,
@@ -218,7 +218,7 @@ class MAPEEnv(DefaultEnv[MAPEState, MAPEObs, MAPEAction]):
             self._renderer.render()
 
 
-class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
+class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
     """Predator-Prey Problem Model.
 
     Parameters
@@ -313,10 +313,10 @@ class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
         self.grid = CircularContinuousWorld(radius=self.r_arena, block_coords=None)
         self.grid.set_holonomic_model(False)
 
-    def get_agents(self, state: MAPEState) -> List[M.AgentID]:
+    def get_agents(self, state: DTCState) -> List[M.AgentID]:
         return list(self.possible_agents)
 
-    def sample_initial_state(self) -> MAPEState:
+    def sample_initial_state(self) -> DTCState:
         pursuer_coords = []
         prev_pursuer_coords = []
         for i in range(self.n_pursuers):
@@ -335,7 +335,7 @@ class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
         target_coords = (x, y, 0.0)
         prev_target_coords = (x, y, 0.0)
 
-        return MAPEState(
+        return DTCState(
             tuple(pursuer_coords),
             tuple(prev_pursuer_coords),
             target_coords,
@@ -343,12 +343,12 @@ class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
             relative_target_vel,
         )
 
-    def sample_initial_obs(self, state: MAPEState) -> Dict[M.AgentID, MAPEObs]:
+    def sample_initial_obs(self, state: DTCState) -> Dict[M.AgentID, DTCObs]:
         return self._get_obs(state)
 
     def step(
-        self, state: MAPEState, actions: Dict[M.AgentID, MAPEAction]
-    ) -> M.JointTimestep[MAPEState, MAPEObs]:
+        self, state: DTCState, actions: Dict[M.AgentID, DTCAction]
+    ) -> M.JointTimestep[DTCState, DTCObs]:
         next_state = self._get_next_state(state, actions)
         obs = self._get_obs(state)
         done, rewards = self._get_rewards(state)
@@ -375,14 +375,14 @@ class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
         dist = CircularContinuousWorld.euclidean_dist(target_coords, pursuer_coord)
         return dist < self.cap_rad
 
-    def target_distance(self, state: MAPEState, index: int) -> float:
+    def target_distance(self, state: DTCState, index: int) -> float:
         return CircularContinuousWorld.euclidean_dist(
             state.pursuer_coords[index], state.target_coords
         )
 
     def _get_next_state(
-        self, state: MAPEState, actions: Dict[M.AgentID, List[float]]
-    ) -> MAPEState:
+        self, state: DTCState, actions: Dict[M.AgentID, List[float]]
+    ) -> DTCState:
         prev_target = state.target_coords
         prev_pursuer = state.pursuer_coords
 
@@ -398,7 +398,7 @@ class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
 
             new_pursuer_coords.append(new_coords)
 
-        return MAPEState(
+        return DTCState(
             tuple(new_pursuer_coords),
             prev_pursuer,
             new_target_coords,
@@ -406,7 +406,7 @@ class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
             state.target_vel,
         )
 
-    def _get_obs(self, state: MAPEState) -> Dict[M.AgentID, MAPEObs]:
+    def _get_obs(self, state: DTCState) -> Dict[M.AgentID, DTCObs]:
         # Get observation for all pursuers
         observation = {}
 
@@ -481,7 +481,7 @@ class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
 
         return observation
 
-    def _get_rewards(self, state: MAPEState) -> Tuple[bool, Dict[M.AgentID, float]]:
+    def _get_rewards(self, state: DTCState) -> Tuple[bool, Dict[M.AgentID, float]]:
         done = False
 
         reward: Dict[M.AgentID, float] = {}
@@ -532,7 +532,7 @@ class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
             T_p[1] / dist_factor,
         ), True
 
-    def get_closest(self, state: MAPEState) -> int:
+    def get_closest(self, state: DTCState) -> int:
         # Find closest agent to pursuer
         min_dist, min_index = None, None
         for idx, p in enumerate(state.pursuer_coords):
@@ -547,7 +547,7 @@ class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
 
         return min_index
 
-    def get_unit_vectors(self, state: MAPEState) -> List[List[float]]:
+    def get_unit_vectors(self, state: DTCState) -> List[List[float]]:
         # Find unit vectors between target and pursuers
         unit = []
         for p in state.pursuer_coords:
@@ -555,7 +555,7 @@ class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
             unit.append([p[0] / dist, p[1] / dist])
         return unit
 
-    def q_parameter(self, state: MAPEState) -> float:
+    def q_parameter(self, state: DTCState) -> float:
         # Q Parameter definition
         closest = self.get_closest(state)
         unit = self.get_unit_vectors(state)
@@ -576,7 +576,7 @@ class MAPEModel(M.POSGModel[MAPEState, MAPEObs, MAPEAction]):
         vector = f * vector
         return [x + y for x, y in zip(final_vector, vector)]
 
-    def target_move_repulsive(self, position: Position, state: MAPEState) -> Position:
+    def target_move_repulsive(self, position: Position, state: DTCState) -> Position:
         # Target behaviour
         xy_pos = np.array(position[:2])
         x, y = xy_pos

@@ -56,7 +56,7 @@ collision_distance = 1
 AGENT_TYPE = [PREDATOR, PREY]
 
 
-class PPContinuousEnv(DefaultEnv[PPState, PPObs, PPAction]):
+class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
     """The Predator-Prey Continuous Environment.
 
     A co-operative 2D continuous world problem involving multiple predator agents
@@ -186,7 +186,7 @@ class PPContinuousEnv(DefaultEnv[PPState, PPObs, PPAction]):
     ```python
     import posggym
     env = posgggym.make(
-        'PPContinuousEnv-v0',
+        'PredatorPreyContinuous -v0',
         max_episode_steps=100,
         grid="15x15Blocks",
         num_predators=4,

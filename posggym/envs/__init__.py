@@ -28,8 +28,8 @@ register(
 # Continuous
 # -------------------------------------------
 register(
-    id="PPContinuousEnv-v0",
-    entry_point="posggym.envs.continuous.predator_prey:PPContinuousEnv",
+    id="PredatorPreyContinuous -v0",
+    entry_point="posggym.envs.continuous.predator_prey:PredatorPreyContinuous ",
     kwargs={
         "grid_size": 10,
         "num_predators": 2,
@@ -44,8 +44,8 @@ register(
 
 
 register(
-    id="MAPEContinuousEnv-v0",
-    entry_point="posggym.envs.continuous.MultiAgentPursuitEvasion:MAPEEnv",
+    id="DroneTeamCaptureContinousEnv-v0",
+    entry_point="posggym.envs.continuous.drone_team_capture:DroneTeamCaptureContinousEnv",
     kwargs={
         "num_agents": 3,
         "n_communicating_purusers": 3,
