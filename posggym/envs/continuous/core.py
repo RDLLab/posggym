@@ -92,7 +92,6 @@ class ContinuousWorld(ABC):
             _, coord = pq.get()
             for adj_coord in self.get_cardinal_neighbours(coord, ignore_blocks=False):
                 adj_coord = (int(adj_coord[0]), int(adj_coord[1]), int(adj_coord[2]))
-                print(adj_coord)
                 if dist[coord] + 1 < dist.get(adj_coord, float("inf")):
                     dist[adj_coord] = dist[coord] + 1
 
