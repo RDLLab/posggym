@@ -91,20 +91,24 @@ def test_box_actions_out_of_bound(env: posggym.Env):
     upper_bounds = {i: action_spaces[i].high for i in env.agents}
     lower_bounds = {i: action_spaces[i].low for i in env.agents}
 
-    if all(action_spaces[i].bounded_above for i in env.agents):
+    if all(np.alltrue(action_spaces[i].bounded_above) for i in env.agents):
         obs, _, _, _, _, _ = env.step(upper_bounds)
-        oob_actions = {i: np.cast[dtypes[i]](OOB_VALUE) for i in upper_bounds}
+        oob_actions = {
+            i: np.cast[dtypes[i]](upper_bounds[i] + OOB_VALUE) for i in upper_bounds
+        }
 
-        assert all(oob_actions[i] > upper_bounds[i] for i in upper_bounds)
+        assert all(np.alltrue(oob_actions[i] > upper_bounds[i]) for i in upper_bounds)
         oob_obs, _, _, _, _, _ = oob_env.step(oob_actions)
 
         assert all(np.alltrue(obs[i] == oob_obs[i]) for i in upper_bounds)
 
-    if all(action_spaces[i].bounded_below for i in env.agents):
+    if all(np.alltrue(action_spaces[i].bounded_below) for i in env.agents):
         obs, _, _, _, _, _ = env.step(lower_bounds)
-        oob_actions = {i: -np.cast[dtypes[i]](OOB_VALUE) for i in lower_bounds}
 
-        assert all(oob_actions[i] < lower_bounds[i] for i in lower_bounds)
+        oob_actions = {
+            i: np.cast[dtypes[i]](lower_bounds[i] - OOB_VALUE) for i in lower_bounds
+        }
+        assert all(np.alltrue(oob_actions[i] < lower_bounds[i]) for i in lower_bounds)
         oob_obs, _, _, _, _, _ = oob_env.step(oob_actions)
 
         assert all(np.alltrue(obs[i] == oob_obs[i]) for i in lower_bounds)
