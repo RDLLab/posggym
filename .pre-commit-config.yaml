@@ -36,5 +36,5 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies:
-          - "numpy>1.21"
+          - "numpy >=1.21.0"
         args: [--no-strict-optional, --ignore-missing-imports]
