@@ -1,11 +1,9 @@
 """Functions and classes for rendering grid world environments."""
-import abc
 from typing import Dict, List, Optional, Tuple, Union
-import numpy as np
 import math
 from posggym.error import DependencyNotInstalled
 from posggym.model import AgentID
-from posggym.envs.continous.core import ArenaTypes, Object
+from posggym.envs.continuous.core import ArenaTypes, Object
 
 ColorTuple = Union[Tuple[int, int, int], Tuple[int, int, int, int]]
 
@@ -17,14 +15,21 @@ except ImportError as e:
     ) from e
 
 
-class GWContinousRender:
-    def __init__(self,
-                 render_mode: str,
-                 env_name: str,
-                 arena_type: ArenaTypes = ArenaTypes.Square,
-                 render_fps: int = 15,
-                 screen_width=640, screen_height=480, arena_size=400, agent_size=20, domain_min=0, domain_max=1,
-                 num_colors: int = 10):
+class GWContinuousRender:
+    def __init__(
+        self,
+        render_mode: str,
+        env_name: str,
+        arena_type: ArenaTypes = ArenaTypes.Square,
+        render_fps: int = 15,
+        screen_width=640,
+        screen_height=480,
+        arena_size=400,
+        agent_size=20,
+        domain_min=0,
+        domain_max=1,
+        num_colors: int = 10,
+    ):
         # Initialize Pygame
         pygame.init()
 
@@ -71,8 +76,11 @@ class GWContinousRender:
         a = iter(iterable)
         return zip(a, a)
 
-    def render_lines(self, lines: Dict[AgentID, Tuple[Union[list, float]]], agents: Tuple[Tuple[float, float, float], ...]):
-
+    def render_lines(
+        self,
+        lines: Dict[AgentID, Tuple[Union[list, float]]],
+        agents: Tuple[Tuple[float, float, float], ...],
+    ):
         for index, agent_pos in enumerate(agents):
             x, y, agent_angle = agent_pos
             current_lines = lines[str(index)]
@@ -83,31 +91,35 @@ class GWContinousRender:
 
                 end_pos = (
                     x + distance * math.cos(angle),
-                    y + distance * math.sin(angle)
+                    y + distance * math.sin(angle),
                 )
 
                 scaled_start = self.scale(agent_pos[0], agent_pos[1])
                 scaled_end = self.scale(end_pos[0], end_pos[1])
 
                 pygame.draw.line(
-                    self.screen, self.colors[type], scaled_start, scaled_end)
+                    self.screen, self.colors[type], scaled_start, scaled_end
+                )
 
     def scale(self, x: float, y: float) -> Tuple[float, float]:
-        OldRange = (self.max_domain_size - self.min_domain_size)
+        OldRange = self.max_domain_size - self.min_domain_size
         NewRange = self.arena_size * 2
 
-        scaled_x = int((((x - self.min_domain_size) * NewRange) /
-                        OldRange) + (self.arena_x - self.arena_size / 2))
-        scaled_y = int((((y - self.min_domain_size) * NewRange) /
-                        OldRange) + (self.arena_y - self.arena_size / 2))
+        scaled_x = int(
+            (((x - self.min_domain_size) * NewRange) / OldRange)
+            + (self.arena_x - self.arena_size / 2)
+        )
+        scaled_y = int(
+            (((y - self.min_domain_size) * NewRange) / OldRange)
+            + (self.arena_y - self.arena_size / 2)
+        )
         return (scaled_x, scaled_y)
 
     def scale_number(self, num: float) -> float:
         return num / (self.max_domain_size - self.min_domain_size) * self.arena_size * 2
 
     def draw_circle_alpha(self, surface, color, center, radius):
-        target_rect = pygame.Rect(center, (0, 0)).inflate(
-            (radius * 2, radius * 2))
+        target_rect = pygame.Rect(center, (0, 0)).inflate((radius * 2, radius * 2))
         shape_surf = pygame.Surface(target_rect.size, pygame.SRCALPHA)
         pygame.draw.circle(shape_surf, color, (radius, radius), radius)
         surface.blit(shape_surf, target_rect)
@@ -122,8 +134,12 @@ class GWContinousRender:
 
             pygame.draw.circle(self.screen, self.BLACK, (scaled_x, scaled_y), radius)
 
-
-    def draw_agents(self, agents: Tuple[Tuple[float, float, float, int], ...], is_holonomic: Optional[List[bool]] = None, sizes: Optional[List[Optional[float]]] = None, ):
+    def draw_agents(
+        self,
+        agents: Tuple[Tuple[float, float, float, int], ...],
+        is_holonomic: Optional[List[bool]] = None,
+        sizes: Optional[List[Optional[float]]] = None,
+    ):
         scaled_agents = []
         if sizes is None:
             sizes = list([None] * len(agents))
@@ -133,21 +149,29 @@ class GWContinousRender:
 
             scaled_x, scaled_y = self.scale(x, y)
 
-            sizes[i] = self.agent_size if sizes[i] is None else int(
-                self.scale_number(sizes[i]))
+            sizes[i] = (
+                self.agent_size
+                if sizes[i] is None
+                else int(self.scale_number(sizes[i]))
+            )
 
             scaled_agents.append((scaled_x, scaled_y, angle, color))
 
         # Draw the arena
         if self.arena_type == ArenaTypes.Square:
             arena_rect = pygame.Rect(
-                self.arena_x - self.arena_size / 2, self.arena_y - self.arena_size / 2, self.arena_size * 2, self.arena_size * 2)
+                self.arena_x - self.arena_size / 2,
+                self.arena_y - self.arena_size / 2,
+                self.arena_size * 2,
+                self.arena_size * 2,
+            )
             pygame.draw.rect(self.screen, self.BLACK, arena_rect, width=1)
         else:
             center_x = self.arena_x + self.arena_size / 2
             center_y = self.arena_y + self.arena_size / 2
-            pygame.draw.circle(self.screen, self.BLACK,
-                               (center_x, center_y), self.arena_size, width=1)
+            pygame.draw.circle(
+                self.screen, self.BLACK, (center_x, center_y), self.arena_size, width=1
+            )
 
         # Draw the agents
         for i, agent in enumerate(scaled_agents):
@@ -157,22 +181,34 @@ class GWContinousRender:
 
             if is_holonomic is not None and is_holonomic[i]:
                 pygame.draw.circle(
-                    self.screen, self.colors[color % len(self.colors)], (x, y), size)
+                    self.screen, self.colors[color % len(self.colors)], (x, y), size
+                )
             else:
                 half_width = size
                 tri_points = [
-                    (x + half_width * math.cos(angle),
-                     y + half_width * math.sin(angle)),
-                    (x + half_width * 0.5 * math.cos(angle + 2*math.pi/3),
-                     y + half_width * 0.5 * math.sin(angle + 2*math.pi/3)),
-                    (x + half_width * 0.5 * math.cos(angle - 2*math.pi/3),
-                     y + half_width * 0.5 * math.sin(angle - 2*math.pi/3))
+                    (
+                        x + half_width * math.cos(angle),
+                        y + half_width * math.sin(angle),
+                    ),
+                    (
+                        x + half_width * 0.5 * math.cos(angle + 2 * math.pi / 3),
+                        y + half_width * 0.5 * math.sin(angle + 2 * math.pi / 3),
+                    ),
+                    (
+                        x + half_width * 0.5 * math.cos(angle - 2 * math.pi / 3),
+                        y + half_width * 0.5 * math.sin(angle - 2 * math.pi / 3),
+                    ),
                 ]
                 pygame.draw.polygon(
-                    self.screen, self.colors[color % len(self.colors)], tri_points)
+                    self.screen, self.colors[color % len(self.colors)], tri_points
+                )
 
                 self.draw_circle_alpha(
-                    self.screen, self.colors[color % len(self.colors)] + (100,), (x, y), size)
+                    self.screen,
+                    self.colors[color % len(self.colors)] + (100,),
+                    (x, y),
+                    size,
+                )
 
     def clear_render(self):
         self.screen.fill(self.WHITE)
