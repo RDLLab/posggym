@@ -1,7 +1,7 @@
 """Run a random agent on an environment."""
 import argparse
 import os.path as osp
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import Dict, List, Optional, TYPE_CHECKING, Union
 
 import posggym
 
@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 
 def run_random_agent(
-    env_id: str,
+    env: Union[str, posggym.Env],
     num_episodes: int,
     episode_step_limit: Optional[int] = None,
     seed: Optional[int] = None,
@@ -19,12 +19,15 @@ def run_random_agent(
     record_env: bool = False,
 ):
     """Run random agents."""
-    if episode_step_limit is not None:
-        env = posggym.make(
-            env_id, render_mode=render_mode, max_episode_steps=episode_step_limit
-        )
-    else:
-        env = posggym.make(env_id, render_mode=render_mode)
+    if isinstance(env, str):
+        if episode_step_limit is not None:
+            env = posggym.make(
+                env, render_mode=render_mode, max_episode_steps=episode_step_limit
+            )
+        else:
+            env = posggym.make(env, render_mode=render_mode)
+
+    env_id = env.spec.id if env.spec is not None else str(env)
 
     if record_env:
         video_save_dir = osp.join(osp.expanduser("~"), "posggym_video")

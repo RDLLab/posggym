@@ -165,7 +165,7 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
     - `n_lines` - the number of lines eminating from the agent. The agent will observe
         at `n` equidistance intervals over `[0, 2*pi]` (default = `10`).
     - `use_holonomic` - the movement model to use. There are two modes - holonomic or
-        non holonmic, with a unicycle model (default = 'true`).
+        non holonmic, with a unicycle model (default = 'True`).
 
     Available variants
     ------------------
@@ -221,7 +221,7 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
 
     metadata = {
         "render_modes": ["human"],
-        "render_fps": 4,
+        "render_fps": 1,
     }
 
     def __init__(
@@ -265,6 +265,7 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
                     self.render_mode,
                     env_name="PredatorPreyContinuous",
                     domain_max=self.model.grid.width,
+                    render_fps=self.metadata["render_fps"],
                     num_colors=4,
                     arena_size=200,
                 )
@@ -345,7 +346,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         if isinstance(grid, str):
             assert grid in SUPPORTED_GRIDS, (
                 f"Unsupported grid name '{grid}'. Grid name must be one of: "
-                f"{SUPPORTED_GRIDS.keys()}."
+                f"{list(SUPPORTED_GRIDS)}."
             )
             grid = SUPPORTED_GRIDS[grid][0]()
 
@@ -1014,16 +1015,6 @@ SUPPORTED_GRIDS = {
     "20x20": (get_20x20_grid, 200),
     "20x20Blocks": (get_20x20_blocks_grid, 200),
 }
-
-
-def load_grid(grid_name: str) -> PPWorld:
-    """Load grid with given name."""
-    grid_name = grid_name
-    assert grid_name in SUPPORTED_GRIDS, (
-        f"Unsupported grid name '{grid_name}'. Grid name must be one of: "
-        f"{SUPPORTED_GRIDS.keys()}."
-    )
-    return SUPPORTED_GRIDS[grid_name][0]()
 
 
 def position_to_array(coords: Iterable[Position]) -> np.ndarray:
