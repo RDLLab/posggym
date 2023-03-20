@@ -44,7 +44,7 @@ register(
 
 
 register(
-    id="DroneTeamCaptureContinousEnv-v0",
+    id="DroneTeamCaptureContinous-v0",
     entry_point="posggym.envs.continuous.drone_team_capture:DroneTeamCaptureContinousEnv",
     kwargs={
         "num_agents": 3,
@@ -57,7 +57,7 @@ register(
 )
 
 register(
-    id="PEContinuousEnv-v0",
+    id="PursuitEvasionContinous-v0",
     entry_point="posggym.envs.continuous.pursuit_evasion:PursuitEvasionEnv",
     kwargs={
         "grid": "16x16",

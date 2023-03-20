@@ -47,7 +47,7 @@ DTCAction = List[float]
 DTCObs = np.ndarray
 
 
-class DroneTeamCaptureContinousEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
+class DroneTeamCaptureContinous(DefaultEnv[DTCState, DTCObs, DTCAction]):
     """A Multi Agent Pursuit Evasion Environment.
 
     A co-operative 2D continuous world problem involving multiple pursuer agents
@@ -144,7 +144,7 @@ class DroneTeamCaptureContinousEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
     ```python
     import posggym
     env = posgggym.make(
-        'DroneTeamCaptureContinousEnv-v0',
+        'DroneTeamCaptureContinous-v0',
         max_episode_steps=100,
         num_agents=8,
         n_communicating_puruser=4,
