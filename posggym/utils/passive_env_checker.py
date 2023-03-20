@@ -1,6 +1,7 @@
 """A set of functions for passively checking environment implementations.
 
-Ref:
+This module is heavily based on the passive_env_checker from gymnasium. It's copied and
+adapted here to ensure compatibility across different gymnasium versions:
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/utils/passive_env_checker.py
 
 """
@@ -9,10 +10,8 @@ import random
 from functools import partial
 from typing import Callable, Dict, Optional, Sequence
 
-import gymnasium.utils.passive_env_checker as gym_passive_env_checker
 import numpy as np
 from gymnasium import Space, spaces
-from gymnasium.utils.env_checker import check_space_limit
 
 import posggym
 import posggym.model as M
@@ -71,6 +70,48 @@ def check_rng_equality(rng_1: seeding.RNG, rng_2: seeding.RNG, prefix=None):
         raise AssertionError(f"{prefix}Unsupported RNG type: '{type(rng_1)}'.")
 
 
+def check_space_limit(space, space_type: str):
+    """Check the space limit for only the Box space."""
+    if isinstance(space, spaces.Box):
+        if np.any(np.equal(space.low, -np.inf)):
+            logger.warn(
+                f"A Box {space_type} space minimum value is -infinity. This is "
+                "probably too low."
+            )
+        if np.any(np.equal(space.high, np.inf)):
+            logger.warn(
+                f"A Box {space_type} space maximum value is -infinity. This is "
+                "probably too high."
+            )
+        # Check that the Box vector space is normalized
+        if (
+            space_type == "action"
+            and len(space.shape) == 1
+            and (
+                np.any(
+                    np.logical_and(
+                        space.low != np.zeros_like(space.low),
+                        np.abs(space.low) != np.abs(space.high),
+                    )
+                )
+                or np.any(space.low < -1)
+                or np.any(space.high > 1)
+            )
+        ):
+            logger.warn(
+                "For Box action spaces, we recommend using a symmetric and normalized "
+                "space (range=[-1, 1] or [0, 1]). See "
+                "https://stable-baselines3.readthedocs.io/en/master/guide/rl_tips.html "
+                "for more information."
+            )
+    elif isinstance(space, spaces.Tuple):
+        for subspace in space.spaces:
+            check_space_limit(subspace, space_type)
+    elif isinstance(space, spaces.Dict):
+        for subspace in space.values():
+            check_space_limit(subspace, space_type)
+
+
 def check_agent_space_limits(agent_spaces: Dict[M.AgentID, Space], space_type: str):
     """Check the space limit for any agent Box space."""
     for i, agent_space in agent_spaces.items():
@@ -78,13 +119,7 @@ def check_agent_space_limits(agent_spaces: Dict[M.AgentID, Space], space_type: s
 
 
 def _check_box_state_space(state_space: spaces.Box):
-    """Checks that a :class:`Box` state space is defined in a sensible way.
-
-    Arguments
-    ---------
-    state_space: A box state space.
-
-    """
+    """Checks that a :class:`Box` state space is defined in a sensible way."""
     assert state_space.low.shape == state_space.shape, (
         "The Box state space shape and low shape have have different shapes, "
         f"low shape: {state_space.low.shape}, box shape: {state_space.shape}"
@@ -108,6 +143,137 @@ def _check_box_state_space(state_space: spaces.Box):
         )
 
 
+def _check_box_observation_space(observation_space: spaces.Box):
+    """Checks that a :class:`Box` observation space is defined in a sensible way."""
+    # Check if the box is an image
+    if (len(observation_space.shape) == 3 and observation_space.shape[0] != 1) or (
+        len(observation_space.shape) == 4 and observation_space.shape[0] == 1
+    ):
+        if observation_space.dtype != np.uint8:
+            logger.warn(
+                "It seems a Box observation space is an image but the `dtype` is not "
+                f"`np.uint8`, actual type: {observation_space.dtype}. "
+                "If the Box observation space is not an image, we recommend flattening "
+                "the observation to have only a 1D vector."
+            )
+        if np.any(observation_space.low != 0) or np.any(observation_space.high != 255):
+            logger.warn(
+                "It seems a Box observation space is an image but the lower and upper "
+                "bounds are not [0, 255]. "
+                f"Actual lower bound: {np.min(observation_space.low)}, upper bound: "
+                f"{np.max(observation_space.high)}. "
+                "Generally, CNN policies assume observations are within that range, so "
+                "you may encounter an issue if the observation values are not."
+            )
+
+    if len(observation_space.shape) not in [1, 3] and not (
+        len(observation_space.shape) == 2 and observation_space.shape[0] == 1
+    ):
+        logger.warn(
+            "A Box observation space has an unconventional shape (neither an image, "
+            "nor a 1D vector). We recommend flattening the observation to have only a "
+            "1D vector or use a custom policy to properly process the data. "
+            f"Actual observation shape: {observation_space.shape}"
+        )
+
+    assert observation_space.low.shape == observation_space.shape, (
+        f"The Box observation space shape and low shape have different shapes, low "
+        f"shape: {observation_space.low.shape}, box shape: {observation_space.shape}"
+    )
+    assert observation_space.high.shape == observation_space.shape, (
+        "The Box observation space shape and high shape have have different shapes, "
+        f"high shape: {observation_space.high.shape}, box shape: "
+        f"{observation_space.shape}"
+    )
+
+    if np.any(observation_space.low == observation_space.high):
+        logger.warn(
+            "A Box observation space maximum and minimum values are equal. "
+            "Actual equal coordinates: "
+            f"{list(zip(*np.where(observation_space.low == observation_space.high)))}"
+        )
+    elif np.any(observation_space.high < observation_space.low):
+        logger.warn(
+            "A Box observation space low value is greater than a high value. "
+            "Actual less than coordinates: "
+            f"{list(zip(*np.where(observation_space.high < observation_space.low)))}"
+        )
+
+
+def _check_box_action_space(action_space: spaces.Box):
+    """Checks that a :class:`Box` action space is defined in a sensible way."""
+    assert action_space.low.shape == action_space.shape, (
+        f"The Box action space shape and low shape have have different shapes, low "
+        f"shape: {action_space.low.shape}, box shape: {action_space.shape}"
+    )
+    assert action_space.high.shape == action_space.shape, (
+        f"The Box action space shape and high shape have different shapes, high shape: "
+        f"{action_space.high.shape}, box shape: {action_space.shape}"
+    )
+
+    if np.any(action_space.low == action_space.high):
+        logger.warn(
+            "A Box action space maximum and minimum values are equal. "
+            "Actual equal coordinates: "
+            f"{list(zip(*np.where(action_space.low == action_space.high)))}"
+        )
+    elif np.any(action_space.high < action_space.low):
+        logger.warn(
+            "A Box action space low value is greater than a high value. "
+            "Actual less than coordinates: "
+            f"{list(zip(*np.where(action_space.high < action_space.low)))}"
+        )
+
+
+def check_space(
+    space: Space, space_type: str, check_box_space_fn: Callable[[spaces.Box], None]
+):
+    """A passive check of an environment's space."""
+    if not isinstance(space, spaces.Space):
+        raise AssertionError(
+            f"{space_type} space does not inherit from `gymnasium.spaces.Space`, "
+            f"actual type: {type(space)}"
+        )
+
+    elif isinstance(space, spaces.Box):
+        check_box_space_fn(space)
+    elif isinstance(space, spaces.Discrete):
+        assert space.n > 0, (
+            f"Discrete {space_type} space's number of elements must be positive, "
+            f"actual number of elements: {space.n}"
+        )
+        assert space.shape == (), (
+            f"Discrete {space_type} space's shape should be empty, actual shape: "
+            f"{space.shape}"
+        )
+    elif isinstance(space, spaces.MultiDiscrete):
+        assert space.shape == space.nvec.shape, (
+            f"Multi-discrete {space_type} space's shape must be equal to the nvec "
+            f"shape, space shape: {space.shape}, nvec shape: {space.nvec.shape}"
+        )
+        assert np.all(space.nvec > 0), (
+            f"Multi-discrete {space_type} space's all nvec elements must be greater "
+            f"than 0, actual nvec: {space.nvec}"
+        )
+    elif isinstance(space, spaces.MultiBinary):
+        assert np.all(np.asarray(space.shape) > 0), (
+            f"Multi-binary {space_type} space's all shape elements must be greater "
+            f"than 0, actual shape: {space.shape}"
+        )
+    elif isinstance(space, spaces.Tuple):
+        assert (
+            len(space.spaces) > 0
+        ), f"An empty Tuple {space_type} space is not allowed."
+        for subspace in space.spaces:
+            check_space(subspace, space_type, check_box_space_fn)
+    elif isinstance(space, spaces.Dict):
+        assert (
+            len(space.spaces.keys()) > 0
+        ), f"An empty Dict {space_type} space is not allowed."
+        for subspace in space.values():
+            check_space(subspace, space_type, check_box_space_fn)
+
+
 def check_agent_spaces(
     agent_spaces: Dict[M.AgentID, Space],
     space_type: str,
@@ -117,25 +283,25 @@ def check_agent_spaces(
     assert all(isinstance(i, M.AgentID) for i in agent_spaces)
     for i, space_i in agent_spaces.items():
         try:
-            gym_passive_env_checker.check_space(space_i, space_type, check_box_space_fn)
+            check_space(space_i, space_type, check_box_space_fn)
         except AssertionError as e:
             raise AssertionError(f"Invalid {space_type} space for agent '{i}'.") from e
 
 
 check_state_space = partial(
-    gym_passive_env_checker.check_space,
+    check_space,
     space_type="state",
     check_box_space_fn=_check_box_state_space,
 )
 check_agent_observation_spaces = partial(
     check_agent_spaces,
     space_type="observation",
-    check_box_space_fn=gym_passive_env_checker._check_box_observation_space,
+    check_box_space_fn=_check_box_observation_space,
 )
 check_agent_action_spaces = partial(
     check_agent_spaces,
     space_type="action",
-    check_box_space_fn=gym_passive_env_checker._check_box_action_space,
+    check_box_space_fn=_check_box_action_space,
 )
 
 
@@ -150,6 +316,60 @@ def check_state(state: M.StateType, model: M.POSGModel):
     """
     if model.state_space is not None:
         assert model.state_space.contains(state)
+
+
+def check_obs(obs, observation_space: spaces.Space, method_name: str):
+    """Check the observation returned by the environment correspond to the declared one.
+
+    Arguments
+    ---------
+    obs: The observation to check
+    observation_space: The observation space of the observation
+    method_name: The method name that generated the observation
+
+    """
+    pre = f"The obs returned by the `{method_name}()` method"
+    if isinstance(observation_space, spaces.Discrete):
+        if not isinstance(obs, (np.int64, int)):
+            logger.warn(f"{pre} should be an int or np.int64, actual type: {type(obs)}")
+    elif isinstance(observation_space, spaces.Box):
+        if observation_space.shape != ():
+            if not isinstance(obs, np.ndarray):
+                logger.warn(
+                    f"{pre} was expecting a numpy array, actual type: {type(obs)}"
+                )
+            elif obs.dtype != observation_space.dtype:
+                logger.warn(
+                    f"{pre} was expecting numpy array dtype to be "
+                    f"{observation_space.dtype}, actual type: {obs.dtype}"
+                )
+    elif isinstance(observation_space, (spaces.MultiBinary, spaces.MultiDiscrete)):
+        if not isinstance(obs, np.ndarray):
+            logger.warn(f"{pre} was expecting a numpy array, actual type: {type(obs)}")
+    elif isinstance(observation_space, spaces.Tuple):
+        if not isinstance(obs, tuple):
+            logger.warn(f"{pre} was expecting a tuple, actual type: {type(obs)}")
+        assert len(obs) == len(observation_space.spaces), (
+            f"{pre} length is not same as the observation space length, obs length: "
+            f"{len(obs)}, space length: {len(observation_space.spaces)}"
+        )
+        for sub_obs, sub_space in zip(obs, observation_space.spaces):
+            check_obs(sub_obs, sub_space, method_name)
+    elif isinstance(observation_space, spaces.Dict):
+        assert isinstance(obs, dict), f"{pre} must be a dict, actual type: {type(obs)}"
+        assert obs.keys() == observation_space.spaces.keys(), (
+            f"{pre} observation keys is not same as the observation space keys, obs "
+            f"keys: {list(obs.keys())}, space keys: "
+            f"{list(observation_space.spaces.keys())}"
+        )
+        for space_key in observation_space.spaces:
+            check_obs(obs[space_key], observation_space[space_key], method_name)
+
+    try:
+        if obs not in observation_space:
+            logger.warn(f"{pre} is not within the observation space.")
+    except Exception as e:
+        logger.warn(f"{pre} is not within the observation space with exception: {e}")
 
 
 def check_agent_obs(
@@ -168,7 +388,7 @@ def check_agent_obs(
     """
     for i, obs_i in obs.items():
         try:
-            gym_passive_env_checker.check_obs(obs_i, observation_spaces[i], method_name)
+            check_obs(obs_i, observation_spaces[i], method_name)
         except AssertionError as e:
             raise AssertionError("Invalid observation for agent `{i}`.") from e
 
@@ -420,11 +640,65 @@ def env_step_passive_checker(env: posggym.Env, actions: Dict[M.AgentID, M.ActTyp
 
 def _check_render_return(render_mode, render_return):
     """Produces warning if `render_return` doesn't match `render_mode`."""
-    gym_passive_env_checker._check_render_return(render_mode, render_return)
-
-    # need to check posggym specific render modes, namely dict renders which
-    # return mapping from agentID to agent specific render.
-    if render_mode.endswith("_dict"):
+    if render_mode == "human":
+        if render_return is not None:
+            logger.warn(
+                f"Human rendering should return `None`, got {type(render_return)}"
+            )
+    elif render_mode == "rgb_array":
+        if not isinstance(render_return, np.ndarray):
+            logger.warn(
+                "RGB-array rendering should return a numpy array, got "
+                f"{type(render_return)}"
+            )
+        else:
+            if render_return.dtype != np.uint8:
+                logger.warn(
+                    "RGB-array rendering should return a numpy array with dtype "
+                    f"uint8, got {render_return.dtype}"
+                )
+            if render_return.ndim != 3:
+                logger.warn(
+                    "RGB-array rendering should return a numpy array with three axes, "
+                    f"got {render_return.ndim}"
+                )
+            if render_return.ndim == 3 and render_return.shape[2] != 3:
+                logger.warn(
+                    "RGB-array rendering should return a numpy array in which the "
+                    f"last axis has three dimensions, got {render_return.shape[2]}"
+                )
+    elif render_mode == "depth_array":
+        if not isinstance(render_return, np.ndarray):
+            logger.warn(
+                "Depth-array rendering should return a numpy array, got "
+                f"{type(render_return)}"
+            )
+        elif render_return.ndim != 2:
+            logger.warn(
+                "Depth-array rendering should return a numpy array with two axes, "
+                f"got {render_return.ndim}"
+            )
+    elif render_mode in ["ansi", "ascii"]:
+        if not isinstance(render_return, str):
+            logger.warn(
+                "ANSI/ASCII rendering should produce a string, got "
+                f"{type(render_return)}"
+            )
+    elif render_mode.endswith("_list"):
+        if not isinstance(render_return, list):
+            logger.warn(
+                "Render mode `{render_mode}` should produce a list, got "
+                f"{type(render_return)}"
+            )
+        else:
+            base_render_mode = render_mode[: -len("_list")]
+            for item in render_return:
+                _check_render_return(
+                    base_render_mode, item
+                )  # Check that each item of the list matches the base render mode
+    elif render_mode.endswith("_dict"):
+        # check posggym specific render modes, namely dict renders which
+        # return mapping from agentID to agent specific render.
         if not isinstance(render_return, dict):
             logger.warn(
                 f"Render mode `{render_mode}` should produce a dict, got "

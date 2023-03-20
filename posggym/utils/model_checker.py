@@ -194,8 +194,10 @@ def check_model(model: M.POSGModel):
     model: The posggym environment model that will be checked
 
     """
-    more_info_msg = "See COMING SOON for more info."
-
+    more_info_msg = (
+        "For more info see: "
+        "https://posggym.readthedocs.io/en/latest/tutorials/environment_creation.html."
+    )
     assert isinstance(
         model, M.POSGModel
     ), f"The model must inherit from the posggym.POSGModel class. {more_info_msg}"
