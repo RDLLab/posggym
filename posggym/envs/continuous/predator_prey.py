@@ -467,7 +467,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         obs = self._get_obs(state, next_state)
         rewards = self._get_rewards(state, next_state)
 
-        all_done = False  # all(next_state.prey_caught)
+        all_done = all(next_state.prey_caught)
         truncated = {i: False for i in self.possible_agents}
         terminated = {i: all_done for i in self.possible_agents}
 
@@ -889,7 +889,8 @@ def parse_grid_str(grid_str: str) -> PPWorld:
     predator_coords = set()
     prey_coords = set()
     for r, c in product(range(grid_size), repeat=2):
-        coord = (c, r, 0)
+        # This is offset to the center of the square
+        coord = (c + 0.5, r + 0.5, 0)
         char = row_strs[r][c]
 
         if char == "#":
