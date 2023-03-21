@@ -134,11 +134,29 @@ class GWContinuousRender:
 
             pygame.draw.circle(self.screen, self.BLACK, (scaled_x, scaled_y), radius)
 
+    def draw_arena(self):
+        # Draw the arena
+        if self.arena_type == ArenaTypes.Square:
+            arena_rect = pygame.Rect(
+                self.arena_x - self.arena_size / 2,
+                self.arena_y - self.arena_size / 2,
+                self.arena_size * 2,
+                self.arena_size * 2,
+            )
+            pygame.draw.rect(self.screen, self.BLACK, arena_rect, width=1)
+        else:
+            center_x = self.arena_x + self.arena_size / 2
+            center_y = self.arena_y + self.arena_size / 2
+            pygame.draw.circle(
+                self.screen, self.BLACK, (center_x, center_y), self.arena_size, width=1
+            )
+
     def draw_agents(
         self,
         agents: Tuple[Tuple[float, float, float, int], ...],
         is_holonomic: Optional[List[bool]] = None,
         sizes: Optional[List[Optional[float]]] = None,
+        alpha: float = 255,
     ):
         scaled_agents = []
         if sizes is None:
@@ -157,22 +175,6 @@ class GWContinuousRender:
 
             scaled_agents.append((scaled_x, scaled_y, angle, color))
 
-        # Draw the arena
-        if self.arena_type == ArenaTypes.Square:
-            arena_rect = pygame.Rect(
-                self.arena_x - self.arena_size / 2,
-                self.arena_y - self.arena_size / 2,
-                self.arena_size * 2,
-                self.arena_size * 2,
-            )
-            pygame.draw.rect(self.screen, self.BLACK, arena_rect, width=1)
-        else:
-            center_x = self.arena_x + self.arena_size / 2
-            center_y = self.arena_y + self.arena_size / 2
-            pygame.draw.circle(
-                self.screen, self.BLACK, (center_x, center_y), self.arena_size, width=1
-            )
-
         # Draw the agents
         for i, agent in enumerate(scaled_agents):
             x, y, angle, color = agent
@@ -180,8 +182,11 @@ class GWContinuousRender:
             size = sizes[i]
 
             if is_holonomic is not None and is_holonomic[i]:
-                pygame.draw.circle(
-                    self.screen, self.colors[color % len(self.colors)], (x, y), size
+                self.draw_circle_alpha(
+                    self.screen,
+                    self.colors[color % len(self.colors)] + (alpha,),
+                    (x, y),
+                    size,
                 )
             else:
                 half_width = size

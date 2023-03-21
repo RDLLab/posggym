@@ -58,6 +58,10 @@ class ContinuousWorld(ABC):
     def euclidean_dist(coord1: Position, coord2: Position):
         return math.sqrt((coord1[0] - coord2[0]) ** 2 + (coord1[1] - coord2[1]) ** 2)
 
+    @staticmethod
+    def squared_euclidean_dist(coord1: Position, coord2: Position):
+        return (coord1[0] - coord2[0]) ** 2 + (coord1[1] - coord2[1]) ** 2
+
     @abstractmethod
     def coord_in_bounds(self, coord: Position) -> bool:
         """Return whether a coordinate is inside the grid or not."""
@@ -144,7 +148,11 @@ class ContinuousWorld(ABC):
         return (new_coord, True)
 
     def _holonomic_model(
-        self, coord: Position, action: List[float], ignore_blocks: bool = False
+        self,
+        coord: Position,
+        action: List[float],
+        ignore_blocks: bool = False,
+        include_out_of_bounds: bool = True,
     ) -> Tuple[Position, bool]:
         x, y, yaw = coord
         delta_x, delta_y = action
@@ -156,6 +164,9 @@ class ContinuousWorld(ABC):
 
         if not ignore_blocks and self.check_collision((new_coord, self.agent_size)):
             return (coord, False)
+
+        if not include_out_of_bounds and new_coord != (x, y, yaw):
+            return (new_coord, False)
 
         return (new_coord, True)
 
@@ -328,18 +339,20 @@ class ContinuousWorld(ABC):
     def get_neighbours(
         self,
         coord: Position,
-        num_samples=20,
-        distance=1,
-        ignore_blocks=False,
-        include_out_of_bounds=False,
-        force_non_colliding=False,
+        num_samples: int = 20,
+        distance: float = 1.0,
+        ignore_blocks: bool = False,
+        include_out_of_bounds: bool = False,
+        force_non_colliding: bool = False,
     ):
         points = [i * (2 * math.pi) / (num_samples - 1) for i in range(num_samples)]
         output: List[Position] = []
         for yaw in points:
-            new_coords, success = self._non_holonomic_model(
+            dx = math.sin(yaw) * distance
+            dy = math.cos(yaw) * distance
+            new_coords, success = self._holonomic_model(
                 coord,
-                [yaw, distance],
+                [dx, dy],
                 ignore_blocks=ignore_blocks,
                 include_out_of_bounds=include_out_of_bounds,
             )
@@ -354,16 +367,18 @@ class ContinuousWorld(ABC):
         return output
 
     def agents_collide(self, coord1: Position, coord2: Position, distance=None) -> bool:
-        return ContinuousWorld.manhattan_dist(coord1, coord2) < (
-            distance or (self.agent_size + self.agent_size)
+        dist = ContinuousWorld.squared_euclidean_dist(coord1, coord2)
+        return (
+            abs(self.agent_size - self.agent_size)
+            <= dist
+            <= (self.agent_size + self.agent_size)
         )
 
     def check_collision(self, object: Object) -> bool:
         object_pos, agent_radius = object
         for pos, radius in self.block_coords:
-            if ContinuousWorld.manhattan_dist(object_pos, pos) < (
-                radius + agent_radius
-            ):
+            dist = ContinuousWorld.squared_euclidean_dist(object_pos, pos)
+            if abs(radius - agent_radius) <= dist <= (radius + agent_radius):
                 return True
 
         return False
@@ -499,8 +514,8 @@ class RectangularContinuousWorld(ContinuousWorld):
 
     def clamp_coords(self, coord: Position) -> Position:
         x, y, yaw = coord
-        x = self.clamp(0 + self.eps, self.width - self.eps, x)
-        y = self.clamp(0 + self.eps, self.height - self.eps, y)
+        x = self.clamp(0.5, self.width - 0.5, x)
+        y = self.clamp(0.5, self.height - 0.5, y)
         return (x, y, yaw)
 
     def get_bounds(self) -> Tuple[Tuple[float, float], Tuple[float, float]]:

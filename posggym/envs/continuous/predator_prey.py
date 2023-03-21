@@ -279,14 +279,18 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
 
             num_agents = len(colored_prey + colored_pred)
 
-            sizes = sizes = [self.model.grid.agent_size] * num_agents
+            sizes = [self.model.grid.agent_size] * num_agents
 
             holonomic = [self.model.use_holonomic_model] * num_agents
 
             self._renderer.clear_render()
+            self._renderer.draw_arena()
             self._renderer.render_lines(self._last_obs, self._state.predator_coords)
             self._renderer.draw_agents(
-                colored_prey + colored_pred, sizes=sizes, is_holonomic=holonomic
+                colored_prey + colored_pred,
+                sizes=sizes,
+                is_holonomic=holonomic,
+                alpha=255,
             )
             self._renderer.draw_blocks(self.model.grid.block_coords)
             self._renderer.render()
@@ -370,9 +374,9 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         def _coord_space2():
             return spaces.Box(
-                low=np.array([-1, -1, -2 * math.pi], dtype=np.float32),
+                low=np.array([-1, -1, -0.5 * math.pi], dtype=np.float32),
                 high=np.array(
-                    [self.grid.width, self.grid.height, 2 * math.pi], dtype=np.float32
+                    [self.grid.width, self.grid.height, 0.5 * math.pi], dtype=np.float32
                 ),
             )
 
@@ -590,8 +594,9 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         # move into furthest away free cell, includes current coord
         neighbours = [
-            (self.grid.manhattan_dist(c, closest_predator_coord), c)
-            for c in self.grid.get_neighbours(prey_coord, distance=1) + [prey_coord]
+            (self.grid.euclidean_dist(c, closest_predator_coord), c)
+            for c in self.grid.get_neighbours(prey_coord, distance=1.02, num_samples=50)
+            + [prey_coord]
         ]
 
         neighbours.sort()
@@ -821,12 +826,11 @@ class PPWorld(RectangularContinuousWorld):
             predator_start_coords = [
                 x + (y,) for x, y in zip(predator_start_coords_, predator_angles)
             ]
-
         self.predator_start_coords = predator_start_coords
         self.prey_start_coords = prey_start_coords
 
     def get_unblocked_center_coords(
-        self, num: int, rng: Callable[[], float]
+        self, num: int, rng: Callable[[], float], force_non_collide=True
     ) -> List[Position]:
         """Get at least num closest coords to the center of grid.
 
@@ -836,14 +840,25 @@ class PPWorld(RectangularContinuousWorld):
         # assert num < self.n_coords - len(self.block_coords)
         center = (self.width / 2, self.height / 2, 0)
         min_dist_from_center = math.ceil(math.sqrt(num)) - 1
+        coords: List[Position] = []
 
-        coords = [
-            self.sample_coords_within_dist(
-                center, min_dist_from_center, ignore_blocks=False, rng=rng
-            )
-            for _ in range(num)
-        ]
+        while len(coords) < num:
+            coords_sampled = [
+                self.sample_coords_within_dist(
+                    center, min_dist_from_center, ignore_blocks=False, rng=rng
+                )
+                for _ in range(num * 20)
+            ]
 
+            for c in coords_sampled:
+                flag = True
+                for c_f in coords:
+                    if self.agents_collide(c, c_f):
+                        flag = False
+                if flag:
+                    coords.append(c)
+
+            min_dist_from_center += 1
         return coords
 
 
