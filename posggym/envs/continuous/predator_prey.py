@@ -164,8 +164,10 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
         direction each predator and prey agent observes (default = `2`).
     - `n_lines` - the number of lines eminating from the agent. The agent will observe
         at `n` equidistance intervals over `[0, 2*pi]` (default = `10`).
-    - `use_holonomic` - the movement model to use. There are two modes - holonomic or
-        non holonmic, with a unicycle model (default = 'True`).
+    - `use_holonomic_predator` - the movement model to use for the predator. There are
+        two modes - holonomic or non holonmic, with a unicycle model (default = 'True`).
+    - `use_holonomic_prey` - the movement model to use for the prey. There are two
+        modes - holonomic or non holonmic, with a unicycle model (default = 'True`).
 
     Available variants
     ------------------
@@ -373,12 +375,6 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         self.communication_radius = 1
 
-        # if self.grid.prey_start_coords is None:
-        center_coords = self.grid.get_unblocked_center_coords(
-            num_prey, self.rng.random, use_holonomic_prey
-        )
-        self.grid.prey_start_coords = center_coords
-
         def _coord_space2():
             return spaces.Box(
                 low=np.array([-1, -1, -0.5 * math.pi], dtype=np.float32),
@@ -434,27 +430,17 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         return list(self.possible_agents)
 
     def sample_initial_state(self) -> PPState:
-        assert self.grid.prey_start_coords is not None
-
-        center_coords = self.grid.get_unblocked_center_coords(
-            self.num_prey, self.rng.random, self.use_holonomic_prey
-        )
-        self.grid.prey_start_coords = center_coords
-
         predator_coords: List[Position] = [*self.grid.predator_start_coords]
         self.rng.shuffle(predator_coords)
         predator_coords = predator_coords[: self.num_predators]
 
-        prey_coords_list = []
-        for prey in self.grid.prey_start_coords:
-            success = True
-            for predator in predator_coords:
-                if self.grid.agents_collide(prey, predator):
-                    success = False
-                    break
-            if success:
-                prey_coords_list.append(prey)
+        if self.grid.prey_start_coords is None:
+            prey_coords_list = self.grid.get_unblocked_center_coords(
+                self.num_prey, self.rng.random, self.use_holonomic_prey, predator_coords
+            )
+            self.grid.prey_start_coords = prey_coords_list
 
+        prey_coords_list = self.grid.prey_start_coords
         self.rng.shuffle(prey_coords_list)
         prey_coords_list = prey_coords_list[: self.num_prey]
 
@@ -523,13 +509,16 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
                 next_prey_coords[i] = prey_coord
                 continue
 
+            occupied_coords.remove(prey_coord)
+
             next_coord = self._move_away_from_predators(
                 prey_coord, pred_coords, list(occupied_coords)
             )
             if next_coord:
                 next_prey_coords[i] = next_coord
-                occupied_coords.remove(prey_coord)
                 occupied_coords.add(next_coord)
+            else:
+                occupied_coords.add(prey_coord)
 
         if self.num_prey - sum(state.prey_caught) > 1:
             # handle moving away from other prey
@@ -539,13 +528,16 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
                     continue
 
                 prey_coord = prey_coords[i]
+                occupied_coords.remove(prey_coord)
+
                 next_coord = self._move_away_from_preys(
                     prey_coord, state, list(occupied_coords)
                 )
                 if next_coord:
                     next_prey_coords[i] = next_coord
-                    occupied_coords.remove(prey_coord)
                     occupied_coords.add(next_coord)
+                else:
+                    occupied_coords.add(prey_coord)
 
         # Handle random moving prey for those that are out of obs range
         # of all predators and other prey
@@ -555,6 +547,8 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
                 continue
             # No visible prey or predator
             prey_coord = prey_coords[i]
+            occupied_coords.remove(prey_coord)
+
             if self.obs_dim > 1:
                 # no chance of moving randomly into an occupied cell
                 neighbours = self.grid.get_possible_next_pos(
@@ -848,7 +842,11 @@ class PPWorld(RectangularContinuousWorld):
         self.prey_start_coords = prey_start_coords
 
     def get_unblocked_center_coords(
-        self, num: int, rng: Callable[[], float], use_holonomoic: bool = True
+        self,
+        num: int,
+        rng: Callable[[], float],
+        use_holonomoic: bool = True,
+        predator_coords: List[Position] = [],
     ) -> List[Position]:
         """Get at least num closest coords to the center of grid.
 
@@ -874,9 +872,10 @@ class PPWorld(RectangularContinuousWorld):
 
             for c in coords_sampled:
                 flag = True
-                for c_f in coords:
+                for c_f in coords + predator_coords:
                     if self.agents_collide(c, c_f):
                         flag = False
+
                 if flag:
                     coords.append(c)
 

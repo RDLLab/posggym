@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 import posggym.model as M
 from gymnasium import spaces
 import numpy as np
+from itertools import product
 
 # (x, y) coord = (col, row) coord
 Coord = Tuple[int, int]
@@ -334,7 +335,7 @@ class ContinuousWorld(ABC):
 
         return neighbours
 
-    def generate_range(self, upper: float, lower: float, length: int) -> List[float]:
+    def generate_range(self, lower: float, upper: float, length: int) -> List[float]:
         # https://stackoverflow.com/questions/6683690/making-a-list-of-evenly-spaced-numbers-in-a-certain-range-in-python
         return [lower + x * (upper - lower) / length for x in range(length)]
 
@@ -353,19 +354,25 @@ class ContinuousWorld(ABC):
         else:
             # Restrict change in yaw -pi/2 -> pi/2
             points = self.generate_range(-math.pi / 2, math.pi / 2, num_samples)
+        distances = self.generate_range(0, distance, num_samples)
+
+        data = product(points, distances)
 
         output: List[Position] = []
 
-        for yaw in points:
+        for yaw, d in data:
             if use_holonomic_model:
-                dx = math.sin(yaw) * distance
-                dy = math.cos(yaw) * distance
+                dx = math.sin(yaw) * d
+                dy = math.cos(yaw) * d
                 action = [dx, dy]
             else:
                 action = [yaw, distance]
 
             new_coords, success = self._get_next_coord(
-                coord, action, ignore_blocks=ignore_blocks
+                coord,
+                action,
+                ignore_blocks=ignore_blocks,
+                use_holonomic_model=use_holonomic_model,
             )
 
             if success:
@@ -386,6 +393,8 @@ class ContinuousWorld(ABC):
         include_out_of_bounds: bool = False,
         force_non_colliding: bool = False,
     ):
+        # This function should try to find all possible positions around a
+        # coordinate where another agent could be.
         points = [i * (2 * math.pi) / (num_samples - 1) for i in range(num_samples)]
         output: List[Position] = []
         for yaw in points:
