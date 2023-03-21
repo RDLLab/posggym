@@ -98,10 +98,11 @@ class ContinuousWorld(ABC):
 
         while not pq.empty():
             _, coord = pq.get()
+            coord_c = self.convert_position_to_coordinate(coord)
             for adj_coord in self.get_cardinal_neighbours(coord, ignore_blocks=False):
                 adj_coord_c = self.convert_position_to_coordinate(adj_coord)
-                if dist[coord] + 1 < dist.get(adj_coord_c, float("inf")):
-                    dist[adj_coord_c] = dist[coord] + 1
+                if dist[coord_c] + 1 < dist.get(adj_coord_c, float("inf")):
+                    dist[adj_coord_c] = dist[coord_c] + 1
 
                     if adj_coord not in visited:
                         pq.put((dist[adj_coord_c], adj_coord))
