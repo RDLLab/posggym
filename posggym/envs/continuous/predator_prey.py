@@ -62,7 +62,7 @@ class PPState(NamedTuple):
 # Actions
 PPAction = List[float]
 PPObs = Tuple[Union[int, np.ndarray], ...]
-collision_distance = 1
+collision_distance = 1.2
 
 AGENT_TYPE = [PREDATOR, PREY]
 
@@ -221,7 +221,7 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
 
     metadata = {
         "render_modes": ["human"],
-        "render_fps": 1,
+        "render_fps": 30,
     }
 
     def __init__(
@@ -233,7 +233,8 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
         prey_strength: Optional[int] = None,
         obs_dim: float = 2,
         n_lines: int = 10,
-        use_holonomic: bool = True,
+        use_holonomic_predator: bool = True,
+        use_holonomic_prey: bool = True,
         render_mode: Optional[str] = None,
         **kwargs,
     ):
@@ -246,8 +247,8 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
                 prey_strength,
                 obs_dim,
                 n_lines,
-                use_holonomic,
-                **kwargs,
+                use_holonomic_predator,
+                use_holonomic_prey,
             ),
             render_mode=render_mode,
         )
@@ -281,7 +282,9 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
 
             sizes = [self.model.grid.agent_size] * num_agents
 
-            holonomic = [self.model.use_holonomic_model] * num_agents
+            holonomic = [self.model.use_holonomic_prey] * len(colored_prey) + [
+                self.model.use_holonomic_predator
+            ] * len(colored_pred)
 
             self._renderer.clear_render()
             self._renderer.draw_arena()
@@ -333,7 +336,8 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         prey_strength: Optional[int],
         obs_dim: float,
         n_lines: int,
-        use_holonomic: bool,
+        use_holonomic_predator: bool,
+        use_holonomic_prey: bool,
         **kwargs,
     ):
         assert 1 < num_predators <= 8
@@ -345,7 +349,8 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         assert 0 < prey_strength <= min(4, num_predators)
 
-        self.use_holonomic_model = use_holonomic
+        self.use_holonomic_predator = use_holonomic_predator
+        self.use_holonomic_prey = use_holonomic_prey
 
         if isinstance(grid, str):
             assert grid in SUPPORTED_GRIDS, (
@@ -357,7 +362,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         # Cannot be a string by this point.
         self.grid = cast(PPWorld, grid)
 
-        self.grid.set_holonomic_model(use_holonomic)
+        # self.grid.set_holonomic_model(use_holonomic)
 
         self.obs_dim = obs_dim
         self.num_predators = num_predators
@@ -369,7 +374,9 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         self.communication_radius = 1
 
         # if self.grid.prey_start_coords is None:
-        center_coords = self.grid.get_unblocked_center_coords(num_prey, self.rng.random)
+        center_coords = self.grid.get_unblocked_center_coords(
+            num_prey, self.rng.random, use_holonomic_prey
+        )
         self.grid.prey_start_coords = center_coords
 
         def _coord_space2():
@@ -430,7 +437,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         assert self.grid.prey_start_coords is not None
 
         center_coords = self.grid.get_unblocked_center_coords(
-            self.num_prey, self.rng.random
+            self.num_prey, self.rng.random, self.use_holonomic_prey
         )
         self.grid.prey_start_coords = center_coords
 
@@ -550,7 +557,9 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             prey_coord = prey_coords[i]
             if self.obs_dim > 1:
                 # no chance of moving randomly into an occupied cell
-                neighbours = self.grid.get_neighbours(prey_coord)
+                neighbours = self.grid.get_possible_next_pos(
+                    prey_coord, use_holonomic_model=self.use_holonomic_prey
+                )
                 next_prey_coords[i] = self.rng.choice(neighbours)
             else:
                 # possibility for collision between random moving prey
@@ -595,7 +604,12 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         # move into furthest away free cell, includes current coord
         neighbours = [
             (self.grid.euclidean_dist(c, closest_predator_coord), c)
-            for c in self.grid.get_neighbours(prey_coord, distance=1.02, num_samples=50)
+            for c in self.grid.get_possible_next_pos(
+                prey_coord,
+                distance=1.02,
+                num_samples=50,
+                use_holonomic_model=self.use_holonomic_prey,
+            )
             + [prey_coord]
         ]
 
@@ -634,7 +648,10 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         # move into furthest away free cell, includes current coord
         neighbours = [
             (self.grid.manhattan_dist(c, closest_prey_coord), c)
-            for c in self.grid.get_neighbours(prey_coord) + [prey_coord]
+            for c in self.grid.get_possible_next_pos(
+                prey_coord, use_holonomic_model=self.use_holonomic_prey
+            )
+            + [prey_coord]
         ]
         neighbours.sort()
         for d, c in reversed(neighbours):
@@ -688,6 +705,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
                 coord,
                 actions[str(i)],
                 ignore_blocks=False,
+                use_holonomic_model=self.use_holonomic_predator,
             )
 
             if self.grid.check_agent_collisions(next_coord, next_prey_coords):
@@ -830,7 +848,7 @@ class PPWorld(RectangularContinuousWorld):
         self.prey_start_coords = prey_start_coords
 
     def get_unblocked_center_coords(
-        self, num: int, rng: Callable[[], float], force_non_collide=True
+        self, num: int, rng: Callable[[], float], use_holonomoic: bool = True
     ) -> List[Position]:
         """Get at least num closest coords to the center of grid.
 
@@ -845,7 +863,11 @@ class PPWorld(RectangularContinuousWorld):
         while len(coords) < num:
             coords_sampled = [
                 self.sample_coords_within_dist(
-                    center, min_dist_from_center, ignore_blocks=False, rng=rng
+                    center,
+                    min_dist_from_center,
+                    ignore_blocks=False,
+                    rng=rng,
+                    use_holonomic_model=use_holonomoic,
                 )
                 for _ in range(num * 20)
             ]

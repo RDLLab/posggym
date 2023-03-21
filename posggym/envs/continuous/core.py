@@ -36,18 +36,12 @@ class ContinuousWorld(ABC):
         self,
         world_type: ArenaTypes,
         agent_size: float = 0.5,
-        use_holonomic_model: bool = True,
         block_coords: Optional[List[Object]] = None,
     ):
         self.agent_size = agent_size
         if block_coords is None:
             block_coords = []
         self.block_coords = block_coords
-
-        self.use_holonomic_model = use_holonomic_model
-
-    def set_holonomic_model(self, use_holonomic_model):
-        self.use_holonomic_model = use_holonomic_model
 
     @staticmethod
     def manhattan_dist(coord1: Position, coord2: Position) -> float:
@@ -171,7 +165,11 @@ class ContinuousWorld(ABC):
         return (new_coord, True)
 
     def _get_next_coord(
-        self, coord: Position, action: List[float], ignore_blocks: bool = False
+        self,
+        coord: Position,
+        action: List[float],
+        ignore_blocks: bool = False,
+        use_holonomic_model: bool = False,
     ) -> Tuple[Position, bool]:
         """Get next position given loc and movement direction.
 
@@ -179,7 +177,7 @@ class ContinuousWorld(ABC):
         False and new coordinate is a block) then returns the original
         coordinate.
         """
-        if self.use_holonomic_model:
+        if use_holonomic_model:
             return self._holonomic_model(coord, action, ignore_blocks)
         else:
             return self._non_holonomic_model(coord, action, ignore_blocks)
@@ -336,6 +334,49 @@ class ContinuousWorld(ABC):
 
         return neighbours
 
+    def generate_range(self, upper: float, lower: float, length: int) -> List[float]:
+        # https://stackoverflow.com/questions/6683690/making-a-list-of-evenly-spaced-numbers-in-a-certain-range-in-python
+        return [lower + x * (upper - lower) / length for x in range(length)]
+
+    def get_possible_next_pos(
+        self,
+        coord: Position,
+        num_samples: int = 20,
+        distance: float = 1.0,
+        ignore_blocks: bool = False,
+        include_out_of_bounds: bool = False,
+        force_non_colliding: bool = False,
+        use_holonomic_model: bool = False,
+    ):
+        if use_holonomic_model:
+            points = self.generate_range(0, 2 * math.pi, num_samples)
+        else:
+            # Restrict change in yaw -pi/2 -> pi/2
+            points = self.generate_range(-math.pi / 2, math.pi / 2, num_samples)
+
+        output: List[Position] = []
+
+        for yaw in points:
+            if use_holonomic_model:
+                dx = math.sin(yaw) * distance
+                dy = math.cos(yaw) * distance
+                action = [dx, dy]
+            else:
+                action = [yaw, distance]
+
+            new_coords, success = self._get_next_coord(
+                coord, action, ignore_blocks=ignore_blocks
+            )
+
+            if success:
+                if force_non_colliding:
+                    if not self.check_agent_collisions(new_coords, output):
+                        output.append(new_coords)
+                else:
+                    output.append(new_coords)
+
+        return output
+
     def get_neighbours(
         self,
         coord: Position,
@@ -393,8 +434,9 @@ class ContinuousWorld(ABC):
         center: Position,
         min_dist_from_center: float,
         rng: Callable[[], float],
-        ignore_blocks=False,
-        max_attempts=100,
+        ignore_blocks: bool = False,
+        use_holonomic_model: bool = False,
+        max_attempts: int = 100,
     ) -> Position:
         for _ in range(max_attempts):
             angle = 2 * math.pi * rng()
@@ -402,7 +444,7 @@ class ContinuousWorld(ABC):
 
             x = center[0] + distance * math.cos(angle)
             y = center[1] + distance * math.sin(angle)
-            yaw = 0.0 if self.use_holonomic_model else 2 * math.pi * rng()
+            yaw = 0.0 if use_holonomic_model else 2 * math.pi * rng()
 
             new_coord: Position = (x, y, yaw)
 

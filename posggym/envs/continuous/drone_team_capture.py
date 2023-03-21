@@ -204,6 +204,7 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
                     arena_type=render_lib.ArenaTypes.Circle,
                     env_name="Multi-agent pursuit evasion",
                 )
+
             colored_pred = tuple(t + (0,) for t in self._state.pursuer_coords)
             colored_target = (self._state.target_coords + (1,),)
 
@@ -211,6 +212,7 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
             size = [self.model.cap_rad] + [None] * len(self._state.pursuer_coords)
 
             self._renderer.clear_render()
+            self._renderer.draw_arena()
             self._renderer.draw_agents(colored_target + colored_pred, is_holomic, size)
             self._renderer.render()
 
@@ -316,7 +318,6 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
         }
 
         self.grid = CircularContinuousWorld(radius=self.r_arena, block_coords=None)
-        self.grid.set_holonomic_model(False)
 
         # Not sure what this means??
         self.is_symmetric = True
@@ -403,7 +404,10 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
             velocity_factor = 1 if not self.velocity_control else actions[str(i)][1]
 
             new_coords, _ = self.grid._get_next_coord(
-                pred_pos, [actions[str(i)][0], self.vel_pur * velocity_factor], True
+                pred_pos,
+                [actions[str(i)][0], self.vel_pur * velocity_factor],
+                True,
+                use_holonomic_model=False,
             )
 
             new_pursuer_coords.append(new_coords)
