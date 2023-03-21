@@ -27,7 +27,6 @@ from typing import (
     Union,
     Set,
     Callable,
-    Iterable,
     cast,
 )
 
@@ -41,6 +40,8 @@ from posggym.envs.continuous.core import (
     Object,
     Position,
     clip_actions,
+    position_to_array,
+    array_to_position,
 )
 from posggym.utils import seeding
 
@@ -375,9 +376,9 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         def _coord_space2():
             return spaces.Box(
-                low=np.array([-1, -1, -0.5 * math.pi], dtype=np.float32),
+                low=np.array([-1, -1, -2 * math.pi], dtype=np.float32),
                 high=np.array(
-                    [self.grid.width, self.grid.height, 0.5 * math.pi], dtype=np.float32
+                    [self.grid.width, self.grid.height, 2 * math.pi], dtype=np.float32
                 ),
             )
 
@@ -394,10 +395,11 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             )
         )
 
+        factor = 1 if self.use_holonomic_predator else 0.5 * math.pi
         self.action_spaces = {
             i: spaces.Box(
-                low=np.array([-1.0, -1.0], dtype=np.float32),
-                high=np.array([1.0, 1.0], dtype=np.float32),
+                low=np.array([-1.0, -1.0], dtype=np.float32) * factor,
+                high=np.array([1.0, 1.0], dtype=np.float32) * factor,
             )
             for i in self.possible_agents
         }
@@ -1064,22 +1066,3 @@ SUPPORTED_GRIDS = {
     "20x20": (get_20x20_grid, 200),
     "20x20Blocks": (get_20x20_blocks_grid, 200),
 }
-
-
-def position_to_array(coords: Iterable[Position]) -> np.ndarray:
-    return np.array([np.array(x, dtype=np.float32) for x in coords], dtype=np.float32)
-
-
-def array_to_position(coords: np.ndarray) -> Tuple[Position, ...]:
-    if coords.ndim == 2:
-        assert coords.shape[1] == 3
-        output = []
-        for i in range(coords.shape[0]):
-            output.append(tuple(coords[i, :]))
-        return tuple(output)  # type: ignore
-
-    elif coords.ndim == 1:
-        assert coords.shape[0] == 3
-        return tuple(coords)
-    else:
-        raise Exception("Cannot convert")

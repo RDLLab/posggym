@@ -11,6 +11,7 @@ from typing import (
     Tuple,
     Union,
     Callable,
+    cast,
 )
 import numpy as np
 from gymnasium import spaces
@@ -19,7 +20,13 @@ import posggym.model as M
 from posggym.core import DefaultEnv
 
 # from posggym.envs.grid_world.core import Coord, Direction, Grid
-from posggym.envs.continuous.core import Position, RectangularContinuousWorld, Object
+from posggym.envs.continuous.core import (
+    Position,
+    RectangularContinuousWorld,
+    Object,
+    position_to_array,
+    single_item_to_position,
+)
 from posggym.utils import seeding
 
 
@@ -29,17 +36,17 @@ from posggym.utils import seeding
 class PEState(NamedTuple):
     """Environment state in Pursuit Evastion problem."""
 
-    evader_coord: Position
-    pursuer_coord: Position
-    evader_start_coord: Position
-    pursuer_start_coord: Position
-    evader_goal_coord: Position
+    evader_coord: np.ndarray
+    pursuer_coord: np.ndarray
+    evader_start_coord: np.ndarray
+    pursuer_start_coord: np.ndarray
+    evader_goal_coord: np.ndarray
     min_goal_dist: int  # for evader
 
 
 # Action = Direction of movement
 # 0 = Forward, 1 = Backward, 2 = Left, 3 = Right
-PEAction = float
+PEAction = List[float]
 
 # E Obs = Tuple[WallObs, seen, heard, e_0_coord, p_0_coord, goal_coord]
 #       = Tuple[Tuple[int, int, int, int, int, int], Coord, Coord, Coord]
@@ -47,8 +54,8 @@ PEAction = float
 #       = Tuple[Tuple[int, int, int, int, int, int], Coord, Coord, Coord]
 # Note, we use blank_coord for P Obs so Obs spaces are identical between the
 # two agents. The blank_coord is always (0, 0).
-PEEvaderObs = Tuple[Tuple[int, ...], Position, Position, Position]
-PEPursuerObs = Tuple[Tuple[int, ...], Position, Position, Position]
+PEEvaderObs = Tuple[Union[int, np.ndarray], ...]
+PEPursuerObs = Tuple[Union[int, np.ndarray], ...]
 PEObs = Union[PEEvaderObs, PEPursuerObs]
 
 
@@ -204,7 +211,7 @@ class PursuitEvasionEnv(DefaultEnv):
     """
 
     metadata = {
-        "render_modes": ["human", "ansi", "rgb_array"],
+        "render_modes": ["human"],
         "render_fps": 15,
     }
 
@@ -252,7 +259,44 @@ class PursuitEvasionEnv(DefaultEnv):
         return self._render_img()
 
     def _render_img(self):
-        pass
+        if self.render_mode == "human":
+            import posggym.envs.continuous.render as render_lib
+
+            if self._renderer is None:
+                self._renderer = render_lib.GWContinuousRender(
+                    self.render_mode,
+                    env_name="PursuitEvasionContinuous",
+                    domain_max=self.model.grid.width,
+                    render_fps=self.metadata["render_fps"],
+                    num_colors=4,
+                    arena_size=200,
+                )
+
+            pred = single_item_to_position(self._state.evader_coord)
+            prey = single_item_to_position(self._state.pursuer_coord)
+
+            colored_pred = (pred + (0,),)
+            colored_prey = (prey + (1,),)
+
+            num_agents = 2
+
+            sizes = [self.model.grid.agent_size] * num_agents
+
+            holonomic = [False] * 2
+
+            self._renderer.clear_render()
+            self._renderer.draw_arena()
+
+            # self._renderer.render_lines(self._last_obs, self._state.predator_coords)
+
+            self._renderer.draw_agents(
+                colored_prey + colored_pred,
+                sizes=sizes,
+                is_holonomic=holonomic,
+                alpha=255,
+            )
+            self._renderer.draw_blocks(self.model.grid.block_coords)
+            self._renderer.render()
 
     def close(self) -> None:
         if self.renderer is not None:
@@ -329,22 +373,31 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
                 spaces.Discrete(self._max_sp_distance + 1),
             )
         )
+
+        self.use_holonomic = True
+        factor = 1 if self.use_holonomic else 0.5 * math.pi
         self.action_spaces = {
             i: spaces.Box(
-                low=np.array([0], dtype=np.float32),
-                high=np.array([2 * np.pi], dtype=np.float32),
+                low=np.array([-1.0, -1.0], dtype=np.float32) * factor,
+                high=np.array([1.0, 1.0], dtype=np.float32) * factor,
             )
             for i in self.possible_agents
         }
+
         # o = Tuple[Tuple[WallObs, seen , heard], Coord, Coord, Coord]
         # Wall obs, seen, heard, e_start, p_start, e_goal/blank
+        self.n_lines = 4
+        self.obs_distance = 1
         self.observation_spaces = {
             i: spaces.Tuple(
                 (
                     spaces.Box(
-                        low=np.array([0] * 4, dtype=np.float32),
-                        high=np.array([1] * 4, dtype=np.float32),
+                        low=np.array([0] * self.n_lines, dtype=np.float32),
+                        high=np.array(
+                            [self.obs_distance] * self.n_lines, dtype=np.float32
+                        ),
                     ),
+                    spaces.Discrete(2),
                     spaces.Discrete(2),
                     _coord_space(),
                     _coord_space(),
@@ -384,31 +437,47 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
     def sample_agent_initial_state(self, agent_id: M.AgentID, obs: PEObs) -> PEState:
         if agent_id == self.EVADER_IDX:
             return self._sample_initial_state(
-                evader_coord=obs[1], pursuer_coord=obs[2], goal_coord=obs[3]
+                evader_coord=cast(np.ndarray, obs[1]),
+                pursuer_coord=cast(np.ndarray, obs[2]),
+                goal_coord=cast(np.ndarray, obs[3]),
             )
         return self._sample_initial_state(
-            evader_coord=obs[1], pursuer_coord=obs[2], goal_coord=None
+            evader_coord=cast(np.ndarray, obs[1]),
+            pursuer_coord=cast(np.ndarray, obs[2]),
+            goal_coord=None,
         )
 
     def _sample_initial_state(
         self,
-        evader_coord: Optional[Position],
-        pursuer_coord: Optional[Position],
-        goal_coord: Optional[Position],
+        evader_coord: Optional[np.ndarray],
+        pursuer_coord: Optional[np.ndarray],
+        goal_coord: Optional[np.ndarray],
     ) -> PEState:
         if evader_coord is None:
-            evader_coord = self.rng.choice(self.grid.evader_start_coords)
+            evader_coord_pos = self.rng.choice(self.grid.evader_start_coords)
+            evader_coord_pos = cast(List[Position], [evader_coord_pos])
+            evader_coord = position_to_array(evader_coord_pos)
         if pursuer_coord is None:
-            pursuer_coord = self.rng.choice(self.grid.pursuer_start_coords)
+            pursuer_coord_pos = self.rng.choice(self.grid.pursuer_start_coords)
+            pursuer_coord_pos = cast(List[Position], [pursuer_coord_pos])
+            pursuer_coord = position_to_array(pursuer_coord_pos)
         if goal_coord is None:
-            goal_coord = self.rng.choice(self.grid.get_goal_coords(evader_coord))
+            evader_coord_pos = single_item_to_position(evader_coord)
+            goal_coord_pos = self.rng.choice(
+                self.grid.get_goal_coords(evader_coord_pos)
+            )
+            goal_coord_pos = cast(List[Position], [goal_coord_pos])
+            goal_coord = position_to_array(goal_coord_pos)
         return PEState(
             evader_coord,
             pursuer_coord,
             evader_coord,
             pursuer_coord,
             goal_coord,
-            self.grid.get_shortest_path_distance(evader_coord, goal_coord),
+            self.grid.get_shortest_path_distance(
+                single_item_to_position(evader_coord),
+                single_item_to_position(goal_coord),
+            ),
         )
 
     def sample_initial_obs(self, state: PEState) -> Dict[M.AgentID, PEObs]:
@@ -442,34 +511,36 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             self._action_probs[self.EVADER_IDX] < 1.0
             and self.rng.random() > self._action_probs[self.EVADER_IDX]
         ):
-            evader_a = self.rng.random() * 2 * np.pi
+            evader_a = self.action_spaces[str(self.PURSUER_IDX)].sample()
 
         if (
             self._action_probs[self.PURSUER_IDX]
             and self.rng.random() > self._action_probs[self.PURSUER_IDX]
         ):
-            pursuer_a = self.rng.random() * 2 * np.pi
+            pursuer_a = self.action_spaces[str(self.PURSUER_IDX)].sample()
+
+        pursuer_coord = single_item_to_position(state.pursuer_coord)
+        evader_coord = single_item_to_position(state.evader_coord)
+        evader_goal_coord = single_item_to_position(state.evader_goal_coord)
 
         pursuer_next_coord = self.grid.get_next_coord(
-            state.pursuer_coord, [pursuer_a], ignore_blocks=False
+            pursuer_coord, pursuer_a, ignore_blocks=False
         )
 
-        evader_next_coord = state.evader_coord
-        if not self.grid.agents_collide(pursuer_next_coord, state.evader_coord):
+        evader_next_coord = single_item_to_position(state.evader_coord)
+        if not self.grid.agents_collide(pursuer_next_coord, evader_coord):
             evader_next_coord = self.grid.get_next_coord(
-                state.evader_coord, [evader_a], ignore_blocks=False
+                evader_coord, evader_a, ignore_blocks=False
             )
 
         min_sp_distance = min(
             state.min_goal_dist,
-            self.grid.get_shortest_path_distance(
-                evader_next_coord, state.evader_goal_coord
-            ),
+            self.grid.get_shortest_path_distance(evader_next_coord, evader_goal_coord),
         )
 
         return PEState(
-            evader_next_coord,
-            pursuer_next_coord,
+            position_to_array([evader_next_coord]),
+            position_to_array([pursuer_next_coord]),
             state.evader_start_coord,
             state.pursuer_start_coord,
             state.evader_goal_coord,
@@ -477,26 +548,29 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         )
 
     def _get_obs(self, state: PEState) -> Tuple[Dict[M.AgentID, PEObs], bool]:
-        walls, seen, heard = self._get_agent_obs(
-            state.evader_coord, state.pursuer_coord
-        )
+        evader_coord = single_item_to_position(state.evader_coord)
+        pursuer_coord = single_item_to_position(state.pursuer_coord)
+        walls, seen, heard = self._get_agent_obs(evader_coord, pursuer_coord)
         evader_obs: PEEvaderObs = (
-            (*walls, seen, heard),
+            np.array(walls, dtype=np.float32),
+            seen,
+            heard,
             state.evader_start_coord,
             state.pursuer_start_coord,
             state.evader_goal_coord,
         )
 
-        walls, seen, heard = self._get_agent_obs(
-            state.pursuer_coord, state.evader_coord
-        )
+        walls, seen, heard = self._get_agent_obs(pursuer_coord, evader_coord)
         pursuer_obs: PEPursuerObs = (
-            (*walls, seen, heard),
+            np.array(walls, dtype=np.float32),
+            seen,
+            heard,
             state.evader_start_coord,
             state.pursuer_start_coord,
             # pursuer doesn't observe evader goal coord
-            (0, 0, 0),
+            np.ndarray([0, 0, 0], dtype=np.float32),
         )
+
         return {
             str(self.EVADER_IDX): evader_obs,
             str(self.PURSUER_IDX): pursuer_obs,
@@ -504,19 +578,23 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
 
     def _get_agent_obs(
         self, agent_coord: Position, opp_coord: Position
-    ) -> Tuple[Tuple[int, int, int, int], int, int]:
+    ) -> Tuple[List[float], int, int]:
         # agent_dir = agent_coord[2]
-        adj_coords = self.grid.get_neighbours(
-            agent_coord, ignore_blocks=True, include_out_of_bounds=True
-        )
-        walls: Tuple[int, int, int, int] = tuple(  # type: ignore
-            int(not self.grid.coord_in_bounds(coord) or coord in self.grid.block_coords)
-            for coord in adj_coords
-        )
+
+        wall_obs: List[float] = []
+        for i in range(self.n_lines):
+            angle = 2 * math.pi * i / self.n_lines
+
+            _, closest_wall_dist = self.grid.check_collision_ray(
+                agent_coord, self.obs_distance, angle, (), only_walls=True
+            )
+
+            wall_obs.append(closest_wall_dist)
+
         seen = self._get_opponent_seen(agent_coord, opp_coord)
         dist = self.grid.manhattan_dist(agent_coord, opp_coord)
         heard = dist <= self.HEARING_DIST
-        return walls, int(seen), int(heard)
+        return wall_obs, int(seen), int(heard)
 
     def _get_opponent_seen(self, ego_coord: Position, opp_coord: Position) -> bool:
         fov = self.grid.get_fov(
@@ -527,17 +605,17 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
     def _get_reward(
         self, state: PEState, next_state: PEState, evader_seen: bool
     ) -> Dict[M.AgentID, float]:
-        evader_coord = next_state.evader_coord
-        pursuer_coord = next_state.pursuer_coord
-        evader_goal_coord = next_state.evader_goal_coord
+        evader_coord = single_item_to_position(next_state.evader_coord)
+        pursuer_coord = single_item_to_position(next_state.pursuer_coord)
+        evader_goal_coord = single_item_to_position(next_state.evader_goal_coord)
 
         evader_reward = 0.0
         if self._use_progress_reward and next_state.min_goal_dist < state.min_goal_dist:
             evader_reward += self.R_PROGRESS
 
-        if evader_coord == pursuer_coord or evader_seen:
+        if self.grid.agents_collide(evader_coord, pursuer_coord) or evader_seen:
             evader_reward += self.R_CAPTURE
-        elif evader_coord == evader_goal_coord:
+        elif self.grid.agents_collide(evader_coord, evader_goal_coord):
             evader_reward += self.R_EVASION
 
         if self._normalize_reward:
@@ -549,16 +627,20 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         }
 
     def _is_done(self, state: PEState) -> bool:
-        evader_coord, pursuer_coord = state.evader_coord, state.pursuer_coord
+        evader_coord = single_item_to_position(state.evader_coord)
+        pursuer_coord = single_item_to_position(state.pursuer_coord)
+        evader_goal_coord = single_item_to_position(state.evader_goal_coord)
         return (
-            evader_coord == pursuer_coord
-            or evader_coord == state.evader_goal_coord
+            self.grid.agents_collide(evader_coord, pursuer_coord)
+            or self.grid.agents_collide(evader_coord, evader_goal_coord)
             or self._get_opponent_seen(pursuer_coord, evader_coord)
         )
 
     def _get_outcome(self, state: PEState) -> Dict[M.AgentID, M.Outcome]:
         # Assuming this method is called on final timestep
-        evader_coord, pursuer_coord = state.evader_coord, state.pursuer_coord
+        evader_coord, pursuer_coord = single_item_to_position(
+            state.evader_coord
+        ), single_item_to_position(state.pursuer_coord)
         evader_goal_coord = state.evader_goal_coord
         evader_id, pursuer_id = str(self.EVADER_IDX), str(self.PURSUER_IDX)
         # check this first before relatively expensive detection check
@@ -609,7 +691,9 @@ class PEWorld(RectangularContinuousWorld):
 
     def get_shortest_path_distance(self, coord: Position, dest: Position) -> int:
         """Get the shortest path distance from coord to destination."""
-        return int(self.shortest_paths[dest][coord])
+        coord_c = self.convert_position_to_coordinate(coord)
+        dest_c = self.convert_position_to_coordinate(dest)
+        return int(self.shortest_paths[dest_c][coord_c])
 
     def get_max_shortest_path_distance(self) -> int:
         """Get max shortest path distance between any start and goal coords."""
@@ -849,7 +933,7 @@ def get_32x32_grid() -> PEWorld:
 
 
 def _loc_to_coord(loc: int, grid_width: int) -> Position:
-    return (loc % grid_width, loc // grid_width, 0)
+    return (loc % grid_width + 0.5, loc // grid_width + 0.5, 0)
 
 
 def _convert_map_to_grid(
