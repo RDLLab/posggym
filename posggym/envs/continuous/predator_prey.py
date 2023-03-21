@@ -434,7 +434,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         self.rng.shuffle(predator_coords)
         predator_coords = predator_coords[: self.num_predators]
 
-        if self.grid.prey_start_coords is None:
+        if not self.grid.prey_coords_loaded:
             prey_coords_list = self.grid.get_unblocked_center_coords(
                 self.num_prey, self.rng.random, self.use_holonomic_prey, predator_coords
             )
@@ -839,6 +839,8 @@ class PPWorld(RectangularContinuousWorld):
                 x + (y,) for x, y in zip(predator_start_coords_, predator_angles)
             ]
         self.predator_start_coords = predator_start_coords
+
+        self.prey_coords_loaded = prey_start_coords is not None
         self.prey_start_coords = prey_start_coords
 
     def get_unblocked_center_coords(
