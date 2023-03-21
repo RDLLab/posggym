@@ -544,13 +544,15 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
                 continue
             # No visible prey or predator
             prey_coord = prey_coords[i]
-            neighbours = self.grid.get_neighbours(prey_coord)
             if self.obs_dim > 1:
                 # no chance of moving randomly into an occupied cell
+                neighbours = self.grid.get_neighbours(prey_coord)
                 next_prey_coords[i] = self.rng.choice(neighbours)
             else:
                 # possibility for collision between random moving prey
-                neighbours = [c for c in neighbours if c not in occupied_coords]
+                neighbours = self.available_neighbours(
+                    prey_coord, list(occupied_coords)
+                )
 
                 if len(neighbours) == 0:
                     next_coord = prey_coord
@@ -636,15 +638,16 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         raise AssertionError("Something has gone wrong, please investigate.")
 
-    def _coord_available_for_prey(
+    def available_neighbours(
         self, coord: Position, occupied_coords: List[Position]
-    ) -> bool:
+    ) -> List[Position]:
         neighbours = self.grid.get_neighbours(
             coord,
             ignore_blocks=False,
             include_out_of_bounds=False,
             force_non_colliding=True,
         )
+
         non_collide_neighbours = []
         for c in neighbours:
             flag = True
@@ -657,6 +660,15 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             if flag:
                 non_collide_neighbours.append(c)
 
+        return non_collide_neighbours
+
+    def _coord_available_for_prey(
+        self, coord: Position, occupied_coords: List[Position]
+    ) -> bool:
+        if any(self.grid.agents_collide(coord, oc) for oc in occupied_coords):
+            return False
+
+        non_collide_neighbours = self.available_neighbours(coord, occupied_coords)
         return len(non_collide_neighbours) >= self.prey_strength
 
     def _get_next_predator_state(
@@ -673,7 +685,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
                 ignore_blocks=False,
             )
 
-            if self.grid.check_agent_collisions(coord, next_prey_coords):
+            if self.grid.check_agent_collisions(next_coord, next_prey_coords):
                 next_coord = coord
 
             potential_next_coords.append(next_coord)
