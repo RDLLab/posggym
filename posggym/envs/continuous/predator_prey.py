@@ -64,8 +64,6 @@ PPAction = List[float]
 PPObs = Tuple[Union[int, np.ndarray], ...]
 collision_distance = 1.2
 
-AGENT_TYPE = [PREDATOR, PREY]
-
 
 class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
     """The Continuous Predator-Prey Environment.
