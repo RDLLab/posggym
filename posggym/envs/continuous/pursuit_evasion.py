@@ -272,15 +272,16 @@ class PursuitEvasionEnv(DefaultEnv):
 
             pred = single_item_to_position(self._state.evader_coord)
             prey = single_item_to_position(self._state.pursuer_coord)
-
+            goal = single_item_to_position(self._state.evader_goal_coord)
             colored_pred = (pred + (0,),)
             colored_prey = (prey + (1,),)
+            colored_goal = (goal + (2,),)
 
-            num_agents = 2
+            num_agents = 3
 
             sizes = [self.model.grid.agent_size] * num_agents
 
-            holonomic = [False] * 2
+            holonomic = [False, False, True]
 
             self._renderer.clear_render()
             self._renderer.draw_arena()
@@ -288,7 +289,7 @@ class PursuitEvasionEnv(DefaultEnv):
             # self._renderer.render_lines(self._last_obs, self._state.predator_coords)
 
             self._renderer.draw_agents(
-                colored_prey + colored_pred,
+                colored_prey + colored_pred + colored_goal,
                 sizes=sizes,
                 is_holonomic=holonomic,
                 alpha=255,
@@ -598,13 +599,21 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
                 raise AssertionError("Should only see walls")
 
         seen = self._get_opponent_seen(agent_coord, opp_coord)
-        dist = self.grid.manhattan_dist(agent_coord, opp_coord)
+        dist = self.grid.euclidean_dist(agent_coord, opp_coord)
         heard = dist <= self.HEARING_DIST
         return wall_obs, int(seen), int(heard)
 
     def _get_opponent_seen(self, ego_coord: Position, opp_coord: Position) -> bool:
         angle, dist = self.relative_positioning(ego_coord, opp_coord)
-        print(angle, dist)
+
+        closest_index, closest_wall_dist = self.grid.check_collision_ray(
+            ego_coord, self._max_obs_distance, angle, (), only_walls=False
+        )
+
+        # The ray at specified angle is not the wall
+        if closest_index is None or closest_index == -1:
+            return False
+
         return abs(angle) < np.pi / 4 and dist < self._max_obs_distance
 
     def relative_positioning(
@@ -618,7 +627,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
 
         T_p = np.array([agent_i[0] - agent_j[0], agent_i[1] - agent_j[1]])
         T_p = R.dot(T_p)
-        alpha = math.atan2(T_p[1], T_p[0])
+        alpha = math.atan2(T_p[1], T_p[0]) + yaw
 
         return (alpha, dist)
 

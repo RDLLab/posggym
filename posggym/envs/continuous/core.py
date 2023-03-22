@@ -84,7 +84,7 @@ class ContinuousWorld(ABC):
         return src_dists
 
     def convert_position_to_coordinate(self, origin: Position) -> Tuple[int, int]:
-        return (int(round(origin[0])), int(round(origin[1])))
+        return (int(math.floor(origin[0])), int(math.floor(origin[1])))
 
     def dijkstra(self, origin: Position) -> Dict[Tuple[int, int], int]:
         """Get shortest path distance between origin and all other coords."""
@@ -258,6 +258,7 @@ class ContinuousWorld(ABC):
         other_agents: Tuple[Position, ...],
         skip_id: Optional[int] = None,
         only_walls: bool = False,
+        include_blocks: bool = True,
     ) -> Tuple[Optional[int], float]:
         closest_agent_pos = None
         closest_agent_distance = float("inf")
@@ -265,8 +266,17 @@ class ContinuousWorld(ABC):
 
         x, y, agent_angle = coord
 
+        other_agents_w_size: List[Object] = [(x, self.agent_size) for x in other_agents]
+
+        if include_blocks:
+            all_objects = other_agents_w_size + self.block_coords
+        else:
+            all_objects = other_agents_w_size
+
+        WALL = -1
+
         if not only_walls:
-            for index, (agent_pos) in enumerate(other_agents):
+            for index, (agent_pos, size) in enumerate(all_objects):
                 if skip_id is not None and skip_id == index:
                     continue
 
@@ -276,7 +286,7 @@ class ContinuousWorld(ABC):
                 end_y = y + line_distance * math.sin(angle + agent_angle)
 
                 dist = self.check_circle_line_intersection(
-                    other_agent_x, other_agent_y, self.agent_size, x, y, end_x, end_y
+                    other_agent_x, other_agent_y, size, x, y, end_x, end_y
                 )
 
                 if dist is not None and dist < closest_agent_distance:
@@ -284,13 +294,18 @@ class ContinuousWorld(ABC):
                     closest_agent_pos = agent_pos
                     closest_agent_index = index
 
+        if closest_agent_index is not None and closest_agent_index > len(
+            other_agents_w_size
+        ):
+            closest_agent_index = WALL
+
         if closest_agent_pos is None:
             _, closest_agent_distance = self.check_collision_wall(
                 coord, line_distance, angle
             )
 
             if closest_agent_distance is not None:
-                closest_agent_index = -1
+                closest_agent_index = WALL
 
         if closest_agent_distance is None:
             closest_agent_distance = line_distance
@@ -427,7 +442,7 @@ class ContinuousWorld(ABC):
         object_pos, agent_radius = object
         for pos, radius in self.block_coords:
             dist = ContinuousWorld.squared_euclidean_dist(object_pos, pos)
-            if abs(radius - agent_radius) <= dist <= (radius + agent_radius):
+            if dist <= (radius + agent_radius):
                 return True
 
         return False
