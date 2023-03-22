@@ -3,7 +3,7 @@
 Ref:
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/test_action_dim_check.py
 """
-from typing import Dict, TYPE_CHECKING
+from typing import Dict, TYPE_CHECKING, Union, Tuple
 
 import numpy as np
 import pytest
@@ -66,6 +66,20 @@ BOX_ENVS = list(
 OOB_VALUE = 100
 
 
+def tuple_equal(
+    a: Tuple[Union[int, np.ndarray, float]], b: Tuple[Union[int, np.ndarray, float]]
+) -> bool:
+    if len(a) != len(b):
+        return False
+    for i in range(len(a)):
+        if isinstance(a[i], np.ndarray) and isinstance(b[i], np.ndarray):
+            if not np.array_equal(a[i], b[i]):
+                return False
+        elif a[i] != b[i]:
+            return False
+    return True
+
+
 @pytest.mark.parametrize(
     "env", BOX_ENVS, ids=[env.spec.id for env in BOX_ENVS if env.spec is not None]
 )
@@ -100,7 +114,7 @@ def test_box_actions_out_of_bound(env: posggym.Env):
         assert all(np.alltrue(oob_actions[i] > upper_bounds[i]) for i in upper_bounds)
         oob_obs, _, _, _, _, _ = oob_env.step(oob_actions)
 
-        assert all(np.alltrue(obs[i] == oob_obs[i]) for i in upper_bounds)
+        assert all(tuple_equal(obs[i], oob_obs[i]) for i in upper_bounds)
 
     if all(np.alltrue(action_spaces[i].bounded_below) for i in env.agents):
         obs, _, _, _, _, _ = env.step(lower_bounds)
@@ -111,6 +125,6 @@ def test_box_actions_out_of_bound(env: posggym.Env):
         assert all(np.alltrue(oob_actions[i] < lower_bounds[i]) for i in lower_bounds)
         oob_obs, _, _, _, _, _ = oob_env.step(oob_actions)
 
-        assert all(np.alltrue(obs[i] == oob_obs[i]) for i in lower_bounds)
+        assert all(tuple_equal(obs[i], oob_obs[i]) for i in lower_bounds)
 
     env.close()

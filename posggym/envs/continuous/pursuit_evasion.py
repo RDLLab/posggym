@@ -24,6 +24,7 @@ from posggym.envs.continuous.core import (
     Object,
     position_to_array,
     single_item_to_position,
+    clip_actions,
 )
 from posggym.utils import seeding
 
@@ -374,11 +375,10 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         )
 
         self.use_holonomic = True
-        factor = 1 if self.use_holonomic else 0.5 * math.pi
         self.action_spaces = {
             i: spaces.Box(
-                low=np.array([-1.0, -1.0], dtype=np.float32) * factor,
-                high=np.array([1.0, 1.0], dtype=np.float32) * factor,
+                low=np.array([0, -self.grid.yaw_limit], dtype=np.float32),
+                high=np.array([1.0, self.grid.yaw_limit], dtype=np.float32),
             )
             for i in self.possible_agents
         }
@@ -436,13 +436,13 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
     def sample_agent_initial_state(self, agent_id: M.AgentID, obs: PEObs) -> PEState:
         if agent_id == self.EVADER_IDX:
             return self._sample_initial_state(
-                evader_coord=cast(np.ndarray, obs[1]),
-                pursuer_coord=cast(np.ndarray, obs[2]),
-                goal_coord=cast(np.ndarray, obs[3]),
+                evader_coord=cast(np.ndarray, obs[3]),
+                pursuer_coord=cast(np.ndarray, obs[4]),
+                goal_coord=cast(np.ndarray, obs[5]),
             )
         return self._sample_initial_state(
-            evader_coord=cast(np.ndarray, obs[1]),
-            pursuer_coord=cast(np.ndarray, obs[2]),
+            evader_coord=cast(np.ndarray, obs[3]),
+            pursuer_coord=cast(np.ndarray, obs[4]),
             goal_coord=None,
         )
 
@@ -485,8 +485,8 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
     def step(
         self, state: PEState, actions: Dict[M.AgentID, PEAction]
     ) -> M.JointTimestep[PEState, PEObs]:
-        # assert all(0 <= a_i < len(Direction) for a_i in actions.values())
-        next_state = self._get_next_state(state, actions)
+        clipped_actions = clip_actions(actions, self.action_spaces)
+        next_state = self._get_next_state(state, clipped_actions)
         obs, evader_detected = self._get_obs(next_state)
         rewards = self._get_reward(state, next_state, evader_detected)
         all_done = self._is_done(next_state)
@@ -571,7 +571,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             state.evader_start_coord,
             state.pursuer_start_coord,
             # pursuer doesn't observe evader goal coord
-            np.ndarray([0, 0, 0], dtype=np.float32),
+            np.array([0, 0, 0], dtype=np.float32),
         )
 
         return {
@@ -582,7 +582,6 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
     def _get_agent_obs(
         self, agent_coord: Position, opp_coord: Position
     ) -> Tuple[List[float], int, int]:
-        # agent_dir = agent_coord[2]
         seen = False
         wall_obs: List[float] = []
         for i in range(self.n_lines):
@@ -606,7 +605,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
     def _get_opponent_seen(self, ego_coord: Position, opp_coord: Position) -> bool:
         angle, dist = self.relative_positioning(ego_coord, opp_coord)
 
-        closest_index, closest_wall_dist = self.grid.check_collision_ray(
+        closest_index, _ = self.grid.check_collision_ray(
             ego_coord, self._max_obs_distance, angle, (), only_walls=False
         )
 

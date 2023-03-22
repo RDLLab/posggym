@@ -395,14 +395,24 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             )
         )
 
-        factor = 1 if self.use_holonomic_predator else 0.5 * math.pi
-        self.action_spaces = {
-            i: spaces.Box(
-                low=np.array([-1.0, -1.0], dtype=np.float32) * factor,
-                high=np.array([1.0, 1.0], dtype=np.float32) * factor,
-            )
-            for i in self.possible_agents
-        }
+        self.max_delta_yaw = math.pi / 10
+
+        if self.use_holonomic_predator:
+            self.action_spaces = {
+                i: spaces.Box(
+                    low=np.array([-1.0, -1.0], dtype=np.float32),
+                    high=np.array([1.0, 1.0], dtype=np.float32),
+                )
+                for i in self.possible_agents
+            }
+        else:
+            self.action_spaces = {
+                i: spaces.Box(
+                    low=np.array([0, self.grid.yaw_limit], dtype=np.float32),
+                    high=np.array([1.0, self.grid.yaw_limit], dtype=np.float32),
+                )
+                for i in self.possible_agents
+            }
 
         # Observe everyones location
         # Apart from your own

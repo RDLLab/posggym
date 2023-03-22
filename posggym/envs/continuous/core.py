@@ -37,12 +37,14 @@ class ContinuousWorld(ABC):
         self,
         world_type: ArenaTypes,
         agent_size: float = 0.5,
+        yaw_limit=math.pi / 10,
         block_coords: Optional[List[Object]] = None,
     ):
         self.agent_size = agent_size
         if block_coords is None:
             block_coords = []
         self.block_coords = block_coords
+        self.yaw_limit = yaw_limit
 
     @staticmethod
     def manhattan_dist(coord1: Position, coord2: Position) -> float:
@@ -366,8 +368,8 @@ class ContinuousWorld(ABC):
         if use_holonomic_model:
             points = self.generate_range(0, 2 * math.pi, num_samples)
         else:
-            # Restrict change in yaw -pi/2 -> pi/2
-            points = self.generate_range(-math.pi / 2, math.pi / 2, num_samples)
+            # Restrict change in yaw -pi/10 -> pi/10
+            points = self.generate_range(-self.yaw_limit, self.yaw_limit, num_samples)
         distances = self.generate_range(0, distance, num_samples)
 
         data = product(points, distances)
