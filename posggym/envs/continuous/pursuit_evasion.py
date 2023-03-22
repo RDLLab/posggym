@@ -1,8 +1,6 @@
 """The Pursuit-Evasion Grid World Environment."""
-from collections import deque
 from typing import (
     Any,
-    Deque,
     Dict,
     List,
     NamedTuple,
@@ -511,7 +509,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             self._action_probs[self.EVADER_IDX] < 1.0
             and self.rng.random() > self._action_probs[self.EVADER_IDX]
         ):
-            evader_a = self.action_spaces[str(self.PURSUER_IDX)].sample()
+            evader_a = self.action_spaces[str(self.EVADER_IDX)].sample()
 
         if (
             self._action_probs[self.PURSUER_IDX]
@@ -523,15 +521,19 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         evader_coord = single_item_to_position(state.evader_coord)
         evader_goal_coord = single_item_to_position(state.evader_goal_coord)
 
-        pursuer_next_coord = self.grid.get_next_coord(
+        _pursuer_next_coord, succ = self.grid._get_next_coord(
             pursuer_coord, pursuer_a, ignore_blocks=False
         )
+        pursuer_next_coord = _pursuer_next_coord if succ else pursuer_coord
 
         evader_next_coord = single_item_to_position(state.evader_coord)
         if not self.grid.agents_collide(pursuer_next_coord, evader_coord):
-            evader_next_coord = self.grid.get_next_coord(
+            _evader_next_coord, succ = self.grid._get_next_coord(
                 evader_coord, evader_a, ignore_blocks=False
             )
+
+            if succ:
+                evader_next_coord = _evader_next_coord
 
         min_sp_distance = min(
             state.min_goal_dist,
@@ -580,16 +582,20 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         self, agent_coord: Position, opp_coord: Position
     ) -> Tuple[List[float], int, int]:
         # agent_dir = agent_coord[2]
-
+        seen = False
         wall_obs: List[float] = []
         for i in range(self.n_lines):
             angle = 2 * math.pi * i / self.n_lines
 
-            _, closest_wall_dist = self.grid.check_collision_ray(
+            closest_index, closest_wall_dist = self.grid.check_collision_ray(
                 agent_coord, self.obs_distance, angle, (), only_walls=True
             )
-
-            wall_obs.append(closest_wall_dist)
+            if closest_index is None:
+                wall_obs.append(self.obs_distance)
+            elif closest_index == -1:
+                wall_obs.append(closest_wall_dist)
+            else:
+                raise AssertionError("Should only see walls")
 
         seen = self._get_opponent_seen(agent_coord, opp_coord)
         dist = self.grid.manhattan_dist(agent_coord, opp_coord)
@@ -597,10 +603,24 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         return wall_obs, int(seen), int(heard)
 
     def _get_opponent_seen(self, ego_coord: Position, opp_coord: Position) -> bool:
-        fov = self.grid.get_fov(
-            ego_coord, self.FOV_EXPANSION_INCR, self._max_obs_distance
-        )
-        return opp_coord in fov
+        angle, dist = self.relative_positioning(ego_coord, opp_coord)
+        print(angle, dist)
+        return abs(angle) < np.pi / 4 and dist < self._max_obs_distance
+
+    def relative_positioning(
+        self, agent_i: Position, agent_j: Position
+    ) -> Tuple[float, float]:
+        dist = self.grid.euclidean_dist(agent_i, agent_j)
+        yaw = agent_i[2]
+
+        # Rotation matrix of yaw
+        R = np.array([[math.cos(yaw), math.sin(yaw)], [-math.sin(yaw), math.cos(yaw)]])
+
+        T_p = np.array([agent_i[0] - agent_j[0], agent_i[1] - agent_j[1]])
+        T_p = R.dot(T_p)
+        alpha = math.atan2(T_p[1], T_p[0])
+
+        return (alpha, dist)
 
     def _get_reward(
         self, state: PEState, next_state: PEState, evader_seen: bool
@@ -644,9 +664,11 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         evader_goal_coord = state.evader_goal_coord
         evader_id, pursuer_id = str(self.EVADER_IDX), str(self.PURSUER_IDX)
         # check this first before relatively expensive detection check
-        if evader_coord == pursuer_coord:
+        if self.grid.agents_collide(evader_coord, pursuer_coord):
             return {evader_id: M.Outcome.LOSS, pursuer_id: M.Outcome.WIN}
-        if evader_coord == evader_goal_coord:
+        if self.grid.agents_collide(
+            evader_coord, single_item_to_position(evader_goal_coord)
+        ):
             return {evader_id: M.Outcome.WIN, pursuer_id: M.Outcome.LOSS}
         if self._get_opponent_seen(pursuer_coord, evader_coord):
             return {evader_id: M.Outcome.LOSS, pursuer_id: M.Outcome.WIN}
@@ -711,103 +733,6 @@ class PEWorld(RectangularContinuousWorld):
                 ),
             )
         return max_dist
-
-    def get_fov(
-        self,
-        origin: Position,
-        widening_increment: int,
-        max_depth: int,
-    ) -> Set[Position]:
-        """Get the Field of vision from origin looking in given direction.
-
-        Uses BFS starting from origin and expanding in the direction, while
-        accounting for obstacles blocking the field of view,
-        to get the field of vision.
-        """
-        assert widening_increment > 0
-        assert max_depth > 0
-        fov = {origin}
-        direction = origin[2]
-
-        frontier_queue: Deque[Position] = deque([origin])
-        visited = {origin}
-
-        while len(frontier_queue):
-            coord = frontier_queue.pop()
-
-            for next_coord in self._get_fov_successors(
-                origin, direction, coord, widening_increment, max_depth
-            ):
-                if next_coord not in visited:
-                    visited.add(next_coord)
-                    frontier_queue.append(next_coord)
-                    fov.add(next_coord)
-        return fov
-
-    def _get_fov_successors(
-        self,
-        origin: Position,
-        direction: float,
-        coord: Position,
-        widening_increment: int,
-        max_depth: int,
-    ) -> List[Position]:
-        delta_x = coord[0] - origin[0]
-        delta_y = coord[1] - origin[1]
-        angle = math.atan2(delta_y, delta_x)
-
-        # the projection of the distance onto the direction vector,
-        # which represents the depth in the given direction.
-        depth = math.sqrt((delta_x**2) + (delta_y**2)) * math.cos(direction - angle)
-
-        if depth >= max_depth:
-            return []
-
-        successors = []
-        forward_successor = self._get_fov_successor(coord, direction)
-        if forward_successor is None:
-            return []
-        else:
-            successors.append(forward_successor)
-
-        # Expands FOV at depth 1 and then every widening_increment depth
-        if depth != 1 and depth % widening_increment != 0:
-            # Don't expand sideways
-            return successors
-
-        side_coords_list: List[Position] = []
-
-        # # idk what to do here
-        # if direction in [Direction.NORTH, Direction.SOUTH]:
-        #     if 0 < coord[0] <= origin[0]:
-        #         side_coords_list.append((coord[0] - 1, coord[1]))
-        #     if origin[0] <= coord[0] < self.width - 1:
-        #         side_coords_list.append((coord[0] + 1, coord[1]))
-        # else:
-        #     if 0 < coord[1] <= origin[1]:
-        #         side_coords_list.append((coord[0], coord[1] - 1))
-        #     elif origin[1] <= coord[1] < self.height - 1:
-        #         side_coords_list.append((coord[0], coord[1] + 1))
-
-        side_successor: Optional[Position] = None
-        for side_coord in side_coords_list:
-            if side_coord in self.block_coords:
-                continue
-
-            side_successor = self._get_fov_successor(side_coord, direction)
-            if side_successor is not None:
-                successors.append(side_successor)
-
-        return successors
-
-    def _get_fov_successor(
-        self, coord: Position, direction: float
-    ) -> Optional[Position]:
-        new_coord = self.get_next_coord(coord, [direction], ignore_blocks=False)
-        if new_coord == coord:
-            # move in given direction is blocked or out-of-bounds
-            return None
-        return new_coord
 
     def get_max_fov_width(self, widening_increment: int, max_depth: int) -> float:
         """Get the maximum width of field of vision."""
@@ -969,7 +894,9 @@ def _convert_map_to_grid(
     for loc, symbol in enumerate(ascii_map):
         coord = _loc_to_coord(loc, width)
         if symbol == block_symbol:
-            block_coords.append(((coord[0], coord[1], 0), 0.5))
+            # The radius of the block is slightly smaller, otherwise
+            # agents get stuck
+            block_coords.append(((coord[0], coord[1], 0), 0.4))
         elif symbol in pursuer_start_symbols:
             pursuer_start_coords.append(coord)
         elif symbol in evader_start_symbols:
