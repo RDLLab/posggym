@@ -328,19 +328,19 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
         assert all(0 <= a_i < len(Direction) for a_i in actions.values())
         next_state = self._get_next_state(state, actions)
         rewards = self._get_rewards(next_state)
-        terminal = self._state_is_terminal(next_state)
+        all_done = self._state_is_terminal(next_state)
 
         info: Dict[M.AgentID, Dict] = {i: {} for i in self.possible_agents}
-        if terminal:
+        if all_done:
             for i, outcome in self._get_outcome(next_state).items():
                 info[i]["outcome"] = outcome
 
         obs = self._get_obs(next_state)
         truncated = {i: False for i in self.possible_agents}
-        terminated = {i: terminal for i in self.possible_agents}
+        terminated = {i: all_done for i in self.possible_agents}
 
         return M.JointTimestep(
-            next_state, obs, rewards, terminated, truncated, terminal, info
+            next_state, obs, rewards, terminated, truncated, all_done, info
         )
 
     def _get_next_state(

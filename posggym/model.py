@@ -46,10 +46,10 @@ class JointTimestep(Generic[StateType, ObsType]):
     state: StateType
     observations: Dict[AgentID, ObsType]
     rewards: Dict[AgentID, float]
-    terminated: Dict[AgentID, bool]
-    truncated: Dict[AgentID, bool]
+    terminations: Dict[AgentID, bool]
+    truncations: Dict[AgentID, bool]
     all_done: bool
-    info: Dict[AgentID, Dict]
+    infos: Dict[AgentID, Dict]
 
     def __iter__(self):
         for field in dataclasses.fields(self):
@@ -203,6 +203,19 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
         encouraged to include this information in the `info` property of the returned
         value. We suggest using the the "outcomes" key with an instance of the
         ``Outcome`` class for values.
+
+        Arguments
+        ---------
+        state : StateType
+          The state.
+        actions : Dict[AgentID, ActType]
+          a joint action containing one action per active agent in the environment.
+
+        Returns
+        -------
+        JointTimestep
+          joint timestep result of performing actions in given state, including next
+          state, observations, rewards, terminations, truncations, all done, infos.
 
         """
 

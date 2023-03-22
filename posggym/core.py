@@ -114,23 +114,23 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
           the joint observation containing one observation per agent.
         rewards : Dict[AgentID, float]
           the joint rewards containing one reward per agent.
-        terminated : Dict[AgentID, bool]
+        terminations : Dict[AgentID, bool]
           whether each agent has reached a terminal state in the environment.
           Contains one value for each agent in the environment. It's possible,
           depending on the environment, for only some of the agents to be in a
           terminal during a given step.
-        truncated : Dict[AgentID, bool]
+        truncations : Dict[AgentID, bool]
           whether the episode has been truncated for each agent in the
           environment. Contains one value for each agent in the environment. Truncation
           for an agent signifies that the episode was ended for that agent (e.g. due to
           reaching the time limit) before the agent reached a terminal state.
-        done : bool
+        all_done : bool
           whether the episode is finished. Provided for convenience and to handle
           the case where agents may be added and removed during an episode. For
           environments where the active agents remains constant during each episode,
           this is equivalent to checking if all agents are either in a terminated or
           truncated state. If true, the user needs to call :py:func:`reset()`.
-        info : Dict[AgentID, Dict[str, Any]]
+        infos : Dict[AgentID, Dict[str, Any]]
           contains auxiliary diagnostic information (helpful for debugging, learning,
           and logging) for each agent.
 
@@ -174,7 +174,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
           Note in environments that are not observation first (i.e. they expect an
           action before the first observation) this function should reset the state and
           return ``None``.
-        info : Dict[AgentID, Dict]
+        infos : Dict[AgentID, Dict]
           Auxiliary information for each agent. It should be analogous to the ``info``
           returned by :meth:`step()` and can be empty.
 
@@ -411,10 +411,10 @@ class DefaultEnv(Env[StateType, ObsType, ActType]):
         return (
             step.observations,
             step.rewards,
-            step.terminated,
-            step.truncated,
+            step.terminations,
+            step.truncations,
             step.all_done,
-            step.info,
+            step.infos,
         )
 
     def reset(
@@ -657,8 +657,8 @@ class ObservationWrapper(Wrapper[StateType, WrapperObsType, ActType]):
         bool,
         Dict[AgentID, Dict],
     ]:
-        obs, reward, term, trunc, done, info = self.env.step(actions)  # type: ignore
-        return self.observations(obs), reward, term, trunc, done, info
+        obs, reward, term, trunc, done, infos = self.env.step(actions)  # type: ignore
+        return self.observations(obs), reward, term, trunc, done, infos
 
     def observations(
         self, obs: Dict[AgentID, ObsType]

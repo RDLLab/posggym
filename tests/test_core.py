@@ -146,10 +146,10 @@ class ActionWrapperTestEnv(DefaultEnv[int, int, int]):
         return (
             actions,
             step.rewards,
-            step.terminated,
-            step.truncated,
+            step.terminations,
+            step.truncations,
             step.all_done,
-            step.info,
+            step.infos,
         )
 
 

@@ -158,13 +158,15 @@ def test_model_determinism_rollout(env_spec: EnvSpec):
 
             assert_equals(result_1.rewards, result_2.rewards, f"[{t}][Rewards] ")
             assert_equals(
-                result_1.terminated, result_2.terminated, f"[{t}][Terminated] "
+                result_1.terminations, result_2.terminations, f"[{t}][Terminations] "
             )
-            assert_equals(result_1.truncated, result_2.truncated, f"[{t}][Truncated] ")
+            assert_equals(
+                result_1.truncations, result_2.truncations, f"[{t}][Truncations] "
+            )
             assert (
                 result_1.all_done == result_2.all_done
             ), f"[{t}] all_done 1={result_1.all_done}, all_done 2={result_2.all_done}"
-            assert_equals(result_1.info, result_2.info, f"[{t}][Info] ")
+            assert_equals(result_1.infos, result_2.infos, f"[{t}][Infos] ")
 
             if not rollout_mode and t >= NUM_INIT_STEPS:
                 # don't update state

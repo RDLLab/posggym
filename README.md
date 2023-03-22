@@ -48,15 +48,14 @@ POSGGym models each environment as a python `env` class. Creating environment in
 ```python
 import posggym
 env = posggym.make("PredatorPrey-v0")
+observations, infos = env.reset(seed=42)
 
-observations, info = env.reset(seed=42)
-
-for t in range(50):
+for t in range(100):
     actions = {i: env.action_spaces[i].sample() for i in env.agents}
-    observations, rewards, terminated, truncated, done, info = env.step(actions)
+    observations, rewards, terminations, truncations, all_done, infos = env.step(actions)
 
-    if done:
-        observation, info = env.reset()
+    if all_done:
+        observations, infos = env.reset()
 
 env.close()
 ```
@@ -73,15 +72,14 @@ The following is an example of accessing and using the environment model:
 import posggym
 env = posggym.make("PredatorPrey-v0")
 model = env.model
-
 model.seed(seed=42)
 
 state = model.sample_initial_state()
 observations = model.sample_initial_obs(state)
 
-for t in range(50):
-    actions = {i: env.action_spaces[i].sample() for i in model.get_agents(state)}
-    state, observations, rewards, terminated, truncated, all_done, info = model.step(state, actions)
+for t in range(100):
+    actions = {i: model.action_spaces[i].sample() for i in model.get_agents(state)}
+    state, observations, rewards, terminations, truncations, all_done, infos = model.step(state, actions)
 
     if all_done:
         state = model.sample_initial_state()
@@ -93,12 +91,12 @@ The base model API is very similar to the environment API. The key difference th
 Note that unlike for the `env` class, for convenience the output of the `model.step()` method is a `dataclass` instance and so it's components can be accessed as attributes. For example:
 
 ```python
-result = model.step(state, actions)
-observations = result.observations
-info = result.info
+timestep = model.step(state, actions)
+observations = timestep.observations
+infos = timestep.infos
 ```
 
-Both the `env` and `model` classes support a number of other methods, please see the documentation *TODO* for details.
+Both the `env` and `model` classes support a number of other methods, please see the documentation [posggym.readthedocs.io/](https://posggym.readthedocs.io/) for more details.
 
 
 ## Authors

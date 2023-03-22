@@ -25,17 +25,15 @@ POSGGym is directly inspired by and adapted from the [Gymnasium (formerly Open A
 
 ```{code-block} python
 import posggym
-
 env = posggym.make("PredatorPrey-v0")
-
 observations, info = env.reset(seed=42)
 
 for t in range(50):
     actions = {i: env.action_spaces[i].sample() for i in env.agents}
-    observations, rewards, terminated, truncated, done, info = env.step(actions)
+    observations, rewards, terminations, truncations, all_done, infos = env.step(actions)
 
-    if done:
-        observation, info = env.reset(seed=42)
+    if all_done:
+        observations, infos = env.reset()
 
 env.close()
 ```
@@ -44,21 +42,25 @@ env.close()
 
 ```{code-block} python
 import posggym
-
 env = posggym.make("PredatorPrey-v0")
 model = env.model
-
 model.seed(seed=42)
 
 state = model.sample_initial_state()
-if mode.observation_first:
-    observations = model.sample_initial_obs(state)
+observations = model.sample_initial_obs(state)
 
 for t in range(50):
-    actions = {i: env.action_spaces[i].sample() for i in model.get_agents(state)}
-    state, observations, rewards, terminated, truncated, all_done, info = model.step(state, actions)
+    actions = {i: model.action_spaces[i].sample() for i in model.get_agents(state)}
+    timestep = model.step(state, actions)
 
-    if all_done:
+	# timestep attribute can be accessed individually:
+    state = timestep.state
+    observations = timestep.observations
+
+    # Or unpacked fully
+    # state, observations, rewards, terminations, truncations, all_done, infos = timestep
+
+    if timestep.all_done:
         state = model.sample_initial_state()
         observations = model.sample_initial_obs(state)
 ```
@@ -96,6 +98,7 @@ environments/grid_world
 :caption: Tutorials
 
 tutorials/environment_creation.md
+tutorials/api_comparison.md
 ```
 
 ```{toctree}
