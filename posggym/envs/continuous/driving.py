@@ -12,16 +12,17 @@ from typing import (
     Tuple,
     Union,
 )
-
+import math
 from gymnasium import spaces
+import numpy as np
 
 import posggym.model as M
 from posggym.core import DefaultEnv
-from posggym.envs.grid_world.core import (
-    DIRECTION_ASCII_REPR,
-    Coord,
-    Direction,
-    Grid,
+
+from posggym.envs.continuous.core import (
+    Position,
+    Object,
+    RectangularContinuousWorld,
 )
 from posggym.utils import seeding
 
@@ -46,19 +47,18 @@ class CollisionType(enum.IntEnum):
 class VehicleState(NamedTuple):
     """The state of a vehicle in the Driving Environment."""
 
-    coord: Coord
-    facing_dir: Direction
+    coord: Position
     speed: Speed
-    dest_coord: Coord
+    dest_coord: Position
     dest_reached: int
     crashed: int
-    min_dest_dist: int
+    min_dest_dist: float
 
 
 DState = Tuple[VehicleState, ...]
 
 # Initial direction and speed of each vehicle
-INIT_DIR = Direction.NORTH
+INIT_DIR = 0
 INIT_SPEED = Speed.STOPPED
 
 # The actions
@@ -73,7 +73,7 @@ ACTIONS = [DO_NOTHING, ACCELERATE, DECELERATE, TURN_RIGHT, TURN_LEFT]
 ACTIONS_STR = ["0", "acc", "dec", "tr", "tl"]
 
 # Obs = (adj_obs, speed, dest_coord, dest_reached, crashed)
-DObs = Tuple[Tuple[int, ...], Speed, Coord, int, int]
+DObs = Tuple[Tuple[int, ...], Speed, Position, int, int]
 
 # Cell obs
 VEHICLE = 0
@@ -260,102 +260,10 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
         self._agent_imgs = None
 
     def render(self):
-        if self.render_mode == "ansi":
-            return self._render_ansi()
         return self._render_img()
 
-    def _render_ansi(self):
-        model: DrivingModel = self.model  # type: ignore
-        grid_str = model.grid.get_ascii_repr(
-            [vs.coord for vs in self._state],
-            [vs.facing_dir for vs in self._state],
-            [vs.dest_coord for vs in self._state],
-        )
-
-        output = [
-            f"Step: {self._step_num}",
-            grid_str,
-        ]
-        if self._last_actions is not None:
-            action_str = ", ".join(
-                [ACTIONS_STR[a] for a in self._last_actions.values()]
-            )
-            output.insert(1, f"Actions: <{action_str}>")
-            output.append(f"Rewards: <{self._last_rewards}>")
-
-        return "\n".join(output) + "\n"
-
     def _render_img(self):
-        model: DrivingModel = self.model  # type: ignore
-
-        import posggym.envs.grid_world.render as render_lib
-
-        if self.renderer is None:
-            self.renderer = render_lib.GWRenderer(
-                self.render_mode,
-                model.grid,
-                render_fps=self.metadata["render_fps"],
-                env_name="Driving",
-            )
-
-        if self._agent_imgs is None:
-            self._agent_imgs = {
-                i: render_lib.GWTriangle(
-                    (0, 0),
-                    self.renderer.cell_size,
-                    render_lib.get_agent_color(i)[0],
-                    Direction.NORTH,
-                )
-                for i in self.possible_agents
-            }
-
-        observed_coords = []
-        for vs in self._state:
-            observed_coords.extend(model.get_obs_coords(vs.coord, vs.facing_dir))
-
-        render_objects = []
-        # Add agent destination locations
-        for i, vs in enumerate(self._state):
-            # use alternative agent color so dest squares slightly different to vehicle
-            # color
-            render_objects.append(
-                render_lib.GWRectangle(
-                    vs.dest_coord,
-                    self.renderer.cell_size,
-                    render_lib.get_agent_color(i)[1],
-                )
-            )
-
-        # Add agents
-        for i, vs in enumerate(self._state):
-            agent_obj = self._agent_imgs[str(i)]
-            agent_obj.coord = vs.coord
-            agent_obj.facing_dir = vs.facing_dir
-            render_objects.append(agent_obj)
-
-        agent_coords_and_dirs = {
-            str(i): (vs.coord, vs.facing_dir) for i, vs in enumerate(self._state)
-        }
-
-        # Add visualization for crashed agents
-        for i, vs in enumerate(self._state):
-            if vs.crashed:
-                render_objects.append(
-                    render_lib.GWCircle(
-                        vs.coord,
-                        self.renderer.cell_size,
-                        render_lib.get_color("yellow"),
-                    )
-                )
-
-        if self.render_mode in ("human", "rgb_array"):
-            return self.renderer.render(render_objects, observed_coords)
-        return self.renderer.render_agents(
-            render_objects,
-            agent_coords_and_dirs,
-            agent_obs_dims=(*self._obs_dim, self._obs_dim[-1]),
-            observed_coords=observed_coords,
-        )
+        pass
 
     def close(self) -> None:
         if self.renderer is not None:
@@ -421,8 +329,11 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         self._obstacle_collisions = obstacle_collisions
 
         def _coord_space():
-            return spaces.Tuple(
-                (spaces.Discrete(self.grid.width), spaces.Discrete(self.grid.height))
+            return spaces.Box(
+                low=np.array([-1, -1, -2 * math.pi], dtype=np.float32),
+                high=np.array(
+                    [self.grid.width, self.grid.height, 2 * math.pi], dtype=np.float32
+                ),
             )
 
         self.possible_agents = tuple(str(i) for i in range(num_agents))
@@ -431,7 +342,6 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 spaces.Tuple(
                     (
                         _coord_space(),
-                        spaces.Discrete(len(Direction)),
                         spaces.Discrete(len(Speed)),
                         _coord_space(),  # destination coord
                         spaces.Discrete(2),  # destination reached
@@ -439,7 +349,10 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                         # min distance to destination
                         # set this to upper bound of min shortest path distance, so
                         # state space works for generated grids as well
-                        spaces.Discrete(self.grid.width * self.grid.height),
+                        spaces.Box(
+                            low=np.array([0]),
+                            high=np.array([self.grid.width * self.grid.height]),
+                        ),
                     )
                 )
                 for _ in range(len(self.possible_agents))
@@ -497,8 +410,8 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
     def sample_initial_state(self) -> DState:
         state = []
-        chosen_start_coords: Set[Coord] = set()
-        chosen_dest_coords: Set[Coord] = set()
+        chosen_start_coords: Set[Position] = set()
+        chosen_dest_coords: Set[Position] = set()
         for i in range(len(self.possible_agents)):
             start_coords_i = self.grid.start_coords[i]
             avail_start_coords = start_coords_i.difference(chosen_start_coords)
@@ -516,7 +429,6 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
             state_i = VehicleState(
                 coord=start_coord,
-                facing_dir=INIT_DIR,
                 speed=INIT_SPEED,
                 dest_coord=dest_coord,
                 dest_reached=int(False),
@@ -546,8 +458,8 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 possible_agent_start_coords.add(all_agent_start_coords[agent_idx])
 
         state = []
-        chosen_start_coords: Set[Coord] = set()
-        chosen_dest_coords: Set[Coord] = set()
+        chosen_start_coords: Set[Position] = set()
+        chosen_dest_coords: Set[Position] = set()
 
         agent_start_coord = self.rng.choice(list(possible_agent_start_coords))
         chosen_start_coords.add(agent_start_coord)
@@ -576,7 +488,6 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
             state_i = VehicleState(
                 coord=start_coord,
-                facing_dir=INIT_DIR,
                 speed=INIT_SPEED,
                 dest_coord=dest_coord,
                 dest_reached=int(False),
@@ -645,13 +556,12 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             vehicle_coords.remove(state_i.coord)
 
             next_speed = self._get_next_speed(action_i, state_i.speed)
-            move_dir = self._get_move_direction(
-                action_i, next_speed, state_i.facing_dir
-            )
-            next_dir = self._get_next_direction(action_i, state_i.facing_dir)
-            next_speed = self._get_next_speed(action_i, state_i.speed)
+            # move_dir = self._get_move_direction(action_i, next_speed,
+            # state_i.coord[2])
+            # next_dir = self._get_next_direction(action_i, state_i.coord[2])
+            # next_speed = self._get_next_speed(action_i, state_i.speed)
             next_coord, collision_type, hit_vehicle = self._get_next_coord(
-                state_i.coord, next_speed, move_dir, vehicle_coords
+                state_i.coord, next_speed, vehicle_coords
             )
 
             min_dest_dist = min(
@@ -670,7 +580,6 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                         collision_types[jdx] = CollisionType.VEHICLE
                         next_state[jdx] = VehicleState(
                             coord=next_state_j.coord,
-                            facing_dir=next_state_j.facing_dir,
                             speed=next_state_j.speed,
                             dest_coord=next_state_j.dest_coord,
                             dest_reached=next_state_j.dest_reached,
@@ -684,7 +593,6 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
             next_state[idx] = VehicleState(
                 coord=next_coord,
-                facing_dir=next_dir,
                 speed=next_speed,
                 dest_coord=state_i.dest_coord,
                 dest_reached=int(next_coord == state_i.dest_coord),
@@ -697,7 +605,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         return tuple(next_state), collision_types
 
     def _reset_vehicle(
-        self, v_idx: int, vs_i: VehicleState, vehicle_coords: Set[Coord]
+        self, v_idx: int, vs_i: VehicleState, vehicle_coords: Set[Position]
     ) -> VehicleState:
         if not (vs_i.dest_reached or vs_i.crashed):
             return vs_i
@@ -711,11 +619,10 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
         new_coord = self.rng.choice(list(avail_start_coords))
 
-        min_dest_dist = self.grid.manhattan_dist(new_coord, vs_i.dest_coord)
+        min_dest_dist = self.grid.euclidean_dist(new_coord, vs_i.dest_coord)
 
         new_vs_i = VehicleState(
             coord=new_coord,
-            facing_dir=INIT_DIR,
             speed=INIT_SPEED,
             dest_coord=vs_i.dest_coord,
             dest_reached=int(False),
@@ -725,20 +632,16 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         return new_vs_i
 
     def _get_move_direction(
-        self, action: DAction, speed: Speed, curr_dir: Direction
-    ) -> Direction:
+        self, action: DAction, speed: Speed, curr_dir: float
+    ) -> float:
         if speed == Speed.REVERSE:
             # No turning while in reverse,
             # so movement dir is just the opposite of current direction
-            return Direction((curr_dir + 2) % len(Direction))
+            return curr_dir
         return self._get_next_direction(action, curr_dir)
 
     @staticmethod
-    def _get_next_direction(action: DAction, curr_dir: Direction) -> Direction:
-        if action == TURN_RIGHT:
-            return Direction((curr_dir + 1) % len(Direction))
-        if action == TURN_LEFT:
-            return Direction((curr_dir - 1) % len(Direction))
+    def _get_next_direction(action: DAction, curr_dir: float) -> float:
         return curr_dir
 
     @staticmethod
@@ -755,18 +658,18 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
     def _get_next_coord(
         self,
-        curr_coord: Coord,
+        curr_coord: Position,
         speed: Speed,
-        move_dir: Direction,
-        vehicle_coords: Set[Coord],
-    ) -> Tuple[Coord, CollisionType, Optional[Coord]]:
+        vehicle_coords: Set[Position],
+    ) -> Tuple[Position, CollisionType, Optional[Position]]:
         # assumes curr_coord isn't in vehicle coords
+        move_dir = curr_coord[2]
         next_coord = curr_coord
         collision = CollisionType.NONE
         hit_vehicle_coord = None
         for i in range(abs(speed - Speed.STOPPED)):
             next_coord = self.grid.get_next_coord(
-                curr_coord, move_dir, ignore_blocks=False
+                curr_coord, [move_dir, speed], ignore_blocks=False
             )
             if next_coord == curr_coord:
                 collision = CollisionType.OBSTACLE
@@ -787,7 +690,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             local_cell_obs = self._get_local_cell__obs(
                 idx,
                 [vs.coord for vs in state],
-                state[idx].facing_dir,
+                state[idx].coord[2],
                 state[idx].dest_coord,
             )
             obs[i] = (
@@ -802,9 +705,9 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
     def _get_local_cell__obs(
         self,
         agent_idx: int,
-        vehicle_coords: Sequence[Coord],
-        facing_dir: Direction,
-        dest_coord: Coord,
+        vehicle_coords: Sequence[Position],
+        facing_dir: float,
+        dest_coord: Position,
     ) -> Tuple[int, ...]:
         obs_depth = self._obs_front + self._obs_back + 1
         obs_width = (2 * self._obs_side) + 1
@@ -813,7 +716,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         cell_obs = []
         for col, row in product(range(obs_width), range(obs_depth)):
             obs_grid_coord = self._map_obs_to_grid_coord(
-                (col, row), agent_coord, facing_dir
+                (col, row, facing_dir), agent_coord
             )
             if obs_grid_coord is None or obs_grid_coord in self.grid.block_coords:
                 cell_obs.append(WALL)
@@ -823,35 +726,30 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 cell_obs.append(DESTINATION)
             else:
                 cell_obs.append(EMPTY)
+
         return tuple(cell_obs)
 
     def _map_obs_to_grid_coord(
-        self, obs_coord: Coord, agent_coord: Coord, facing_dir: Direction
-    ) -> Optional[Coord]:
-        if facing_dir == Direction.NORTH:
-            grid_row = agent_coord[1] + obs_coord[1] - self._obs_front
-            grid_col = agent_coord[0] + obs_coord[0] - self._obs_side
-        elif facing_dir == Direction.EAST:
-            grid_row = agent_coord[1] + obs_coord[0] - self._obs_side
-            grid_col = agent_coord[0] - obs_coord[1] + self._obs_front
-        elif facing_dir == Direction.SOUTH:
-            grid_row = agent_coord[1] - obs_coord[1] + self._obs_front
-            grid_col = agent_coord[0] - obs_coord[0] + self._obs_side
-        else:
-            grid_row = agent_coord[1] - obs_coord[0] + self._obs_side
-            grid_col = agent_coord[0] + obs_coord[1] - self._obs_front
+        self, obs_coord: Position, agent_coord: Position
+    ) -> Optional[Position]:
+        facing_dir = obs_coord[2]
+
+        grid_row = agent_coord[1] + obs_coord[0] * math.cos(facing_dir)
+        grid_col = agent_coord[0] + obs_coord[1] * math.sin(facing_dir)
 
         if 0 <= grid_row < self.grid.height and 0 <= grid_col < self.grid.width:
-            return (grid_col, grid_row)
+            return (grid_col, grid_row, agent_coord[2])
+
         return None
 
-    def get_obs_coords(self, origin: Coord, facing_dir: Direction) -> List[Coord]:
+    def get_obs_coords(self, origin: Position) -> List[Position]:
+        # facing_dir = origin[2]
         """Get the list of coords observed from agent at origin."""
         obs_depth = self._obs_front + self._obs_back + 1
         obs_width = (2 * self._obs_side) + 1
-        obs_coords: List[Coord] = []
+        obs_coords: List[Position] = []
         for col, row in product(range(obs_width), range(obs_depth)):
-            obs_grid_coord = self._map_obs_to_grid_coord((col, row), origin, facing_dir)
+            obs_grid_coord = self._map_obs_to_grid_coord((col, row, 0), origin)
             if obs_grid_coord is not None:
                 obs_coords.append(obs_grid_coord)
         return obs_coords
@@ -888,16 +786,16 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         return rewards
 
 
-class DrivingGrid(Grid):
+class DrivingGrid(RectangularContinuousWorld):
     """A grid for the Driving Problem."""
 
     def __init__(
         self,
         grid_width: int,
         grid_height: int,
-        block_coords: Set[Coord],
-        start_coords: List[Set[Coord]],
-        dest_coords: List[Set[Coord]],
+        block_coords: List[Object],
+        start_coords: List[Set[Position]],
+        dest_coords: List[Set[Position]],
     ):
         super().__init__(grid_width, grid_height, block_coords)
         assert len(start_coords) == len(dest_coords)
@@ -910,38 +808,15 @@ class DrivingGrid(Grid):
         """Get the number of agents supported by this grid."""
         return len(self.start_coords)
 
-    def get_shortest_path_distance(self, coord: Coord, dest: Coord) -> int:
+    def get_shortest_path_distance(self, coord: Position, dest: Position) -> int:
         """Get the shortest path distance from coord to destination."""
-        return int(self.shortest_paths[dest][coord])
+        coord_c = self.convert_position_to_coordinate(coord)
+        dest_c = self.convert_position_to_coordinate(dest)
+        return int(self.shortest_paths[dest_c][coord_c])
 
     def get_max_shortest_path_distance(self) -> int:
         """Get the longest shortest path distance to any destination."""
         return int(max([max(d.values()) for d in self.shortest_paths.values()]))
-
-    def get_ascii_repr(
-        self,
-        vehicle_coords: List[Coord],
-        vehicle_dirs: List[Direction],
-        vehicle_dests: List[Coord],
-    ) -> str:
-        """Get ascii repr of grid."""
-        grid_repr = []
-        for row in range(self.height):
-            row_repr = []
-            for col in range(self.width):
-                coord = (col, row)
-                if coord in self.block_coords:
-                    row_repr.append("#")
-                elif coord in vehicle_dests:
-                    row_repr.append("D")
-                else:
-                    row_repr.append(".")
-            grid_repr.append(row_repr)
-
-        for coord, direction in zip(vehicle_coords, vehicle_dirs):
-            grid_repr[coord[0]][coord[1]] = DIRECTION_ASCII_REPR[direction]
-
-        return "\n".join([" ".join(r) for r in grid_repr])
 
 
 def parse_grid_str(grid_str: str, supported_num_agents: int) -> DrivingGrid:
@@ -988,17 +863,17 @@ def parse_grid_str(grid_str: str, supported_num_agents: int) -> DrivingGrid:
     agent_start_chars = set(["+"] + [str(i) for i in range(10)])
     agent_dest_chars = set(["-"] + list("abcdefghij"))
 
-    block_coords: Set[Coord] = set()
-    shared_start_coords: Set[Coord] = set()
-    agent_start_coords_map: Dict[int, Set[Coord]] = {}
-    shared_dest_coords: Set[Coord] = set()
-    agent_dest_coords_map: Dict[int, Set[Coord]] = {}
+    block_coords: List[Object] = []
+    shared_start_coords: Set[Position] = set()
+    agent_start_coords_map: Dict[int, Set[Position]] = {}
+    shared_dest_coords: Set[Position] = set()
+    agent_dest_coords_map: Dict[int, Set[Position]] = {}
     for r, c in product(range(grid_height), range(grid_width)):
-        coord = (c, r)
+        coord = (c, r, 0.0)
         char = row_strs[r][c]
 
         if char == "#":
-            block_coords.add(coord)
+            block_coords.append((coord, 0.5))
         elif char in agent_start_chars:
             if char != "+":
                 agent_id = int(char)
@@ -1025,8 +900,8 @@ def parse_grid_str(grid_str: str, supported_num_agents: int) -> DrivingGrid:
     if len(included_agent_ids) > 0:
         assert max(included_agent_ids) < supported_num_agents
 
-    start_coords: List[Set[Coord]] = []
-    dest_coords: List[Set[Coord]] = []
+    start_coords: List[Set[Position]] = []
+    dest_coords: List[Set[Position]] = []
     for i in range(supported_num_agents):
         agent_start_coords = set(shared_start_coords)
         agent_start_coords.update(agent_start_coords_map.get(i, {}))
