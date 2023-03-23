@@ -27,15 +27,6 @@ from posggym.envs.continuous.core import (
 from posggym.utils import seeding
 
 
-class Speed(enum.IntEnum):
-    """A speed setting for a vehicle."""
-
-    REVERSE = 0
-    STOPPED = 1
-    FORWARD_SLOW = 2
-    FORWARD_FAST = 3
-
-
 class CollisionType(enum.IntEnum):
     """Type of collision for a vehicle."""
 
@@ -48,7 +39,7 @@ class VehicleState(NamedTuple):
     """The state of a vehicle in the Driving Environment."""
 
     coord: Position
-    speed: Speed
+    speed: float
     dest_coord: Position
     dest_reached: int
     crashed: int
@@ -59,21 +50,13 @@ DState = Tuple[VehicleState, ...]
 
 # Initial direction and speed of each vehicle
 INIT_DIR = 0
-INIT_SPEED = Speed.STOPPED
-
-# The actions
-DAction = int
-DO_NOTHING = 0
-ACCELERATE = 1
-DECELERATE = 2
-TURN_RIGHT = 3
-TURN_LEFT = 4
-
-ACTIONS = [DO_NOTHING, ACCELERATE, DECELERATE, TURN_RIGHT, TURN_LEFT]
-ACTIONS_STR = ["0", "acc", "dec", "tr", "tl"]
+INIT_SPEED = 0
 
 # Obs = (adj_obs, speed, dest_coord, dest_reached, crashed)
-DObs = Tuple[Tuple[int, ...], Speed, Position, int, int]
+DObs = Tuple[Tuple[int, ...], float, Position, int, int]
+
+# This time it is acceleration
+DAction = List[float]
 
 # Cell obs
 VEHICLE = 0
@@ -342,7 +325,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 spaces.Tuple(
                     (
                         _coord_space(),
-                        spaces.Discrete(len(Speed)),
+                        spaces.Box(low=np.array([-1]), high=np.array([1])),
                         _coord_space(),  # destination coord
                         spaces.Discrete(2),  # destination reached
                         spaces.Discrete(2),  # crashed
@@ -359,8 +342,13 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             )
         )
         self.action_spaces = {
-            i: spaces.Discrete(len(ACTIONS)) for i in self.possible_agents
+            i: spaces.Box(
+                low=np.array([0, -self.grid.yaw_limit], dtype=np.float32),
+                high=np.array([1.0, self.grid.yaw_limit], dtype=np.float32),
+            )
+            for i in self.possible_agents
         }
+
         obs_depth = self._obs_front + self._obs_back + 1
         obs_width = (2 * self._obs_side) + 1
         self.observation_spaces = {
@@ -372,7 +360,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                             for _ in range(obs_depth * obs_width)
                         )
                     ),
-                    spaces.Discrete(len(Speed)),
+                    spaces.Box(low=[0], high=[10]),
                     _coord_space(),  # dest coord,
                     spaces.Discrete(2),  # dest reached
                     spaces.Discrete(2),  # crashed
@@ -503,7 +491,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
     def step(
         self, state: DState, actions: Dict[M.AgentID, DAction]
     ) -> M.JointTimestep[DState, DObs]:
-        assert all(a_i in ACTIONS for a_i in actions.values())
+        # assert all(a_i in ACTIONS for a_i in actions.values())
         next_state, collision_types = self._get_next_state(state, actions)
         obs = self._get_obs(next_state)
         rewards = self._get_rewards(state, next_state, collision_types)
@@ -543,7 +531,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             agent_id = str(idx)
             if agent_id not in actions:
                 assert state_i.crashed or state_i.dest_reached
-                action_i = DO_NOTHING
+                action_i = [0.0, 0.0]
             else:
                 action_i = actions[agent_id]
 
@@ -632,9 +620,9 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         return new_vs_i
 
     def _get_move_direction(
-        self, action: DAction, speed: Speed, curr_dir: float
+        self, action: DAction, speed: float, curr_dir: float
     ) -> float:
-        if speed == Speed.REVERSE:
+        if speed < 0:
             # No turning while in reverse,
             # so movement dir is just the opposite of current direction
             return curr_dir
@@ -645,21 +633,13 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         return curr_dir
 
     @staticmethod
-    def _get_next_speed(action: DAction, curr_speed: Speed) -> Speed:
-        if action == DO_NOTHING:
-            return curr_speed
-        if action in (TURN_LEFT, TURN_RIGHT):
-            if curr_speed == Speed.FORWARD_FAST:
-                return Speed.FORWARD_SLOW
-            return curr_speed
-        if action == ACCELERATE:
-            return Speed(min(curr_speed + 1, Speed.FORWARD_FAST))
-        return Speed(max(curr_speed - 1, Speed.REVERSE))
+    def _get_next_speed(action: DAction, curr_speed: float) -> float:
+        return curr_speed
 
     def _get_next_coord(
         self,
         curr_coord: Position,
-        speed: Speed,
+        speed: float,
         vehicle_coords: Set[Position],
     ) -> Tuple[Position, CollisionType, Optional[Position]]:
         # assumes curr_coord isn't in vehicle coords
@@ -667,7 +647,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         next_coord = curr_coord
         collision = CollisionType.NONE
         hit_vehicle_coord = None
-        for i in range(abs(speed - Speed.STOPPED)):
+        for i in range(abs(int(speed))):
             next_coord = self.grid.get_next_coord(
                 curr_coord, [move_dir, speed], ignore_blocks=False
             )
