@@ -376,7 +376,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         self.communication_radius = 1
 
-        def _coord_space2():
+        def _coord_space():
             return spaces.Box(
                 low=np.array([-1, -1, -2 * math.pi], dtype=np.float32),
                 high=np.array(
@@ -389,9 +389,9 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         self.state_space = spaces.Tuple(
             (
                 # coords of each agent
-                spaces.Tuple(tuple(_coord_space2() for _ in range(self.num_predators))),
+                spaces.Tuple(tuple(_coord_space() for _ in range(self.num_predators))),
                 # prey coords
-                spaces.Tuple(tuple(_coord_space2() for _ in range(self.num_prey))),
+                spaces.Tuple(tuple(_coord_space() for _ in range(self.num_prey))),
                 # prey caught/not
                 spaces.Tuple(tuple(spaces.Discrete(2) for _ in range(self.num_prey))),
             )
