@@ -257,7 +257,7 @@ class ContinuousWorld(ABC):
         coord: Position,
         line_distance: float,
         angle: float,
-        other_agents: Tuple[Position, ...],
+        other_agents: Iterable[Position],
         skip_id: Optional[int] = None,
         only_walls: bool = False,
         include_blocks: bool = True,
@@ -453,6 +453,14 @@ class ContinuousWorld(ABC):
         self, coord: Position, other_coords: Iterable[Position]
     ) -> bool:
         return any(self.agents_collide(coord, p) for p in other_coords)
+
+    def get_collision_index(
+        self, coord: Position, other_coords: Iterable[Position]
+    ) -> Optional[int]:
+        try:
+            return [self.agents_collide(coord, p) for p in other_coords].index(True)
+        except ValueError:
+            return None
 
     def sample_coords_within_dist(
         self,
