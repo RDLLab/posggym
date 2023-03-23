@@ -142,7 +142,7 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
 
     ```python
     import posggym
-    env = posgggym.make(
+    env = posggym.make(
         'DroneTeamCapture-v0',
         max_episode_steps=100,
         num_agents=8,

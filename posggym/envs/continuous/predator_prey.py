@@ -193,7 +193,7 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
 
     ```python
     import posggym
-    env = posgggym.make(
+    env = posggym.make(
         'PredatorPreyContinuous-v0',
         max_episode_steps=100,
         grid="15x15Blocks",
