@@ -262,11 +262,13 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
         if self.render_mode == "human":
             import posggym.envs.continuous.render as render_lib
 
+            model: PPModel = self.model  # type: ignore
+
             if self._renderer is None:
                 self._renderer = render_lib.GWContinuousRender(
                     self.render_mode,
                     env_name="PredatorPreyContinuous",
-                    domain_max=self.model.grid.width,
+                    domain_max=model.grid.width,
                     render_fps=self.metadata["render_fps"],
                     num_colors=4,
                     arena_size=200,
@@ -281,10 +283,10 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
 
             num_agents = len(colored_prey + colored_pred)
 
-            sizes = [self.model.grid.agent_size] * num_agents
+            sizes = [model.grid.agent_size] * num_agents
 
-            holonomic = [self.model.use_holonomic_prey] * len(colored_prey) + [
-                self.model.use_holonomic_predator
+            holonomic = [model.use_holonomic_prey] * len(colored_prey) + [
+                model.use_holonomic_predator
             ] * len(colored_pred)
 
             self._renderer.clear_render()
@@ -296,7 +298,7 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
                 is_holonomic=holonomic,
                 alpha=255,
             )
-            self._renderer.draw_blocks(self.model.grid.block_coords)
+            self._renderer.draw_blocks(model.grid.block_coords)
             self._renderer.render()
 
     def close(self) -> None:

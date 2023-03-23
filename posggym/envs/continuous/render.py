@@ -22,12 +22,12 @@ class GWContinuousRender:
         env_name: str,
         arena_type: ArenaTypes = ArenaTypes.Square,
         render_fps: int = 15,
-        screen_width=640,
-        screen_height=480,
-        arena_size=400,
-        agent_size=20,
-        domain_min=0,
-        domain_max=1,
+        screen_width: int = 640,
+        screen_height: int = 480,
+        arena_size: float = 400.0,
+        agent_size: float = 20.0,
+        domain_min: float = 0.0,
+        domain_max: float = 1.0,
         num_colors: int = 10,
     ):
         # Initialize Pygame

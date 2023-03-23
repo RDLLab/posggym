@@ -261,11 +261,13 @@ class PursuitEvasionEnv(DefaultEnv):
         if self.render_mode == "human":
             import posggym.envs.continuous.render as render_lib
 
+            model: PursuitEvasionModel = self.model  # type: ignore
+
             if self._renderer is None:
                 self._renderer = render_lib.GWContinuousRender(
                     self.render_mode,
                     env_name="PursuitEvasionContinuous",
-                    domain_max=self.model.grid.width,
+                    domain_max=model.grid.width,
                     render_fps=self.metadata["render_fps"],
                     num_colors=4,
                     arena_size=200,
@@ -280,7 +282,7 @@ class PursuitEvasionEnv(DefaultEnv):
 
             num_agents = 3
 
-            sizes = [self.model.grid.agent_size] * num_agents
+            sizes = [model.grid.agent_size] * num_agents
 
             holonomic = [False, False, True]
 
@@ -295,7 +297,7 @@ class PursuitEvasionEnv(DefaultEnv):
                 is_holonomic=holonomic,
                 alpha=255,
             )
-            self._renderer.draw_blocks(self.model.grid.block_coords)
+            self._renderer.draw_blocks(model.grid.block_coords)
             self._renderer.render()
 
     def close(self) -> None:
