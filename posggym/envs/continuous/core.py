@@ -37,12 +37,14 @@ class ContinuousWorld(ABC):
         self,
         world_type: ArenaTypes,
         agent_size: float = 0.5,
+        yaw_limit=math.pi / 10,
         block_coords: Optional[List[Object]] = None,
     ):
         self.agent_size = agent_size
         if block_coords is None:
             block_coords = []
         self.block_coords = block_coords
+        self.yaw_limit = yaw_limit
 
     @staticmethod
     def manhattan_dist(coord1: Position, coord2: Position) -> float:
@@ -75,31 +77,38 @@ class ContinuousWorld(ABC):
 
     def get_all_shortest_paths(
         self, origins: Iterable[Position]
-    ) -> Dict[Position, Dict[Position, int]]:
+    ) -> Dict[Tuple[int, int], Dict[Tuple[int, int], int]]:
         """Get shortest path distance from every origin to all other coords."""
         src_dists = {}
         for origin in origins:
-            src_dists[origin] = self.dijkstra(origin)
+            origin_coord = self.convert_position_to_coordinate(origin)
+            src_dists[origin_coord] = self.dijkstra(origin)
         return src_dists
 
-    def dijkstra(self, origin: Position) -> Dict[Position, int]:
-        """Get shortest path distance between origin and all other coords."""
-        dist = {origin: 0}
-        pq = PriorityQueue()  # type: ignore
-        pq.put((dist[origin], origin))
+    def convert_position_to_coordinate(self, origin: Position) -> Tuple[int, int]:
+        return (int(math.floor(origin[0])), int(math.floor(origin[1])))
 
-        visited = {origin}
+    def dijkstra(self, origin: Position) -> Dict[Tuple[int, int], int]:
+        """Get shortest path distance between origin and all other coords."""
+        coord_origin = self.convert_position_to_coordinate(origin)
+
+        dist = {coord_origin: 0}
+        pq = PriorityQueue()  # type: ignore
+        pq.put((dist[coord_origin], coord_origin))
+
+        visited = {coord_origin}
 
         while not pq.empty():
             _, coord = pq.get()
+            coord_c = self.convert_position_to_coordinate(coord)
             for adj_coord in self.get_cardinal_neighbours(coord, ignore_blocks=False):
-                adj_coord = (int(adj_coord[0]), int(adj_coord[1]), int(adj_coord[2]))
-                if dist[coord] + 1 < dist.get(adj_coord, float("inf")):
-                    dist[adj_coord] = dist[coord] + 1
+                adj_coord_c = self.convert_position_to_coordinate(adj_coord)
+                if dist[coord_c] + 1 < dist.get(adj_coord_c, float("inf")):
+                    dist[adj_coord_c] = dist[coord_c] + 1
 
                     if adj_coord not in visited:
-                        pq.put((dist[adj_coord], adj_coord))
-                        visited.add(adj_coord)
+                        pq.put((dist[adj_coord_c], adj_coord))
+                        visited.add(adj_coord_c)
         return dist
 
     def get_next_coord(
@@ -121,7 +130,6 @@ class ContinuousWorld(ABC):
             delta_yaw, velocity = action
 
         x, y, yaw = coord
-
         new_yaw = yaw + delta_yaw
 
         new_yaw = new_yaw % (2 * math.pi)  # To avoid bigger than 360 degrees
@@ -251,6 +259,8 @@ class ContinuousWorld(ABC):
         angle: float,
         other_agents: Tuple[Position, ...],
         skip_id: Optional[int] = None,
+        only_walls: bool = False,
+        include_blocks: bool = True,
     ) -> Tuple[Optional[int], float]:
         closest_agent_pos = None
         closest_agent_distance = float("inf")
@@ -258,23 +268,38 @@ class ContinuousWorld(ABC):
 
         x, y, agent_angle = coord
 
-        for index, (agent_pos) in enumerate(other_agents):
-            if skip_id is not None and skip_id == index:
-                continue
+        other_agents_w_size: List[Object] = [(x, self.agent_size) for x in other_agents]
 
-            other_agent_x, other_agent_y, _ = agent_pos
+        if include_blocks:
+            all_objects = other_agents_w_size + self.block_coords
+        else:
+            all_objects = other_agents_w_size
 
-            end_x = x + line_distance * math.cos(angle + agent_angle)
-            end_y = y + line_distance * math.sin(angle + agent_angle)
+        WALL = -1
 
-            dist = self.check_circle_line_intersection(
-                other_agent_x, other_agent_y, self.agent_size, x, y, end_x, end_y
-            )
+        if not only_walls:
+            for index, (agent_pos, size) in enumerate(all_objects):
+                if skip_id is not None and skip_id == index:
+                    continue
 
-            if dist is not None and dist < closest_agent_distance:
-                closest_agent_distance = dist
-                closest_agent_pos = agent_pos
-                closest_agent_index = index
+                other_agent_x, other_agent_y, _ = agent_pos
+
+                end_x = x + line_distance * math.cos(angle + agent_angle)
+                end_y = y + line_distance * math.sin(angle + agent_angle)
+
+                dist = self.check_circle_line_intersection(
+                    other_agent_x, other_agent_y, size, x, y, end_x, end_y
+                )
+
+                if dist is not None and dist < closest_agent_distance:
+                    closest_agent_distance = dist
+                    closest_agent_pos = agent_pos
+                    closest_agent_index = index
+
+        if closest_agent_index is not None and closest_agent_index > len(
+            other_agents_w_size
+        ):
+            closest_agent_index = WALL
 
         if closest_agent_pos is None:
             _, closest_agent_distance = self.check_collision_wall(
@@ -282,7 +307,7 @@ class ContinuousWorld(ABC):
             )
 
             if closest_agent_distance is not None:
-                closest_agent_index = -1
+                closest_agent_index = WALL
 
         if closest_agent_distance is None:
             closest_agent_distance = line_distance
@@ -303,28 +328,19 @@ class ContinuousWorld(ABC):
         (min_x, max_x), (min_y, max_y) = self.get_bounds()
         neighbours = []
 
-        rounded_coord: Tuple[float, float, float] = (
+        rounded_coord: Tuple[float, float] = (
             round(coord[0]),
             round(coord[1]),
-            coord[2],
         )
 
         if rounded_coord[1] > min_y or include_out_of_bounds:
-            neighbours.append(
-                (rounded_coord[0], rounded_coord[1] - 1, rounded_coord[2])
-            )  # N
+            neighbours.append((rounded_coord[0], rounded_coord[1] - 1, 0.0))  # N
         if rounded_coord[0] < max_x - 1 or include_out_of_bounds:
-            neighbours.append(
-                (rounded_coord[0] + 1, rounded_coord[1], rounded_coord[2])
-            )  # E
+            neighbours.append((rounded_coord[0] + 1, rounded_coord[1], 0.0))  # E
         if rounded_coord[1] < max_y or include_out_of_bounds:
-            neighbours.append(
-                (rounded_coord[0], rounded_coord[1] + 1, rounded_coord[2])
-            )  # S
+            neighbours.append((rounded_coord[0], rounded_coord[1] + 1, 0.0))  # S
         if rounded_coord[0] > min_x or include_out_of_bounds:
-            neighbours.append(
-                (rounded_coord[0] - 1, rounded_coord[1], rounded_coord[2])
-            )  # W
+            neighbours.append((rounded_coord[0] - 1, rounded_coord[1], 0.0))  # W
 
         if ignore_blocks:
             return neighbours
@@ -352,8 +368,8 @@ class ContinuousWorld(ABC):
         if use_holonomic_model:
             points = self.generate_range(0, 2 * math.pi, num_samples)
         else:
-            # Restrict change in yaw -pi/2 -> pi/2
-            points = self.generate_range(-math.pi / 2, math.pi / 2, num_samples)
+            # Restrict change in yaw -pi/10 -> pi/10
+            points = self.generate_range(-self.yaw_limit, self.yaw_limit, num_samples)
         distances = self.generate_range(0, distance, num_samples)
 
         data = product(points, distances)
@@ -428,7 +444,7 @@ class ContinuousWorld(ABC):
         object_pos, agent_radius = object
         for pos, radius in self.block_coords:
             dist = ContinuousWorld.squared_euclidean_dist(object_pos, pos)
-            if abs(radius - agent_radius) <= dist <= (radius + agent_radius):
+            if dist <= (radius + agent_radius):
                 return True
 
         return False
@@ -627,3 +643,29 @@ def clip_actions(
         i: list(np.clip(actions[i], action_spaces[i].low, action_spaces[i].high))
         for i in actions
     }
+
+
+def position_to_array(coords: Iterable[Position]) -> np.ndarray:
+    return np.array(
+        [np.array(x, dtype=np.float32) for x in coords], dtype=np.float32
+    ).squeeze()
+
+
+def array_to_position(coords: np.ndarray) -> Tuple[Position, ...]:
+    if coords.ndim == 2:
+        assert coords.shape[1] == 3
+        output = []
+        for i in range(coords.shape[0]):
+            output.append(tuple(coords[i, :]))
+        return tuple(output)  # type: ignore
+
+    elif coords.ndim == 1:
+        assert coords.shape[0] == 3
+        return tuple(coords)
+    else:
+        raise Exception("Cannot convert")
+
+
+def single_item_to_position(coords: np.ndarray) -> Position:
+    assert coords.shape[0] == 3
+    return tuple(coords)  # type: ignore

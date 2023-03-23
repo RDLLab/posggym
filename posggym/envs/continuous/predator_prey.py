@@ -27,7 +27,6 @@ from typing import (
     Union,
     Set,
     Callable,
-    Iterable,
     cast,
 )
 
@@ -41,6 +40,8 @@ from posggym.envs.continuous.core import (
     Object,
     Position,
     clip_actions,
+    position_to_array,
+    array_to_position,
 )
 from posggym.utils import seeding
 
@@ -63,8 +64,6 @@ class PPState(NamedTuple):
 PPAction = List[float]
 PPObs = Tuple[Union[int, np.ndarray], ...]
 collision_distance = 1.2
-
-AGENT_TYPE = [PREDATOR, PREY]
 
 
 class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
@@ -194,7 +193,7 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
 
     ```python
     import posggym
-    env = posgggym.make(
+    env = posggym.make(
         'PredatorPreyContinuous-v0',
         max_episode_steps=100,
         grid="15x15Blocks",
@@ -263,11 +262,13 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
         if self.render_mode == "human":
             import posggym.envs.continuous.render as render_lib
 
+            model: PPModel = self.model  # type: ignore
+
             if self._renderer is None:
                 self._renderer = render_lib.GWContinuousRender(
                     self.render_mode,
                     env_name="PredatorPreyContinuous",
-                    domain_max=self.model.grid.width,
+                    domain_max=model.grid.width,
                     render_fps=self.metadata["render_fps"],
                     num_colors=4,
                     arena_size=200,
@@ -282,10 +283,10 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
 
             num_agents = len(colored_prey + colored_pred)
 
-            sizes = [self.model.grid.agent_size] * num_agents
+            sizes = [model.grid.agent_size] * num_agents
 
-            holonomic = [self.model.use_holonomic_prey] * len(colored_prey) + [
-                self.model.use_holonomic_predator
+            holonomic = [model.use_holonomic_prey] * len(colored_prey) + [
+                model.use_holonomic_predator
             ] * len(colored_pred)
 
             self._renderer.clear_render()
@@ -297,7 +298,7 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
                 is_holonomic=holonomic,
                 alpha=255,
             )
-            self._renderer.draw_blocks(self.model.grid.block_coords)
+            self._renderer.draw_blocks(model.grid.block_coords)
             self._renderer.render()
 
     def close(self) -> None:
@@ -375,11 +376,11 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         self.communication_radius = 1
 
-        def _coord_space2():
+        def _coord_space():
             return spaces.Box(
-                low=np.array([-1, -1, -0.5 * math.pi], dtype=np.float32),
+                low=np.array([-1, -1, -2 * math.pi], dtype=np.float32),
                 high=np.array(
-                    [self.grid.width, self.grid.height, 0.5 * math.pi], dtype=np.float32
+                    [self.grid.width, self.grid.height, 2 * math.pi], dtype=np.float32
                 ),
             )
 
@@ -388,21 +389,32 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         self.state_space = spaces.Tuple(
             (
                 # coords of each agent
-                spaces.Tuple(tuple(_coord_space2() for _ in range(self.num_predators))),
+                spaces.Tuple(tuple(_coord_space() for _ in range(self.num_predators))),
                 # prey coords
-                spaces.Tuple(tuple(_coord_space2() for _ in range(self.num_prey))),
+                spaces.Tuple(tuple(_coord_space() for _ in range(self.num_prey))),
                 # prey caught/not
                 spaces.Tuple(tuple(spaces.Discrete(2) for _ in range(self.num_prey))),
             )
         )
 
-        self.action_spaces = {
-            i: spaces.Box(
-                low=np.array([-1.0, -1.0], dtype=np.float32),
-                high=np.array([1.0, 1.0], dtype=np.float32),
-            )
-            for i in self.possible_agents
-        }
+        self.max_delta_yaw = math.pi / 10
+
+        if self.use_holonomic_predator:
+            self.action_spaces = {
+                i: spaces.Box(
+                    low=np.array([-1.0, -1.0], dtype=np.float32),
+                    high=np.array([1.0, 1.0], dtype=np.float32),
+                )
+                for i in self.possible_agents
+            }
+        else:
+            self.action_spaces = {
+                i: spaces.Box(
+                    low=np.array([0, self.grid.yaw_limit], dtype=np.float32),
+                    high=np.array([1.0, self.grid.yaw_limit], dtype=np.float32),
+                )
+                for i in self.possible_agents
+            }
 
         # Observe everyones location
         # Apart from your own
@@ -1066,22 +1078,3 @@ SUPPORTED_GRIDS = {
     "20x20": (get_20x20_grid, 200),
     "20x20Blocks": (get_20x20_blocks_grid, 200),
 }
-
-
-def position_to_array(coords: Iterable[Position]) -> np.ndarray:
-    return np.array([np.array(x, dtype=np.float32) for x in coords], dtype=np.float32)
-
-
-def array_to_position(coords: np.ndarray) -> Tuple[Position, ...]:
-    if coords.ndim == 2:
-        assert coords.shape[1] == 3
-        output = []
-        for i in range(coords.shape[0]):
-            output.append(tuple(coords[i, :]))
-        return tuple(output)  # type: ignore
-
-    elif coords.ndim == 1:
-        assert coords.shape[0] == 3
-        return tuple(coords)
-    else:
-        raise Exception("Cannot convert")

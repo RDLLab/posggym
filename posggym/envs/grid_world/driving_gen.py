@@ -62,7 +62,7 @@ class DrivingGenEnv(DrivingEnv):
 
     ```python
     import posggym
-    env = posgggym.make('DrivingGen-v0', generator_params="7x7", num_agents="2")
+    env = posggym.make('DrivingGen-v0', generator_params="7x7", num_agents="2")
     ```
 
     Version History

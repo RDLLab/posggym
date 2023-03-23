@@ -220,7 +220,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
 
     ```python
     import posggym
-    env = posgggym.make('Driving-v0', grid="7x7RoundAbout", num_agents="2")
+    env = posggym.make('Driving-v0', grid="7x7RoundAbout", num_agents="2")
     ```
 
     Version History
