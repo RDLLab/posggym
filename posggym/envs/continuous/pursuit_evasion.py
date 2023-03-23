@@ -61,17 +61,17 @@ PEObs = Union[PEEvaderObs, PEPursuerObs]
 class PursuitEvasionEnv(DefaultEnv):
     """The Pursuit-Evasion Grid World Environment.
 
-    An adversarial 2D grid world problem involving two agents: an evader and a pursuer.
-    The evader's goal is to reach a goal location, on the other side of the grid, while
-    the goal of the pursuer is to spot the evader before it reaches it's goal. The
-    evader is considered caught if it is observed by the pursuer, or occupies the same
-    location. The evader and pursuer have knowledge of each others starting locations.
-    However, only the evader has knowledge of it's goal location. The pursuer only
-    knowns that the evader's goal location is somewhere on the opposite side of the grid
-    to the evaders start location.
+    An adversarial continuous world problem involving two agents: an evader and a
+    pursuer. The evader's goal is to reach a goal location, on the other side of
+    the grid, while the goal of the pursuer is to spot the evader before it reaches
+    it's goal. The evader is considered caught if it is observed by the pursuer, or
+    occupies the same location. The evader and pursuer have knowledge of each others
+    starting locations. However, only the evader has knowledge of it's goal location.
+    The pursuer only knowns that the evader's goal location is somewhere on the opposite
+    side of the grid to the evaders start location.
 
     This environment requires each agent to reason about the which path the other agent
-    will take through the dense grid environment.
+    will take through the environment.
 
     Possible Agents
     ---------------
@@ -82,35 +82,35 @@ class PursuitEvasionEnv(DefaultEnv):
     -----------
     Each state is made up of:
 
-    0. the `(x, y)` coordinate of the evader
-    1. the direction the evader is facing
-    2. the `(x, y)` coordinate of the pursuer
-    3. the direction the pursuer is facing
-    4. the `(x, y)` coordinate of the evader
-    5. the `(x, y)` coordinate of the evader's start location
-    6. the `(x, y)` coordinate of the pursuer's start location
+    0. the `(x, y, yaw)` coordinate of the evader
+    1. the `(x, y, yaw)` coordinate of the pursuer
+    2. the `(x, y, yaw)` coordinate of the evader's start location
+    3. the `(x, y, yaw)` coordinate of the pursuer's start location
+    4. the `(x, y, yaw)` coordinate of the evader's goal
+    5. the minimum distance to it's goal along the shortest discrete path achieved
+       by the evader in the current episode (this is needed to correctly reward
+       the agent for making progress.)
 
     Action Space
     ------------
-    Each agent has 4 actions corresponding to moving in the 4 available directions with
-    respect to the direction the agent is currently facing: `FORWARD=0`, `BACKWARDS=1`,
-    `LEFT=2`, `RIGHT=3`.
+    Each agent has 2 actions, which are the angular and linear velocity.
 
     Observation Space
     -----------------
     Each agent observes:
 
-    1. whether there is a wall (`1`) or not (`0`) in the adjacent cells in the four
-       cardinal directions,
+    1. whether there is a wall in the adjacent cells. This is achieved by
+       a series of 'n_lines' lines starting at the agent which extend for a distance of
+       1.
     2. whether they see the other agent in a cone in front of them (`1`) or not (`0`).
        The cone projects forward up to 'max_obs_distance' (default=`12`) cells in front
        of the agent.
     3. whether they hear the other agent (`1`) or not (`0`). The other agent is heard if
        they are within distance 2 from the agent in any direction.
-    4. the `(x, y)` coordinate of the evader's start location,
-    5. the `(x, y)` coordinate of the pursuer's start location,
-    6. Evader: the `(x, y)` coordinate of the evader's goal location.
-       Pursuer: blank coordinate `(0, 0)`.
+    4. the `(x, y, yaw)` coordinate of the evader's start location,
+    5. the `(x, y, yaw)` coordinate of the pursuer's start location,
+    6. Evader: the `(x, y, 0)` coordinate of the evader's goal location.
+       Pursuer: blank coordinate `(0, 0, 0)`.
 
     Note, the goal and start coordinate observations do not change during a single
     episode, but they do change between episodes.
@@ -174,8 +174,9 @@ class PursuitEvasionEnv(DefaultEnv):
     Available variants
     ------------------
 
-    The PursuitEvasion environment comes with a number of pre-built grid layouts which
-    can be passed as an argument to `posggym.make`, to create different grids.
+    The PursuitEvasionContinous environment comes with a number of pre-built grid
+    layouts which can be passed as an argument to `posggym.make`, to create
+    different grids.
 
     | Grid name         | Grid size |
     |-------------------|-----------|
@@ -183,14 +184,14 @@ class PursuitEvasionEnv(DefaultEnv):
     | `16x16`           | 16x16     |
     | `32x32`           | 32x32     |
 
-    For example to use the PursuitEvasion environment with the `32x32` grid layout, and
-    episode step limit of 200, and the default values for the other parameters you would
-    use:
+    For example to use the PursuitEvasionContinous environment with the `32x32` grid
+    layout, and episode step limit of 200, and the default values for the other
+    parameters you would use:
 
     ```python
     import posggym
     env = posggym.make(
-        'PursuitEvasion-v0',
+        'PursuitEvasionContinous-v0',
         max_episode_steps=200,
         grid="32x32",
     )
@@ -589,8 +590,9 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         for i in range(self.n_lines):
             angle = 2 * math.pi * i / self.n_lines
 
+            # This is distance 1 to force to only check at most an adjacent cell
             closest_index, closest_wall_dist = self.grid.check_collision_ray(
-                agent_coord, self.obs_distance, angle, (), only_walls=True
+                agent_coord, 1, angle, (), only_walls=True
             )
             if closest_index is None:
                 wall_obs.append(self.obs_distance)
