@@ -155,23 +155,23 @@ class GWContinuousRender:
         self,
         agents: Tuple[Tuple[float, float, float, int], ...],
         is_holonomic: Optional[List[bool]] = None,
-        sizes: Optional[List[Optional[float]]] = None,
-        alpha: float = 255,
+        sizes: Optional[List[float]] = None,
+        alpha: Optional[List[int]] = None,
     ):
         scaled_agents = []
-        if sizes is None:
-            sizes = list([None] * len(agents))
+        scaled_sizes = []
+
+        if alpha is None:
+            alpha = [255] * len(agents)
 
         for i, agent in enumerate(agents):
             x, y, angle, color = agent
 
             scaled_x, scaled_y = self.scale(x, y)
-
-            sizes[i] = (
-                self.agent_size
-                if sizes[i] is None
-                else int(self.scale_number(sizes[i]))
-            )
+            if sizes is None:
+                scaled_sizes.append(self.agent_size)
+            else:
+                scaled_sizes.append(self.scale_number(sizes[i]))
 
             scaled_agents.append((scaled_x, scaled_y, angle, color))
 
@@ -179,12 +179,12 @@ class GWContinuousRender:
         for i, agent in enumerate(scaled_agents):
             x, y, angle, color = agent
 
-            size = sizes[i]
+            size = scaled_sizes[i]
 
             if is_holonomic is not None and is_holonomic[i]:
                 self.draw_circle_alpha(
                     self.screen,
-                    self.colors[color % len(self.colors)] + (alpha,),
+                    self.colors[color % len(self.colors)] + (alpha[i],),
                     (x, y),
                     size,
                 )

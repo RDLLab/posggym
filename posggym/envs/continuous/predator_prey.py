@@ -296,7 +296,7 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
                 colored_prey + colored_pred,
                 sizes=sizes,
                 is_holonomic=holonomic,
-                alpha=255,
+                alpha=[255] * num_agents,
             )
             self._renderer.draw_blocks(model.grid.block_coords)
             self._renderer.render()

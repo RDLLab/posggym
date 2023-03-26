@@ -296,7 +296,7 @@ class PursuitEvasionEnv(DefaultEnv):
                 colored_prey + colored_pred + colored_goal,
                 sizes=sizes,
                 is_holonomic=holonomic,
-                alpha=255,
+                alpha=[255] * num_agents,
             )
             self._renderer.draw_blocks(model.grid.block_coords)
             self._renderer.render()
