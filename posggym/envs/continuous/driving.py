@@ -99,27 +99,26 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
 
     - the `(x, y)` coordinates (x=column, y=row, with origin at the top-left square of
       the grid) of the vehicle,
-    - the direction the vehicle is facing `NORTH=0`, `EAST=1`, `SOUTH=2`, `WEST=3`,
-    - the speed of the vehicle: `REVERSE=0`, `STOPPED=1`, `FORWARD_SLOW=2`,
-      `FORWARD_FAST=2`,
+    - the direction the vehicle is facing [0, 2π]
+    - the speed of the vehicle: [-1, 1],
     - the `(x, y)` coordinate of the vehicles destination
     - whether the vehicle has reached it's destination or not: `1` or `0`
     - whether the vehicle has crashed or not: `1` or `0`
     - the minimum distance to the destination achieved by the vehicle in the current
-      episode.
+      episode, if the environment was discrete.
 
     Action Space
     ------------
-    Each agent has 5 actions: `DO_NOTHING=0`, `ACCELERATE=1`, `DECELERATE=2`,
-    `TURN_RIGHT=3`, `TURN_LEFT=4`
+    Each agent has 2 actions, which are the angular velocity and linear acceleration.
+
 
     Observation Space
     -----------------
     Each agent observes the cells in their local area, as well as their current speed,
     their destination location, whether they've reached their destination, and whether
-    they've crashed. The size of the local area observed is controlled by the `obs_dims`
-    parameter (default = `(3, 1, 1)`, 3 cells in front, one cell behind, and 1 cell each
-    side, giving a observation size of 5x3). For each cell in the observed area the
+    they've crashed.
+    The local area is observed by a series of 'n_lines' lines starting at the agent
+    which extend for a distance of `obs_dim`. For each cell in the observed area the
     agent observes whether the cell contains a `VEHICLE=0`, `WALL=1`, `EMPTY=2`, or it's
     `DESTINATION=3`.
 
@@ -143,13 +142,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
     Actions are deterministic and movement is determined by direction the vehicle is
     facing and it's speed:
 
-    - Speed=0 (REVERSE) - vehicle moves one cell in the opposite direction to which it
-        is facing
-    - Speed=1 (STOPPED) - vehicle remains in same cell
-    - Speed=2 (FORWARD_SLOW) - vehicle move one cell in facing direction
-    - Speed=3 (FORWARD_FAST) - vehicle moves two cells in facing direction
-
-    Accelerating increases speed by 1, while deceleration decreased speed by 1. If the
+    Accelerating increases speed, while deceleration decreased speed. If the
     vehicle will hit a wall or another vehicle when moving from one cell to another then
     it remains in it's current cell and it's crashed state variable is updated
     appropriately.
@@ -176,9 +169,10 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
          the supported grids, or a custom :class:`DrivingGrid` object
          (default = `"14x14RoundAbout"`).
     - `num_agents` - the number of agents in the environment (default = `2`).
-    - `obs_dim` - the local observation dimensions, specifying how many cells in front,
-         behind, and to each side the agent observes (default = `(3, 1, 1)`, resulting
-         in the agent observing a 5x3 area: 3 in front, 1 behind, 1 to each side.)
+    - `obs_dim` - the local observation distance, specifying how the distance which an
+         agent can observe  (default = `3`).
+    - `n_lines` - the number of lines eminating from the agent. The agent will observe
+         at `n` equidistance intervals over `[0, 2*pi]` (default = `10`).
     - `obstacle_collisions` -  whether running into a wall results in the agent's
          vehicle crashing and thus the agent reaching a terminal state. This can make
          the problem significantly harder (default = "False").
@@ -201,12 +195,12 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
     | `14x14RoundAbout` | 4                    | 14x14     |
 
 
-    For example to use the Driving environment with the `7x7RoundAbout` grid and 2
-    agents, you would use:
+    For example to use the DrivingContinuous environment with the `7x7RoundAbout` grid
+    and 2 agents, you would use:
 
     ```python
     import posggym
-    env = posggym.make('Driving-v0', grid="7x7RoundAbout", num_agents=2)
+    env = posggym.make('DrivingContinuous-v0', grid="7x7RoundAbout", num_agents=2)
     ```
 
     Version History
@@ -233,12 +227,13 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
         self,
         grid: Union[str, "DrivingGrid"] = "7x7RoundAbout",
         num_agents: int = 2,
-        obs_dim: Tuple[int, int, int] = (3, 1, 1),
+        obs_dim: float = 3.0,
+        n_lines: int = 10,
         obstacle_collisions: bool = False,
         render_mode: Optional[str] = None,
     ):
         super().__init__(
-            DrivingModel(grid, num_agents, obs_dim, obstacle_collisions),
+            DrivingModel(grid, num_agents, obs_dim, n_lines, obstacle_collisions),
             render_mode=render_mode,
         )
         self._obs_dim = obs_dim
@@ -306,21 +301,29 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
                 for i in range(len(self._state))
             ]
         )
-        num_agents = len(vehicles) * 2
+        num_agents = len(vehicles)
 
-        sizes = [model.grid.agent_size] * (num_agents)
+        sizes = [model.grid.agent_size] * (num_agents * 2)
 
-        holonomic = [True] * len(vehicles) + [False] * len(vehicles)
-        alpha = [128] * len(vehicles) + [255] * len(vehicles)
+        holonomic = [True] * num_agents + [False] * num_agents
+        alpha = [128] * num_agents + [255] * num_agents
 
         self._renderer.clear_render()
         self._renderer.draw_arena()
+
+        lines = {str(i): self._last_obs[str(i)][0] for i in range(num_agents)}
+        coords = tuple(
+            single_item_to_position(self._state[i].coord) for i in range(num_agents)
+        )
+        self._renderer.render_lines(lines, coords)
+
         self._renderer.draw_agents(
             dest + vehicles,
             sizes=sizes,
             is_holonomic=holonomic,
             alpha=alpha,
         )
+
         self._renderer.draw_blocks(model.grid.block_coords)
         return self._renderer.render()
 
@@ -339,7 +342,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         the grid environment for the model scenario
     num_agents : int
         the number of agents in the model scenario
-    obs_dims : (int, int, int)
+    obs_dims : float
         number of cells in front, behind, and to the side that each agent
         can observe
     obstacle_collisions : bool
@@ -358,7 +361,8 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         self,
         grid: Union[str, "DrivingGrid"],
         num_agents: int,
-        obs_dim: Tuple[int, int, int],
+        obs_dim: float,
+        n_lines: int,
         obstacle_collisions: bool,
     ):
         if isinstance(grid, str):
@@ -382,9 +386,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 f"{grid.supported_num_agents}."
             )
 
-        assert obs_dim[0] > 0 and obs_dim[1] >= 0 and obs_dim[2] >= 0
         self._grid = grid
-        self._obs_front, self._obs_back, self._obs_side = obs_dim
         self._obstacle_collisions = obstacle_collisions
 
         def _coord_space():
@@ -429,8 +431,8 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             )
             for i in self.possible_agents
         }
-        self.n_lines = 4
-        self.obs_distance = 1
+        self.n_lines = n_lines
+        self.obs_distance = obs_dim
 
         cell_obs_space = [spaces.Discrete(4), spaces.Box(0, self.obs_distance)]
         agent_obs = spaces.Tuple(sum([cell_obs_space for i in range(self.n_lines)], []))
@@ -740,7 +742,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         elif idx is not None:
             collision = CollisionType.VEHICLE
             hit_vehicle_coord = vehicle_coords[idx]
-            # next_coord = curr_coord
+            next_coord = curr_coord
 
         curr_coord = next_coord
 
@@ -782,7 +784,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 self.obs_distance,
                 angle,
                 other_agents=[dest_coord] + list(vehicle_coords),
-                skip_id=int(agent_idx),
+                skip_id=int(agent_idx) + 1,
             )
 
             if closest_agent_index is None:

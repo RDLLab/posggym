@@ -76,7 +76,8 @@ register(
     kwargs={
         "grid": "14x14RoundAbout",
         "num_agents": 2,
-        "obs_dim": (3, 1, 1),
+        "obs_dim": 3.0,
+        "n_lines": 10,
         "obstacle_collisions": False,
     },
 )
