@@ -43,11 +43,11 @@ class VehicleState(NamedTuple):
     """The state of a vehicle in the Driving Environment."""
 
     coord: np.ndarray
-    speed: float
+    speed: np.ndarray
     dest_coord: np.ndarray
     dest_reached: int
     crashed: int
-    min_dest_dist: float
+    min_dest_dist: np.ndarray
 
 
 DState = Tuple[VehicleState, ...]
@@ -224,7 +224,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
     """
 
     metadata = {
-        "render_modes": ["human", "ansi", "rgb_array", "rgb_array_dict"],
+        "render_modes": ["human"],
         "render_fps": 15,
     }
 
@@ -384,8 +384,8 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                     (
                         _coord_space(),
                         spaces.Box(
-                            low=np.array([-1], dtype=np.float32),
-                            high=np.array([1], dtype=np.float32),
+                            low=np.array([-MAX_SPEED], dtype=np.float32),
+                            high=np.array([MAX_SPEED], dtype=np.float32),
                         ),
                         _coord_space(),  # destination coord
                         spaces.Discrete(2),  # destination reached
@@ -417,8 +417,6 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         cell_obs_space = [spaces.Discrete(4), spaces.Box(0, self.obs_distance)]
         agent_obs = spaces.Tuple(sum([cell_obs_space for i in range(self.n_lines)], []))
 
-        self.max_speed = 10
-
         # obs_depth = self._obs_front + self._obs_back + 1
         # obs_width = (2 * self._obs_side) + 1
         self.observation_spaces = {
@@ -426,9 +424,9 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 (
                     agent_obs,
                     spaces.Box(
-                        low=np.array([-self.max_speed], dtype=np.float32),
-                        high=np.array([self.max_speed], dtype=np.float32),
-                    ),
+                        low=np.array([-MAX_SPEED], dtype=np.float32),
+                        high=np.array([MAX_SPEED], dtype=np.float32),
+                    ),  # speed
                     _coord_space(),  # dest coord,
                     spaces.Discrete(2),  # dest reached
                     spaces.Discrete(2),  # crashed
@@ -485,11 +483,11 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
             state_i = VehicleState(
                 coord=position_to_array([start_coord]),
-                speed=INIT_SPEED,
+                speed=np.array([INIT_SPEED], dtype=np.float32),
                 dest_coord=position_to_array([dest_coord]),
                 dest_reached=int(False),
                 crashed=int(False),
-                min_dest_dist=dest_dist,
+                min_dest_dist=np.array([dest_dist], dtype=np.float32),
             )
             state.append(state_i)
         return tuple(state)
@@ -544,11 +542,11 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
             state_i = VehicleState(
                 coord=position_to_array([start_coord]),
-                speed=INIT_SPEED,
+                speed=np.array([INIT_SPEED], dtype=np.float32),
                 dest_coord=position_to_array([dest_coord]),
                 dest_reached=int(False),
                 crashed=int(False),
-                min_dest_dist=dest_dist,
+                min_dest_dist=np.array([dest_dist], dtype=np.float32),
             )
             state.append(state_i)
 
@@ -612,7 +610,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 continue
 
             vehicle_coords.remove(single_item_to_position(state_i.coord))
-            next_speed = self._get_next_speed(action_i[1], state_i.speed)
+            next_speed = self._get_next_speed(action_i[1], state_i.speed[0])
 
             next_coord, collision_type, hit_vehicle = self._get_next_coord(
                 single_item_to_position(state_i.coord),
@@ -621,7 +619,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 list(vehicle_coords),
             )
             min_dest_dist = min(
-                state_i.min_dest_dist,
+                state_i.min_dest_dist[0],
                 self.grid.get_shortest_path_distance(
                     next_coord, single_item_to_position(state_i.dest_coord)
                 ),
@@ -653,13 +651,15 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
             next_state[idx] = VehicleState(
                 coord=position_to_array([next_coord]),
-                speed=next_speed,
+                speed=np.array([next_speed], dtype=np.float32),
                 dest_coord=state_i.dest_coord,
-                dest_reached=self.grid.agents_collide(
-                    next_coord, single_item_to_position(state_i.dest_coord)
+                dest_reached=int(
+                    self.grid.agents_collide(
+                        next_coord, single_item_to_position(state_i.dest_coord)
+                    )
                 ),
                 crashed=int(crashed),
-                min_dest_dist=min_dest_dist,
+                min_dest_dist=np.array([min_dest_dist], dtype=np.float32),
             )
 
             vehicle_coords.add(next_coord)
@@ -687,11 +687,11 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
         new_vs_i = VehicleState(
             coord=position_to_array([new_coord]),
-            speed=INIT_SPEED,
+            speed=np.array([INIT_SPEED], dtype=np.float32),
             dest_coord=vs_i.dest_coord,
             dest_reached=int(False),
             crashed=int(False),
-            min_dest_dist=min_dest_dist,
+            min_dest_dist=np.array([min_dest_dist], dtype=np.float32),
         )
         return new_vs_i
 
@@ -739,7 +739,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             )
             obs[i] = (
                 local_cell_obs,
-                np.array([state[idx].speed], dtype=np.float32),
+                state[idx].speed,
                 state[idx].dest_coord,
                 state[idx].dest_reached,
                 state[idx].crashed,
@@ -801,7 +801,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             else:
                 r_i = self.R_STEP_COST
 
-            progress = state[idx].min_dest_dist - next_state[idx].min_dest_dist
+            progress = (state[idx].min_dest_dist - next_state[idx].min_dest_dist)[0]
             r_i += max(0, progress) * self.R_PROGRESS
 
             if (
