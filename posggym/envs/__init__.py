@@ -68,6 +68,19 @@ register(
     },
 )
 
+# Driving
+register(
+    id="DrivingContinuous-v0",
+    entry_point="posggym.envs.continuous.driving:DrivingEnv",
+    max_episode_steps=5000,
+    kwargs={
+        "grid": "14x14RoundAbout",
+        "num_agents": 2,
+        "obs_dim": 3.0,
+        "n_lines": 10,
+        "obstacle_collisions": False,
+    },
+)
 
 # Grid World
 # -------------------------------------------

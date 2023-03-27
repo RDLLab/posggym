@@ -44,6 +44,7 @@ from posggym.envs.continuous.core import (
     array_to_position,
 )
 from posggym.utils import seeding
+from posggym import logger
 
 
 EMPTY = 0
@@ -221,8 +222,8 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
     """
 
     metadata = {
-        "render_modes": ["human"],
-        "render_fps": 30,
+        "render_modes": ["human", "rgb_array"],
+        "render_fps": 15,
     }
 
     def __init__(
@@ -259,47 +260,68 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
         self.render_mode = render_mode
 
     def render(self):
-        if self.render_mode == "human":
-            import posggym.envs.continuous.render as render_lib
+        if self.render_mode is None:
+            assert self.spec is not None
+            logger.warn(
+                "You are calling render method without specifying any render mode. "
+                "You can specify the render_mode at initialization, "
+                f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
+            )
+            return
+        if self.render_mode in ("human", "rgb_array"):
+            return self._render_img()
+        else:
+            logger.warn(
+                "You are calling render method on an invalid render mode"
+                'Continuous environments currently only support "human" or'
+                '"rgb_array" render modes.'
+                "You can specify the render_mode at initialization, "
+                f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
+            )
+            return
 
-            model: PPModel = self.model  # type: ignore
+    def _render_img(self):
+        import posggym.envs.continuous.render as render_lib
 
-            if self._renderer is None:
-                self._renderer = render_lib.GWContinuousRender(
-                    self.render_mode,
-                    env_name="PredatorPreyContinuous",
-                    domain_max=model.grid.width,
-                    render_fps=self.metadata["render_fps"],
-                    num_colors=4,
-                    arena_size=200,
-                )
+        model: PPModel = self.model  # type: ignore
 
-            pred = array_to_position(self._state.predator_coords)
-            prey = array_to_position(self._state.prey_coords)
-            colored_pred = tuple(t + (0,) for t in pred)
-            colored_prey = tuple(
-                t + (1 + caught,) for t, caught in zip(prey, self.state.prey_caught)
+        if self._renderer is None:
+            self._renderer = render_lib.GWContinuousRender(
+                self.render_mode,
+                env_name="PredatorPreyContinuous",
+                domain_max=model.grid.width,
+                render_fps=self.metadata["render_fps"],
+                num_colors=4,
+                arena_size=200,
             )
 
-            num_agents = len(colored_prey + colored_pred)
+        pred = array_to_position(self._state.predator_coords)
+        prey = array_to_position(self._state.prey_coords)
+        colored_pred = tuple(t + (0,) for t in pred)
+        colored_prey = tuple(
+            t + (1 + caught,) for t, caught in zip(prey, self.state.prey_caught)
+        )
 
-            sizes = [model.grid.agent_size] * num_agents
+        num_agents = len(colored_prey + colored_pred)
 
-            holonomic = [model.use_holonomic_prey] * len(colored_prey) + [
-                model.use_holonomic_predator
-            ] * len(colored_pred)
+        sizes = [model.grid.agent_size] * num_agents
 
-            self._renderer.clear_render()
-            self._renderer.draw_arena()
-            self._renderer.render_lines(self._last_obs, self._state.predator_coords)
-            self._renderer.draw_agents(
-                colored_prey + colored_pred,
-                sizes=sizes,
-                is_holonomic=holonomic,
-                alpha=255,
-            )
-            self._renderer.draw_blocks(model.grid.block_coords)
-            self._renderer.render()
+        holonomic = [model.use_holonomic_prey] * len(colored_prey) + [
+            model.use_holonomic_predator
+        ] * len(colored_pred)
+
+        self._renderer.clear_render()
+        self._renderer.draw_arena()
+        self._renderer.render_lines(self._last_obs, self._state.predator_coords)
+        self._renderer.draw_agents(
+            colored_prey + colored_pred,
+            sizes=sizes,
+            is_holonomic=holonomic,
+            alpha=[255] * num_agents,
+        )
+        self._renderer.draw_blocks(model.grid.block_coords)
+
+        return self._renderer.render()
 
     def close(self) -> None:
         pass
