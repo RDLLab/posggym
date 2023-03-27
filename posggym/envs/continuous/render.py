@@ -4,6 +4,7 @@ import math
 from posggym.error import DependencyNotInstalled
 from posggym.model import AgentID
 from posggym.envs.continuous.core import ArenaTypes, Object
+import numpy as np
 
 ColorTuple = Union[Tuple[int, int, int], Tuple[int, int, int, int]]
 
@@ -30,6 +31,7 @@ class GWContinuousRender:
         domain_max: float = 1.0,
         num_colors: int = 10,
     ):
+        self.render_mode = render_mode
         # Initialize Pygame
         pygame.init()
 
@@ -218,8 +220,13 @@ class GWContinuousRender:
     def clear_render(self):
         self.screen.fill(self.WHITE)
 
-    def render(self):
-        pygame.event.pump()
-        pygame.display.update()
-        self.clock.tick(self.render_fps)
-        return None
+    def render(self) -> Optional[np.ndarray]:
+        if self.render_mode == "human":
+            pygame.event.pump()
+            pygame.display.update()
+            self.clock.tick(self.render_fps)
+            return None
+
+        return np.transpose(
+            np.array(pygame.surfarray.pixels3d(self.screen)), axes=(1, 0, 2)
+        )

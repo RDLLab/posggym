@@ -27,6 +27,7 @@ from posggym.envs.continuous.core import (
     clip_actions,
 )
 from posggym.utils import seeding
+from posggym import logger
 
 
 # State = (e_coord, e_dir, p_coord, p_dir, e_0_coord, p_0_coord, e_goal_coord)
@@ -174,7 +175,7 @@ class PursuitEvasionEnv(DefaultEnv):
     Available variants
     ------------------
 
-    The PursuitEvasionContinous environment comes with a number of pre-built grid
+    The PursuitEvasionContinuous environment comes with a number of pre-built grid
     layouts which can be passed as an argument to `posggym.make`, to create
     different grids.
 
@@ -184,14 +185,14 @@ class PursuitEvasionEnv(DefaultEnv):
     | `16x16`           | 16x16     |
     | `32x32`           | 32x32     |
 
-    For example to use the PursuitEvasionContinous environment with the `32x32` grid
+    For example to use the PursuitEvasionContinuous environment with the `32x32` grid
     layout, and episode step limit of 200, and the default values for the other
     parameters you would use:
 
     ```python
     import posggym
     env = posggym.make(
-        'PursuitEvasionContinous-v0',
+        'PursuitEvasionContinuous-v0',
         max_episode_steps=200,
         grid="32x32",
     )
@@ -211,7 +212,7 @@ class PursuitEvasionEnv(DefaultEnv):
     """
 
     metadata = {
-        "render_modes": ["human"],
+        "render_modes": ["human", "rgb_array"],
         "render_fps": 15,
     }
 
@@ -256,50 +257,67 @@ class PursuitEvasionEnv(DefaultEnv):
         return super().reset(seed=seed, options=options)
 
     def render(self):
-        return self._render_img()
+        if self.render_mode is None:
+            assert self.spec is not None
+            logger.warn(
+                "You are calling render method without specifying any render mode. "
+                "You can specify the render_mode at initialization, "
+                f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
+            )
+            return
+        if self.render_mode in ("human", "rgb_array"):
+            return self._render_img()
+        else:
+            logger.warn(
+                "You are calling render method on an invalid render mode"
+                'Continuous environments currently only support "human" or'
+                '"rgb_array" render modes.'
+                "You can specify the render_mode at initialization, "
+                f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
+            )
+            return
 
     def _render_img(self):
-        if self.render_mode == "human":
-            import posggym.envs.continuous.render as render_lib
+        import posggym.envs.continuous.render as render_lib
 
-            model: PursuitEvasionModel = self.model  # type: ignore
+        model: PursuitEvasionModel = self.model  # type: ignore
 
-            if self._renderer is None:
-                self._renderer = render_lib.GWContinuousRender(
-                    self.render_mode,
-                    env_name="PursuitEvasionContinuous",
-                    domain_max=model.grid.width,
-                    render_fps=self.metadata["render_fps"],
-                    num_colors=4,
-                    arena_size=200,
-                )
-
-            pred = single_item_to_position(self._state.evader_coord)
-            prey = single_item_to_position(self._state.pursuer_coord)
-            goal = single_item_to_position(self._state.evader_goal_coord)
-            colored_pred = (pred + (0,),)
-            colored_prey = (prey + (1,),)
-            colored_goal = (goal + (2,),)
-
-            num_agents = 3
-
-            sizes = [model.grid.agent_size] * num_agents
-
-            holonomic = [False, False, True]
-
-            self._renderer.clear_render()
-            self._renderer.draw_arena()
-
-            # self._renderer.render_lines(self._last_obs, self._state.predator_coords)
-
-            self._renderer.draw_agents(
-                colored_prey + colored_pred + colored_goal,
-                sizes=sizes,
-                is_holonomic=holonomic,
-                alpha=[255] * num_agents,
+        if self._renderer is None:
+            self._renderer = render_lib.GWContinuousRender(
+                self.render_mode,
+                env_name="PursuitEvasionContinuous",
+                domain_max=model.grid.width,
+                render_fps=self.metadata["render_fps"],
+                num_colors=4,
+                arena_size=200,
             )
-            self._renderer.draw_blocks(model.grid.block_coords)
-            self._renderer.render()
+
+        pred = single_item_to_position(self._state.evader_coord)
+        prey = single_item_to_position(self._state.pursuer_coord)
+        goal = single_item_to_position(self._state.evader_goal_coord)
+        colored_pred = (pred + (0,),)
+        colored_prey = (prey + (1,),)
+        colored_goal = (goal + (2,),)
+
+        num_agents = 3
+
+        sizes = [model.grid.agent_size] * num_agents
+
+        holonomic = [False, False, True]
+
+        self._renderer.clear_render()
+        self._renderer.draw_arena()
+
+        # self._renderer.render_lines(self._last_obs, self._state.predator_coords)
+
+        self._renderer.draw_agents(
+            colored_prey + colored_pred + colored_goal,
+            sizes=sizes,
+            is_holonomic=holonomic,
+            alpha=[255] * num_agents,
+        )
+        self._renderer.draw_blocks(model.grid.block_coords)
+        return self._renderer.render()
 
     def close(self) -> None:
         if self.renderer is not None:

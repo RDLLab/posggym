@@ -30,6 +30,7 @@ import posggym.model as M
 from posggym.core import DefaultEnv
 from posggym.envs.continuous.core import CircularContinuousWorld, Position, clip_actions
 from posggym.utils import seeding
+from posggym import logger
 
 
 class DTCState(NamedTuple):
@@ -157,8 +158,8 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
     """
 
     metadata = {
-        "render_modes": ["human"],
-        "render_fps": 4,
+        "render_modes": ["human", "rgb_array"],
+        "render_fps": 15,
     }
 
     def __init__(
@@ -190,31 +191,51 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
         self.render_mode = render_mode
 
     def render(self):
-        if self.render_mode == "human":
-            import posggym.envs.continuous.render as render_lib
+        if self.render_mode is None:
+            assert self.spec is not None
+            logger.warn(
+                "You are calling render method without specifying any render mode. "
+                "You can specify the render_mode at initialization, "
+                f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
+            )
+            return
+        if self.render_mode in ("human", "rgb_array"):
+            return self._render_img()
+        else:
+            logger.warn(
+                "You are calling render method on an invalid render mode"
+                'Continuous environments currently only support "human" or'
+                '"rgb_array" render modes.'
+                "You can specify the render_mode at initialization, "
+                f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
+            )
+            return
 
-            if self._renderer is None:
-                self._renderer = render_lib.GWContinuousRender(
-                    render_mode=self.render_mode,
-                    domain_max=(self.model.r_arena),
-                    domain_min=(-self.model.r_arena),
-                    arena_size=200,
-                    num_colors=3,
-                    render_fps=self.metadata["render_fps"],
-                    arena_type=render_lib.ArenaTypes.Circle,
-                    env_name="Multi-agent pursuit evasion",
-                )
+    def _render_img(self):
+        import posggym.envs.continuous.render as render_lib
 
-            colored_pred = tuple(t + (0,) for t in self._state.pursuer_coords)
-            colored_target = (self._state.target_coords + (1,),)
+        if self._renderer is None:
+            self._renderer = render_lib.GWContinuousRender(
+                render_mode=self.render_mode,
+                domain_max=(self.model.r_arena),
+                domain_min=(-self.model.r_arena),
+                arena_size=200,
+                num_colors=3,
+                render_fps=self.metadata["render_fps"],
+                arena_type=render_lib.ArenaTypes.Circle,
+                env_name="Multi-agent pursuit evasion",
+            )
 
-            is_holomic = [True] + ([False] * len(self._state.pursuer_coords))
-            size = [self.model.cap_rad] + [None] * len(self._state.pursuer_coords)
+        colored_pred = tuple(t + (0,) for t in self._state.pursuer_coords)
+        colored_target = (self._state.target_coords + (1,),)
 
-            self._renderer.clear_render()
-            self._renderer.draw_arena()
-            self._renderer.draw_agents(colored_target + colored_pred, is_holomic, size)
-            self._renderer.render()
+        is_holomic = [True] + ([False] * len(self._state.pursuer_coords))
+        size = [self.model.cap_rad] + [30] * len(self._state.pursuer_coords)
+
+        self._renderer.clear_render()
+        self._renderer.draw_arena()
+        self._renderer.draw_agents(colored_target + colored_pred, is_holomic, size)
+        return self._renderer.render()
 
 
 class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
@@ -319,7 +340,6 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
 
         self.grid = CircularContinuousWorld(radius=self.r_arena, block_coords=None)
 
-        # Not sure what this means??
         self.is_symmetric = True
 
     def get_agents(self, state: DTCState) -> List[M.AgentID]:

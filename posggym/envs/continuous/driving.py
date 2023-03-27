@@ -29,6 +29,7 @@ from posggym.envs.continuous.core import (
     array_to_position,
 )
 from posggym.utils import seeding
+from posggym import logger
 
 
 class CollisionType(enum.IntEnum):
@@ -224,7 +225,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
     """
 
     metadata = {
-        "render_modes": ["human"],
+        "render_modes": ["human", "rgb_array"],
         "render_fps": 15,
     }
 
@@ -245,66 +246,83 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
         self._agent_imgs = None
 
     def render(self):
-        return self._render_img()
+        if self.render_mode is None:
+            assert self.spec is not None
+            logger.warn(
+                "You are calling render method without specifying any render mode. "
+                "You can specify the render_mode at initialization, "
+                f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
+            )
+            return
+        if self.render_mode in ("human", "rgb_array"):
+            return self._render_img()
+        else:
+            logger.warn(
+                "You are calling render method on an invalid render mode"
+                'Continuous environments currently only support "human" or'
+                '"rgb_array" render modes.'
+                "You can specify the render_mode at initialization, "
+                f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
+            )
+            return
 
     def _render_img(self):
-        if self.render_mode == "human":
-            import posggym.envs.continuous.render as render_lib
+        import posggym.envs.continuous.render as render_lib
 
-            model: DrivingModel = self.model  # type: ignore
+        model: DrivingModel = self.model  # type: ignore
 
-            if self._renderer is None:
-                self._renderer = render_lib.GWContinuousRender(
-                    self.render_mode,
-                    env_name="PredatorPreyContinuous",
-                    domain_max=model.grid.width,
-                    render_fps=self.metadata["render_fps"],
-                    num_colors=len(self._state) + 2,
-                    arena_size=200,
-                )
+        if self._renderer is None:
+            self._renderer = render_lib.GWContinuousRender(
+                self.render_mode,
+                env_name="PredatorPreyContinuous",
+                domain_max=model.grid.width,
+                render_fps=self.metadata["render_fps"],
+                num_colors=len(self._state) + 2,
+                arena_size=200,
+            )
 
-            color = [
-                0
-                if self._state[i].dest_reached
-                else (1 if self._state[i].crashed else i + 2)
+        color = [
+            0
+            if self._state[i].dest_reached
+            else (1 if self._state[i].crashed else i + 2)
+            for i in range(len(self._state))
+        ]
+
+        vehicles = tuple(
+            [
+                (single_item_to_position(self._state[i].coord) + (color[i],))
                 for i in range(len(self._state))
             ]
+        )
 
-            vehicles = tuple(
-                [
-                    (single_item_to_position(self._state[i].coord) + (color[i],))
-                    for i in range(len(self._state))
-                ]
-            )
+        destination_color = [i + 2 for i in range(len(self._state))]
 
-            destination_color = [i + 2 for i in range(len(self._state))]
+        dest = tuple(
+            [
+                (
+                    single_item_to_position(self._state[i].dest_coord)
+                    + (destination_color[i],)
+                )
+                for i in range(len(self._state))
+            ]
+        )
+        num_agents = len(vehicles) * 2
 
-            dest = tuple(
-                [
-                    (
-                        single_item_to_position(self._state[i].dest_coord)
-                        + (destination_color[i],)
-                    )
-                    for i in range(len(self._state))
-                ]
-            )
-            num_agents = len(vehicles) * 2
+        sizes = [model.grid.agent_size] * (num_agents)
 
-            sizes = [model.grid.agent_size] * (num_agents)
+        holonomic = [True] * len(vehicles) + [False] * len(vehicles)
+        alpha = [128] * len(vehicles) + [255] * len(vehicles)
 
-            holonomic = [True] * len(vehicles) + [False] * len(vehicles)
-            alpha = [128] * len(vehicles) + [255] * len(vehicles)
-
-            self._renderer.clear_render()
-            self._renderer.draw_arena()
-            self._renderer.draw_agents(
-                dest + vehicles,
-                sizes=sizes,
-                is_holonomic=holonomic,
-                alpha=alpha,
-            )
-            self._renderer.draw_blocks(model.grid.block_coords)
-            self._renderer.render()
+        self._renderer.clear_render()
+        self._renderer.draw_arena()
+        self._renderer.draw_agents(
+            dest + vehicles,
+            sizes=sizes,
+            is_holonomic=holonomic,
+            alpha=alpha,
+        )
+        self._renderer.draw_blocks(model.grid.block_coords)
+        return self._renderer.render()
 
     def close(self) -> None:
         if self._renderer is not None:
