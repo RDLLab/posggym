@@ -17,7 +17,6 @@ Reference
 
 """
 import math
-import warnings
 from itertools import product
 from typing import Dict, List, NamedTuple, Optional, Set, Tuple, Union, cast
 
@@ -27,10 +26,16 @@ from gymnasium import spaces
 from pymunk import Vec2d
 
 import posggym.model as M
-from posggym.core import DefaultEnv
-from posggym.envs.continuous.core import Coord, Object, Position, clip_actions
-from posggym.utils import seeding
 from posggym import logger
+from posggym.core import DefaultEnv
+from posggym.envs.continuous.core2 import (
+    CircleEntity,
+    PMBodyState,
+    Position,
+    SquareContinuousWorld,
+    clip_actions,
+)
+from posggym.utils import seeding
 
 
 class PPState(NamedTuple):
@@ -39,20 +44,6 @@ class PPState(NamedTuple):
     predator_states: np.ndarray
     prey_states: np.ndarray
     prey_caught: np.ndarray
-
-
-NUM_STATE_FEATURES = 6
-
-
-class _PMBodyState(NamedTuple):
-    """State of a Pymunk Body."""
-
-    x: float
-    y: float
-    angle: float  # in radians
-    vx: float
-    vy: float
-    vangle: float  # in radians/s
 
 
 # Obs vector order
@@ -268,7 +259,7 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
         self.clock = None
         self.screen_size = 600
         self.draw_options = None
-        self.pm_space_and_bodies = None
+        self.world = None
 
     def render(self):
         if self.render_mode is None:
@@ -318,36 +309,27 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
                 self.draw_options.transform = pymunk.Transform.scaling(
                     self.screen_size // model.world.size
                 )
-                # make collision lines transparent
+                # don't render collision lines
                 self.draw_options.flags = (
                     pygame_util.DrawOptions.DRAW_SHAPES
                     | pygame_util.DrawOptions.DRAW_CONSTRAINTS
                 )
 
-            if self.pm_space_and_bodies is None:
-                self.pm_space_and_bodies = model.get_populated_pm_space(
-                    model.world.size,
-                    model.num_predators,
-                    model.num_prey,
-                    model.world.blocks,
-                    model.world.agent_radius,
-                )
+            if self.world is None:
+                # get copy of model world, so we can use it for rendering without
+                # affecting the original
+                self.world = model.world.copy()
 
-            space, predators, preys = self.pm_space_and_bodies
+            for i, p_state in enumerate(state.predator_states):
+                self.world.set_entity_state(f"pred_{i}", p_state)
 
-            for (body, _), p_state in zip(predators, state.predator_states):
-                model.set_body_state(body, p_state)
-
-            for (body, shape), p_state, p_caught in zip(
-                preys, state.prey_states, state.prey_caught
-            ):
-                model.set_body_state(body, p_state)
-                if p_caught:
-                    shape.color = (0, 255, 0, 255)
+            for i, p_state in enumerate(state.prey_states):
+                self.world.set_entity_state(f"prey_{i}", p_state)
 
             # Need to do this for space to update with changes
-            space.step(0.000001)
+            self.world.space.step(0.0001)
 
+            # reset screen
             self.screen.fill(pygame.Color("white"))
 
             # draw sensor lines
@@ -369,8 +351,7 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
                         self.screen, pygame.Color("red"), scaled_start, scaled_end
                     )
 
-            # self.screen.fill(pygame.Color("white"))
-            space.debug_draw(self.draw_options)
+            self.world.space.debug_draw(self.draw_options)
             pygame.display.update()
             self.clock.tick(self.metadata["render_fps"])
 
@@ -411,115 +392,8 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
     # distance predator can be from prey to be considered to be within catching range
     COLLISION_DIST = 1.2
 
-    # Green
     PREDATOR_COLOR = (55, 155, 205, 255)  # Blueish
     PREY_COLOR = (110, 55, 155, 255)  # purpleish
-    BLOCK_COLOR = (0, 0, 0, 255)  # Black
-
-    @staticmethod
-    def get_body_state(body: pymunk.Body) -> _PMBodyState:
-        """Get state of pymunk Body."""
-        x, y = body.position
-        vx, vy = body.velocity
-        return _PMBodyState(x, y, body.angle, vx, vy, body.angular_velocity)
-
-    @staticmethod
-    def set_body_state(body: pymunk.Body, state: Union[_PMBodyState, np.ndarray]):
-        """Set the state of a pymunk Body."""
-        body.position = Vec2d(state[0], state[1])
-        body.angle = state[2]
-        body.velocity = Vec2d(state[3], state[4])
-        body.angular_velocity = state[5]
-
-    @staticmethod
-    def add_walls_to_space(space: pymunk.Space, size: int, thickness: float = 0.1):
-        """Add walls to pymunk space."""
-        for start, end in [
-            ((0, thickness), (0, size)),  # bottom
-            ((thickness, size), (size, size)),  # top
-            ((size - thickness, size), (size - thickness, thickness)),  # right
-            ((thickness, thickness), (size, thickness)),  # left
-        ]:
-            wall = pymunk.Segment(space.static_body, start, end, thickness)
-            wall.friction = 1.0
-            wall.collision_type = 1
-            wall.color = PPModel.BLOCK_COLOR
-            space.add(wall)
-
-    @staticmethod
-    def add_blocks_to_space(space: pymunk.Space, blocks: List[Object]):
-        """Add blocks to pymunk space."""
-        for pos, radius in blocks:
-            body = pymunk.Body(body_type=pymunk.Body.STATIC)
-            shape = pymunk.Circle(body, radius)
-            body.position = Vec2d(pos[0], pos[1])
-            shape.elasticity = 0.0  # no bouncing
-            shape.color = PPModel.BLOCK_COLOR
-            space.add(body, shape)
-
-    @staticmethod
-    def get_predators_bodies(
-        num: int, radius: float
-    ) -> List[Tuple[pymunk.Body, pymunk.Circle]]:
-        """Get predator pymunk Body instances."""
-        mass = 1.0
-        inertia = pymunk.moment_for_circle(mass, 0.0, radius)
-        predators = []
-        for i in range(num):
-            body = pymunk.Body(mass, inertia)
-            shape = pymunk.Circle(body, radius)
-            shape.elasticity = 0.0  # no bouncing
-            shape.color = PPModel.PREDATOR_COLOR  # needed for rendering
-            predators.append((body, shape))
-        return predators
-
-    @staticmethod
-    def get_prey_bodies(
-        num: int, radius: float
-    ) -> List[Tuple[pymunk.Body, pymunk.Circle]]:
-        """Get prey pymunk Body instances."""
-        mass = 1.0
-        inertia = pymunk.moment_for_circle(mass, 0.0, radius)
-        preys = []
-        for i in range(num):
-            body = pymunk.Body(mass, inertia)
-            shape = pymunk.Circle(body, radius)
-            shape.elasticity = 0.0  # no bouncing
-            shape.color = PPModel.PREY_COLOR  # needed for rendering
-            preys.append((body, shape))
-        return preys
-
-    @staticmethod
-    def get_populated_pm_space(
-        size: int,
-        num_predators: int,
-        num_prey: int,
-        blocks: List[Object],
-        agent_radius: float,
-        border_thickness: float = 0.1,
-    ) -> Tuple[
-        pymunk.Space,
-        List[Tuple[pymunk.Body, pymunk.Circle]],
-        List[Tuple[pymunk.Body, pymunk.Circle]],
-    ]:
-        """Get pymunk Space populated with predators, prey, and obstacles.
-
-        Also return Body instances for predators and prey.
-        """
-        space = pymunk.Space()
-        space.gravity = Vec2d(0.0, 0.0)
-        PPModel.add_walls_to_space(space, size, thickness=0.1)
-        PPModel.add_blocks_to_space(space, blocks)
-
-        predators = PPModel.get_predators_bodies(num_predators, agent_radius)
-        for body, shape in predators:
-            space.add(body, shape)
-
-        preys = PPModel.get_prey_bodies(num_prey, agent_radius)
-        for body, shape in preys:
-            space.add(body, shape)
-
-        return space, predators, preys
 
     def __init__(
         self,
@@ -577,19 +451,10 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             # x, y, angle, vx, vy, vangle
             # stacked n_agents time
             # shape = (n_agents, 6)
-            low = np.array(
-                [-1, -1, -2 * math.pi, -1, -1, -2 * math.pi], dtype=np.float32
-            )
-            size = self.world.size
+            size, angle = self.world.size, 2 * math.pi
+            low = np.array([-1, -1, -angle, -1, -1, -angle], dtype=np.float32)
             high = np.array(
-                [
-                    size,
-                    size,
-                    2 * math.pi,
-                    1.0,
-                    1.0,
-                    2 * math.pi,
-                ],
+                [size, size, angle, 1.0, 1.0, angle],
                 dtype=np.float32,
             )
             return spaces.Box(
@@ -643,14 +508,12 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         # All predators are identical so env is symmetric
         self.is_symmetric = True
 
-        # 2D physics setup
-        self.space, self.predators, self.preys = self.get_populated_pm_space(
-            self.world.size,
-            self.num_predators,
-            self.num_prey,
-            self.world.blocks,
-            self.world.agent_radius,
-        )
+        # Add physical entities to the world
+        for i in range(self.num_predators):
+            self.world.add_entity(f"pred_{i}", None, color=self.PREDATOR_COLOR)
+
+        for i in range(self.num_prey):
+            self.world.add_entity(f"prey_{i}", None, color=self.PREY_COLOR)
 
     @property
     def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
@@ -669,14 +532,16 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         predator_positions = [*self.world.predator_start_positions]
         self.rng.shuffle(predator_positions)
         predator_states = np.zeros(
-            (self.num_predators, NUM_STATE_FEATURES), dtype=np.float32
+            (self.num_predators, PMBodyState.num_features()), dtype=np.float32
         )
         for i in range(self.num_predators):
             predator_states[i][:3] = predator_positions[i]
 
         prey_positions = [*self.world.prey_start_positions]
         self.rng.shuffle(prey_positions)
-        prey_states = np.zeros((self.num_prey, NUM_STATE_FEATURES), dtype=np.float32)
+        prey_states = np.zeros(
+            (self.num_prey, PMBodyState.num_features()), dtype=np.float32
+        )
         for i in range(self.num_prey):
             prey_states[i][:3] = prey_positions[i]
 
@@ -718,36 +583,42 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         # apply prey actions
         for i in range(self.num_prey):
+            self.world.set_entity_state(f"prey_{i}", state.prey_states[i])
             if state.prey_caught[i]:
                 # do nothing
                 continue
-            body, _ = self.preys[i]
-            self.set_body_state(body, state.prey_states[i])
-            body.angle = prey_move_angles[i]
-            body.velocity = self.STEP_VEL * Vec2d(1, 0).rotated(body.angle)
+            self.world.update_entity_state(
+                f"prey_{i}",
+                angle=prey_move_angles[i],
+                vel=self.STEP_VEL * Vec2d(1, 0).rotated(prey_move_angles[i]),
+            )
 
         # apply predator actions
         for i in range(self.num_predators):
-            body, _ = self.predators[i]
             action = actions[str(i)]
-            self.set_body_state(body, state.predator_states[i])
+            self.world.set_entity_state(f"pred_{i}", state.predator_states[i])
             if self.use_holonomic:
-                body.velocity = Vec2d(action[0], action[1])
-                body.angle = math.atan2(action[1], action[0])
+                angle = math.atan2(action[1], action[0])
+                vel = Vec2d(action[0], action[1])
             else:
-                body.angle += action[0]
-                body.velocity = action[1] * Vec2d(1, 0).rotated(body.angle)
+                angle = state.predator_states[i][2] + action[0]
+                vel = action[1] * Vec2d(1, 0).rotated(angle)
+            self.world.update_entity_state(f"pred_{i}", angle=angle, vel=vel)
 
         # simulate
-        for _ in range(10):
-            self.space.step(1.0 / 10)
+        self.world.simulate(1.0 / 10, 10)
 
         # extract next state
         next_pred_states = np.array(
-            [self.get_body_state(body) for body, _ in self.predators], dtype=np.float32
+            [
+                self.world.get_entity_state(f"pred_{i}")
+                for i in range(self.num_predators)
+            ],
+            dtype=np.float32,
         )
         next_prey_states = np.array(
-            [self.get_body_state(body) for body, _ in self.preys], dtype=np.float32
+            [self.world.get_entity_state(f"prey_{i}") for i in range(self.num_prey)],
+            dtype=np.float32,
         )
 
         next_prey_caught = state.prey_caught.copy()
@@ -764,6 +635,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             ):
                 next_prey_caught[i] = 1
                 next_prey_states[i] = [-1.0, -1.0, 0.0, 0.0, 0.0, 0.0]
+
         return PPState(next_pred_states, next_prey_states, next_prey_caught)
 
     def _get_prey_move_angles(self, state: PPState) -> List[float]:
@@ -823,12 +695,6 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
     def get_obs(self, state: PPState) -> Dict[M.AgentID, PPObs]:
         return {i: self._get_local_obs(i, state) for i in self.possible_agents}
-        # return {
-        #     i: np.full(
-        #         shape=(self.obs_dim,), fill_value=self.obs_dist, dtype=np.float32
-        #     )
-        #     for i in self.possible_agents
-        # }
 
     def _get_local_obs(self, agent_id: M.AgentID, state: PPState) -> np.ndarray:
         state_i = state.predator_states[int(agent_id)]
@@ -841,13 +707,13 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
                 if not state.prey_caught[i]
             ]
         )
-        prey_obs = self.world.check_collision_ray(
+        prey_obs = self.world.check_collision_circular_rays(
             pos_i,
             self.obs_dist,
             self.n_sensors,
             prey_coords,
             include_blocks=False,
-            check_walls=False,
+            check_border=False,
             use_relative_angle=True,
         )
 
@@ -858,23 +724,23 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
                 if i != int(agent_id)
             ]
         )
-        pred_obs = self.world.check_collision_ray(
+        pred_obs = self.world.check_collision_circular_rays(
             pos_i,
             self.obs_dist,
             self.n_sensors,
             pred_coords,
             include_blocks=False,
-            check_walls=False,
+            check_border=False,
             use_relative_angle=True,
         )
 
-        obstacle_obs = self.world.check_collision_ray(
+        obstacle_obs = self.world.check_collision_circular_rays(
             pos_i,
             self.obs_dist,
             self.n_sensors,
             other_agents=None,
             include_blocks=True,
-            check_walls=True,
+            check_border=True,
             use_relative_angle=True,
         )
 
@@ -915,45 +781,24 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         return rewards
 
 
-class PPWorld:
+class PPWorld(SquareContinuousWorld):
     """A continuous 2D world for the Predator-Prey Problem."""
 
     def __init__(
         self,
-        world_size: int,
-        blocks: Optional[List[Object]],
+        size: int,
+        blocks: Optional[List[CircleEntity]],
         predator_start_positions: Optional[List[Position]] = None,
         prey_start_positions: Optional[List[Position]] = None,
         predator_angles: Optional[List[float]] = None,
     ):
-        assert world_size >= 3
-        self.size = world_size
-        self.agent_radius = 0.5
-
-        # world border lines (start coords, end coords)
-        self.walls = (
-            np.array(
-                [[0, 0], [0, 0], [0, world_size], [world_size, 0]], dtype=np.float32
-            ),
-            np.array(
-                [
-                    [world_size, 0],
-                    [0, world_size],
-                    [world_size, world_size],
-                    [world_size, world_size],
-                ],
-                dtype=np.float32,
-            ),
-        )
-
-        if blocks is None:
-            blocks = []
-        self.blocks = blocks
+        assert size >= 3
+        super().__init__(size=size, blocks=blocks, agent_radius=0.5)
 
         if predator_start_positions is None:
             predator_start_positions = []
-            for col, row in product([0, world_size // 2, world_size - 1], repeat=2):
-                if col not in (0, world_size - 1) and row not in (0, world_size - 1):
+            for col, row in product([0, size // 2, size - 1], repeat=2):
+                if col not in (0, size - 1) and row not in (0, size - 1):
                     continue
                 x, y = col + self.agent_radius, row + self.agent_radius
                 invalid_pos = False
@@ -972,8 +817,8 @@ class PPWorld:
             # any predator (i.e. an agent wide gap from any predator)
             # Not very efficient, but only needs to be run once at the start
             prey_start_positions = []
-            for col, row in product(range(world_size), range(world_size)):
-                if col in (0, world_size - 1) or row in (0, world_size - 1):
+            for col, row in product(range(size), range(size)):
+                if col in (0, size - 1) or row in (0, size - 1):
                     continue
                 x, y = col + self.agent_radius, row + self.agent_radius
                 invalid_pos = False
@@ -993,240 +838,6 @@ class PPWorld:
                     prey_start_positions.append((x, y, 0.0))
 
         self.prey_start_positions = prey_start_positions
-
-    @staticmethod
-    def euclidean_dist(
-        coord1: Union[Coord, Position, np.ndarray],
-        coord2: Union[Coord, Position, np.ndarray],
-    ) -> float:
-        """Get Euclidean distance between two positions on the world."""
-        return math.sqrt((coord1[0] - coord2[0]) ** 2 + (coord1[1] - coord2[1]) ** 2)
-
-    def check_circle_line_intersection(
-        self,
-        circle_coord: np.ndarray,
-        circle_radius: float,
-        lines_start_coords: np.ndarray,
-        lines_end_coords: np.ndarray,
-    ) -> np.ndarray:
-        """Check if lines intersect circle.
-
-        `circle_coords` is the `[x, y]` coords of the center of the circle.
-        `circle_radius` is the radius of the circle.
-        `line_start_coords` are the `[x, y]` coords of the start of the lines, and
-            should have shape `(n_lines, 2)`
-        `line_start_coords` are the `[x, y]` coords of the end of the lines, and
-            should have shape `(n_lines, 2)`
-
-        Returns an array with an entry for each line. For each line the entry will be
-        the distance to intersection for that line, if the line intersects the
-        circle, otherwise returns np.nan.
-
-        """
-        # https://math.stackexchange.com/questions/275529/check-if-line-intersects-with-circles-perimeter
-        # translate into circles reference frame
-        starts = lines_start_coords - circle_coord
-        ends = lines_end_coords - circle_coord
-        v = ends - starts
-
-        a = (v**2).sum(axis=1)
-        b = 2 * (starts * v).sum(axis=1)
-        c = (starts**2).sum(axis=1) - 0.5**2
-        disc = b**2 - 4 * a * c
-        with np.errstate(invalid="ignore"):
-            # this will outpit np.nan for any negative discriminants, which is what we
-            # want, but will throw a runtime warning which we want to ignore
-            sqrtdisc = np.sqrt(disc)
-
-        t1 = (-b - sqrtdisc) / (2 * a)
-        t2 = (-b + sqrtdisc) / (2 * a)
-        t1 = np.where(((t1 >= 0.0) & (t1 <= 1.0)), t1, np.nan)
-        t2 = np.where(((t2 >= 0.0) & (t2 <= 1.0)), t2, np.nan)
-        t = np.where(t1 <= t2, t1, t2)
-
-        t = np.expand_dims(t, axis=-1)
-        return np.sqrt(((t * v) ** 2).sum(axis=1))
-
-    def check_line_line_intersection(
-        self,
-        l1_start_coords: np.ndarray,
-        l1_end_coords: np.ndarray,
-        l2_start_coords: np.ndarray,
-        l2_end_coords: np.ndarray,
-    ) -> np.ndarray:
-        """Check if lines intersect.
-
-        Checks for each line in `l1` if it intersects with any line in `l2`.
-
-        Arguments
-        ---------
-        l1_start_coords: array with shape `(n_lines1, 2)` containing the (x, y) coord
-          for the start of each of the first set of lines.
-        l1_end_coords: array with shape `(n_lines1, 2)` containing the (x, y) coord
-          for the end of each of the first set of lines.
-        l2_start_coords: array with shape `(n_lines2, 2)` containing the (x, y) coord
-          for the start of each of the second set of lines.
-        l2_end_coords: array with shape `(n_lines2, 2)` containing the (x, y) coord
-          for the end of each of the second set of lines.
-
-        Returns
-        -------
-        intersection_coords: array with shape `(n_lines1, n_lines2, 2)` containing the
-           (x, y) coords for the point of intersection between each pair of line
-           segments from `l1` and `l2`. If a pair of lines does not intersect, the
-           x and y coordinate values will be `np.nan`.
-
-        """
-        # https://stackoverflow.com/questions/3252194/numpy-and-line-intersections?noredirect=1&lq=1
-        # https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection
-        dl1 = l1_end_coords - l1_start_coords  # (n_lines1, 2)
-        dl2 = l2_end_coords - l2_start_coords  # (n_lines2, 2)
-
-        # diff between each l1 with each l2 along x and y directions
-        # (n_lines1, :, 2) - (:, n_lines2, 2) = (n_lines1, n_lines2, 2)
-        dl1l2 = l1_start_coords[:, np.newaxis, :] - l2_start_coords[np.newaxis, :, :]
-        # needed for matmul (n_lines1, 2, n_lines2)
-        dl1l2_T = dl1l2.transpose(0, 2, 1)
-        # needed for matmul (n_lines2, 2, n_lines1)
-        dl1l2_T2 = dl1l2.transpose(1, 2, 0)
-
-        # line perpendicular to each l1 line
-        dl1p = np.empty_like(dl1)  # (n_lines1, 2)
-        dl1p[:, 0] = -dl1[:, 1]
-        dl1p[:, 1] = dl1[:, 0]
-
-        # line perpendicular to each l2 line
-        dl2p = np.empty_like(dl2)  # (n_lines1, 2)
-        dl2p[:, 0] = -dl2[:, 1]
-        dl2p[:, 1] = dl2[:, 0]
-
-        # mult (n_lines1, 2) @ (n_lines1, 2, nlines2) = (n_lines1, n_lines2)
-        # each i in n_lines1 is multiplied with one of the n_lines1 matrices in dl1l2
-        # l1[i] @ (l1[i] - l2[j]) for i in [0, n_lines1], j in [0, n_lines2]
-        u_num = np.stack([np.matmul(dl1p[i], dl1l2_T[i]) for i in range(dl1p.shape[0])])
-
-        # mult (n_lines2, 2) @ (n_lines2, 2, nlines1) = (n_lines2, n_lines1)
-        # same as above except for l2 lines
-        t_num = np.stack(
-            [np.matmul(dl2p[j], dl1l2_T2[j]) for j in range(dl2p.shape[0])]
-        )
-
-        # mult (n_lines1, 2) @ (2, n_lines2) = (n_lines1, n_lines2)
-        # get l1[i] dot l2[j] for i in [0, n_lines1], j in [0, n_lines2]
-        # but using perpendicular lines to l1,
-        denom = np.matmul(dl1p, dl2.transpose())
-        # handle case where lines are parallel/colinear, leading to denom being zero
-        denom = np.where(np.isclose(denom, 0.0), np.nan, denom)
-
-        # from wiki, lines only intersect if 0 <= u <= 1
-        u = u_num / denom  # (n_lines1, n_lines2)
-        t = t_num.transpose() / denom  # (n_lines1, n_lines2)
-
-        # segments intersect when 0 <= u <= 1 and 0 <= t <= 1
-        u = np.where(((u >= 0) & (u <= 1) & (t >= 0) & (t <= 1)), u, np.nan)
-        u = u[:, :, np.newaxis]  # (n_lines1, n_lines2, 1)
-
-        return u * dl2 + l2_start_coords
-
-    def check_wall_line_intersection(
-        self, line_start_coords: np.ndarray, line_end_coords: np.ndarray
-    ) -> np.ndarray:
-        """Check if lines intersect world boundary wall.
-
-        Arguments
-        ---------
-        line_start_coords: the `(x, y)` coords of the start of the lines, and
-            should have shape `(n_lines, 2)`
-        line_end_coords: are the `(x, y)` coords of the end of the lines, and
-            should have shape `(n_lines, 2)`
-
-        Returns
-        -------
-        intersect_coords: an array with an entry for each line. For each line the entry
-            will be the `(x, y)` coord of the point of intersection for that line with
-            the wall, if the line intersects the boundary, otherwise will be
-            `(np.nan, np.nan)`. The array will have shape `(n_lines, 2)`
-
-        """
-        # TODO
-        # shape = (n_lines, walls, 2)
-        wall_intersect_coords = self.check_line_line_intersection(
-            line_start_coords, line_end_coords, *self.walls
-        )
-        # Need to get coords of intersected walls
-        return wall_intersect_coords
-
-    def check_collision_ray(
-        self,
-        origin: Position,
-        line_distance: float,
-        n_lines: int,
-        other_agents: Optional[np.ndarray],
-        include_blocks: bool = True,
-        check_walls: bool = True,
-        use_relative_angle: bool = True,
-    ) -> np.ndarray:
-        """Check for collision along ray.
-
-        Returns entity index and distance if there is a collision, otherwise if there is
-        no collision returns None and `line distance`.
-
-        If collision is with a wall or block, return index of -1.
-
-        If `use_relative_angle=True` then line angle is treated as relative to agents
-        yaw angle. Otherwise line angle is treated as absolute (i.e. relative to angle
-        of 0).
-
-        """
-        x, y, rel_angle = origin
-        if not use_relative_angle:
-            rel_angle = 0.0
-
-        angles = np.linspace(
-            0.0, 2 * math.pi, n_lines, endpoint=False, dtype=np.float32
-        )
-        ray_end_xs = x + line_distance * np.cos(angles + rel_angle)
-        ray_end_ys = y + line_distance * np.sin(angles + rel_angle)
-
-        ray_start_coords = np.tile((x, y), (n_lines, 1))
-        ray_end_coords = np.stack([ray_end_xs, ray_end_ys], axis=1)
-
-        closest_distances = np.full_like(angles, line_distance)
-
-        if other_agents is not None:
-            for i, coord in enumerate(other_agents):
-                dists = self.check_circle_line_intersection(
-                    coord, self.agent_radius, ray_start_coords, ray_end_coords
-                )
-                # use fmin to ignore NaNs
-                np.fmin(closest_distances, dists, out=closest_distances)
-
-        if include_blocks:
-            for index, (pos, size) in enumerate(self.blocks):
-                dists = self.check_circle_line_intersection(
-                    np.array([pos[0], pos[1]]), size, ray_start_coords, ray_end_coords
-                )
-                np.fmin(closest_distances, dists, out=closest_distances)
-
-        if check_walls:
-            # shape = (n_lines, walls, 2)
-            wall_intersect_coords = self.check_line_line_intersection(
-                ray_start_coords, ray_end_coords, *self.walls
-            )
-            # Need to get coords of intersected walls, each ray can intersect a max of
-            # of 1 wall, so we just find the minimum non nan coords
-            # shape = (n_lines, 2)
-            with warnings.catch_warnings():
-                # if no wall intersected, we take min of all NaN which throws a warning
-                # but this is acceptable behevaiour, so we suppress the warning
-                warnings.simplefilter("ignore")
-                wall_intersect_coords = np.nanmin(wall_intersect_coords, axis=1)
-            dists = np.sqrt(
-                ((wall_intersect_coords - ray_start_coords) ** 2).sum(axis=1)
-            )
-            np.fmin(closest_distances, dists, out=closest_distances)
-
-        return closest_distances
 
 
 def parse_world_str(world_str: str) -> PPWorld:
@@ -1278,27 +889,27 @@ def parse_world_str(world_str: str) -> PPWorld:
     assert len(row_strs[0]) > 1
     assert len(row_strs) == len(row_strs[0])
 
-    world_size = len(row_strs)
-    blocks: Set[Object] = set()
+    size = len(row_strs)
+    blocks: Set[CircleEntity] = set()
     predator_coords = set()
     prey_coords = set()
-    for r, c in product(range(world_size), repeat=2):
+    for r, c in product(range(size), repeat=2):
         # This is offset to the center of the square
-        coord = (c + 0.5, r + 0.5, 0)
+        pos = (c + 0.5, r + 0.5, 0)
         char = row_strs[r][c]
 
         if char == "#":
             # Radius is 0.5
-            blocks.add((coord, 0.5))
+            blocks.add((pos, 0.5))
         elif char == "P":
-            predator_coords.add(coord)
+            predator_coords.add(pos)
         elif char == "p":
-            prey_coords.add(coord)
+            prey_coords.add(pos)
         else:
             assert char == "."
 
     return PPWorld(
-        world_size,
+        size,
         blocks=list(blocks),
         predator_start_positions=None
         if len(predator_coords) == 0
@@ -1328,7 +939,7 @@ def get_default_world(size: int, include_blocks: bool) -> PPWorld:
         ]
     else:
         blocks = []
-    return PPWorld(world_size=size, blocks=blocks)
+    return PPWorld(size=size, blocks=blocks)
 
 
 def get_5x5_world() -> PPWorld:
