@@ -46,7 +46,7 @@ class PEState(NamedTuple):
 
 # Action = Direction of movement
 # 0 = Forward, 1 = Backward, 2 = Left, 3 = Right
-PEAction = List[float]
+PEAction = np.ndarray
 
 # E Obs = Tuple[WallObs, seen, heard, e_0_coord, p_0_coord, goal_coord]
 #       = Tuple[Tuple[int, int, int, int, int, int], Coord, Coord, Coord]

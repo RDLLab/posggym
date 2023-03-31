@@ -1,16 +1,19 @@
 """General grid world problem utility functions and classes."""
-from queue import PriorityQueue
-from typing import Dict, Iterable, List, Optional, Tuple, TypeVar, Callable
 import math
-from enum import Enum
 from abc import ABC, abstractmethod
-import posggym.model as M
-from gymnasium import spaces
-import numpy as np
+from enum import Enum
 from itertools import product
+from queue import PriorityQueue
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, TypeVar, Union
+
+import numpy as np
+from gymnasium import spaces
+
+import posggym.model as M
+
 
 # (x, y) coord = (col, row) coord
-Coord = Tuple[int, int]
+Coord = Tuple[float, float]
 
 # (x, y, yaw) in continuous world
 Position = Tuple[float, float, float]
@@ -33,30 +36,40 @@ def asserts_exist(x: Optional[T]) -> T:
 
 
 class ContinuousWorld(ABC):
+    """A continuous 2D world."""
+
+    EPS = 1e-4
+
     def __init__(
         self,
         world_type: ArenaTypes,
         agent_size: float = 0.5,
-        yaw_limit=math.pi / 10,
+        yaw_limit: float = math.pi / 10,
         block_coords: Optional[List[Object]] = None,
     ):
         self.agent_size = agent_size
-        if block_coords is None:
-            block_coords = []
-        self.block_coords = block_coords
+        self.block_coords = [] if block_coords is None else block_coords
         self.yaw_limit = yaw_limit
 
     @staticmethod
-    def manhattan_dist(coord1: Position, coord2: Position) -> float:
-        """Get manhattan distance between two coordinates on the grid."""
+    def manhattan_dist(
+        coord1: Union[Coord, Position], coord2: Union[Coord, Position]
+    ) -> float:
+        """Get manhattan distance between two positions on the grid."""
         return abs(coord1[0] - coord2[0]) + abs(coord1[1] - coord2[1])
 
     @staticmethod
-    def euclidean_dist(coord1: Position, coord2: Position):
+    def euclidean_dist(
+        coord1: Union[Coord, Position], coord2: Union[Coord, Position]
+    ) -> float:
+        """Get Euclidean distance between two positions on the grid."""
         return math.sqrt((coord1[0] - coord2[0]) ** 2 + (coord1[1] - coord2[1]) ** 2)
 
     @staticmethod
-    def squared_euclidean_dist(coord1: Position, coord2: Position):
+    def squared_euclidean_dist(
+        coord1: Union[Coord, Position], coord2: Union[Coord, Position]
+    ) -> float:
+        """Get Squared Euclidean distance between two positions on the grid."""
         return (coord1[0] - coord2[0]) ** 2 + (coord1[1] - coord2[1]) ** 2
 
     @abstractmethod
@@ -66,13 +79,14 @@ class ContinuousWorld(ABC):
 
     @abstractmethod
     def clamp_coords(self, coord: Position) -> Position:
-        """Return whether a coordinate is inside the grid or not."""
+        """Return closest position that is inside the grid."""
         pass
 
     @abstractmethod
     def check_collision_wall(
         self, coord: Position, line_distance: float, angle: float
     ) -> Tuple[bool, Optional[float]]:
+        """Check for collision with a wall."""
         pass
 
     def get_all_shortest_paths(
@@ -112,14 +126,17 @@ class ContinuousWorld(ABC):
         return dist
 
     def get_next_coord(
-        self, coord: Position, action: List[float], ignore_blocks: bool = False
+        self,
+        coord: Position,
+        action: Union[np.ndarray, List[float]],
+        ignore_blocks: bool = False,
     ) -> Position:
         return self._get_next_coord(coord, action, ignore_blocks)[0]
 
     def _non_holonomic_model(
         self,
         coord: Position,
-        action: List[float],
+        action: Union[np.ndarray, List[float]],
         ignore_blocks: bool = False,
         include_out_of_bounds: bool = True,
     ) -> Tuple[Position, bool]:
@@ -153,7 +170,7 @@ class ContinuousWorld(ABC):
     def _holonomic_model(
         self,
         coord: Position,
-        action: List[float],
+        action: Union[np.ndarray, List[float]],
         ignore_blocks: bool = False,
         include_out_of_bounds: bool = True,
     ) -> Tuple[Position, bool]:
@@ -176,7 +193,7 @@ class ContinuousWorld(ABC):
     def _get_next_coord(
         self,
         coord: Position,
-        action: List[float],
+        action: Union[np.ndarray, List[float]],
         ignore_blocks: bool = False,
         use_holonomic_model: bool = False,
     ) -> Tuple[Position, bool]:
@@ -212,19 +229,32 @@ class ContinuousWorld(ABC):
         return x_prime, y_prime
 
     def check_circle_line_intersection(
-        self, cx: float, cy: float, r: float, ax: float, ay: float, bx: float, by: float
+        self,
+        x: float,
+        y: float,
+        r: float,
+        start_x: float,
+        start_y: float,
+        end_x: float,
+        end_y: float,
     ) -> Optional[float]:
+        """Check if line intersects circle at (x, y) with radius r.
+
+        Line starts at (start_x, start_y) and ends at (end_x, end_y).
+
+        If line intersects circle, returns distance till intersection, otherwise returns
+        None.
+        """
         # https://math.stackexchange.com/questions/275529/check-if-line-intersects-with-circles-perimeter
-        # // parameters: ax ay bx by cx cy r
-        ax -= cx
-        ay -= cy
-        bx -= cx
-        by -= cy
+        start_x -= x
+        start_y -= y
+        end_x -= x
+        end_y -= y
+        dx, dy = (end_x - start_x), (end_y - start_y)
 
-        a = (bx - ax) ** 2 + (by - ay) ** 2
-
-        b = 2 * (ax * (bx - ax) + ay * (by - ay))
-        c = ax**2 + ay**2 - r**2
+        a = dx**2 + dy**2
+        b = 2 * (start_x * dx + start_y * dy)
+        c = start_x**2 + start_y**2 - r**2
         disc = b**2 - 4 * a * c
 
         if disc <= 0:
@@ -233,86 +263,169 @@ class ContinuousWorld(ABC):
         sqrtdisc = math.sqrt(disc)
         t1 = (-b + sqrtdisc) / (2 * a)
         t2 = (-b - sqrtdisc) / (2 * a)
+        if 0 <= t1 <= t2:
+            t = t1
+        elif 0 <= t2 <= t1:
+            t = t2
+        else:
+            # collision only possible moving backwards
+            return None
+        # distance till intersection
+        return math.sqrt((t * dx) ** 2 + (t * dy) ** 2)
 
-        if t1 > 0 and t1 < 1:
-            intersection_x = ax + t2 * (bx - ax)
-            intersection_y = ay + t2 * (by - ay)
-            distance_to_intersection = math.sqrt(
-                (intersection_x - ax) ** 2 + (intersection_y - ay) ** 2
+    def check_circle_circle_intersection(
+        self,
+        circle_1: Union[Coord, Position],
+        circle_2: Union[Coord, Position],
+        velocity_1: Tuple[float, float],
+        velocity_2: Tuple[float, float],
+        radius_1: float,
+        radius_2: float,
+    ) -> Optional[float]:
+        """Check if circle collides with another circle.
+
+        `circle_1` and `circle_2` are the start positions of each circle's center.
+        `velocity_1` and `velocity_2` are the velocities of each circle in the x and y
+        directions.
+        `radius_1` and `radius_2` are the radius of each circle.
+
+        If objects will collide, returns distance till collision, otherwise returns
+        None.
+
+        """
+        # https://physics.stackexchange.com/questions/221895/time-until-next-collision
+        (vx1, vy1), (vx2, vy2) = velocity_1, velocity_2
+        vx, vy = (vx1 - vx2), (vy1 - vy2)
+        (x1, y1), (x2, y2) = (circle_1[0], circle_1[1]), (circle_2[0], circle_2[1])
+        dx, dy = (x1 - x2), (y1 - y2)
+
+        # Need to find distance when circle_1 and circle_2 are within
+        # (radius_1 + radius_2) distance of each other
+        a = vx**2 + vy**2
+        b = 2 * (dx * vx + dy * vy)
+        c = dy**2 + dx**2 - (radius_1 + radius_2) ** 2
+        disc = b**2 - 4 * a * c
+
+        if disc <= 0:
+            # no collision possible
+            return None
+
+        sqrtdisc = math.sqrt(disc)
+        t1 = (-b - sqrtdisc) / (2 * a)
+        t2 = (-b + sqrtdisc) / (2 * a)
+
+        if (t1 < 0.0 and t2 < self.EPS) or (t1 < self.EPS and t2 < 0.0):
+            # Case 1: (t1 < 0.0 and t2 < 0.0) - collision already, but moving away
+            return None
+        # elif t1 >= 0.0 and (t2 < 0.0 or t1 <= t2):
+        elif t1 >= self.EPS and t2 < 0.0:
+            # Case 2: (t1 >= 0.0 and t2 < 0.0) already in collision
+            #         (allow to keep moving forward)
+            if t1 <= 1.0:
+                # will reach end of collision within step
+                return math.sqrt((t1 * vx) ** 2 + (t1 * vy) ** 2)
+            # will still be in collision within step so move small distance towards
+            # closest edge
+            t2 = abs(t2)
+            if t2 <= t1:
+                # move slightly backwards
+                return -min(self.EPS, math.sqrt((t2 * vx) ** 2 + (t2 * vy) ** 2))
+            return min(self.EPS, math.sqrt((t1 * vx) ** 2 + (t1 * vy) ** 2))
+        # elif t2 >= 0.0 and (t1 < 0.0 or t2 <= t1):
+        elif t2 >= self.EPS and t1 < 0.0:
+            # Case 3: (t2 >= 0.0 and t1 < 0.0) already in collision
+            #         (allow to keep moving forward)
+            if t2 <= 1.0:
+                # will reach end of collision within step
+                return math.sqrt((t2 * vx) ** 2 + (t2 * vy) ** 2)
+            # will still be in collision within step so move small distance towards
+            # closest edge
+            t1 = abs(t1)
+            if t1 <= t2:
+                # move slightly backwards
+                return -min(self.EPS, math.sqrt((t1 * vx) ** 2 + (t1 * vy) ** 2))
+            return min(self.EPS, math.sqrt((t2 * vx) ** 2 + (t2 * vy) ** 2))
+        elif 0.0 <= t1 <= t2:
+            # Case 4a:(0 <= t1 <= t2) collision in current direction (t1 closer)
+            return math.sqrt((t1 * vx) ** 2 + (t1 * vy) ** 2)
+        elif 0.0 <= t2 <= t1:
+            # Case 4b:(0 <= t2 <= t1) collision in current direction (t2 closer)
+            return math.sqrt((t2 * vx) ** 2 + (t2 * vy) ** 2)
+        else:
+            # Not sure
+            d1 = math.sqrt((t1 * vx) ** 2 + (t1 * vy) ** 2)
+            d2 = math.sqrt((t2 * vx) ** 2 + (t2 * vy) ** 2)
+            raise AssertionError(
+                "Something weird happened with collision between circles: "
+                f"({x1=:.6f}, {y1=:.6f}), ({x2=:.6f}, {y2=:.6f}), with velocities: "
+                f"({vx1=:.6f}, {vy1=:.6f}), ({vx2=:.6f}, {vy2=:.6f}), and radiis: "
+                f"{radius_1=:.6f}, {radius_2=:.6f}. "
+                f"({t1=:.10f} {d1=:.10f}) ({t2=:.10f} {d2=:.10f})"
             )
-            return distance_to_intersection
-
-        if t2 > 0 and t2 < 1:
-            intersection_x = ax + t2 * (bx - ax)
-            intersection_y = ay + t2 * (by - ay)
-            distance_to_intersection = math.sqrt(
-                (intersection_x - ax) ** 2 + (intersection_y - ay) ** 2
-            )
-            return distance_to_intersection
-
-        return None
 
     def check_collision_ray(
         self,
         coord: Position,
         line_distance: float,
-        angle: float,
-        other_agents: Iterable[Position],
-        skip_id: Optional[int] = None,
+        line_angle: float,
+        other_agents: Optional[Union[Tuple[Position, ...], np.ndarray]],
+        skip_id: Optional[Union[int, List[int]]] = None,
         only_walls: bool = False,
         include_blocks: bool = True,
+        use_relative_angle: bool = True,
     ) -> Tuple[Optional[int], float]:
-        closest_agent_pos = None
-        closest_agent_distance = float("inf")
-        closest_agent_index = None
+        """Check for collision along ray.
 
-        x, y, agent_angle = coord
+        Returns entity index and distance if there is a collision, otherwise if there is
+        no collision returns None and `line distance`.
 
-        other_agents_w_size: List[Object] = [(x, self.agent_size) for x in other_agents]
+        If collision is with a wall or block, return index of -1.
+
+        If `use_relative_angle=True` then line angle is treated as relative to agents
+        yaw angle. Otherwise line angle is treated as absolute (i.e. relative to angle
+        of 0).
+
+        """
+        if skip_id is None:
+            skip_id = []
+        elif isinstance(skip_id, int):
+            skip_id = [skip_id]
+
+        closest_distance = line_distance
+        closest_index = None
+
+        x, y, rel_angle = coord
+        if not use_relative_angle:
+            rel_angle = 0.0
+        end_x = x + line_distance * math.cos(line_angle + rel_angle)
+        end_y = y + line_distance * math.sin(line_angle + rel_angle)
+
+        if not only_walls and other_agents is not None:
+            for index, pos in enumerate(other_agents):
+                if index in skip_id:
+                    continue
+                dist = self.check_circle_line_intersection(
+                    pos[0], pos[1], self.agent_size, x, y, end_x, end_y
+                )
+                if dist is not None and dist < closest_distance:
+                    closest_distance = dist
+                    closest_index = index
 
         if include_blocks:
-            all_objects = other_agents_w_size + self.block_coords
-        else:
-            all_objects = other_agents_w_size
-
-        WALL = -1
-
-        if not only_walls:
-            for index, (agent_pos, size) in enumerate(all_objects):
-                if skip_id is not None and skip_id == index:
-                    continue
-
-                other_agent_x, other_agent_y, _ = agent_pos
-
-                end_x = x + line_distance * math.cos(angle + agent_angle)
-                end_y = y + line_distance * math.sin(angle + agent_angle)
-
+            for index, (pos, size) in enumerate(self.block_coords):
                 dist = self.check_circle_line_intersection(
-                    other_agent_x, other_agent_y, size, x, y, end_x, end_y
+                    pos[0], pos[1], size, x, y, end_x, end_y
                 )
+                if dist is not None and dist < closest_distance:
+                    closest_distance = dist
+                    closest_index = -1
 
-                if dist is not None and dist < closest_agent_distance:
-                    closest_agent_distance = dist
-                    closest_agent_pos = agent_pos
-                    closest_agent_index = index
+        _, dist = self.check_collision_wall(coord, line_distance, line_angle)
+        if dist is not None and dist < closest_distance:
+            closest_distance = dist
+            closest_index = -1
 
-        if closest_agent_index is not None and closest_agent_index > len(
-            other_agents_w_size
-        ):
-            closest_agent_index = WALL
-
-        if closest_agent_pos is None:
-            _, closest_agent_distance = self.check_collision_wall(
-                coord, line_distance, angle
-            )
-
-            if closest_agent_distance is not None:
-                closest_agent_index = WALL
-
-        if closest_agent_distance is None:
-            closest_agent_distance = line_distance
-
-        return (closest_agent_index, closest_agent_distance)
+        return (closest_index, closest_distance)
 
     @abstractmethod
     def get_bounds(self) -> Tuple[Tuple[float, float], Tuple[float, float]]:
@@ -375,7 +488,6 @@ class ContinuousWorld(ABC):
         data = product(points, distances)
 
         output: List[Position] = []
-
         for yaw, d in data:
             if use_holonomic_model:
                 dx = math.sin(yaw) * d
@@ -470,7 +582,8 @@ class ContinuousWorld(ABC):
         ignore_blocks: bool = False,
         use_holonomic_model: bool = False,
         max_attempts: int = 100,
-    ) -> Position:
+    ) -> Optional[Position]:
+        """Attempts to sample collision free position within distance from center."""
         for _ in range(max_attempts):
             angle = 2 * math.pi * rng()
             distance = min_dist_from_center * math.sqrt(rng())
@@ -479,20 +592,15 @@ class ContinuousWorld(ABC):
             y = center[1] + distance * math.sin(angle)
             yaw = 0.0 if use_holonomic_model else 2 * math.pi * rng()
 
-            new_coord: Position = (x, y, yaw)
-
+            new_coord: Position = self.clamp_coords((x, y, yaw))
             if not self.check_collision((new_coord, self.agent_size)):
                 return new_coord
-
-        raise Exception(
-            (
-                f"Cannot sample coordinate within distance {min_dist_from_center}",
-                f"from {center} within {max_attempts}",
-            )
-        )
+        return None
 
 
 class CircularContinuousWorld(ContinuousWorld):
+    """A continuous world with a circular border."""
+
     def __init__(
         self,
         radius: float,
@@ -514,7 +622,7 @@ class CircularContinuousWorld(ContinuousWorld):
         self, coord: Position, line_distance: float, angle: float
     ) -> Tuple[bool, Optional[float]]:
         """Checks if a line starting at position 'coord' and traveling at angle 'angle'
-        relative to the agent's angle collides with the circle.
+        relative to the agent's angle collides with the wall.
 
         Args:
             coord (Position): The starting position of the line.
@@ -559,13 +667,24 @@ class CircularContinuousWorld(ContinuousWorld):
             else:
                 return False, None
 
+    def check_collision_circle_wall(
+        self,
+        origin: Position,
+        max_distance: float,
+        angle: float,
+        r: float,
+        use_relative_angle: bool = False,
+    ) -> Optional[float]:
+        # TODO Basically same as check_collision_wall, just need to include radius
+        raise NotImplementedError
+
     def clamp_coords(self, coord: Position) -> Position:
         x, y, yaw = coord
         # Calculating polar coordinates
-        center = (0, 0, 0)
-        r = ContinuousWorld.euclidean_dist(center, (x, y, yaw))
+        center = (0, 0)
+        r = self.euclidean_dist(center, coord)
         gamma = math.atan2(y, x)
-        # Virtual barriere:
+        # Virtual barrier:
         if r > self.radius:
             x = self.radius * math.cos(gamma)
             y = self.radius * math.sin(gamma)
@@ -582,38 +701,37 @@ class RectangularContinuousWorld(ContinuousWorld):
         super().__init__(world_type=ArenaTypes.Square, block_coords=block_coords)
         self.height = height
         self.width = width
-        self.eps = 10e-3
 
     def coord_in_bounds(self, coord: Position) -> bool:
         return 0 <= coord[0] < self.width and 0 <= coord[1] < self.height
 
-    def clamp_coords(self, coord: Position) -> Position:
-        x, y, yaw = coord
-        x = self.clamp(0.5, self.width - 0.5, x)
-        y = self.clamp(0.5, self.height - 0.5, y)
-        return (x, y, yaw)
-
     def get_bounds(self) -> Tuple[Tuple[float, float], Tuple[float, float]]:
         return (0, self.width), (0, self.height)
+
+    def clamp_coords(self, coord: Position) -> Position:
+        x, y, yaw = coord
+        x = self.clamp(self.agent_size, self.width - self.agent_size, x)
+        y = self.clamp(self.agent_size, self.height - self.agent_size, y)
+        return (x, y, yaw)
 
     def check_collision_wall(
         self, coord: Position, line_distance: float, angle: float
     ) -> Tuple[bool, Optional[float]]:
-        """Checks if a line starting at position 'coord' and traveling at angle 'angle'
-        relative to the agent's angle collides with the arena's walls.
+        """Checks if a line collides with the arena's walls.
 
-        Args:
-            coord (Position): The starting position of the line.
-            line_distance (float): The maximum distance the line should travel.
-            angle (float): The angle at which the line is traveling relative to the
-            agent's angle.
+        Arguments
+        ---------
+        coord : The starting position of the line.
+        line_distance : The maximum distance the line should travel.
+        angle : The angle at which the line is traveling relative to the agent's
+            angle.
 
-        Returns:
-            A tuple containing a boolean value indicating whether there was a collision
-            pr not, and the distance to the wall if there was a collision, or None
-            otherwise.
+        Returns
+        -------
+        collision : whether there was a collision or not
+        distance : the distance to the wall if there was a collision, or None otherwise.
+
         """
-
         x, y, agent_angle = coord
         line_angle = angle + agent_angle
         end_x = x + line_distance * math.cos(line_angle)
@@ -643,20 +761,30 @@ class RectangularContinuousWorld(ContinuousWorld):
 
 
 def clip_actions(
-    actions: Dict[M.AgentID, List[float]], action_spaces: Dict[M.AgentID, spaces.Space]
-) -> Dict[M.AgentID, List[float]]:
-    assert all([isinstance(action_spaces[i], spaces.Box) for i in action_spaces])
+    actions: Dict[M.AgentID, np.ndarray], action_spaces: Dict[M.AgentID, spaces.Space]
+) -> Dict[M.AgentID, np.ndarray]:
+    """Clip continuous actions so they are within the agents action space dims."""
+    clipped_actions = {}
+    for i, a in actions.items():
+        a_space = action_spaces[i]
+        assert isinstance(a_space, spaces.Box)
+        clipped_actions[i] = np.clip(a, a_space.low, a_space.high)
 
-    return {
-        i: list(np.clip(actions[i], action_spaces[i].low, action_spaces[i].high))
-        for i in actions
-    }
+    return clipped_actions
 
 
-def position_to_array(coords: Iterable[Position]) -> np.ndarray:
-    return np.array(
-        [np.array(x, dtype=np.float32) for x in coords], dtype=np.float32
-    ).squeeze()
+def position_to_array(coords: Iterable[Position], squeeze: bool = True) -> np.ndarray:
+    """Converts list of positions into a 2D array of positions.
+
+    New array has shape (len(coords), 3), where  Each row is the new array is a single
+    position.
+
+    If squeeze=True will output 1D array if the list contains a single position.
+    """
+    array = np.array([np.array(x, dtype=np.float32) for x in coords], dtype=np.float32)
+    if squeeze:
+        return array.squeeze()
+    return array
 
 
 def array_to_position(coords: np.ndarray) -> Tuple[Position, ...]:

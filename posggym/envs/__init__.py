@@ -30,14 +30,15 @@ register(
 register(
     id="PredatorPreyContinuous-v0",
     entry_point="posggym.envs.continuous.predator_prey:PredatorPreyContinuous",
+    max_episode_steps=100,
     kwargs={
-        "grid_size": 10,
+        "world": "10x10",
         "num_predators": 2,
         "num_prey": 3,
         "cooperative": True,
         "prey_strength": None,
-        "obs_dim": 2,
-        "n_lines": 10,
+        "obs_dist": 3,
+        "n_sensors": 16,
         "use_holonomic": True,
     },
 )
@@ -46,6 +47,7 @@ register(
 register(
     id="DroneTeamCapture-v0",
     entry_point="posggym.envs.continuous.drone_team_capture:DroneTeamCaptureEnv",
+    max_episode_steps=100,
     kwargs={
         "num_agents": 3,
         "n_communicating_purusers": 3,
@@ -55,6 +57,7 @@ register(
         "use_curriculum": False,
     },
 )
+
 
 register(
     id="PursuitEvasionContinous-v0",

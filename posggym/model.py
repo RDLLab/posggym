@@ -255,7 +255,7 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
             self._rng, seed = seeding.np_random(seed)
         else:
             raise error.UnseedableEnv(
-                "{self.__class__.__name__} unseedable. Please ensure the model has "
+                f"{self.__class__.__name__} unseedable. Please ensure the model has "
                 "implemented the rng property. The model class must also overwrite "
                 "the `seed` method if it uses a RNG not from the `random` or "
                 "`numpy.random` libraries."

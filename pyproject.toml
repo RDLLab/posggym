@@ -69,7 +69,7 @@ posggym = [
 # Linters and Test tools #######################################################
 [tool.ruff]
 # https://beta.ruff.rs/docs/settings/
-src = ["posggym", "tests"]
+src = ["posggym", "tests", "docs/scripts"]
 extend-select = ["C4", "SIM", "TCH"]
 show-fixes = true
 # Same as Black.
@@ -86,14 +86,25 @@ target-version = "py38"
 max-complexity = 10
 
 [tool.ruff.isort]
-extra-standard-library = ["typing_extensions"]
 lines-after-imports = 2
+extra-standard-library = ["typing_extensions"]
+
+# Included so isort can be used independently of ruff as well
+# can probably remove it in the future
+[tool.isort]
+atomic = true
+profile = "black"
+src_paths = ["posggym", "tests", "docs/scripts"]
+extra_standard_library = ["typing_extensions"]
+indent = 4
+lines_after_imports = 2
+multi_line_output = 3
 
 [tool.black]
 safe = true
 line-length = 88
 
-[tool.pylsp-mypy]
-enabled = true
-live_mode = true
-strict = false
+[tool.mypy]
+python_version = "3.8"
+warn_unused_configs = true
+plugins = "numpy.typing.mypy_plugin"

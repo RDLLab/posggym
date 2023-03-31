@@ -1,4 +1,5 @@
 """Wrapper for converting a posggym environment into rllib multi-agent environment."""
+import warnings
 from typing import Optional, Set, Tuple
 
 from gymnasium import spaces
@@ -7,8 +8,10 @@ import posggym
 
 
 try:
-    from ray.rllib.env.multi_agent_env import MultiAgentEnv
-    from ray.rllib.utils.typing import AgentID, MultiAgentDict
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=DeprecationWarning)
+        from ray.rllib.env.multi_agent_env import MultiAgentEnv
+        from ray.rllib.utils.typing import AgentID, MultiAgentDict
 except ImportError:
     raise posggym.error.DependencyNotInstalled(
         "The posggym.wrapper.rllib_multi_agent_env wrapper depends on the Ray RLlib "
