@@ -1,7 +1,7 @@
 """Run a random agent on an environment."""
 import argparse
 import os.path as osp
-from typing import Dict, List, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import posggym
 
@@ -41,8 +41,6 @@ def run_random_agent(
     episode_steps = []
     episode_rewards: Dict[M.AgentID, List[float]] = {i: [] for i in env.possible_agents}
     for ep_num in range(num_episodes):
-        env.reset()
-
         if render_mode:
             env.render()
 
@@ -73,6 +71,8 @@ def run_random_agent(
         dones += int(done)
         episode_steps.append(t)
 
+        env.reset()
+
         for i, r_i in rewards.items():
             episode_rewards[i].append(r_i)
 
@@ -84,13 +84,14 @@ def run_random_agent(
     print(f"Mean episode steps = {mean_steps:.2f}")
     mean_returns = {i: sum(r) / len(r) for i, r in episode_rewards.items()}
     print(f"Mean Episode returns {mean_returns}")
+    return mean_steps, mean_returns
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("env_id", type=str, help="ID of environment to run")
+    parser.add_argument("env", type=str, help="ID of environment to run")
     parser.add_argument(
         "--num_episodes",
         type=int,

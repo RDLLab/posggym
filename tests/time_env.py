@@ -64,6 +64,6 @@ if __name__ == "__main__":
         help="Mode to use for rendering. If None then doesn't render environment.",
     )
     args = parser.parse_args()
+    print(f"Timing {args.env_id} environment for {args.num_steps} steps.")
     step_rate = time_env_step_rate(**vars(args))
-
     print(f"Step rate for '{args.env_id}' = {step_rate:.4f} steps per second")

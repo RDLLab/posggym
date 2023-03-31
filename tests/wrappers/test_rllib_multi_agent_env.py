@@ -1,7 +1,6 @@
 """Tests for the Rllib MultiAgentEnv wrapper."""
 import pytest
-
-from ray.rllib.utils.pre_checks.env import check_env
+import warnings
 
 import posggym
 from tests.envs.utils import all_testing_env_specs
@@ -20,7 +19,10 @@ def test_make_rllib_multi_agent_env(spec):
 
     """
     try:
-        from posggym.wrappers.rllib_multi_agent_env import RllibMultiAgentEnv
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=DeprecationWarning)
+            from posggym.wrappers.rllib_multi_agent_env import RllibMultiAgentEnv
+            from ray.rllib.utils.pre_checks.env import check_env
     except ImportError as e:
         pytest.skip(f"ray[rllib] not installed.: {str(e)}")
 
