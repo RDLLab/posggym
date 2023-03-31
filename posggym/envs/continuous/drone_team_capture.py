@@ -43,7 +43,7 @@ class DTCState(NamedTuple):
 
 
 # Actions
-DTCAction = List[float]
+DTCAction = np.ndarray
 DTCObs = np.ndarray
 
 
@@ -392,7 +392,7 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
         )
 
     def _get_next_state(
-        self, state: DTCState, actions: Dict[M.AgentID, List[float]]
+        self, state: DTCState, actions: Dict[M.AgentID, DTCAction]
     ) -> DTCState:
         prev_target = state.target_coords
         prev_pursuer = state.pursuer_coords

@@ -1,9 +1,12 @@
 """Functions and classes for rendering grid world environments."""
-from typing import Dict, List, Optional, Tuple, Union
 import math
+from typing import Dict, List, Optional, Tuple, Union
+
+import numpy as np
+
 from posggym.error import DependencyNotInstalled
 from posggym.model import AgentID
-from posggym.envs.continuous.core import ArenaTypes, Object
+from posggym.envs.continuous.core import ArenaTypes, Object, Position
 
 ColorTuple = Union[Tuple[int, int, int], Tuple[int, int, int, int]]
 
@@ -70,36 +73,32 @@ class GWContinuousRender:
             colors.append((r, g, b))
         return colors
 
-    # https://stackoverflow.com/questions/5389507/iterating-over-every-two-elements-in-a-list
     def pairwise(self, iterable):
         "s -> (s0, s1), (s2, s3), (s4, s5), ..."
+        # https://stackoverflow.com/questions/5389507/iterating-over-every-two-elements-in-a-list
         a = iter(iterable)
         return zip(a, a)
 
     def render_lines(
         self,
-        lines: Dict[AgentID, Tuple[Union[list, float]]],
-        agents: Tuple[Tuple[float, float, float], ...],
+        lines: Dict[AgentID, List[float]],
+        agents: Union[Tuple[Position, ...], np.ndarray],
     ):
-        for index, agent_pos in enumerate(agents):
+        for agent_pos, agent_id in zip(agents, lines):
             x, y, agent_angle = agent_pos
-            current_lines = lines[str(index)]
+            agent_lines = lines[agent_id]
 
-            for index, (type, distance) in enumerate(self.pairwise(current_lines)):
-                angle = 2 * math.pi * index / (len(current_lines) // 2)
+            for index, distance in enumerate(agent_lines):
+                angle = 2 * math.pi * index / len(agent_lines)
                 angle += agent_angle
-
                 end_pos = (
                     x + distance * math.cos(angle),
                     y + distance * math.sin(angle),
                 )
-
                 scaled_start = self.scale(agent_pos[0], agent_pos[1])
                 scaled_end = self.scale(end_pos[0], end_pos[1])
 
-                pygame.draw.line(
-                    self.screen, self.colors[type], scaled_start, scaled_end
-                )
+                pygame.draw.line(self.screen, self.colors[0], scaled_start, scaled_end)
 
     def scale(self, x: float, y: float) -> Tuple[float, float]:
         OldRange = self.max_domain_size - self.min_domain_size
