@@ -56,7 +56,7 @@ class VideoRecorder:
         """
         try:
             # check that moviepy is now installed
-            import moviepy  # noqa: F401
+            import moviepy  # noqa
         except ImportError as e:
             raise error.DependencyNotInstalled(
                 "MoviePy is not installed, run `pip install moviepy`"

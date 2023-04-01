@@ -1,9 +1,11 @@
 """Core functionality for continuous environments."""
 from __future__ import annotations
 
+from itertools import product
 import math
+from queue import PriorityQueue
 import warnings
-from typing import Dict, List, NamedTuple, Tuple, Union, TYPE_CHECKING
+from typing import Dict, Iterable, List, NamedTuple, Set, Tuple, Union, TYPE_CHECKING
 
 import numpy as np
 from gymnasium import spaces
@@ -23,10 +25,10 @@ except ImportError as e:
 
 
 # (x, y) coord = (col, row) coord
-Coord = Tuple[float, float]
+Coord = Tuple[int, int]
 # (x, y, yaw) in continuous world
 Position = Tuple[float, float, float]
-Location = Union[Coord, Position, np.ndarray]
+Location = Union[Coord, Position, np.ndarray, Tuple[float, float]]
 # Position, radius
 CircleEntity = Tuple[Position, float]
 
@@ -77,6 +79,8 @@ class SquareContinuousWorld:
         self.blocks = [] if blocks is None else blocks
         self.agent_radius = agent_radius
         self.border_thickness = border_thickness
+        # access via blocked_coords property
+        self._blocked_coords: Set[Coord] | None = None
 
         # world border lines (start coords, end coords)
         # bottom, left, top, right
@@ -239,6 +243,27 @@ class SquareContinuousWorld:
         if vangle is not None:
             body.angular_velocity = vangle
 
+    def get_bounds(self) -> Tuple[Tuple[float, float], Tuple[float, float]]:
+        """Get  (min x, max_x), (min y, max y) bounds of the world."""
+        return (0, self.size), (0, self.size)
+
+    @property
+    def blocked_coords(self) -> Set[Coord]:
+        """The set of all integer coordinates that contain at least part of a block."""
+        if self._blocked_coords is None:
+            self._blocked_coords = set()
+            # offset from coord, to middle of cell
+            offset = 0.5
+            # to handle any weird rounding
+            max_coord = math.ceil(round(self.size, 6))
+            for x, y in product(list(range(max_coord)), repeat=2):
+                offset_coord = (x + offset, y + offset)
+                for pos, r in self.blocks:
+                    if self.euclidean_dist(offset_coord, pos) < (offset + r):
+                        self._blocked_coords.add((x, y))
+                        break
+        return self.blocked_coords
+
     @staticmethod
     def manhattan_dist(loc1: Location, loc2: Location) -> float:
         """Get manhattan distance between two positions in the world."""
@@ -253,6 +278,14 @@ class SquareContinuousWorld:
     def squared_euclidean_dist(loc1: Location, loc2: Location) -> float:
         """Get Squared Euclidean distance between two positions on the grid."""
         return (loc1[0] - loc2[0]) ** 2 + (loc1[1] - loc2[1]) ** 2
+
+    def agents_collide(self, loc1: Location, loc2: Location) -> bool:
+        """Get whether two agents have collided or not.
+
+        Assumes agents are circles with radius `self.agent_radius`.
+        """
+        dist = self.squared_euclidean_dist(loc1, loc2)
+        return 0 <= dist <= (self.agent_radius + self.agent_radius) ** 2
 
     def check_circle_line_intersection(
         self,
@@ -465,3 +498,68 @@ class SquareContinuousWorld:
             np.fmin(closest_distances, dists, out=closest_distances)
 
         return closest_distances
+
+    def get_all_shortest_paths(
+        self, origins: Iterable[Position]
+    ) -> Dict[Tuple[int, int], Dict[Tuple[int, int], int]]:
+        """Get shortest path distance from every origin to all other coords."""
+        src_dists = {}
+        for origin in origins:
+            origin_coord = self.convert_position_to_coord(origin)
+            src_dists[origin_coord] = self.dijkstra(origin)
+        return src_dists
+
+    def convert_position_to_coord(self, origin: Position) -> Tuple[int, int]:
+        """Convert a position to a integer coords."""
+        return (math.floor(origin[0]), math.floor(origin[1]))
+
+    def dijkstra(self, origin: Position) -> Dict[Tuple[int, int], int]:
+        """Get shortest path distance between origin and all other coords."""
+        coord_origin = self.convert_position_to_coord(origin)
+
+        dist = {coord_origin: 0}
+        pq: PriorityQueue[Tuple[int, Coord]] = PriorityQueue()
+        pq.put((dist[coord_origin], coord_origin))
+
+        visited = {coord_origin}
+
+        while not pq.empty():
+            _, coord = pq.get()
+            for adj_coord in self.get_cardinal_neighbours_coords(
+                coord, ignore_blocks=False
+            ):
+                if dist[coord] + 1 < dist.get(adj_coord, float("inf")):
+                    dist[adj_coord] = dist[coord] + 1
+
+                    if adj_coord not in visited:
+                        pq.put((dist[adj_coord], adj_coord))
+                        visited.add(adj_coord)
+        return dist
+
+    def get_cardinal_neighbours_coords(
+        self,
+        coord: Coord,
+        ignore_blocks=False,
+        include_out_of_bounds=False,
+    ) -> List[Coord]:
+        """Get set of adjacent non-blocked coords."""
+        (min_x, max_x), (min_y, max_y) = self.get_bounds()
+        neighbours = []
+
+        if coord[1] > min_y or include_out_of_bounds:
+            neighbours.append((coord[0], coord[1] - 1))  # N
+        if coord[0] < max_x - 1 or include_out_of_bounds:
+            neighbours.append((coord[0] + 1, coord[1]))  # E
+        if coord[1] < max_y or include_out_of_bounds:
+            neighbours.append((coord[0], coord[1] + 1))  # S
+        if coord[0] > min_x or include_out_of_bounds:
+            neighbours.append((coord[0] - 1, coord[1]))  # W
+
+        if ignore_blocks:
+            return neighbours
+
+        for i in range(len(neighbours), 0, -1):
+            if neighbours[i - 1] in self.blocked_coords:
+                neighbours.pop(i - 1)
+
+        return neighbours

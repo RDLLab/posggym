@@ -74,7 +74,7 @@ class ContinuousWorld(ABC):
 
     @abstractmethod
     def coord_in_bounds(self, coord: Position) -> bool:
-        """Return whether a coordinate is inside the grid or not."""
+        """Return whether a coord is inside the grid or not."""
         pass
 
     @abstractmethod
@@ -95,16 +95,16 @@ class ContinuousWorld(ABC):
         """Get shortest path distance from every origin to all other coords."""
         src_dists = {}
         for origin in origins:
-            origin_coord = self.convert_position_to_coordinate(origin)
+            origin_coord = self.convert_position_to_coord(origin)
             src_dists[origin_coord] = self.dijkstra(origin)
         return src_dists
 
-    def convert_position_to_coordinate(self, origin: Position) -> Tuple[int, int]:
+    def convert_position_to_coord(self, origin: Position) -> Tuple[int, int]:
         return (int(math.floor(origin[0])), int(math.floor(origin[1])))
 
     def dijkstra(self, origin: Position) -> Dict[Tuple[int, int], int]:
         """Get shortest path distance between origin and all other coords."""
-        coord_origin = self.convert_position_to_coordinate(origin)
+        coord_origin = self.convert_position_to_coord(origin)
 
         dist = {coord_origin: 0}
         pq = PriorityQueue()  # type: ignore
@@ -114,9 +114,9 @@ class ContinuousWorld(ABC):
 
         while not pq.empty():
             _, coord = pq.get()
-            coord_c = self.convert_position_to_coordinate(coord)
+            coord_c = self.convert_position_to_coord(coord)
             for adj_coord in self.get_cardinal_neighbours(coord, ignore_blocks=False):
-                adj_coord_c = self.convert_position_to_coordinate(adj_coord)
+                adj_coord_c = self.convert_position_to_coord(adj_coord)
                 if dist[coord_c] + 1 < dist.get(adj_coord_c, float("inf")):
                     dist[adj_coord_c] = dist[coord_c] + 1
 
@@ -200,8 +200,8 @@ class ContinuousWorld(ABC):
         """Get next position given loc and movement direction.
 
         If new position is outside of the grid boundary, or (ignore_blocks is
-        False and new coordinate is a block) then returns the original
-        coordinate.
+        False and new coord is a block) then returns the original
+        coord.
         """
         if use_holonomic_model:
             return self._holonomic_model(coord, action, ignore_blocks)
@@ -217,11 +217,11 @@ class ContinuousWorld(ABC):
         """Rotate a point around the origin by a given angle in radians.
 
         Args:
-            point (Tuple[float, float]): The (x, y) coordinates of the point to rotate.
+            point (Tuple[float, float]): The (x, y) coords of the point to rotate.
             angle (float): The angle in radians by which to rotate the point.
 
         Returns:
-            Tuple[float, float]: The rotated (x', y') coordinates of the point.
+            Tuple[float, float]: The rotated (x', y') coords of the point.
         """
         x, y = point
         x_prime = x * math.cos(angle) - y * math.sin(angle)
@@ -368,7 +368,7 @@ class ContinuousWorld(ABC):
         coord: Position,
         line_distance: float,
         line_angle: float,
-        other_agents: Optional[Union[Tuple[Position, ...], np.ndarray]],
+        other_agents: Optional[Union[Tuple[Position, ...], List[Position], np.ndarray]],
         skip_id: Optional[Union[int, List[int]]] = None,
         only_walls: bool = False,
         include_blocks: bool = True,
@@ -437,7 +437,7 @@ class ContinuousWorld(ABC):
         ignore_blocks=False,
         include_out_of_bounds=False,
     ) -> List[Position]:
-        """Get set of adjacent non-blocked coordinates."""
+        """Get set of adjacent non-blocked coords."""
         (min_x, max_x), (min_y, max_y) = self.get_bounds()
         neighbours = []
 
@@ -522,7 +522,7 @@ class ContinuousWorld(ABC):
         force_non_colliding: bool = False,
     ):
         # This function should try to find all possible positions around a
-        # coordinate where another agent could be.
+        # coord where another agent could be.
         points = [i * (2 * math.pi) / (num_samples - 1) for i in range(num_samples)]
         output: List[Position] = []
         for yaw in points:
@@ -545,12 +545,8 @@ class ContinuousWorld(ABC):
         return output
 
     def agents_collide(self, coord1: Position, coord2: Position, distance=None) -> bool:
-        dist = ContinuousWorld.squared_euclidean_dist(coord1, coord2)
-        return (
-            abs(self.agent_size - self.agent_size)
-            <= dist
-            <= (self.agent_size + self.agent_size)
-        )
+        dist = self.squared_euclidean_dist(coord1, coord2)
+        return 0 <= dist <= (self.agent_size + self.agent_size) ** 2
 
     def check_collision(self, object: Object) -> bool:
         object_pos, agent_radius = object
@@ -680,7 +676,7 @@ class CircularContinuousWorld(ContinuousWorld):
 
     def clamp_coords(self, coord: Position) -> Position:
         x, y, yaw = coord
-        # Calculating polar coordinates
+        # Calculating polar coords
         center = (0, 0)
         r = self.euclidean_dist(center, coord)
         gamma = math.atan2(y, x)

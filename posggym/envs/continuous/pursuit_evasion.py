@@ -743,8 +743,8 @@ class PEWorld(RectangularContinuousWorld):
 
     def get_shortest_path_distance(self, coord: Position, dest: Position) -> int:
         """Get the shortest path distance from coord to destination."""
-        coord_c = self.convert_position_to_coordinate(coord)
-        dest_c = self.convert_position_to_coordinate(dest)
+        coord_c = self.convert_position_to_coord(coord)
+        dest_c = self.convert_position_to_coord(dest)
         return int(self.shortest_paths[dest_c][coord_c])
 
     def get_max_shortest_path_distance(self) -> int:

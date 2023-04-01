@@ -46,13 +46,7 @@ class PPState(NamedTuple):
     prey_caught: np.ndarray
 
 
-# Obs vector order
-WALL_OBS_IDX = 0
-PREDATOR_OBS_IDX = 1
-PREY_OBS_IDX = 2
 PPObs = np.ndarray
-
-# Actions
 PPAction = np.ndarray
 
 
@@ -79,9 +73,15 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
 
     Action Space
     ------------
-    Each agent has 2 actions. In the `holonomic` model there are two actions, which
-    are the change in x and change in y position. In the non-holonomic model, there
-    are also two actions, which are the angular and linear velocity.
+    Each agent's actions is made up of two parts, which depend on the dynamics model
+    used by the environment.
+
+    In the `holonomic` the action components specify the velocity along the x and y
+    axes, respectively. With possible values in `[-1, 1]`.
+
+    In the non-holonomic model, the first action component specifies the angular
+    velocity in `[-2*pi, 2*pi]`, and the second component specifies the linear velocity
+    in `[0, 1]`.
 
     Observation Space
     -----------------
@@ -103,7 +103,10 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
     isn't the closest entity to the observing agent along the line), The distance will
     be 1.
 
-    The sensor reading ordering is relative to the agent's direction.
+    The sensor reading ordering is relative to the agent's direction. I.e. the values
+    for the first sensor at indices `0`, `n_sensors`, `2*n_sensors` correspond to the
+    distance reading to a wall/obstacle, predator, and prey, respectively, in the
+    direction the agent is facing.
 
     Rewards
     -------
@@ -224,7 +227,7 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
     """
 
     metadata = {
-        "render_modes": ["human"],
+        "render_modes": ["human", "rgb_array"],
         "render_fps": 15,
     }
 
@@ -255,9 +258,9 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
             render_mode=render_mode,
         )
         self._obs_dist = obs_dist
-        self.screen = None
+        self.window_surface = None
         self.clock = None
-        self.screen_size = 600
+        self.window_size = 600
         self.draw_options = None
         self.world = None
 
@@ -270,7 +273,7 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
                 f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
             )
             return
-        if self.render_mode in ("human",):
+        if self.render_mode in ("human", "rgb_array"):
             return self._render_img()
         else:
             logger.warn(
@@ -283,77 +286,88 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
             return
 
     def _render_img(self):
+        # import posggym.envs.continuous.render as render_lib
+        import pygame
+        from pymunk import pygame_util
+
+        model = cast(PPModel, self.model)
+        state = cast(PPState, self.state)
+        scale_factor = self.window_size // model.world.size
+
+        if self.window_surface is None:
+            pygame.init()
+            if self.render_mode == "human":
+                pygame.display.init()
+                pygame.display.set_caption(self.__class__.__name__)
+                self.window_surface = pygame.display.set_mode(
+                    (self.window_size, self.window_size)
+                )
+            else:
+                self.window_surface = pygame.Surface(
+                    (self.window_size, self.window_size)
+                )
+            # Turn off alpha since we don't use it.
+            self.window_surface.set_alpha(None)
+
+        if self.clock is None:
+            self.clock = pygame.time.Clock()
+
+        if self.draw_options is None:
+            pygame_util.positive_y_is_up = False
+            self.draw_options = pygame_util.DrawOptions(self.window_surface)
+            self.draw_options.transform = pymunk.Transform.scaling(scale_factor)
+            # don't render collision lines
+            self.draw_options.flags = (
+                pygame_util.DrawOptions.DRAW_SHAPES
+                | pygame_util.DrawOptions.DRAW_CONSTRAINTS
+            )
+
+        if self.world is None:
+            # get copy of model world, so we can use it for rendering without
+            # affecting the original
+            self.world = model.world.copy()
+
+        for i, p_state in enumerate(state.predator_states):
+            self.world.set_entity_state(f"pred_{i}", p_state)
+
+        for i, p_state in enumerate(state.prey_states):
+            self.world.set_entity_state(f"prey_{i}", p_state)
+
+        # Need to do this for space to update with changes
+        self.world.space.step(0.0001)
+
+        # reset screen
+        self.window_surface.fill(pygame.Color("white"))
+
+        # draw sensor lines
+        n_sensors = model.n_sensors
+        for i, obs_i in self._last_obs.items():
+            p_state = state.predator_states[int(i)]
+            x, y, agent_angle = p_state[:3]
+            angle_inc = 2 * math.pi / n_sensors
+            for k in range(n_sensors):
+                dist = min(obs_i[k], obs_i[n_sensors + k], obs_i[2 * n_sensors + k])
+                angle = angle_inc * k + agent_angle
+                end_x = x + dist * math.cos(angle)
+                end_y = y + dist * math.sin(angle)
+                scaled_start = (int(x * scale_factor), int(y * scale_factor))
+                scaled_end = int(end_x * scale_factor), (end_y * scale_factor)
+
+                pygame.draw.line(
+                    self.window_surface, pygame.Color("red"), scaled_start, scaled_end
+                )
+
+        self.world.space.debug_draw(self.draw_options)
+
         if self.render_mode == "human":
-            # import posggym.envs.continuous.render as render_lib
-            import pygame
-            from pymunk import pygame_util
-
-            model = cast(PPModel, self.model)
-            state = cast(PPState, self.state)
-
-            if self.screen is None:
-                pygame.init()
-                self.screen = pygame.display.set_mode(
-                    (self.screen_size, self.screen_size)
-                )
-                # Turn off alpha since we don't use it.
-                self.screen.set_alpha(None)
-                self.screen.fill(pygame.Color("white"))
-
-            if self.clock is None:
-                self.clock = pygame.time.Clock()
-
-            if self.draw_options is None:
-                pygame_util.positive_y_is_up = False
-                self.draw_options = pygame_util.DrawOptions(self.screen)
-                self.draw_options.transform = pymunk.Transform.scaling(
-                    self.screen_size // model.world.size
-                )
-                # don't render collision lines
-                self.draw_options.flags = (
-                    pygame_util.DrawOptions.DRAW_SHAPES
-                    | pygame_util.DrawOptions.DRAW_CONSTRAINTS
-                )
-
-            if self.world is None:
-                # get copy of model world, so we can use it for rendering without
-                # affecting the original
-                self.world = model.world.copy()
-
-            for i, p_state in enumerate(state.predator_states):
-                self.world.set_entity_state(f"pred_{i}", p_state)
-
-            for i, p_state in enumerate(state.prey_states):
-                self.world.set_entity_state(f"prey_{i}", p_state)
-
-            # Need to do this for space to update with changes
-            self.world.space.step(0.0001)
-
-            # reset screen
-            self.screen.fill(pygame.Color("white"))
-
-            # draw sensor lines
-            n_sensors = model.n_sensors
-            scale_factor = self.screen_size // model.world.size
-            for i, obs_i in self._last_obs.items():
-                p_state = state.predator_states[int(i)]
-                x, y, agent_angle = p_state[:3]
-                angle_inc = 2 * math.pi / n_sensors
-                for k in range(n_sensors):
-                    dist = min(obs_i[k], obs_i[n_sensors + k], obs_i[2 * n_sensors + k])
-                    angle = angle_inc * k + agent_angle
-                    end_x = x + dist * math.cos(angle)
-                    end_y = y + dist * math.sin(angle)
-                    scaled_start = (int(x * scale_factor), int(y * scale_factor))
-                    scaled_end = int(end_x * scale_factor), (end_y * scale_factor)
-
-                    pygame.draw.line(
-                        self.screen, pygame.Color("red"), scaled_start, scaled_end
-                    )
-
-            self.world.space.debug_draw(self.draw_options)
+            pygame.event.pump()
             pygame.display.update()
             self.clock.tick(self.metadata["render_fps"])
+            return None
+
+        return np.transpose(
+            np.array(pygame.surfarray.pixels3d(self.window_surface)), axes=(1, 0, 2)
+        )
 
     def close(self) -> None:
         pass

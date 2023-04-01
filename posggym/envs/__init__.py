@@ -28,21 +28,17 @@ register(
 # Continuous
 # -------------------------------------------
 register(
-    id="PredatorPreyContinuous-v0",
-    entry_point="posggym.envs.continuous.predator_prey:PredatorPreyContinuous",
-    max_episode_steps=100,
+    id="DrivingContinuous-v0",
+    entry_point="posggym.envs.continuous.driving:DrivingEnv",
+    max_episode_steps=5000,
     kwargs={
-        "world": "10x10",
-        "num_predators": 2,
-        "num_prey": 3,
-        "cooperative": True,
-        "prey_strength": None,
-        "obs_dist": 3,
-        "n_sensors": 16,
-        "use_holonomic": True,
+        "grid": "14x14RoundAbout",
+        "num_agents": 2,
+        "obs_dim": 3.0,
+        "n_lines": 16,
+        "obstacle_collisions": False,
     },
 )
-
 
 register(
     id="DroneTeamCapture-v0",
@@ -58,9 +54,24 @@ register(
     },
 )
 
+register(
+    id="PredatorPreyContinuous-v0",
+    entry_point="posggym.envs.continuous.predator_prey:PredatorPreyContinuous",
+    max_episode_steps=100,
+    kwargs={
+        "world": "10x10",
+        "num_predators": 2,
+        "num_prey": 3,
+        "cooperative": True,
+        "prey_strength": None,
+        "obs_dist": 3,
+        "n_sensors": 16,
+        "use_holonomic": True,
+    },
+)
 
 register(
-    id="PursuitEvasionContinous-v0",
+    id="PursuitEvasionContinuous-v0",
     entry_point="posggym.envs.continuous.pursuit_evasion:PursuitEvasionEnv",
     kwargs={
         "grid": "16x16",
@@ -68,20 +79,6 @@ register(
         "max_obs_distance": 12,
         "normalize_reward": True,
         "use_progress_reward": True,
-    },
-)
-
-# Driving
-register(
-    id="DrivingContinuous-v0",
-    entry_point="posggym.envs.continuous.driving:DrivingEnv",
-    max_episode_steps=5000,
-    kwargs={
-        "grid": "14x14RoundAbout",
-        "num_agents": 2,
-        "obs_dim": 3.0,
-        "n_lines": 10,
-        "obstacle_collisions": False,
     },
 )
 

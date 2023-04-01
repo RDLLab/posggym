@@ -62,7 +62,7 @@ MAX_SPEED = 1
 DObs = Tuple[Tuple[Union[int, np.ndarray], ...], np.ndarray, np.ndarray, int, int]
 
 # This time it is acceleration
-DAction = List[float]
+DAction = np.ndarray
 
 # Cell obs
 VEHICLE = 0
@@ -619,7 +619,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             agent_id = str(idx)
             if agent_id not in actions:
                 assert state_i.crashed or state_i.dest_reached
-                action_i = [0.0, 0.0]
+                action_i = np.array([0.0, 0.0])
             else:
                 action_i = actions[agent_id]
 
@@ -857,8 +857,8 @@ class DrivingGrid(RectangularContinuousWorld):
 
     def get_shortest_path_distance(self, coord: Position, dest: Position) -> int:
         """Get the shortest path distance from coord to destination."""
-        coord_c = self.convert_position_to_coordinate(coord)
-        dest_c = self.convert_position_to_coordinate(dest)
+        coord_c = self.convert_position_to_coord(coord)
+        dest_c = self.convert_position_to_coord(dest)
         return int(self.shortest_paths[dest_c][coord_c])
 
     def get_max_shortest_path_distance(self) -> int:
