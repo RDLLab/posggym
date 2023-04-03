@@ -46,8 +46,7 @@ class VehicleState(NamedTuple):
 
     coord: np.ndarray
     dest_coord: np.ndarray
-    dest_reached: int
-    crashed: int
+    status: np.ndarray
     min_dest_dist: np.ndarray
 
 
@@ -437,7 +436,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             return spaces.Box(low=low, high=high)
 
         def _coord_space():
-            # x, y, angle
+            # x, y, unused
             # shape = (1, 3)
             size, angle = self.world.size, 2 * math.pi
             low = np.array([-1, -1, -angle], dtype=np.float32)
@@ -454,7 +453,6 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                     (
                         # State of each vehicle
                         _pos_space(),
-                        _coord_space(),
                         _coord_space(),  # destination coord
                         # dest reached, crashed
                         spaces.MultiBinary(2),
@@ -549,8 +547,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             state_i = VehicleState(
                 coord=vehicle_state,
                 dest_coord=dest_coord,
-                dest_reached=int(False),
-                crashed=int(False),
+                status=np.array([int(False), int(False)], dtype=np.int8),
                 min_dest_dist=np.array([dest_dist], dtype=np.float32),
             )
 
@@ -576,18 +573,15 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         next_state, collision_types = self._get_next_state(state, clipped_actions)
         obs = self._get_obs(next_state)
         rewards = self._get_rewards(state, next_state, collision_types)
-        terminated = {
-            i: bool(next_state[int(i)].dest_reached or next_state[int(i)].crashed)
-            for i in self.possible_agents
-        }
+        terminated = {i: any(next_state[int(i)].status) for i in self.possible_agents}
         truncated = {i: False for i in self.possible_agents}
         all_done = all(terminated.values())
 
         info: Dict[M.AgentID, Dict] = {i: {} for i in self.possible_agents}
         for idx in range(len(self.possible_agents)):
-            if next_state[idx].dest_reached:
+            if next_state[idx].status[0]:
                 outcome_i = M.Outcome.WIN
-            elif next_state[idx].crashed:
+            elif next_state[idx].status[1]:
                 outcome_i = M.Outcome.LOSS
             else:
                 outcome_i = M.Outcome.NA
@@ -602,10 +596,9 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
     ) -> Tuple[DState, List[CollisionType]]:
         for i in range(len(self.possible_agents)):
             self.world.set_entity_state(f"vehicle_{i}", state[i].coord)
-            if state[i].crashed:
+            if state[i].status[1]:
                 # do nothing
                 continue
-
             action = actions[str(i)]
             angle = state[i].coord[2] + action[0]
             vel = action[1] * Vec2d(1, 0).rotated(angle)
@@ -621,7 +614,9 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         new_state: List[Optional[VehicleState]] = [None] * len(exec_order)
 
         for idx in exec_order:
-            coord = np.array(self.world.get_entity_state(f"vehicle_{idx}"))
+            coord = np.array(
+                self.world.get_entity_state(f"vehicle_{idx}"), dtype=np.float32
+            )
 
             state_i = state[idx]
             dest_distance = np.linalg.norm(state_i.dest_coord[:2] - coord[:2])
@@ -643,12 +638,14 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             #         coord = state[idx].coord
             #         crashed = True
             #         collision_types[idx] = CollisionType.OBSTACLE
-
+            crashed = crashed or bool(state_i.status[1])
             new_state[idx] = VehicleState(
                 coord=coord,
                 dest_coord=state_i.dest_coord,
-                dest_reached=int(dest_distance <= self.COLLISION_DIST),
-                crashed=int(crashed or bool(state_i.crashed)),
+                status=np.array(
+                    [int(dest_distance <= self.COLLISION_DIST), int(crashed)],
+                    dtype=np.int8,
+                ),
                 min_dest_dist=np.array([1], dtype=np.float32),
             )
 
@@ -660,7 +657,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
     def _reset_vehicle(
         self, v_idx: int, vs_i: VehicleState, vehicle_coords: Set[Position]
     ) -> VehicleState:
-        if not (vs_i.dest_reached or vs_i.crashed):
+        if not any(vs_i.status):
             return vs_i
 
         start_coords_i = self.world.start_coords[v_idx]
@@ -680,8 +677,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         new_vs_i = VehicleState(
             coord=vehicle_state,
             dest_coord=vs_i.dest_coord,
-            dest_reached=int(False),
-            crashed=int(False),
+            status=np.array([int(False), int(False)], dtype=np.int8),
             min_dest_dist=np.array([min_dest_dist], dtype=np.float32),
         )
         return new_vs_i
@@ -750,7 +746,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         rewards: Dict[M.AgentID, float] = {}
         for i in self.possible_agents:
             idx = int(i)
-            if state[idx].crashed or state[idx].dest_reached:
+            if any(state[idx].status):
                 # already in terminal/rewarded state
                 r_i = 0.0
             elif (
@@ -759,7 +755,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             ) or collision_types[idx] == CollisionType.VEHICLE:
                 # Treat as if crashed into a vehicle
                 r_i = self.R_CRASH_VEHICLE
-            elif next_state[idx].dest_reached:
+            elif next_state[idx].status[0]:
                 r_i = self.R_DESTINATION_REACHED
             else:
                 r_i = self.R_STEP_COST
