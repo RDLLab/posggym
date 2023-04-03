@@ -14,6 +14,7 @@ from typing import (
 )
 import math
 import pymunk
+
 from gymnasium import spaces
 import numpy as np
 
@@ -57,7 +58,7 @@ INIT_SPEED = 0
 MAX_SPEED = 1
 
 # Obs = (adj_obs, speed, dest_coord, dest_reached, crashed)
-DObs = np.ndarray
+DObs = Tuple[np.ndarray, np.ndarray]
 # Tuple[Tuple[Union[int, np.ndarray], ...], np.ndarray, np.ndarray, int, int]
 
 # This time it is acceleration
@@ -330,18 +331,21 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
         # draw sensor lines
         n_sensors = model.n_sensors
         for i, obs_i in self._last_obs.items():
+            line_obs, _ = obs_i
             p_state = state[int(i)].coord
             x, y, agent_angle = p_state[:3]
             angle_inc = 2 * math.pi / n_sensors
             for k in range(n_sensors):
-                values = [obs_i[k], obs_i[n_sensors + k], obs_i[2 * n_sensors + k]]
+                values = [
+                    line_obs[k],
+                    line_obs[n_sensors + k],
+                    line_obs[2 * n_sensors + k],
+                ]
                 dist_idx = min(range(len(values)), key=values.__getitem__)
                 dist = values[dist_idx]
 
                 if all(x == self._obs_dist for x in values):
                     dist_idx = 3
-
-                # import pdb; pdb.set_trace()
 
                 angle = angle_inc * k + agent_angle
                 end_x = x + dist * math.cos(angle)
@@ -355,6 +359,20 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
                     scaled_start,
                     scaled_end,
                 )
+
+        for v in state:
+            (
+                x,
+                y,
+            ) = v.dest_coord[:2]
+            scaled_center = (int(x * scale_factor), int(y * scale_factor))
+            scaled_r = int(model.world.agent_radius * scale_factor)
+            pygame.draw.circle(
+                self.window_surface,
+                pygame.Color(model.GOAL_COLOR),
+                scaled_center,
+                scaled_r,
+            )
 
         self.world.space.debug_draw(self.draw_options)
 
@@ -499,8 +517,19 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         self.obs_dist = 2
         self.obs_dim = self.n_sensors * 3
         self.observation_spaces = {
-            i: spaces.Box(
-                low=0.0, high=self.obs_dist, shape=(self.obs_dim,), dtype=np.float32
+            i: spaces.Tuple(
+                (
+                    spaces.Box(
+                        low=0.0,
+                        high=self.obs_dist,
+                        shape=(self.obs_dim,),
+                        dtype=np.float32,
+                    ),
+                    spaces.Box(
+                        low=np.array([-1, -1, -2 * math.pi], dtype=np.float32),
+                        high=np.array([1, 1, 2 * math.pi], dtype=np.float32),
+                    ),  # speed
+                )
             )
             for i in self.possible_agents
         }
@@ -558,13 +587,6 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 dest_coord=dest_coord,
                 status=np.array([int(False), int(False)], dtype=np.int8),
                 min_dest_dist=np.array([dest_dist], dtype=np.float32),
-            )
-
-            self.world.add_entity(
-                f"goal_{i}", self.world.agent_radius, self.GOAL_COLOR, is_static=True
-            )
-            self.world.update_entity_state(
-                f"goal_{i}", coord=(dest_coord[0], dest_coord[1])
             )
 
             state.append(state_i)
@@ -697,7 +719,10 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         return new_vs_i
 
     def _get_obs(self, state: DState) -> Dict[M.AgentID, DObs]:
-        return {i: self._get_local_obs(i, state) for i in self.possible_agents}
+        return {
+            i: (self._get_local_obs(i, state), state[int(i)].coord[3:])
+            for i in self.possible_agents
+        }
 
     def _get_local_obs(self, agent_id: M.AgentID, state: DState) -> np.ndarray:
         state_i = state[int(agent_id)]
