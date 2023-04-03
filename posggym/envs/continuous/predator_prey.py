@@ -759,12 +759,15 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         )
 
         obs = np.full((self.obs_dim,), self.obs_dist, dtype=np.float32)
-        # TODO try and vectorize this
-        for k in range(self.n_sensors):
-            sensor_readings = [obstacle_obs[k], pred_obs[k], prey_obs[k]]
-            min_val = min(sensor_readings)
-            min_idx = sensor_readings.index(min_val)
-            obs[min_idx * self.n_sensors + k] = min_val
+        sensor_readings = np.vstack([obstacle_obs, pred_obs, prey_obs])
+        min_idx = np.argmin(sensor_readings, axis=0)
+        min_val = np.take_along_axis(
+            sensor_readings, np.expand_dims(min_idx, axis=0), axis=0
+        ).flatten()
+        idx = np.ravel_multi_index(
+            (min_idx, np.arange(self.n_sensors)), dims=sensor_readings.shape
+        )
+        obs[idx] = min_val
 
         return obs
 
@@ -804,7 +807,6 @@ class PPWorld(SquareContinuousWorld):
         blocks: Optional[List[CircleEntity]],
         predator_start_positions: Optional[List[Position]] = None,
         prey_start_positions: Optional[List[Position]] = None,
-        predator_angles: Optional[List[float]] = None,
     ):
         assert size >= 3
         super().__init__(size=size, blocks=blocks, agent_radius=0.5)
