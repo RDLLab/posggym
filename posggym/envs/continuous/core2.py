@@ -20,7 +20,7 @@ try:
     from pymunk import Vec2d
 except ImportError as e:
     raise DependencyNotInstalled(
-        "pygame is not installed, run `pip install posggym[grid-world]`"
+        "pymunk is not installed, run `pip install posggym[continuous-world]`"
     ) from e
 
 
@@ -228,6 +228,8 @@ class SquareContinuousWorld:
         angle: float | None = None,
         vel: Union[Tuple[float, float], List[float], np.ndarray, Vec2d] | None = None,
         vangle: float | None = None,
+        acceleration: Union[Tuple[float, float], List[float], np.ndarray, Vec2d]
+        | None = None,
     ):
         """Update the state of an entity.
 
@@ -247,6 +249,18 @@ class SquareContinuousWorld:
 
         if vangle is not None:
             body.angular_velocity = vangle
+
+        if acceleration is not None:
+            linear_acc = acceleration[0]
+            angular_acc = acceleration[1]
+            body.apply_force_at_local_point(
+                Vec2d(
+                    linear_acc * body.mass * math.cos(body.angle),
+                    linear_acc * body.mass * math.sin(body.angle),
+                ),
+                Vec2d(0, 0),
+            )
+            body.torque = angular_acc * body.moment
 
     def get_bounds(self) -> Tuple[Tuple[float, float], Tuple[float, float]]:
         """Get  (min x, max_x), (min y, max y) bounds of the world."""
@@ -420,6 +434,13 @@ class SquareContinuousWorld:
         u = u[:, :, np.newaxis]  # (n_lines1, n_lines2, 1)
 
         return u * dl2 + l2_start_coords
+
+    @staticmethod
+    def convert_angle_to_0_2pi_interval(angle):
+        new_angle = np.arctan2(np.sin(angle), np.cos(angle))
+        if new_angle < 0:
+            new_angle = abs(new_angle) + 2 * (np.pi - abs(new_angle))
+        return new_angle
 
     def check_collision_circular_rays(
         self,

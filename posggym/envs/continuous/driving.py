@@ -14,7 +14,6 @@ from typing import (
 )
 import math
 import pymunk
-from pymunk import Vec2d
 from gymnasium import spaces
 import numpy as np
 
@@ -114,17 +113,27 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
 
     Observation Space
     -----------------
-    Each agent observes the cells in their local area, as well as their current speed,
-    their destination location, whether they've reached their destination, and whether
-    they've crashed.
-    The local area is observed by a series of 'n_lines' lines starting at the agent
-    which extend for a distance of `obs_dim`. For each cell in the observed area the
-    agent observes whether the cell contains a `VEHICLE=0`, `WALL=1`, `EMPTY=2`, or it's
-    `DESTINATION=3`.
+    Each agent observes a local circle around themselves as a vector. This is achieved
+    by a series of 'n_sensors' lines starting at the agent which extend for a distance
+    of 'obs_dist'. For each line the agent observes the closest entity (wall, predator,
+    prey) along the line. This table enumerates the observation space:
 
-    All together each agent's observation is tuple of the form:
+    |        Index: [start, end)        | Description                       | Values |
+    | :-------------------------------: | --------------------------------: | :----: |
+    |           0 - n_sensors           | Wall distance for each sensor     | [0, d] |
+    |    n_sensors - (2 * n_sensors)    | Predator distance for each sensor | [0, d] |
+    | (2 * n_sensors) - (3 * n_sensors) | Destination dist for each sensor  | [0, d] |
 
-        ((local obs), speed, destination coord, destination reached, crashed)
+    Where `d = obs_dist`.
+
+    If an entity is not observed (i.e. there is none along the sensor's line or it
+    isn't the closest entity to the observing agent along the line), The distance will
+    be 1.
+
+    The sensor reading ordering is relative to the agent's direction. I.e. the values
+    for the first sensor at indices `0`, `n_sensors`, `2*n_sensors` correspond to the
+    distance reading to a wall/obstacle, predator, and prey, respectively, in the
+    direction the agent is facing.
 
     Rewards
     -------
@@ -198,7 +207,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
     For example to use the DrivingContinuous environment with the `7x7RoundAbout` grid
     and 2 agents, you would use:
 
-    ```python
+    ```python+
     import posggym
     env = posggym.make('DrivingContinuous-v0', grid="7x7RoundAbout", num_agents=2)
     ```
@@ -401,11 +410,11 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         obstacle_collisions: bool,
     ):
         if isinstance(grid, str):
-            assert grid in SUPPORTEDworldS, (
+            assert grid in SUPPORTED_WORLDS, (
                 f"Unsupported grid '{grid}'. If grid argument is a string it must be "
-                f"one of: {SUPPORTEDworldS.keys()}."
+                f"one of: {SUPPORTED_WORLDS.keys()}."
             )
-            grid_info = SUPPORTEDworldS[grid]
+            grid_info = SUPPORTED_WORLDS[grid]
             supported_num_agents: int = grid_info["supported_num_agents"]
             assert 0 < num_agents <= supported_num_agents, (
                 f"Driving grid `{grid}` does not support {num_agents} agents. The "
@@ -473,7 +482,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         # dyaw, vel
         self.action_spaces = {
             i: spaces.Box(
-                low=np.array([-self.dyaw_limit, 0.0], dtype=np.float32),
+                low=np.array([-self.dyaw_limit, -1.0], dtype=np.float32),
                 high=np.array([self.dyaw_limit, 1.0], dtype=np.float32),
             )
             for i in self.possible_agents
@@ -599,10 +608,12 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             if state[i].status[1]:
                 # do nothing
                 continue
-            action = actions[str(i)]
-            angle = state[i].coord[2] + action[0]
-            vel = action[1] * Vec2d(1, 0).rotated(angle)
-            self.world.update_entity_state(f"vehicle_{i}", angle=angle, vel=vel)
+
+            # No turning in reverse.
+            if actions[str(i)][0] < 0:
+                actions[str(i)][1] = 0
+
+            self.world.update_entity_state(f"vehicle_{i}", acceleration=actions[str(i)])
 
         self.world.simulate(1.0 / 10, 10)
 
@@ -639,6 +650,9 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             #         crashed = True
             #         collision_types[idx] = CollisionType.OBSTACLE
             crashed = crashed or bool(state_i.status[1])
+
+            coord[2] = self.world.convert_angle_to_0_2pi_interval(coord[2])
+
             new_state[idx] = VehicleState(
                 coord=coord,
                 dest_coord=state_i.dest_coord,
@@ -905,7 +919,7 @@ def parseworld_str(grid_str: str, supported_num_agents: int) -> DrivingGrid:
 
 
 #  (grid_make_fn, max step_limit, )
-SUPPORTEDworldS: Dict[str, Dict[str, Any]] = {
+SUPPORTED_WORLDS: Dict[str, Dict[str, Any]] = {
     "3x3": {
         "grid_str": ("a1.\n" ".#.\n" ".0b\n"),
         "supported_num_agents": 2,
