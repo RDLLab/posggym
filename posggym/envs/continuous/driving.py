@@ -207,7 +207,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
     For example to use the DrivingContinuous environment with the `7x7RoundAbout` grid
     and 2 agents, you would use:
 
-    ```python+
+    ```python
     import posggym
     env = posggym.make('DrivingContinuous-v0', grid="7x7RoundAbout", num_agents=2)
     ```

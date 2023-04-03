@@ -20,7 +20,7 @@ try:
     from pymunk import Vec2d
 except ImportError as e:
     raise DependencyNotInstalled(
-        "pymunk is not installed, run `pip install posggym[continuous-world]`"
+        "pymunk is not installed, run `pip install posggym[continuous]`"
     ) from e
 
 

@@ -35,7 +35,7 @@ dynamic = ["version"]
 [project.optional-dependencies]
 # Update dependencies in `all` if any are added or removed
 grid-world = ["pygame >=2.0"]
-continuous = ["pygame >=2.0"]
+continuous = ["pygame >=2.0", "pymunk>=6.0.0"]
 all = [
 	# Dependencies for all environment types above
 	# NOTE: No need to manually remove the duplicates, setuptools automatically does that.
@@ -43,6 +43,7 @@ all = [
 	"pygame >=2.0",
 	# continuous
 	"pygame >=2.0",
+    "pymunk>=6.0.0",
 ]
 pettingzoo = ["pettingzoo >=1.22"]
 rllib = ["ray[rllib]>=2.3"]
