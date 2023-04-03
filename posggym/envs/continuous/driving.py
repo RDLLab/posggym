@@ -647,20 +647,20 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         new_state: List[Optional[VehicleState]] = [None] * len(exec_order)
 
         for idx in exec_order:
-            coord = np.array(
+            next_coord = np.array(
                 self.world.get_entity_state(f"vehicle_{idx}"), dtype=np.float32
             )
 
             state_i = state[idx]
-            dest_distance = np.linalg.norm(state_i.dest_coord[:2] - coord[:2])
+            dest_distance = np.linalg.norm(state_i.dest_coord[:2] - next_coord[:2])
             crashed = False
 
             for other_state in new_state:
                 if other_state is None:
                     continue
-                dist = np.linalg.norm(other_state.coord[:2] - coord[:2])
+                dist = np.linalg.norm(other_state.coord[:2] - next_coord[:2])
                 if dist <= self.COLLISION_DIST:
-                    coord = state[idx].coord
+                    next_coord = state[idx].coord
                     crashed = True
                     collision_types[idx] = CollisionType.VEHICLE
 
@@ -673,16 +673,27 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             #         collision_types[idx] = CollisionType.OBSTACLE
             crashed = crashed or bool(state_i.status[1])
 
-            coord[2] = self.world.convert_angle_to_0_2pi_interval(coord[2])
+            next_coord[2] = self.world.convert_angle_to_0_2pi_interval(next_coord[2])
+            next_pos: Position = (next_coord[0], next_coord[1], next_coord[2])
+            dest: Position = (
+                state_i.dest_coord[0],
+                state_i.dest_coord[1],
+                state_i.dest_coord[2],
+            )
+
+            min_dest_dist = min(
+                state_i.min_dest_dist[0],
+                self.world.get_shortest_path_distance(next_pos, dest),
+            )
 
             new_state[idx] = VehicleState(
-                coord=coord,
+                coord=next_coord,
                 dest_coord=state_i.dest_coord,
                 status=np.array(
                     [int(dest_distance <= self.COLLISION_DIST), int(crashed)],
                     dtype=np.int8,
                 ),
-                min_dest_dist=np.array([1], dtype=np.float32),
+                min_dest_dist=np.array([min_dest_dist], dtype=np.float32),
             )
 
         final_state = [ns for ns in new_state if ns is not None]
