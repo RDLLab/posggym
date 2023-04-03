@@ -262,7 +262,7 @@ class SquareContinuousWorld:
                     if self.euclidean_dist(offset_coord, pos) < (offset + r):
                         self._blocked_coords.add((x, y))
                         break
-        return self.blocked_coords
+        return self._blocked_coords
 
     @staticmethod
     def manhattan_dist(loc1: Location, loc2: Location) -> float:
@@ -557,7 +557,6 @@ class SquareContinuousWorld:
 
         if ignore_blocks:
             return neighbours
-
         for i in range(len(neighbours), 0, -1):
             if neighbours[i - 1] in self.blocked_coords:
                 neighbours.pop(i - 1)
