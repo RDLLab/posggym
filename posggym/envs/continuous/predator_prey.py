@@ -630,6 +630,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             ],
             dtype=np.float32,
         )
+
         next_prey_states = np.array(
             [self.world.get_entity_state(f"prey_{i}") for i in range(self.num_prey)],
             dtype=np.float32,
@@ -714,13 +715,8 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         state_i = state.predator_states[int(agent_id)]
         pos_i = (state_i[0], state_i[1], state_i[2])
 
-        prey_coords = np.array(
-            [
-                [s[0], s[1]]
-                for i, s in enumerate(state.prey_states)
-                if not state.prey_caught[i]
-            ]
-        )
+        prey_coords = state.prey_states[state.prey_caught == 0, :2]
+
         prey_obs = self.world.check_collision_circular_rays(
             pos_i,
             self.obs_dist,
@@ -731,13 +727,10 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             use_relative_angle=True,
         )
 
-        pred_coords = np.array(
-            [
-                [s[0], s[1]]
-                for i, s in enumerate(state.predator_states)
-                if i != int(agent_id)
-            ]
-        )
+        mask = np.ones(len(state.predator_states), dtype=bool)
+        mask[int(agent_id)] = False
+        pred_coords = state.predator_states[mask, :2]
+
         pred_obs = self.world.check_collision_circular_rays(
             pos_i,
             self.obs_dist,
