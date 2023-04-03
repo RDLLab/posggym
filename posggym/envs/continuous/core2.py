@@ -166,7 +166,11 @@ class SquareContinuousWorld:
         return world
 
     def add_entity(
-        self, id: str, radius: float | None, color: Tuple[int, int, int, int] | None
+        self,
+        id: str,
+        radius: float | None,
+        color: Tuple[int, int, int, int] | None,
+        is_static: bool = False,
     ) -> Tuple[pymunk.Body, pymunk.Circle]:
         """Add moveable entity to the world.
 
@@ -186,7 +190,8 @@ class SquareContinuousWorld:
             radius = self.agent_radius
         mass = 1.0
         inertia = pymunk.moment_for_circle(mass, 0.0, radius)
-        body = pymunk.Body(mass, inertia)
+        body_type = pymunk.Body.STATIC if is_static else pymunk.Body.DYNAMIC
+        body = pymunk.Body(mass, inertia, body_type=body_type)
         shape = pymunk.Circle(body, radius)
         shape.elasticity = 0.0  # no bouncing
         if color is not None:
@@ -473,7 +478,7 @@ class SquareContinuousWorld:
                 np.fmin(closest_distances, dists, out=closest_distances)
 
         if include_blocks:
-            for index, (pos, size) in enumerate(self.blocks):
+            for pos, size in self.blocks:
                 dists = self.check_circle_line_intersection(
                     np.array([pos[0], pos[1]]), size, ray_start_coords, ray_end_coords
                 )

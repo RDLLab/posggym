@@ -7,29 +7,30 @@ from typing import (
     List,
     NamedTuple,
     Optional,
-    Sequence,
     Set,
     Tuple,
     Union,
+    cast,
 )
 import math
+import pymunk
+from pymunk import Vec2d
 from gymnasium import spaces
 import numpy as np
 
 import posggym.model as M
 from posggym.core import DefaultEnv
 
-from posggym.envs.continuous.core import (
-    Position,
-    Object,
-    RectangularContinuousWorld,
-    position_to_array,
-    single_item_to_position,
-    clip_actions,
-    array_to_position,
-)
 from posggym.utils import seeding
 from posggym import logger
+
+from posggym.envs.continuous.core2 import (
+    Position,
+    CircleEntity,
+    PMBodyState,
+    SquareContinuousWorld,
+    clip_actions,
+)
 
 
 class CollisionType(enum.IntEnum):
@@ -44,7 +45,6 @@ class VehicleState(NamedTuple):
     """The state of a vehicle in the Driving Environment."""
 
     coord: np.ndarray
-    speed: np.ndarray
     dest_coord: np.ndarray
     dest_reached: int
     crashed: int
@@ -59,7 +59,8 @@ INIT_SPEED = 0
 MAX_SPEED = 1
 
 # Obs = (adj_obs, speed, dest_coord, dest_reached, crashed)
-DObs = Tuple[Tuple[Union[int, np.ndarray], ...], np.ndarray, np.ndarray, int, int]
+DObs = np.ndarray
+# Tuple[Tuple[Union[int, np.ndarray], ...], np.ndarray, np.ndarray, int, int]
 
 # This time it is acceleration
 DAction = np.ndarray
@@ -236,9 +237,14 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
             DrivingModel(grid, num_agents, obs_dim, n_lines, obstacle_collisions),
             render_mode=render_mode,
         )
-        self._obs_dim = obs_dim
+        self._obs_dist = obs_dim
         self._renderer = None
         self._agent_imgs = None
+        self.window_surface = None
+        self.clock = None
+        self.window_size = 600
+        self.draw_options = None
+        self.world = None
 
     def render(self):
         if self.render_mode is None:
@@ -262,70 +268,97 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
             return
 
     def _render_img(self):
-        import posggym.envs.continuous.render as render_lib
+        # import posggym.envs.continuous.render as render_lib
+        import pygame
+        from pymunk import pygame_util
 
-        model: DrivingModel = self.model  # type: ignore
+        model = cast(DrivingModel, self.model)
+        state = cast(DState, self.state)
+        scale_factor = self.window_size // model.world.size
 
-        if self._renderer is None:
-            self._renderer = render_lib.GWContinuousRender(
-                self.render_mode,
-                env_name="PredatorPreyContinuous",
-                domain_max=model.grid.width,
-                render_fps=self.metadata["render_fps"],
-                num_colors=len(self._state) + 2,
-                arena_size=200,
+        if self.window_surface is None:
+            pygame.init()
+            if self.render_mode == "human":
+                pygame.display.init()
+                pygame.display.set_caption(self.__class__.__name__)
+                self.window_surface = pygame.display.set_mode(
+                    (self.window_size, self.window_size)
+                )
+            else:
+                self.window_surface = pygame.Surface(
+                    (self.window_size, self.window_size)
+                )
+            # Turn off alpha since we don't use it.
+            self.window_surface.set_alpha(None)
+
+        if self.clock is None:
+            self.clock = pygame.time.Clock()
+
+        if self.draw_options is None:
+            pygame_util.positive_y_is_up = False
+            self.draw_options = pygame_util.DrawOptions(self.window_surface)
+            self.draw_options.transform = pymunk.Transform.scaling(scale_factor)
+            # don't render collision lines
+            self.draw_options.flags = (
+                pygame_util.DrawOptions.DRAW_SHAPES
+                | pygame_util.DrawOptions.DRAW_CONSTRAINTS
             )
 
-        color = [
-            0
-            if self._state[i].dest_reached
-            else (1 if self._state[i].crashed else i + 2)
-            for i in range(len(self._state))
-        ]
+        if self.world is None:
+            # get copy of model world, so we can use it for rendering without
+            # affecting the original
+            self.world = model.world.copy()
 
-        vehicles = tuple(
-            [
-                (single_item_to_position(self._state[i].coord) + (color[i],))
-                for i in range(len(self._state))
-            ]
-        )
+        for i, p_state in enumerate(state):
+            self.world.set_entity_state(f"vehicle_{i}", p_state.coord)
 
-        destination_color = [i + 2 for i in range(len(self._state))]
+        # Need to do this for space to update with changes
+        self.world.space.step(0.0001)
 
-        dest = tuple(
-            [
-                (
-                    single_item_to_position(self._state[i].dest_coord)
-                    + (destination_color[i],)
+        # reset screen
+        self.window_surface.fill(pygame.Color("white"))
+
+        lines_colors = ["red", "green", "blue", "black"]
+        # draw sensor lines
+        n_sensors = model.n_sensors
+        for i, obs_i in self._last_obs.items():
+            p_state = state[int(i)].coord
+            x, y, agent_angle = p_state[:3]
+            angle_inc = 2 * math.pi / n_sensors
+            for k in range(n_sensors):
+                values = [obs_i[k], obs_i[n_sensors + k], obs_i[2 * n_sensors + k]]
+                dist_idx = min(range(len(values)), key=values.__getitem__)
+                dist = values[dist_idx]
+
+                if all(x == self._obs_dist for x in values):
+                    dist_idx = 3
+
+                # import pdb; pdb.set_trace()
+
+                angle = angle_inc * k + agent_angle
+                end_x = x + dist * math.cos(angle)
+                end_y = y + dist * math.sin(angle)
+                scaled_start = (int(x * scale_factor), int(y * scale_factor))
+                scaled_end = int(end_x * scale_factor), (end_y * scale_factor)
+
+                pygame.draw.line(
+                    self.window_surface,
+                    pygame.Color(lines_colors[dist_idx]),
+                    scaled_start,
+                    scaled_end,
                 )
-                for i in range(len(self._state))
-            ]
+
+        self.world.space.debug_draw(self.draw_options)
+
+        if self.render_mode == "human":
+            pygame.event.pump()
+            pygame.display.update()
+            self.clock.tick(self.metadata["render_fps"])
+            return None
+
+        return np.transpose(
+            np.array(pygame.surfarray.pixels3d(self.window_surface)), axes=(1, 0, 2)
         )
-        num_agents = len(vehicles)
-
-        sizes = [model.grid.agent_size] * (num_agents * 2)
-
-        holonomic = [True] * num_agents + [False] * num_agents
-        alpha = [128] * num_agents + [255] * num_agents
-
-        self._renderer.clear_render()
-        self._renderer.draw_arena()
-
-        lines = {str(i): self._last_obs[str(i)][0] for i in range(num_agents)}
-        coords = tuple(
-            single_item_to_position(self._state[i].coord) for i in range(num_agents)
-        )
-        self._renderer.render_lines(lines, coords)
-
-        self._renderer.draw_agents(
-            dest + vehicles,
-            sizes=sizes,
-            is_holonomic=holonomic,
-            alpha=alpha,
-        )
-
-        self._renderer.draw_blocks(model.grid.block_coords)
-        return self._renderer.render()
 
     def close(self) -> None:
         if self._renderer is not None:
@@ -356,6 +389,9 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
     R_CRASH_VEHICLE = -1.0
     R_DESTINATION_REACHED = 1.0
     R_PROGRESS = 0.05
+    PREDATOR_COLOR = (55, 155, 205, 255)  # Blueish
+    GOAL_COLOR = (0, 100, 155, 255)  # Blueish
+    COLLISION_DIST = 1.2
 
     def __init__(
         self,
@@ -366,17 +402,17 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         obstacle_collisions: bool,
     ):
         if isinstance(grid, str):
-            assert grid in SUPPORTED_GRIDS, (
+            assert grid in SUPPORTEDworldS, (
                 f"Unsupported grid '{grid}'. If grid argument is a string it must be "
-                f"one of: {SUPPORTED_GRIDS.keys()}."
+                f"one of: {SUPPORTEDworldS.keys()}."
             )
-            grid_info = SUPPORTED_GRIDS[grid]
+            grid_info = SUPPORTEDworldS[grid]
             supported_num_agents: int = grid_info["supported_num_agents"]
             assert 0 < num_agents <= supported_num_agents, (
                 f"Driving grid `{grid}` does not support {num_agents} agents. The "
                 f"supported number of agents is from 1 up to {supported_num_agents}."
             )
-            grid = parse_grid_str(
+            grid = parseworld_str(
                 grid_info["grid_str"], grid_info["supported_num_agents"]
             )
         else:
@@ -386,74 +422,86 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 f"{grid.supported_num_agents}."
             )
 
-        self._grid = grid
+        self.world = grid
         self._obstacle_collisions = obstacle_collisions
 
-        def _coord_space():
-            return spaces.Box(
-                low=np.array([-1, -1, -2 * math.pi], dtype=np.float32),
-                high=np.array(
-                    [self.grid.width, self.grid.height, 2 * math.pi], dtype=np.float32
-                ),
+        def _pos_space():
+            # x, y, angle, vx, vy, vangle
+            # shape = (1, 6)
+            size, angle = self.world.size, 2 * math.pi
+            low = np.array([-1, -1, -angle, -1, -1, -angle], dtype=np.float32)
+            high = np.array(
+                [size, size, angle, 1.0, 1.0, angle],
+                dtype=np.float32,
             )
+            return spaces.Box(low=low, high=high)
+
+        def _coord_space():
+            # x, y, angle
+            # shape = (1, 3)
+            size, angle = self.world.size, 2 * math.pi
+            low = np.array([-1, -1, -angle], dtype=np.float32)
+            high = np.array(
+                [size, size, angle],
+                dtype=np.float32,
+            )
+            return spaces.Box(low=low, high=high)
 
         self.possible_agents = tuple(str(i) for i in range(num_agents))
         self.state_space = spaces.Tuple(
             tuple(
                 spaces.Tuple(
                     (
+                        # State of each vehicle
+                        _pos_space(),
                         _coord_space(),
-                        spaces.Box(
-                            low=np.array([-MAX_SPEED], dtype=np.float32),
-                            high=np.array([MAX_SPEED], dtype=np.float32),
-                        ),
                         _coord_space(),  # destination coord
-                        spaces.Discrete(2),  # destination reached
-                        spaces.Discrete(2),  # crashed
+                        # dest reached, crashed
+                        spaces.MultiBinary(2),
                         # min distance to destination
                         # set this to upper bound of min shortest path distance, so
                         # state space works for generated grids as well
                         spaces.Box(
                             low=np.array([0], dtype=np.float32),
-                            high=np.array(
-                                [self.grid.width * self.grid.height], dtype=np.float32
-                            ),
+                            high=np.array([self.world.size**2], dtype=np.float32),
                         ),
                     )
                 )
                 for _ in range(len(self.possible_agents))
             )
         )
+
+        self.dyaw_limit = math.pi / 10
+        # dyaw, vel
         self.action_spaces = {
             i: spaces.Box(
-                low=np.array([0, -self.grid.yaw_limit], dtype=np.float32),
-                high=np.array([1.0, self.grid.yaw_limit], dtype=np.float32),
+                low=np.array([-self.dyaw_limit, 0.0], dtype=np.float32),
+                high=np.array([self.dyaw_limit, 1.0], dtype=np.float32),
             )
             for i in self.possible_agents
         }
+
         self.n_lines = n_lines
         self.obs_distance = obs_dim
 
-        cell_obs_space = [spaces.Discrete(4), spaces.Box(0, self.obs_distance)]
-        agent_obs = spaces.Tuple(sum([cell_obs_space for i in range(self.n_lines)], []))
-
-        # obs_depth = self._obs_front + self._obs_back + 1
-        # obs_width = (2 * self._obs_side) + 1
+        # Observes entity and distance to entity along a n_sensors rays from the agent
+        # 0 to n_sensors = wall distance obs
+        # n_sensors to (2 * n_sensors) = other vehicle dist
+        # (2 * n_sensors) to (3 * n_sensors) = destination coordinate
+        self.n_sensors = 10
+        self.obs_dist = 2
+        self.obs_dim = self.n_sensors * 3
         self.observation_spaces = {
-            i: spaces.Tuple(
-                (
-                    agent_obs,
-                    spaces.Box(
-                        low=np.array([-MAX_SPEED], dtype=np.float32),
-                        high=np.array([MAX_SPEED], dtype=np.float32),
-                    ),  # speed
-                    _coord_space(),  # dest coord,
-                    spaces.Discrete(2),  # dest reached
-                    spaces.Discrete(2),  # crashed
-                )
+            i: spaces.Box(
+                low=0.0, high=self.obs_dist, shape=(self.obs_dim,), dtype=np.float32
             )
             for i in self.possible_agents
         }
+
+        # Add physical entities to the world
+        for i in range(len(self.possible_agents)):
+            self.world.add_entity(f"vehicle_{i}", None, color=self.PREDATOR_COLOR)
+
         self.is_symmetric = True
 
     @property
@@ -472,102 +520,47 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
     def get_agents(self, state: DState) -> List[M.AgentID]:
         return list(self.possible_agents)
 
-    @property
-    def grid(self) -> "DrivingGrid":
-        """The underlying grid for this model instance."""
-        return self._grid
-
-    @grid.setter
-    def grid(self, grid: "DrivingGrid"):
-        assert (self._grid.height, self._grid.width) == (grid.height, grid.width)
-        self._grid = grid
-
     def sample_initial_state(self) -> DState:
         state = []
         chosen_start_coords: Set[Position] = set()
         chosen_dest_coords: Set[Position] = set()
         for i in range(len(self.possible_agents)):
-            start_coords_i = self.grid.start_coords[i]
+            start_coords_i = self.world.start_coords[i]
             avail_start_coords = start_coords_i.difference(chosen_start_coords)
             start_coord = self.rng.choice(list(avail_start_coords))
             chosen_start_coords.add(start_coord)
 
-            dest_coords_i = self.grid.dest_coords[i]
+            dest_coords_i = self.world.dest_coords[i]
             avail_dest_coords = dest_coords_i.difference(chosen_dest_coords)
             if start_coord in avail_dest_coords:
                 avail_dest_coords.remove(start_coord)
-            dest_coord = self.rng.choice(list(avail_dest_coords))
-            chosen_dest_coords.add(dest_coord)
 
-            dest_dist = self.grid.get_shortest_path_distance(start_coord, dest_coord)
+            _dest_coord = self.rng.choice(list(avail_dest_coords))
+            chosen_dest_coords.add(_dest_coord)
+
+            vehicle_state = np.zeros((PMBodyState.num_features()), dtype=np.float32)
+            vehicle_state[:3] = start_coord
+
+            dest_coord = np.zeros(3, dtype=np.float32)
+            dest_coord[:] = _dest_coord
+
+            dest_dist = self.world.get_shortest_path_distance(start_coord, _dest_coord)
 
             state_i = VehicleState(
-                coord=position_to_array([start_coord]),
-                speed=np.array([INIT_SPEED], dtype=np.float32),
-                dest_coord=position_to_array([dest_coord]),
+                coord=vehicle_state,
+                dest_coord=dest_coord,
                 dest_reached=int(False),
                 crashed=int(False),
                 min_dest_dist=np.array([dest_dist], dtype=np.float32),
             )
-            state.append(state_i)
-        return tuple(state)
 
-    def sample_agent_initial_state(self, agent_id: M.AgentID, obs: DObs) -> DState:
-        agent_idx = int(agent_id)
-        possible_agent_start_coords = set()
-        agent_dest_coords = single_item_to_position(obs[2])
-
-        # Need to get start states for agent that are valid given initial obs
-        # Need to handle possible start states for other agents
-        for all_agent_start_coords in product(
-            *[list(s) for s in self.grid.start_coords[: len(self.possible_agents)]]
-        ):
-            if len(set(all_agent_start_coords)) != len(all_agent_start_coords):
-                # skip any sets of start coord that contain duplicates
-                continue
-            local_obs = self._get_local_cell__obs(
-                agent_idx, all_agent_start_coords, agent_dest_coords
+            self.world.add_entity(
+                f"goal_{i}", self.world.agent_radius, self.GOAL_COLOR, is_static=True
             )
-            if local_obs == obs[0]:
-                possible_agent_start_coords.add(all_agent_start_coords[agent_idx])
-
-        state = []
-        chosen_start_coords: Set[Position] = set()
-        chosen_dest_coords: Set[Position] = set()
-
-        agent_start_coord = self.rng.choice(list(possible_agent_start_coords))
-        chosen_start_coords.add(agent_start_coord)
-        chosen_dest_coords.add(agent_dest_coords)
-
-        for i in range(len(self.possible_agents)):
-            if i == agent_idx:
-                start_coord = agent_start_coord
-            else:
-                start_coords_i = self.grid.start_coords[i]
-                avail_coords = start_coords_i.difference(chosen_start_coords)
-                start_coord = self.rng.choice(list(avail_coords))
-                chosen_start_coords.add(start_coord)
-
-            if i == agent_idx:
-                dest_coord = agent_dest_coords
-            else:
-                dest_coords_i = self.grid.dest_coords[i]
-                avail_coords = dest_coords_i.difference(chosen_dest_coords)
-                if start_coord in avail_coords:
-                    avail_coords.remove(start_coord)
-                dest_coord = self.rng.choice(list(avail_coords))
-                chosen_dest_coords.add(dest_coord)
-
-            dest_dist = self.grid.get_shortest_path_distance(start_coord, dest_coord)
-
-            state_i = VehicleState(
-                coord=position_to_array([start_coord]),
-                speed=np.array([INIT_SPEED], dtype=np.float32),
-                dest_coord=position_to_array([dest_coord]),
-                dest_reached=int(False),
-                crashed=int(False),
-                min_dest_dist=np.array([dest_dist], dtype=np.float32),
+            self.world.update_entity_state(
+                f"goal_{i}", coord=(dest_coord[0], dest_coord[1])
             )
+
             state.append(state_i)
 
         return tuple(state)
@@ -607,84 +600,62 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
     def _get_next_state(
         self, state: DState, actions: Dict[M.AgentID, DAction]
     ) -> Tuple[DState, List[CollisionType]]:
+        for i in range(len(self.possible_agents)):
+            self.world.set_entity_state(f"vehicle_{i}", state[i].coord)
+            if state[i].crashed:
+                # do nothing
+                continue
+
+            action = actions[str(i)]
+            angle = state[i].coord[2] + action[0]
+            vel = action[1] * Vec2d(1, 0).rotated(angle)
+            self.world.update_entity_state(f"vehicle_{i}", angle=angle, vel=vel)
+
+        self.world.simulate(1.0 / 10, 10)
+
         exec_order = list(range(len(self.possible_agents)))
         self.rng.shuffle(exec_order)
 
-        next_state = list(state)
-        vehicle_coords = {single_item_to_position(vs.coord) for vs in state}
         collision_types = [CollisionType.NONE] * len(self.possible_agents)
 
+        new_state: List[Optional[VehicleState]] = [None] * len(exec_order)
+
         for idx in exec_order:
+            coord = np.array(self.world.get_entity_state(f"vehicle_{idx}"))
+
             state_i = state[idx]
-            agent_id = str(idx)
-            if agent_id not in actions:
-                assert state_i.crashed or state_i.dest_reached
-                action_i = np.array([0.0, 0.0])
-            else:
-                action_i = actions[agent_id]
-
-            next_state_i = next_state[idx]
-            if state_i.dest_reached or next_state_i.crashed:
-                # already at destination or crashed, or was crashed into this
-                # step
-                continue
-
-            vehicle_coords.remove(single_item_to_position(state_i.coord))
-            next_speed = self._get_next_speed(action_i[1], state_i.speed[0])
-
-            next_coord, collision_type, hit_vehicle = self._get_next_coord(
-                single_item_to_position(state_i.coord),
-                next_speed,
-                action_i[0],
-                list(vehicle_coords),
-            )
-            min_dest_dist = min(
-                state_i.min_dest_dist[0],
-                self.grid.get_shortest_path_distance(
-                    next_coord, single_item_to_position(state_i.dest_coord)
-                ),
-            )
-
+            dest_distance = np.linalg.norm(state_i.dest_coord[:2] - coord[:2])
             crashed = False
-            if collision_type == CollisionType.VEHICLE and hit_vehicle is not None:
-                # update state of vehicle that was hit
-                crashed = True
-                collision_types[idx] = collision_type
-                for jdx in range(len(self.possible_agents)):
-                    next_state_j = next_state[jdx]
-                    if self.grid.agents_collide(
-                        single_item_to_position(next_state_j.coord), hit_vehicle
-                    ):
-                        collision_types[jdx] = CollisionType.VEHICLE
-                        next_state[jdx] = VehicleState(
-                            coord=next_state_j.coord,
-                            speed=next_state_j.speed,
-                            dest_coord=next_state_j.dest_coord,
-                            dest_reached=next_state_j.dest_reached,
-                            crashed=int(True),
-                            min_dest_dist=next_state_j.min_dest_dist,
-                        )
-                        break
-            elif collision_type == CollisionType.OBSTACLE:
-                crashed = self._obstacle_collisions
-                collision_types[idx] = collision_type
 
-            next_state[idx] = VehicleState(
-                coord=position_to_array([next_coord]),
-                speed=np.array([next_speed], dtype=np.float32),
+            for other_state in new_state:
+                if other_state is None:
+                    continue
+                dist = np.linalg.norm(other_state.coord[:2] - coord[:2])
+                if dist <= self.COLLISION_DIST:
+                    coord = state[idx].coord
+                    crashed = True
+                    collision_types[idx] = CollisionType.VEHICLE
+
+            # for (b, radius) in self.world.blocks:
+            #     dist = np.linalg.norm(b[:2] - coord[:2])
+
+            #     if dist <= self.COLLISION_DIST:
+            #         coord = state[idx].coord
+            #         crashed = True
+            #         collision_types[idx] = CollisionType.OBSTACLE
+
+            new_state[idx] = VehicleState(
+                coord=coord,
                 dest_coord=state_i.dest_coord,
-                dest_reached=int(
-                    self.grid.agents_collide(
-                        next_coord, single_item_to_position(state_i.dest_coord)
-                    )
-                ),
-                crashed=int(crashed),
-                min_dest_dist=np.array([min_dest_dist], dtype=np.float32),
+                dest_reached=int(dest_distance <= self.COLLISION_DIST),
+                crashed=int(crashed or bool(state_i.crashed)),
+                min_dest_dist=np.array([1], dtype=np.float32),
             )
 
-            vehicle_coords.add(next_coord)
+        final_state = [ns for ns in new_state if ns is not None]
+        assert len(final_state) == len(new_state)
 
-        return tuple(next_state), collision_types
+        return tuple(final_state), collision_types
 
     def _reset_vehicle(
         self, v_idx: int, vs_i: VehicleState, vehicle_coords: Set[Position]
@@ -692,22 +663,22 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         if not (vs_i.dest_reached or vs_i.crashed):
             return vs_i
 
-        start_coords_i = self.grid.start_coords[v_idx]
+        start_coords_i = self.world.start_coords[v_idx]
         avail_start_coords = start_coords_i.difference(vehicle_coords)
+        vs_i_pos: Position = (vs_i.coord[0], vs_i.coord[1], vs_i.coord[2])
 
-        if vs_i.coord in start_coords_i:
+        if vs_i_pos in start_coords_i:
             # add it back in since it will be remove during difference op
-            avail_start_coords.add(single_item_to_position(vs_i.coord))
+            avail_start_coords.add(vs_i_pos)
 
         new_coord = self.rng.choice(list(avail_start_coords))
+        vehicle_state = np.zeros((PMBodyState.num_features()), dtype=np.float32)
+        vehicle_state[:3] = new_coord
 
-        min_dest_dist = self.grid.euclidean_dist(
-            new_coord, single_item_to_position((vs_i.dest_coord))
-        )
+        min_dest_dist = self.world.euclidean_dist(new_coord, vs_i.dest_coord[:3])
 
         new_vs_i = VehicleState(
-            coord=position_to_array([new_coord]),
-            speed=np.array([INIT_SPEED], dtype=np.float32),
+            coord=vehicle_state,
             dest_coord=vs_i.dest_coord,
             dest_reached=int(False),
             crashed=int(False),
@@ -715,91 +686,63 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         )
         return new_vs_i
 
-    @staticmethod
-    def _get_next_speed(delta: float, curr_speed: float) -> float:
-        return np.clip(delta + curr_speed, -MAX_SPEED, MAX_SPEED)
-
-    def _get_next_coord(
-        self,
-        curr_coord: Position,
-        speed: float,
-        angular_dir: float,
-        vehicle_coords: List[Position],
-    ) -> Tuple[Position, CollisionType, Optional[Position]]:
-        # assumes curr_coord isn't in vehicle coords
-        next_coord = curr_coord
-        collision = CollisionType.NONE
-        hit_vehicle_coord = None
-
-        next_coord = self.grid.get_next_coord(
-            curr_coord, [angular_dir, speed], ignore_blocks=False
-        )
-        idx = self.grid.get_collision_index(next_coord, vehicle_coords)
-
-        if self.grid.agents_collide(next_coord, curr_coord):
-            collision = CollisionType.OBSTACLE
-
-        elif idx is not None:
-            collision = CollisionType.VEHICLE
-            hit_vehicle_coord = vehicle_coords[idx]
-            next_coord = curr_coord
-
-        curr_coord = next_coord
-
-        return (next_coord, collision, hit_vehicle_coord)
-
     def _get_obs(self, state: DState) -> Dict[M.AgentID, DObs]:
-        obs: Dict[M.AgentID, DObs] = {}
-        for i in self.possible_agents:
-            idx = int(i)
-            local_cell_obs = self._get_local_cell__obs(
-                idx,
-                array_to_position(np.array([vs.coord for vs in state])),
-                single_item_to_position(state[idx].dest_coord),
-            )
-            obs[i] = (
-                local_cell_obs,
-                state[idx].speed,
-                state[idx].dest_coord,
-                state[idx].dest_reached,
-                state[idx].crashed,
-            )
+        return {i: self._get_local_obs(i, state) for i in self.possible_agents}
+
+    def _get_local_obs(self, agent_id: M.AgentID, state: DState) -> np.ndarray:
+        state_i = state[int(agent_id)]
+
+        pos_i = (state_i.coord[0], state_i.coord[1], state_i.coord[2])
+
+        vehicle_coords = np.array(
+            [
+                [s.coord[0], s.coord[1]]
+                for i, s in enumerate(state)
+                if i != int(agent_id)
+            ]
+        )
+        vehicle_obs = self.world.check_collision_circular_rays(
+            pos_i,
+            self.obs_dist,
+            self.n_sensors,
+            vehicle_coords,
+            include_blocks=False,
+            check_border=False,
+            use_relative_angle=True,
+        )
+
+        obstacle_obs = self.world.check_collision_circular_rays(
+            pos_i,
+            self.obs_dist,
+            self.n_sensors,
+            other_agents=None,
+            include_blocks=True,
+            check_border=True,
+            use_relative_angle=True,
+        )
+
+        dest_obs = self.world.check_collision_circular_rays(
+            pos_i,
+            self.obs_dist,
+            self.n_sensors,
+            np.expand_dims(state_i.dest_coord[:2], axis=0),
+            include_blocks=True,
+            check_border=True,
+            use_relative_angle=True,
+        )
+
+        obs = np.full((self.obs_dim,), self.obs_dist, dtype=np.float32)
+        sensor_readings = np.vstack([obstacle_obs, vehicle_obs, dest_obs])
+        min_idx = np.argmin(sensor_readings, axis=0)
+        min_val = np.take_along_axis(
+            sensor_readings, np.expand_dims(min_idx, axis=0), axis=0
+        ).flatten()
+        idx = np.ravel_multi_index(
+            (min_idx, np.arange(self.n_sensors)), dims=sensor_readings.shape
+        )
+        obs[idx] = min_val
+
         return obs
-
-    def _get_local_cell__obs(
-        self,
-        agent_idx: int,
-        vehicle_coords: Sequence[Position],
-        dest_coord: Position,
-    ) -> Tuple[Union[int, np.ndarray], ...]:
-        agent_coord = vehicle_coords[agent_idx]
-
-        cell_obs: List[Union[int, np.ndarray]] = []
-
-        for i in range(self.n_lines):
-            angle = 2 * math.pi * i / self.n_lines
-
-            closest_agent_index, closest_agent_distance = self.grid.check_collision_ray(
-                agent_coord,
-                self.obs_distance,
-                angle,
-                other_agents=[dest_coord] + list(vehicle_coords),
-                skip_id=int(agent_idx) + 1,
-            )
-
-            if closest_agent_index is None:
-                agent_collision = EMPTY
-            elif closest_agent_index == -1:
-                agent_collision = WALL
-            elif closest_agent_index == 0:
-                agent_collision = DESTINATION
-            else:
-                agent_collision = VEHICLE
-
-            cell_obs.append(agent_collision)
-            cell_obs.append(np.array([closest_agent_distance], dtype=np.float32))
-
-        return tuple(cell_obs)
 
     def _get_rewards(
         self, state: DState, next_state: DState, collision_types: List[CollisionType]
@@ -833,18 +776,17 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         return rewards
 
 
-class DrivingGrid(RectangularContinuousWorld):
+class DrivingGrid(SquareContinuousWorld):
     """A grid for the Driving Problem."""
 
     def __init__(
         self,
-        grid_width: int,
-        grid_height: int,
-        block_coords: List[Object],
+        size: int,
+        blocks: Optional[List[CircleEntity]],
         start_coords: List[Set[Position]],
         dest_coords: List[Set[Position]],
     ):
-        super().__init__(grid_width, grid_height, block_coords)
+        super().__init__(size=size, blocks=blocks, agent_radius=0.5)
         assert len(start_coords) == len(dest_coords)
         self.start_coords = start_coords
         self.dest_coords = dest_coords
@@ -866,7 +808,7 @@ class DrivingGrid(RectangularContinuousWorld):
         return int(max([max(d.values()) for d in self.shortest_paths.values()]))
 
 
-def parse_grid_str(grid_str: str, supported_num_agents: int) -> DrivingGrid:
+def parseworld_str(grid_str: str, supported_num_agents: int) -> DrivingGrid:
     """Parse a str representation of a grid.
 
     Notes on grid str representation:
@@ -910,7 +852,7 @@ def parse_grid_str(grid_str: str, supported_num_agents: int) -> DrivingGrid:
     agent_start_chars = set(["+"] + [str(i) for i in range(10)])
     agent_dest_chars = set(["-"] + list("abcdefghij"))
 
-    block_coords: List[Object] = []
+    block_coords: List[CircleEntity] = []
     shared_start_coords: Set[Position] = set()
     agent_start_coords_map: Dict[int, Set[Position]] = {}
     shared_dest_coords: Set[Position] = set()
@@ -959,16 +901,15 @@ def parse_grid_str(grid_str: str, supported_num_agents: int) -> DrivingGrid:
         dest_coords.append(agent_dest_coords)
 
     return DrivingGrid(
-        grid_width=grid_width,
-        grid_height=grid_height,
-        block_coords=block_coords,
+        size=grid_width,
+        blocks=block_coords,
         start_coords=start_coords,
         dest_coords=dest_coords,
     )
 
 
 #  (grid_make_fn, max step_limit, )
-SUPPORTED_GRIDS: Dict[str, Dict[str, Any]] = {
+SUPPORTEDworldS: Dict[str, Dict[str, Any]] = {
     "3x3": {
         "grid_str": ("a1.\n" ".#.\n" ".0b\n"),
         "supported_num_agents": 2,
