@@ -541,7 +541,7 @@ class SquareContinuousWorld:
             ] = CollisionType.AGENT_COLLISION.value
             np.fmin(closest_distances, min_dists, out=closest_distances)
 
-        if include_blocks:
+        if include_blocks and len(self.blocks) > 0:
             radii = np.array([s for _, s in self.blocks])
             block_array = np.array([[pos[0], pos[1]] for pos, _ in self.blocks])
 

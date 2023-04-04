@@ -487,7 +487,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         self.state_space = spaces.Tuple(
             (
                 _pos_space(),
-                _coord_space(),
+                _pos_space(),
                 _coord_space(),
                 _coord_space(),
                 _coord_space(),
@@ -563,19 +563,6 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
     def sample_initial_state(self) -> PEState:
         return self._sample_initial_state(None, None, None)
 
-    def sample_agent_initial_state(self, agent_id: M.AgentID, obs: PEObs) -> PEState:
-        if agent_id == self.EVADER_IDX:
-            return self._sample_initial_state(
-                evader_coord=cast(np.ndarray, obs[3]),
-                pursuer_coord=cast(np.ndarray, obs[4]),
-                goal_coord=cast(np.ndarray, obs[5]),
-            )
-        return self._sample_initial_state(
-            evader_coord=cast(np.ndarray, obs[3]),
-            pursuer_coord=cast(np.ndarray, obs[4]),
-            goal_coord=None,
-        )
-
     def _sample_initial_state(
         self,
         evader_coord: Optional[np.ndarray],
@@ -599,12 +586,12 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
                 self.grid.get_goal_coords(evader_coord_pos)
             )
             goal_coord_pos = cast(List[Position], [goal_coord_pos])
-            goal_coord = np.array(goal_coord_pos).squeeze()
+            goal_coord = np.array(goal_coord_pos, dtype=np.float32).squeeze()
         return PEState(
             evader_coord,
             pursuer_coord,
-            evader_coord,
-            pursuer_coord,
+            evader_coord[:3],
+            pursuer_coord[:3],
             goal_coord,
             self.grid.get_shortest_path_distance(
                 single_item_to_position(evader_coord),
