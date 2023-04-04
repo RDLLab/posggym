@@ -102,9 +102,28 @@ class PursuitEvasionEnv(DefaultEnv):
     -----------------
     Each agent observes:
 
-    1. whether there is a wall in the adjacent cells. This is achieved by
-       a series of 'n_sensors' lines starting at the agent which extend for a
-       distance of 1.
+    1. Each agent observes a local sector around themselves as a vector. The angle of
+    this sector is between -fov and fov. This observation is done by a series of
+    n_sensors' lines starting at the agent which extend for a distance of 'obs_dist'.
+    For each line the agent observes the closest entity (wall, pursuer, evader) along
+    the line. This table enumerates the first part of the observation space:
+
+    |        Index: [start, end)        | Description                       | Values |
+    | :-------------------------------: | --------------------------------: | :----: |
+    |           0 - n_sensors           | Wall distance for each sensor     | [0, d] |
+    |    n_sensors - (2 * n_sensors)    | Other agent dist for each sensor  | [0, d] |
+
+    Where `d = obs_dist`.
+
+    If an entity is not observed (i.e. there is none along the sensor's line or it
+    isn't the closest entity to the observing agent along the line), The distance will
+    be 1.
+
+    The sensor reading ordering is relative to the agent's direction. I.e. the values
+    for the first sensor at indices `0`, `n_sensors`, `2*n_sensors` correspond to the
+    distance reading to a wall/obstacle, predator, and prey, respectively, in the
+    direction the agent is facing.
+
     2. whether they see the other agent in a cone in front of them (`1`) or not (`0`).
        The cone projects forward up to 'max_obs_distance' (default=`12`) cells in front
        of the agent.
@@ -173,6 +192,9 @@ class PursuitEvasionEnv(DefaultEnv):
     - `use_progress_reward` - whether to reward the evader agent for making progress
         towards it's goal. If False the evader will only be rewarded when it reaches
         it's goal, making it a sparse reward problem (default = 'True`).
+    - `fov` - the Field of View of the agent in radians. This will determine the
+        sector of which the agent can see. This FOV will be relative to the angle
+        of the agent.
 
     Available variants
     ------------------
@@ -225,7 +247,7 @@ class PursuitEvasionEnv(DefaultEnv):
         max_obs_distance: int = 12,
         normalize_reward: bool = True,
         use_progress_reward: bool = True,
-        fov: float = np.pi / 4,
+        fov: float = np.pi / 2,
         render_mode: Optional[str] = None,
         **kwargs,
     ):
@@ -340,7 +362,7 @@ class PursuitEvasionEnv(DefaultEnv):
             x, y, agent_angle = p_state[:3]
 
             angles = np.linspace(
-                -self.fov, self.fov, n_sensors, endpoint=False, dtype=np.float32
+                -self.fov / 2, self.fov / 2, n_sensors, endpoint=False, dtype=np.float32
             )
             for k in range(n_sensors):
                 dist = min([obs_i[k], obs_i[n_sensors + k]])
@@ -414,7 +436,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         max_obs_distance: int = 12,
         normalize_reward: bool = True,
         use_progress_reward: bool = True,
-        fov: float = np.pi / 4,
+        fov: float = np.pi / 2,
     ):
         if isinstance(grid, str):
             assert grid in SUPPORTED_GRIDS, (
@@ -733,7 +755,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             include_blocks=False,
             check_walls=False,
             use_relative_angle=True,
-            angle_bounds=(self.fov, self.fov),
+            angle_bounds=(self.fov / 2, self.fov / 2),
         )
 
         obstacle_obs = self.world.check_collision_circular_rays(
@@ -744,7 +766,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             include_blocks=True,
             check_walls=True,
             use_relative_angle=True,
-            angle_bounds=(self.fov, self.fov),
+            angle_bounds=(self.fov / 2, self.fov / 2),
         )
 
         obs = np.full((self.obs_dim,), self.obs_dist, dtype=np.float32)
@@ -780,7 +802,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         )
 
         if type[0] == CollisionType.AGENT_COLLISION:
-            return abs(angle) < self.fov and dist < self._max_obs_distance
+            return abs(angle) < self.fov / 2 and dist < self._max_obs_distance
 
         return False
 

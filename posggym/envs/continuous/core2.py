@@ -497,6 +497,9 @@ class SquareContinuousWorld:
             position's angle. Otherwise line angle is treated as absolute (i.e.
             relative to angle of 0). This controls the ordering of the rays in the
             output.
+        angle_bounds: The maximum and minimum of the FOV as a tuple. By default
+            the agent will have a full FOV as a circle around them. This will
+            be between 0 and 2π. This can be decreased as needed.
 
         Returns
         -------
