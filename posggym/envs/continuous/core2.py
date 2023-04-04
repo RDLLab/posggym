@@ -477,6 +477,7 @@ class SquareContinuousWorld:
         include_blocks: bool = True,
         check_walls: bool = True,
         use_relative_angle: bool = True,
+        angle_bounds: Tuple[float, float] = (0.0, 2 * np.pi),
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Check for collision along rays that radiate away from the origin.
 
@@ -507,7 +508,9 @@ class SquareContinuousWorld:
         if not use_relative_angle:
             rel_angle = 0.0
 
-        angles = np.linspace(0.0, 2 * math.pi, n_rays, endpoint=False, dtype=np.float32)
+        angles = np.linspace(
+            angle_bounds[0], angle_bounds[1], n_rays, endpoint=False, dtype=np.float32
+        )
 
         ray_end_xs = x + ray_distance * np.cos(angles + rel_angle)
         ray_end_ys = y + ray_distance * np.sin(angles + rel_angle)
@@ -586,6 +589,7 @@ class SquareContinuousWorld:
         include_blocks: bool = True,
         check_walls: bool = True,
         use_relative_angle: bool = True,
+        angle_bounds: Tuple[float, float] = (0.0, 2 * np.pi),
     ) -> np.ndarray:
         return self._check_collision_circular_rays(
             origin,
@@ -595,6 +599,7 @@ class SquareContinuousWorld:
             include_blocks,
             check_walls,
             use_relative_angle,
+            angle_bounds,
         )[0]
 
     def get_all_shortest_paths(

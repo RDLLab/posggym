@@ -225,6 +225,7 @@ class PursuitEvasionEnv(DefaultEnv):
         max_obs_distance: int = 12,
         normalize_reward: bool = True,
         use_progress_reward: bool = True,
+        fov: float = np.pi / 4,
         render_mode: Optional[str] = None,
         **kwargs,
     ):
@@ -234,20 +235,12 @@ class PursuitEvasionEnv(DefaultEnv):
             max_obs_distance=max_obs_distance,
             normalize_reward=normalize_reward,
             use_progress_reward=use_progress_reward,
+            fov=fov,
             **kwargs,
         )
         super().__init__(model, render_mode=render_mode)
 
         self._max_obs_distance = max_obs_distance
-        fov_width = model.grid.get_max_fov_width(
-            model.FOV_EXPANSION_INCR, max_obs_distance
-        )
-        self._obs_dims = (
-            min(max_obs_distance, max(model.grid.size, model.grid.size)),
-            0,
-            fov_width // 2,
-            fov_width // 2,
-        )
         self.renderer = None
         self._agent_imgs = None
         self.window_surface = None
@@ -255,6 +248,7 @@ class PursuitEvasionEnv(DefaultEnv):
         self.window_size = 600
         self.draw_options = None
         self.world = None
+        self.fov = fov
 
     def reset(
         self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
@@ -344,11 +338,14 @@ class PursuitEvasionEnv(DefaultEnv):
         for idx, p_state in info:
             obs_i = self._last_obs[str(idx)][0]
             x, y, agent_angle = p_state[:3]
-            angle_inc = 2 * math.pi / n_sensors
+
+            angles = np.linspace(
+                -self.fov, self.fov, n_sensors, endpoint=False, dtype=np.float32
+            )
             for k in range(n_sensors):
                 dist = min([obs_i[k], obs_i[n_sensors + k]])
 
-                angle = angle_inc * k + agent_angle
+                angle = angles[k] + agent_angle
                 end_x = x + dist * math.cos(angle)
                 end_y = y + dist * math.sin(angle)
                 scaled_start = (int(x * scale_factor), int(y * scale_factor))
@@ -404,7 +401,6 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
     R_CAPTURE = -1.0  # Reward for being captured
     R_EVASION = 1.0  # Reward for reaching goal
 
-    FOV_EXPANSION_INCR = 3
     HEARING_DIST = 2
 
     EVADER_COLOR = (55, 155, 205, 255)  # Blueish
@@ -418,6 +414,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         max_obs_distance: int = 12,
         normalize_reward: bool = True,
         use_progress_reward: bool = True,
+        fov: float = np.pi / 4,
     ):
         if isinstance(grid, str):
             assert grid in SUPPORTED_GRIDS, (
@@ -434,6 +431,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         self._max_obs_distance = max_obs_distance
         self._normalize_reward = normalize_reward
         self._use_progress_reward = use_progress_reward
+        self.fov = fov
 
         self._max_sp_distance = self.world.get_max_shortest_path_distance()
         self._max_raw_return = self.R_EVASION
@@ -735,6 +733,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             include_blocks=False,
             check_walls=False,
             use_relative_angle=True,
+            angle_bounds=(self.fov, self.fov),
         )
 
         obstacle_obs = self.world.check_collision_circular_rays(
@@ -745,6 +744,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             include_blocks=True,
             check_walls=True,
             use_relative_angle=True,
+            angle_bounds=(self.fov, self.fov),
         )
 
         obs = np.full((self.obs_dim,), self.obs_dist, dtype=np.float32)
@@ -780,7 +780,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         )
 
         if type[0] == CollisionType.AGENT_COLLISION:
-            return abs(angle) < np.pi / 4 and dist < self._max_obs_distance
+            return abs(angle) < self.fov and dist < self._max_obs_distance
 
         return False
 
@@ -909,15 +909,6 @@ class PEWorld(SquareContinuousWorld):
                 ),
             )
         return max_dist
-
-    def get_max_fov_width(self, widening_increment: int, max_depth: int) -> float:
-        """Get the maximum width of field of vision."""
-        max_width = 1
-        for d in range(max_depth):
-            if d == 1 or d % widening_increment == 0:
-                max_width += 2
-        (_, max_x), (_, max_y) = self.get_bounds()
-        return min(max_depth, min(max_x, max_y))
 
 
 def get_8x8_grid() -> PEWorld:
