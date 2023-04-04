@@ -29,7 +29,7 @@ from gymnasium import spaces
 import posggym.model as M
 from posggym import logger
 from posggym.core import DefaultEnv
-from posggym.envs.continuous.core2 import (
+from posggym.envs.continuous.core import (
     CircleEntity,
     PMBodyState,
     Position,

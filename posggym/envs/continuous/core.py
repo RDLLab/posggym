@@ -1,759 +1,72 @@
-"""General grid world problem utility functions and classes."""
-import math
-from abc import ABC, abstractmethod
-from enum import Enum
+"""Core functionality for continuous environments."""
+from __future__ import annotations
+
 from itertools import product
+import math
 from queue import PriorityQueue
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, TypeVar, Union
+import warnings
+from typing import (
+    Dict,
+    Iterable,
+    List,
+    NamedTuple,
+    Set,
+    Tuple,
+    Union,
+    TYPE_CHECKING,
+    Optional,
+)
+from abc import ABC, abstractmethod
 
 import numpy as np
 from gymnasium import spaces
 
-import posggym.model as M
+from posggym.error import DependencyNotInstalled
+
+if TYPE_CHECKING:
+    import posggym.model as M
+
+try:
+    import pymunk
+    from pymunk import Vec2d
+except ImportError as e:
+    raise DependencyNotInstalled(
+        "pymunk is not installed, run `pip install posggym[continuous]`"
+    ) from e
+
+from enum import Enum
+
+
+class CollisionType(Enum):
+    NO_COLLISION = 0
+    AGENT_COLLISION = 1
+    BLOCK_COLLISION = 2
+    BORDER_COLLISION = 3
 
 
 # (x, y) coord = (col, row) coord
-Coord = Tuple[float, float]
-
+Coord = Tuple[int, int]
 # (x, y, yaw) in continuous world
 Position = Tuple[float, float, float]
-
+Location = Union[Coord, Position, np.ndarray, Tuple[float, float]]
 # Position, radius
-Object = Tuple[Position, float]
+CircleEntity = Tuple[Position, float]
 
 
-class ArenaTypes(Enum):
-    Square = 0
-    Circle = 1
+class PMBodyState(NamedTuple):
+    """State of a Pymunk Body."""
 
-
-T = TypeVar("T")  # Declare type variable
-
-
-def asserts_exist(x: Optional[T]) -> T:
-    assert x
-    return x
-
-
-class ContinuousWorld(ABC):
-    """A continuous 2D world."""
-
-    EPS = 1e-4
-
-    def __init__(
-        self,
-        world_type: ArenaTypes,
-        agent_size: float = 0.5,
-        yaw_limit: float = math.pi / 10,
-        block_coords: Optional[List[Object]] = None,
-    ):
-        self.agent_size = agent_size
-        self.block_coords = [] if block_coords is None else block_coords
-        self.yaw_limit = yaw_limit
+    x: float
+    y: float
+    angle: float  # in radians
+    vx: float
+    vy: float
+    vangle: float  # in radians/s
 
     @staticmethod
-    def manhattan_dist(
-        coord1: Union[Coord, Position], coord2: Union[Coord, Position]
-    ) -> float:
-        """Get manhattan distance between two positions on the grid."""
-        return abs(coord1[0] - coord2[0]) + abs(coord1[1] - coord2[1])
-
-    @staticmethod
-    def euclidean_dist(
-        coord1: Union[Coord, Position], coord2: Union[Coord, Position]
-    ) -> float:
-        """Get Euclidean distance between two positions on the grid."""
-        return math.sqrt((coord1[0] - coord2[0]) ** 2 + (coord1[1] - coord2[1]) ** 2)
-
-    @staticmethod
-    def squared_euclidean_dist(
-        coord1: Union[Coord, Position], coord2: Union[Coord, Position]
-    ) -> float:
-        """Get Squared Euclidean distance between two positions on the grid."""
-        return (coord1[0] - coord2[0]) ** 2 + (coord1[1] - coord2[1]) ** 2
-
-    @abstractmethod
-    def coord_in_bounds(self, coord: Position) -> bool:
-        """Return whether a coord is inside the grid or not."""
-        pass
-
-    @abstractmethod
-    def clamp_coords(self, coord: Position) -> Position:
-        """Return closest position that is inside the grid."""
-        pass
-
-    @abstractmethod
-    def check_collision_wall(
-        self, coord: Position, line_distance: float, angle: float
-    ) -> Tuple[bool, Optional[float]]:
-        """Check for collision with a wall."""
-        pass
-
-    def get_all_shortest_paths(
-        self, origins: Iterable[Position]
-    ) -> Dict[Tuple[int, int], Dict[Tuple[int, int], int]]:
-        """Get shortest path distance from every origin to all other coords."""
-        src_dists = {}
-        for origin in origins:
-            origin_coord = self.convert_position_to_coord(origin)
-            src_dists[origin_coord] = self.dijkstra(origin)
-        return src_dists
-
-    def convert_position_to_coord(self, origin: Position) -> Tuple[int, int]:
-        return (int(math.floor(origin[0])), int(math.floor(origin[1])))
-
-    def dijkstra(self, origin: Position) -> Dict[Tuple[int, int], int]:
-        """Get shortest path distance between origin and all other coords."""
-        coord_origin = self.convert_position_to_coord(origin)
-
-        dist = {coord_origin: 0}
-        pq = PriorityQueue()  # type: ignore
-        pq.put((dist[coord_origin], coord_origin))
-
-        visited = {coord_origin}
-
-        while not pq.empty():
-            _, coord = pq.get()
-            coord_c = self.convert_position_to_coord(coord)
-            for adj_coord in self.get_cardinal_neighbours(coord, ignore_blocks=False):
-                adj_coord_c = self.convert_position_to_coord(adj_coord)
-                if dist[coord_c] + 1 < dist.get(adj_coord_c, float("inf")):
-                    dist[adj_coord_c] = dist[coord_c] + 1
-
-                    if adj_coord not in visited:
-                        pq.put((dist[adj_coord_c], adj_coord))
-                        visited.add(adj_coord_c)
-        return dist
-
-    def get_next_coord(
-        self,
-        coord: Position,
-        action: Union[np.ndarray, List[float]],
-        ignore_blocks: bool = False,
-    ) -> Position:
-        return self._get_next_coord(coord, action, ignore_blocks)[0]
-
-    def _non_holonomic_model(
-        self,
-        coord: Position,
-        action: Union[np.ndarray, List[float]],
-        ignore_blocks: bool = False,
-        include_out_of_bounds: bool = True,
-    ) -> Tuple[Position, bool]:
-        if len(action) == 1:
-            delta_yaw = action[0]
-            velocity = 0.25
-        else:
-            delta_yaw, velocity = action
-
-        x, y, yaw = coord
-        new_yaw = yaw + delta_yaw
-
-        new_yaw = new_yaw % (2 * math.pi)  # To avoid bigger than 360 degrees
-        if new_yaw > (math.pi):
-            new_yaw = new_yaw - 2 * math.pi
-
-        x += velocity * math.cos(new_yaw)
-        y += velocity * math.sin(new_yaw)
-
-        new_coord = self.clamp_coords((x, y, new_yaw))
-
-        if not ignore_blocks and self.check_collision((new_coord, self.agent_size)):
-            return (coord, False)
-
-        # Out of bounds is unsuccessful
-        if not include_out_of_bounds and new_coord != (x, y, new_yaw):
-            return (new_coord, False)
-
-        return (new_coord, True)
-
-    def _holonomic_model(
-        self,
-        coord: Position,
-        action: Union[np.ndarray, List[float]],
-        ignore_blocks: bool = False,
-        include_out_of_bounds: bool = True,
-    ) -> Tuple[Position, bool]:
-        x, y, yaw = coord
-        delta_x, delta_y = action
-
-        x += delta_x
-        y += delta_y
-
-        new_coord = self.clamp_coords((x, y, yaw))
-
-        if not ignore_blocks and self.check_collision((new_coord, self.agent_size)):
-            return (coord, False)
-
-        if not include_out_of_bounds and new_coord != (x, y, yaw):
-            return (new_coord, False)
-
-        return (new_coord, True)
-
-    def _get_next_coord(
-        self,
-        coord: Position,
-        action: Union[np.ndarray, List[float]],
-        ignore_blocks: bool = False,
-        use_holonomic_model: bool = False,
-    ) -> Tuple[Position, bool]:
-        """Get next position given loc and movement direction.
-
-        If new position is outside of the grid boundary, or (ignore_blocks is
-        False and new coord is a block) then returns the original
-        coord.
-        """
-        if use_holonomic_model:
-            return self._holonomic_model(coord, action, ignore_blocks)
-        else:
-            return self._non_holonomic_model(coord, action, ignore_blocks)
-
-    def clamp(self, min_bound, max_bound, value):
-        return min(max_bound, max(value, min_bound))
-
-    def rotate_point_around_origin(
-        self, point: Tuple[float, float], angle: float
-    ) -> Tuple[float, float]:
-        """Rotate a point around the origin by a given angle in radians.
-
-        Args:
-            point (Tuple[float, float]): The (x, y) coords of the point to rotate.
-            angle (float): The angle in radians by which to rotate the point.
-
-        Returns:
-            Tuple[float, float]: The rotated (x', y') coords of the point.
-        """
-        x, y = point
-        x_prime = x * math.cos(angle) - y * math.sin(angle)
-        y_prime = x * math.sin(angle) + y * math.cos(angle)
-        return x_prime, y_prime
-
-    def check_circle_line_intersection(
-        self,
-        x: float,
-        y: float,
-        r: float,
-        start_x: float,
-        start_y: float,
-        end_x: float,
-        end_y: float,
-    ) -> Optional[float]:
-        """Check if line intersects circle at (x, y) with radius r.
-
-        Line starts at (start_x, start_y) and ends at (end_x, end_y).
-
-        If line intersects circle, returns distance till intersection, otherwise returns
-        None.
-        """
-        # https://math.stackexchange.com/questions/275529/check-if-line-intersects-with-circles-perimeter
-        start_x -= x
-        start_y -= y
-        end_x -= x
-        end_y -= y
-        dx, dy = (end_x - start_x), (end_y - start_y)
-
-        a = dx**2 + dy**2
-        b = 2 * (start_x * dx + start_y * dy)
-        c = start_x**2 + start_y**2 - r**2
-        disc = b**2 - 4 * a * c
-
-        if disc <= 0:
-            return None
-
-        sqrtdisc = math.sqrt(disc)
-        t1 = (-b + sqrtdisc) / (2 * a)
-        t2 = (-b - sqrtdisc) / (2 * a)
-        if 0 <= t1 <= t2:
-            t = t1
-        elif 0 <= t2 <= t1:
-            t = t2
-        else:
-            # collision only possible moving backwards
-            return None
-        # distance till intersection
-        return math.sqrt((t * dx) ** 2 + (t * dy) ** 2)
-
-    def check_circle_circle_intersection(
-        self,
-        circle_1: Union[Coord, Position],
-        circle_2: Union[Coord, Position],
-        velocity_1: Tuple[float, float],
-        velocity_2: Tuple[float, float],
-        radius_1: float,
-        radius_2: float,
-    ) -> Optional[float]:
-        """Check if circle collides with another circle.
-
-        `circle_1` and `circle_2` are the start positions of each circle's center.
-        `velocity_1` and `velocity_2` are the velocities of each circle in the x and y
-        directions.
-        `radius_1` and `radius_2` are the radius of each circle.
-
-        If objects will collide, returns distance till collision, otherwise returns
-        None.
-
-        """
-        # https://physics.stackexchange.com/questions/221895/time-until-next-collision
-        (vx1, vy1), (vx2, vy2) = velocity_1, velocity_2
-        vx, vy = (vx1 - vx2), (vy1 - vy2)
-        (x1, y1), (x2, y2) = (circle_1[0], circle_1[1]), (circle_2[0], circle_2[1])
-        dx, dy = (x1 - x2), (y1 - y2)
-
-        # Need to find distance when circle_1 and circle_2 are within
-        # (radius_1 + radius_2) distance of each other
-        a = vx**2 + vy**2
-        b = 2 * (dx * vx + dy * vy)
-        c = dy**2 + dx**2 - (radius_1 + radius_2) ** 2
-        disc = b**2 - 4 * a * c
-
-        if disc <= 0:
-            # no collision possible
-            return None
-
-        sqrtdisc = math.sqrt(disc)
-        t1 = (-b - sqrtdisc) / (2 * a)
-        t2 = (-b + sqrtdisc) / (2 * a)
-
-        if (t1 < 0.0 and t2 < self.EPS) or (t1 < self.EPS and t2 < 0.0):
-            # Case 1: (t1 < 0.0 and t2 < 0.0) - collision already, but moving away
-            return None
-        # elif t1 >= 0.0 and (t2 < 0.0 or t1 <= t2):
-        elif t1 >= self.EPS and t2 < 0.0:
-            # Case 2: (t1 >= 0.0 and t2 < 0.0) already in collision
-            #         (allow to keep moving forward)
-            if t1 <= 1.0:
-                # will reach end of collision within step
-                return math.sqrt((t1 * vx) ** 2 + (t1 * vy) ** 2)
-            # will still be in collision within step so move small distance towards
-            # closest edge
-            t2 = abs(t2)
-            if t2 <= t1:
-                # move slightly backwards
-                return -min(self.EPS, math.sqrt((t2 * vx) ** 2 + (t2 * vy) ** 2))
-            return min(self.EPS, math.sqrt((t1 * vx) ** 2 + (t1 * vy) ** 2))
-        # elif t2 >= 0.0 and (t1 < 0.0 or t2 <= t1):
-        elif t2 >= self.EPS and t1 < 0.0:
-            # Case 3: (t2 >= 0.0 and t1 < 0.0) already in collision
-            #         (allow to keep moving forward)
-            if t2 <= 1.0:
-                # will reach end of collision within step
-                return math.sqrt((t2 * vx) ** 2 + (t2 * vy) ** 2)
-            # will still be in collision within step so move small distance towards
-            # closest edge
-            t1 = abs(t1)
-            if t1 <= t2:
-                # move slightly backwards
-                return -min(self.EPS, math.sqrt((t1 * vx) ** 2 + (t1 * vy) ** 2))
-            return min(self.EPS, math.sqrt((t2 * vx) ** 2 + (t2 * vy) ** 2))
-        elif 0.0 <= t1 <= t2:
-            # Case 4a:(0 <= t1 <= t2) collision in current direction (t1 closer)
-            return math.sqrt((t1 * vx) ** 2 + (t1 * vy) ** 2)
-        elif 0.0 <= t2 <= t1:
-            # Case 4b:(0 <= t2 <= t1) collision in current direction (t2 closer)
-            return math.sqrt((t2 * vx) ** 2 + (t2 * vy) ** 2)
-        else:
-            # Not sure
-            d1 = math.sqrt((t1 * vx) ** 2 + (t1 * vy) ** 2)
-            d2 = math.sqrt((t2 * vx) ** 2 + (t2 * vy) ** 2)
-            raise AssertionError(
-                "Something weird happened with collision between circles: "
-                f"({x1=:.6f}, {y1=:.6f}), ({x2=:.6f}, {y2=:.6f}), with velocities: "
-                f"({vx1=:.6f}, {vy1=:.6f}), ({vx2=:.6f}, {vy2=:.6f}), and radiis: "
-                f"{radius_1=:.6f}, {radius_2=:.6f}. "
-                f"({t1=:.10f} {d1=:.10f}) ({t2=:.10f} {d2=:.10f})"
-            )
-
-    def check_collision_ray(
-        self,
-        coord: Position,
-        line_distance: float,
-        line_angle: float,
-        other_agents: Optional[Union[Tuple[Position, ...], List[Position], np.ndarray]],
-        skip_id: Optional[Union[int, List[int]]] = None,
-        only_walls: bool = False,
-        include_blocks: bool = True,
-        use_relative_angle: bool = True,
-    ) -> Tuple[Optional[int], float]:
-        """Check for collision along ray.
-
-        Returns entity index and distance if there is a collision, otherwise if there is
-        no collision returns None and `line distance`.
-
-        If collision is with a wall or block, return index of -1.
-
-        If `use_relative_angle=True` then line angle is treated as relative to agents
-        yaw angle. Otherwise line angle is treated as absolute (i.e. relative to angle
-        of 0).
-
-        """
-        if skip_id is None:
-            skip_id = []
-        elif isinstance(skip_id, int):
-            skip_id = [skip_id]
-
-        closest_distance = line_distance
-        closest_index = None
-
-        x, y, rel_angle = coord
-        if not use_relative_angle:
-            rel_angle = 0.0
-        end_x = x + line_distance * math.cos(line_angle + rel_angle)
-        end_y = y + line_distance * math.sin(line_angle + rel_angle)
-
-        if not only_walls and other_agents is not None:
-            for index, pos in enumerate(other_agents):
-                if index in skip_id:
-                    continue
-                dist = self.check_circle_line_intersection(
-                    pos[0], pos[1], self.agent_size, x, y, end_x, end_y
-                )
-                if dist is not None and dist < closest_distance:
-                    closest_distance = dist
-                    closest_index = index
-
-        if include_blocks:
-            for index, (pos, size) in enumerate(self.block_coords):
-                dist = self.check_circle_line_intersection(
-                    pos[0], pos[1], size, x, y, end_x, end_y
-                )
-                if dist is not None and dist < closest_distance:
-                    closest_distance = dist
-                    closest_index = -1
-
-        _, dist = self.check_collision_wall(coord, line_distance, line_angle)
-        if dist is not None and dist < closest_distance:
-            closest_distance = dist
-            closest_index = -1
-
-        return (closest_index, closest_distance)
-
-    @abstractmethod
-    def get_bounds(self) -> Tuple[Tuple[float, float], Tuple[float, float]]:
-        pass
-
-    def get_cardinal_neighbours(
-        self,
-        coord: Position,
-        ignore_blocks=False,
-        include_out_of_bounds=False,
-    ) -> List[Position]:
-        """Get set of adjacent non-blocked coords."""
-        (min_x, max_x), (min_y, max_y) = self.get_bounds()
-        neighbours = []
-
-        rounded_coord: Tuple[float, float] = (
-            round(coord[0]),
-            round(coord[1]),
-        )
-
-        if rounded_coord[1] > min_y or include_out_of_bounds:
-            neighbours.append((rounded_coord[0], rounded_coord[1] - 1, 0.0))  # N
-        if rounded_coord[0] < max_x - 1 or include_out_of_bounds:
-            neighbours.append((rounded_coord[0] + 1, rounded_coord[1], 0.0))  # E
-        if rounded_coord[1] < max_y or include_out_of_bounds:
-            neighbours.append((rounded_coord[0], rounded_coord[1] + 1, 0.0))  # S
-        if rounded_coord[0] > min_x or include_out_of_bounds:
-            neighbours.append((rounded_coord[0] - 1, rounded_coord[1], 0.0))  # W
-
-        if ignore_blocks:
-            return neighbours
-
-        for i in range(len(neighbours), 0, -1):
-            if neighbours[i - 1] in self.block_coords:
-                neighbours.pop(i - 1)
-
-        return neighbours
-
-    def generate_range(self, lower: float, upper: float, length: int) -> List[float]:
-        # https://stackoverflow.com/questions/6683690/making-a-list-of-evenly-spaced-numbers-in-a-certain-range-in-python
-        return [lower + x * (upper - lower) / length for x in range(length)]
-
-    def get_possible_next_pos(
-        self,
-        coord: Position,
-        num_samples: int = 20,
-        distance: float = 1.0,
-        ignore_blocks: bool = False,
-        include_out_of_bounds: bool = False,
-        force_non_colliding: bool = False,
-        use_holonomic_model: bool = False,
-    ):
-        if use_holonomic_model:
-            points = self.generate_range(0, 2 * math.pi, num_samples)
-        else:
-            # Restrict change in yaw -pi/10 -> pi/10
-            points = self.generate_range(-self.yaw_limit, self.yaw_limit, num_samples)
-        distances = self.generate_range(0, distance, num_samples)
-
-        data = product(points, distances)
-
-        output: List[Position] = []
-        for yaw, d in data:
-            if use_holonomic_model:
-                dx = math.sin(yaw) * d
-                dy = math.cos(yaw) * d
-                action = [dx, dy]
-            else:
-                action = [yaw, distance]
-
-            new_coords, success = self._get_next_coord(
-                coord,
-                action,
-                ignore_blocks=ignore_blocks,
-                use_holonomic_model=use_holonomic_model,
-            )
-
-            if success:
-                if force_non_colliding:
-                    if not self.check_agent_collisions(new_coords, output):
-                        output.append(new_coords)
-                else:
-                    output.append(new_coords)
-
-        return output
-
-    def get_neighbours(
-        self,
-        coord: Position,
-        num_samples: int = 20,
-        distance: float = 1.0,
-        ignore_blocks: bool = False,
-        include_out_of_bounds: bool = False,
-        force_non_colliding: bool = False,
-    ):
-        # This function should try to find all possible positions around a
-        # coord where another agent could be.
-        points = [i * (2 * math.pi) / (num_samples - 1) for i in range(num_samples)]
-        output: List[Position] = []
-        for yaw in points:
-            dx = math.sin(yaw) * distance
-            dy = math.cos(yaw) * distance
-            new_coords, success = self._holonomic_model(
-                coord,
-                [dx, dy],
-                ignore_blocks=ignore_blocks,
-                include_out_of_bounds=include_out_of_bounds,
-            )
-
-            if success:
-                if force_non_colliding:
-                    if not self.check_agent_collisions(new_coords, output):
-                        output.append(new_coords)
-                else:
-                    output.append(new_coords)
-
-        return output
-
-    def agents_collide(self, coord1: Position, coord2: Position, distance=None) -> bool:
-        dist = self.squared_euclidean_dist(coord1, coord2)
-        return 0 <= dist <= (self.agent_size + self.agent_size) ** 2
-
-    def check_collision(self, object: Object) -> bool:
-        object_pos, agent_radius = object
-        for pos, radius in self.block_coords:
-            dist = ContinuousWorld.squared_euclidean_dist(object_pos, pos)
-            if dist <= (radius + agent_radius):
-                return True
-
-        return False
-
-    def check_agent_collisions(
-        self, coord: Position, other_coords: Iterable[Position]
-    ) -> bool:
-        return any(self.agents_collide(coord, p) for p in other_coords)
-
-    def get_collision_index(
-        self, coord: Position, other_coords: Iterable[Position]
-    ) -> Optional[int]:
-        try:
-            return [self.agents_collide(coord, p) for p in other_coords].index(True)
-        except ValueError:
-            return None
-
-    def sample_coords_within_dist(
-        self,
-        center: Position,
-        min_dist_from_center: float,
-        rng: Callable[[], float],
-        ignore_blocks: bool = False,
-        use_holonomic_model: bool = False,
-        max_attempts: int = 100,
-    ) -> Optional[Position]:
-        """Attempts to sample collision free position within distance from center."""
-        for _ in range(max_attempts):
-            angle = 2 * math.pi * rng()
-            distance = min_dist_from_center * math.sqrt(rng())
-
-            x = center[0] + distance * math.cos(angle)
-            y = center[1] + distance * math.sin(angle)
-            yaw = 0.0 if use_holonomic_model else 2 * math.pi * rng()
-
-            new_coord: Position = self.clamp_coords((x, y, yaw))
-            if not self.check_collision((new_coord, self.agent_size)):
-                return new_coord
-        return None
-
-
-class CircularContinuousWorld(ContinuousWorld):
-    """A continuous world with a circular border."""
-
-    def __init__(
-        self,
-        radius: float,
-        block_coords: Optional[List[Object]] = None,
-    ):
-        super().__init__(world_type=ArenaTypes.Circle, block_coords=block_coords)
-        self.radius = radius
-
-    def get_bounds(self) -> Tuple[Tuple[float, float], Tuple[float, float]]:
-        return (-self.radius, self.radius), (-self.radius, self.radius)
-
-    def coord_in_bounds(self, coord: Position) -> bool:
-        self.radius = asserts_exist(self.radius)
-        center = (0, 0, 0)
-        dist_from_center = ContinuousWorld.euclidean_dist(coord, center)
-        return dist_from_center < self.radius
-
-    def check_collision_wall(
-        self, coord: Position, line_distance: float, angle: float
-    ) -> Tuple[bool, Optional[float]]:
-        """Checks if a line starting at position 'coord' and traveling at angle 'angle'
-        relative to the agent's angle collides with the wall.
-
-        Args:
-            coord (Position): The starting position of the line.
-            line_distance (float): The maximum distance the line should travel.
-            angle (float): The angle at which the line is traveling relative to the
-                           agent's angle.
-
-        Returns:
-            A tuple containing a boolean value indicating whether there was a collision
-            or not, and the distance to the wall if there was a collision, or None
-            otherwise.
-        """
-        x, y, agent_angle = coord
-        line_angle = agent_angle + angle
-
-        end_x = x + line_distance * math.cos(line_angle)
-        end_y = y + line_distance * math.sin(line_angle)
-
-        # Check whether the line intersects with the circular boundary
-        dx = end_x - x
-        dy = end_y - y
-        a = dx**2 + dy**2
-        b = 2 * (dx * (x) + dy * (y))
-        c = x**2 + y**2 - self.radius**2
-        disc = b**2 - 4 * a * c
-
-        if disc < 0:
-            return False, None
-        else:
-            sqrt_disc = math.sqrt(disc)
-            t1 = (-b - sqrt_disc) / (2 * a)
-            t2 = (-b + sqrt_disc) / (2 * a)
-
-            if 0 <= t1 <= 1:
-                x1 = x + t1 * dx
-                y1 = y + t1 * dy
-                return True, math.sqrt((x1 - x) ** 2 + (y1 - y) ** 2)
-            elif 0 <= t2 <= 1:
-                x1 = x + t2 * dx
-                y1 = y + t2 * dy
-                return True, math.sqrt((x1 - x) ** 2 + (y1 - y) ** 2)
-            else:
-                return False, None
-
-    def check_collision_circle_wall(
-        self,
-        origin: Position,
-        max_distance: float,
-        angle: float,
-        r: float,
-        use_relative_angle: bool = False,
-    ) -> Optional[float]:
-        # TODO Basically same as check_collision_wall, just need to include radius
-        raise NotImplementedError
-
-    def clamp_coords(self, coord: Position) -> Position:
-        x, y, yaw = coord
-        # Calculating polar coords
-        center = (0, 0)
-        r = self.euclidean_dist(center, coord)
-        gamma = math.atan2(y, x)
-        # Virtual barrier:
-        if r > self.radius:
-            x = self.radius * math.cos(gamma)
-            y = self.radius * math.sin(gamma)
-        return (x, y, yaw)
-
-
-class RectangularContinuousWorld(ContinuousWorld):
-    def __init__(
-        self,
-        width: float,
-        height: float,
-        block_coords: Optional[List[Object]] = None,
-    ):
-        super().__init__(world_type=ArenaTypes.Square, block_coords=block_coords)
-        self.height = height
-        self.width = width
-
-    def coord_in_bounds(self, coord: Position) -> bool:
-        return 0 <= coord[0] < self.width and 0 <= coord[1] < self.height
-
-    def get_bounds(self) -> Tuple[Tuple[float, float], Tuple[float, float]]:
-        return (0, self.width), (0, self.height)
-
-    def clamp_coords(self, coord: Position) -> Position:
-        x, y, yaw = coord
-        x = self.clamp(self.agent_size, self.width - self.agent_size, x)
-        y = self.clamp(self.agent_size, self.height - self.agent_size, y)
-        return (x, y, yaw)
-
-    def check_collision_wall(
-        self, coord: Position, line_distance: float, angle: float
-    ) -> Tuple[bool, Optional[float]]:
-        """Checks if a line collides with the arena's walls.
-
-        Arguments
-        ---------
-        coord : The starting position of the line.
-        line_distance : The maximum distance the line should travel.
-        angle : The angle at which the line is traveling relative to the agent's
-            angle.
-
-        Returns
-        -------
-        collision : whether there was a collision or not
-        distance : the distance to the wall if there was a collision, or None otherwise.
-
-        """
-        x, y, agent_angle = coord
-        line_angle = angle + agent_angle
-        end_x = x + line_distance * math.cos(line_angle)
-        end_y = y + line_distance * math.sin(line_angle)
-
-        # Check whether it intersects with L/R boundary
-        if end_x < 0 or end_x > self.width:
-            x1 = 0.0 if end_x < 0 else self.width
-
-            # Compute the y-coordinate where the intersection occurs
-            y1 = (end_y - y) / (end_x - x) * (x1 - x) + y
-
-            if 0 <= y1 <= self.height:
-                return True, math.sqrt((x1 - x) ** 2 + (y1 - y) ** 2)
-
-        # Check whether it intersects with Top/Bottom boundary
-        if end_y < 0 or end_y > self.height:
-            y1 = 0.0 if end_y < 0 else self.height
-
-            # Compute the x-coordinate where the intersection occurs
-            x1 = (end_x - x) / (end_y - y) * (y1 - y) + x
-
-            if 0 <= x1 <= self.width:
-                return True, math.sqrt((x1 - x) ** 2 + (y1 - y) ** 2)
-
-        return False, None
+    def num_features() -> int:
+        """Get the number of features of a pymunk body state."""
+        return 6
 
 
 def clip_actions(
@@ -769,35 +82,691 @@ def clip_actions(
     return clipped_actions
 
 
-def position_to_array(coords: Iterable[Position], squeeze: bool = True) -> np.ndarray:
-    """Converts list of positions into a 2D array of positions.
+class AbstractContinuousWorld(ABC):
+    """A continuous 2D world with a rectangular border."""
 
-    New array has shape (len(coords), 3), where  Each row is the new array is a single
-    position.
+    WALL_COLOR = (0, 0, 0, 255)  # Black
+    BLOCK_COLOR = (0, 0, 0, 255)  # Black
 
-    If squeeze=True will output 1D array if the list contains a single position.
-    """
-    array = np.array([np.array(x, dtype=np.float32) for x in coords], dtype=np.float32)
-    if squeeze:
-        return array.squeeze()
-    return array
+    def __init__(
+        self,
+        size: float,
+        blocks: Optional[List[CircleEntity]] = None,
+        agent_radius: float = 0.5,
+        border_thickness=0.1,
+        enable_physics=True,
+    ):
+        self.size = size
+        self.blocks = [] if blocks is None else blocks
+        self.agent_radius = agent_radius
+        self.border_thickness = border_thickness
+        # access via blocked_coords property
+        self._blocked_coords: Optional[Set[Coord]] = None
+
+        self.collision_id = 0
+        self.enable_physics = enable_physics
+
+        # 2D physics stuff
+        self.space = pymunk.Space()
+        self.space.gravity = Vec2d(0.0, 0.0)
+
+        if not enable_physics:
+            # Turn off all collisions
+            def ignore_collisions(arbiter, space, data):
+                return False
+
+            self.space.add_collision_handler(0, 0).pre_solve = ignore_collisions
+
+        self.add_walls_to_space(size)
+
+        for pos, radius in self.blocks:
+            body = pymunk.Body(body_type=pymunk.Body.STATIC)
+            shape = pymunk.Circle(body, radius)
+            body.position = Vec2d(pos[0], pos[1])
+            shape.elasticity = 0.0  # no bouncing
+            shape.color = self.BLOCK_COLOR
+            shape.collision_type = self.get_collision_id()
+            self.space.add(body, shape)
+
+        # moveable entities in the world
+        self.entities: Dict[str, Tuple[pymunk.Body, pymunk.Circle]] = {}
+
+    @abstractmethod
+    def add_walls_to_space(self, size: float):
+        pass
+
+    @abstractmethod
+    def check_wall_collisions(
+        self, ray_start_coords: np.ndarray, ray_end_coords: np.ndarray
+    ) -> np.ndarray:
+        pass
+
+    def simulate(self, dt: float = 1.0 / 10, t: int = 10):
+        """Simulate the world, updating all entities.
+
+        As per pymunk.Space.step documentation, using a fixed time step `dt` is
+        recommended and improves efficiency.
+
+        Also performing multiple steps `t` with a smaller `dt` creates a more stable
+        and accurate simulation.
+
+        Arguments
+        ---------
+        dt: the step size
+        t: the number of steps
+
+        Reference
+        ---------
+        https://www.pymunk.org/en/latest/pymunk.html#pymunk.Space.step
+
+        """
+        for _ in range(t):
+            self.space.step(dt)
+
+    def get_copy_of_pymunk_space(self) -> pymunk.Space:
+        """Get a copy of this world's underlying 2D physisc space.
+
+        This returns a deepcopy, so can be used to simulate actions, etc, without
+        affecting the original space.
+        """
+        return self.space.copy()
+
+    def get_parent_classes(self, cls):
+        parents = []
+        for parent in cls.__bases__:
+            parents.append(parent)
+            parents.extend(self.get_parent_classes(parent))
+        return parents
+
+    def copy(self) -> "AbstractContinuousWorld":
+        """Get a deep copy of this world."""
+        pr = [type(self)] + self.get_parent_classes(type(self))
+        # [..., SquareContinous, Abstract, ABC, Object]
+        abc_instance = pr.index(AbstractContinuousWorld)
+        world = pr[abc_instance - 1](
+            self.size, self.blocks, self.agent_radius, self.border_thickness
+        )
+
+        for id, (body, shape) in self.entities.items():
+            # make copies of each entity, and ensure the copies are linked correctly
+            # and added to the new world and world space
+            body = body.copy()
+            shape = shape.copy()
+            shape.body = body
+
+            world.space.add(body, shape)
+            world.entities[id] = (body, shape)
+        return world
+
+    def add_entity(
+        self,
+        id: str,
+        radius: Optional[float],
+        color: Optional[Tuple[int, int, int, int]],
+        is_static: bool = False,
+    ) -> Tuple[pymunk.Body, pymunk.Circle]:
+        """Add moveable entity to the world.
+
+        Arguments
+        ---------
+        id: the unique ID of the entity
+        radius: the radius of the entity. If none uses `self.agent_radius`
+        color: optional color for the entity. This only impacts rendering of the world.
+
+        Returns
+        -------
+        body: underlying physics Body of the entity
+        shape: the shape of the entity
+
+        """
+        if radius is None:
+            radius = self.agent_radius
+        mass = 1.0
+        inertia = pymunk.moment_for_circle(mass, 0.0, radius)
+        body_type = pymunk.Body.STATIC if is_static else pymunk.Body.DYNAMIC
+        body = pymunk.Body(mass, inertia, body_type=body_type)
+        shape = pymunk.Circle(body, radius)
+
+        shape.collision_type = self.get_collision_id()
+
+        shape.elasticity = 0.0  # no bouncing
+        shape.collision_type = self.get_collision_id()
+        if color is not None:
+            shape.color = color
+
+        self.space.add(body, shape)
+        self.entities[id] = (body, shape)
+        return body, shape
+
+    def get_collision_id(self):
+        return self.collision_id
+
+    def get_entity_state(self, id: str) -> PMBodyState:
+        """Get underlying state of an entity in the world."""
+        body, _ = self.entities[id]
+        x, y = body.position
+        vx, vy = body.velocity
+        return PMBodyState(x, y, body.angle, vx, vy, body.angular_velocity)
+
+    def set_entity_state(self, id: str, state: Union[PMBodyState, np.ndarray]):
+        """Set the state of an entity.
+
+        If state is a np.ndarray, then it should be 1D with values ordered the same as
+        the PMBodyState namedtuple.
+        """
+        body, _ = self.entities[id]
+        body.position = Vec2d(state[0], state[1])
+        body.angle = state[2]
+        body.velocity = Vec2d(state[3], state[4])
+        body.angular_velocity = state[5]
+
+    def update_entity_state(
+        self,
+        id: str,
+        *,
+        coord: Optional[
+            Union[Tuple[float, float], List[float], np.ndarray, Vec2d]
+        ] = None,
+        angle: Optional[float] = None,
+        vel: Optional[
+            Union[Tuple[float, float], List[float], np.ndarray, Vec2d]
+        ] = None,
+        vangle: Optional[float] = None,
+        acceleration: Union[Tuple[float, float], List[float], np.ndarray, Vec2d]
+        | None = None,
+    ):
+        """Update the state of an entity.
+
+        Can be used to update specific parts of the entity state, while leaving the
+        other components unchanged.
+
+        """
+        body, _ = self.entities[id]
+        if coord is not None:
+            body.position = Vec2d(coord[0], coord[1])
+
+        if angle is not None:
+            body.angle = angle
+
+        if vel is not None:
+            body.velocity = Vec2d(vel[0], vel[1])
+
+        if vangle is not None:
+            body.angular_velocity = vangle
+
+        if acceleration is not None:
+            linear_acc = acceleration[0]
+            angular_acc = acceleration[1]
+            body.apply_force_at_local_point(
+                Vec2d(
+                    linear_acc * body.mass * math.cos(body.angle),
+                    linear_acc * body.mass * math.sin(body.angle),
+                ),
+                Vec2d(0, 0),
+            )
+            body.torque = angular_acc * body.moment
+
+    def get_bounds(self) -> Tuple[Tuple[float, float], Tuple[float, float]]:
+        """Get  (min x, max_x), (min y, max y) bounds of the world."""
+        return (0, self.size), (0, self.size)
+
+    @property
+    def blocked_coords(self) -> Set[Coord]:
+        """The set of all integer coordinates that contain at least part of a block."""
+        if self._blocked_coords is None:
+            self._blocked_coords = set()
+            # offset from coord, to middle of cell
+            offset = 0.5
+            # to handle any weird rounding
+            max_coord = math.ceil(round(self.size, 6))
+            for x, y in product(list(range(max_coord)), repeat=2):
+                offset_coord = (x + offset, y + offset)
+                for pos, r in self.blocks:
+                    if self.euclidean_dist(offset_coord, pos) < (offset + r):
+                        self._blocked_coords.add((x, y))
+                        break
+        return self._blocked_coords
+
+    @staticmethod
+    def manhattan_dist(loc1: Location, loc2: Location) -> float:
+        """Get manhattan distance between two positions in the world."""
+        return abs(loc1[0] - loc2[0]) + abs(loc1[1] - loc2[1])
+
+    @staticmethod
+    def euclidean_dist(loc1: Location, loc2: Location) -> float:
+        """Get Euclidean distance between two positions on the grid."""
+        return math.sqrt((loc1[0] - loc2[0]) ** 2 + (loc1[1] - loc2[1]) ** 2)
+
+    @staticmethod
+    def squared_euclidean_dist(loc1: Location, loc2: Location) -> float:
+        """Get Squared Euclidean distance between two positions on the grid."""
+        return (loc1[0] - loc2[0]) ** 2 + (loc1[1] - loc2[1]) ** 2
+
+    def agents_collide(self, loc1: Location, loc2: Location) -> bool:
+        """Get whether two agents have collided or not.
+
+        Assumes agents are circles with radius `self.agent_radius`.
+        """
+        dist = self.squared_euclidean_dist(loc1, loc2)
+        return 0 <= dist <= (self.agent_radius + self.agent_radius) ** 2
+
+    def check_circle_line_intersection(
+        self,
+        circle_coords: np.ndarray,
+        circle_radii: np.ndarray,
+        lines_start_coords: np.ndarray,
+        lines_end_coords: np.ndarray,
+    ) -> np.ndarray:
+        """Check if lines intersect circles.
+
+        Arguments
+        ---------
+        circle_coords: array containing the `(x, y)` of the center of each circle.
+            Should have shape `(n_circles, 2)`
+        circle_radii: array containing the radius of each circle. Should have shape
+            `(n_circles,)`
+        lines_start_coords: array containing the `(x, y)` coords of the start of each of
+            the lines. Should have shape `(n_lines, 2)`
+        lines_end_coords: array containing the `(x, y)` coords of the end of of each of
+            the lines. Should have shape `(n_lines, 2)`
+
+        Returns
+        -------
+        distances: An array containing the euclidean distance from each lines start to
+            the first point of intersection with the corresponding circle. If the line
+            does not intersect the circle, its distance will be `np.nan`.
+            Should have shape `(n_circles, n_lines)`
+
+        """
+        starts = lines_start_coords[None, :, :] - circle_coords[:, None, :]
+        ends = lines_end_coords[None, :, :] - circle_coords[:, None, :]
+        v = ends - starts
+
+        a = (v**2).sum(axis=2)
+        b = 2 * (starts * v).sum(axis=2)
+        c = (starts**2).sum(axis=2) - circle_radii[:, None] ** 2
+        disc = b**2 - 4 * a * c
+
+        with np.errstate(invalid="ignore"):
+            # this will output np.nan for any negative discriminants, which is what we
+            # want, but will throw a runtime warning which we want to ignore
+            sqrtdisc = np.sqrt(disc)
+
+        t1 = (-b - sqrtdisc) / (2 * a)
+        t2 = (-b + sqrtdisc) / (2 * a)
+        t1 = np.where(((t1 >= 0.0) & (t1 <= 1.0)), t1, np.nan)
+        t2 = np.where(((t2 >= 0.0) & (t2 <= 1.0)), t2, np.nan)
+        t = np.where(t1 <= t2, t1, t2)
+
+        t = np.expand_dims(t, axis=-1)
+        return np.sqrt(((t * v) ** 2).sum(axis=2))  # type: ignore
+
+    def check_line_line_intersection(
+        self,
+        l1_start_coords: np.ndarray,
+        l1_end_coords: np.ndarray,
+        l2_start_coords: np.ndarray,
+        l2_end_coords: np.ndarray,
+    ) -> np.ndarray:
+        """Check if lines intersect.
+
+        Checks for each line in `l1` if it intersects with any line in `l2`.
+
+        Arguments
+        ---------
+        l1_start_coords: array with shape `(n_lines1, 2)` containing the (x, y) coord
+          for the start of each of the first set of lines.
+        l1_end_coords: array with shape `(n_lines1, 2)` containing the (x, y) coord
+          for the end of each of the first set of lines.
+        l2_start_coords: array with shape `(n_lines2, 2)` containing the (x, y) coord
+          for the start of each of the second set of lines.
+        l2_end_coords: array with shape `(n_lines2, 2)` containing the (x, y) coord
+          for the end of each of the second set of lines.
+
+        Returns
+        -------
+        intersection_coords: array with shape `(n_lines1, n_lines2, 2)` containing the
+           (x, y) coords for the point of intersection between each pair of line
+           segments from `l1` and `l2`. If a pair of lines does not intersect, the
+           x and y coordinate values will be `np.nan`.
+
+        """
+        # https://stackoverflow.com/questions/3252194/numpy-and-line-intersections?noredirect=1&lq=1
+        # https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection
+        dl1 = l1_end_coords - l1_start_coords  # (n_lines1, 2)
+        dl2 = l2_end_coords - l2_start_coords  # (n_lines2, 2)
+
+        # diff between each l1 with each l2 along x and y directions
+        # (n_lines1, :, 2) - (:, n_lines2, 2) = (n_lines1, n_lines2, 2)
+        dl1l2 = l1_start_coords[:, np.newaxis, :] - l2_start_coords[np.newaxis, :, :]
+        # needed for matmul (n_lines1, 2, n_lines2)
+        dl1l2_T = dl1l2.transpose(0, 2, 1)
+        # needed for matmul (n_lines2, 2, n_lines1)
+        dl1l2_T2 = dl1l2.transpose(1, 2, 0)
+
+        # line perpendicular to each l1 line
+        dl1p = np.empty_like(dl1)  # (n_lines1, 2)
+        dl1p[:, 0] = -dl1[:, 1]
+        dl1p[:, 1] = dl1[:, 0]
+
+        # line perpendicular to each l2 line
+        dl2p = np.empty_like(dl2)  # (n_lines1, 2)
+        dl2p[:, 0] = -dl2[:, 1]
+        dl2p[:, 1] = dl2[:, 0]
+
+        # mult (n_lines1, 2) @ (n_lines1, 2, nlines2) = (n_lines1, n_lines2)
+        # each i in n_lines1 is multiplied with one of the n_lines1 matrices in dl1l2
+        # l1[i] @ (l1[i] - l2[j]) for i in [0, n_lines1], j in [0, n_lines2]
+        u_num = np.stack([np.matmul(dl1p[i], dl1l2_T[i]) for i in range(dl1p.shape[0])])
+
+        # mult (n_lines2, 2) @ (n_lines2, 2, nlines1) = (n_lines2, n_lines1)
+        # same as above except for l2 lines
+        t_num = np.stack(
+            [np.matmul(dl2p[j], dl1l2_T2[j]) for j in range(dl2p.shape[0])]
+        )
+
+        # mult (n_lines1, 2) @ (2, n_lines2) = (n_lines1, n_lines2)
+        # get l1[i] dot l2[j] for i in [0, n_lines1], j in [0, n_lines2]
+        # but using perpendicular lines to l1,
+        denom = np.matmul(dl1p, dl2.transpose())
+        # handle case where lines are parallel/colinear, leading to denom being zero
+        denom = np.where(np.isclose(denom, 0.0), np.nan, denom)
+
+        # from wiki, lines only intersect if 0 <= u <= 1
+        u = u_num / denom  # (n_lines1, n_lines2)
+        t = t_num.transpose() / denom  # (n_lines1, n_lines2)
+
+        # segments intersect when 0 <= u <= 1 and 0 <= t <= 1
+        u = np.where(((u >= 0) & (u <= 1) & (t >= 0) & (t <= 1)), u, np.nan)
+        u = u[:, :, np.newaxis]  # (n_lines1, n_lines2, 1)
+
+        return u * dl2 + l2_start_coords
+
+    @staticmethod
+    def convert_angle_to_0_2pi_interval(angle):
+        new_angle = np.arctan2(np.sin(angle), np.cos(angle))
+        if new_angle < 0:
+            new_angle = abs(new_angle) + 2 * (np.pi - abs(new_angle))
+        return new_angle
+
+    def _check_collision_circular_rays(
+        self,
+        origin: Position,
+        ray_distance: float,
+        n_rays: int,
+        other_agents: Optional[np.ndarray] = None,
+        include_blocks: bool = True,
+        check_walls: bool = True,
+        use_relative_angle: bool = True,
+        angle_bounds: Tuple[float, float] = (0.0, 2 * np.pi),
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Check for collision along rays that radiate away from the origin.
+
+        Rays are evenly spaced around the origin, with the number of rays controlled
+        by the `n_rays` arguments.
+
+        Arguments
+        ---------
+        origin: the origin position
+        ray_distance: how far each ray extends from the origin in a straight line
+        n_rays: the number of rays
+        other_agents: `(x, y)` coordinates of any other agents to check for collisions
+           with. Should be a 2D array with shape `(n_agents, 2)`.
+        include_blocks: whether to check for collisions with blocks in the world
+        check_walls: whether to check for collisions with the world border.
+        use_relative_angle: whether ray angles should be relative to the origin
+            position's angle. Otherwise line angle is treated as absolute (i.e.
+            relative to angle of 0). This controls the ordering of the rays in the
+            output.
+        angle_bounds: The maximum and minimum of the FOV as a tuple. By default
+            the agent will have a full FOV as a circle around them. This will
+            be between 0 and 2π. This can be decreased as needed.
+
+        Returns
+        -------
+        distances: the distance each ray extends sway from the origin, up to a max of
+            `ray_distance`. Array will have shape `(n_rays,)`.
+
+        """
+        x, y, rel_angle = origin
+        if not use_relative_angle:
+            rel_angle = 0.0
+
+        angles = np.linspace(
+            angle_bounds[0], angle_bounds[1], n_rays, endpoint=False, dtype=np.float32
+        )
+
+        ray_end_xs = x + ray_distance * np.cos(angles + rel_angle)
+        ray_end_ys = y + ray_distance * np.sin(angles + rel_angle)
+
+        ray_start_coords = np.tile((x, y), (n_rays, 1))
+        ray_end_coords = np.stack([ray_end_xs, ray_end_ys], axis=1)
+
+        closest_distances = np.full_like(angles, ray_distance)
+        collision_types = np.full_like(
+            angles, CollisionType.NO_COLLISION.value, dtype=np.uint8
+        )
+
+        if other_agents is not None and len(other_agents) > 0:
+            radii = np.array([self.agent_radius] * len(other_agents))
+            dists = self.check_circle_line_intersection(
+                other_agents, radii, ray_start_coords, ray_end_coords
+            )
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                min_dists = np.nanmin(dists, axis=0)
+
+            collision_types[
+                min_dists < closest_distances
+            ] = CollisionType.AGENT_COLLISION.value
+            np.fmin(closest_distances, min_dists, out=closest_distances)
+
+        if include_blocks and len(self.blocks) > 0:
+            radii = np.array([s for _, s in self.blocks])
+            block_array = np.array([[pos[0], pos[1]] for pos, _ in self.blocks])
+
+            dists = self.check_circle_line_intersection(
+                block_array, radii, ray_start_coords, ray_end_coords
+            )
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                min_dists = np.nanmin(dists, axis=0)
+
+            collision_types[
+                min_dists < closest_distances
+            ] = CollisionType.BLOCK_COLLISION.value
+            np.fmin(closest_distances, min_dists, out=closest_distances)
+
+        if check_walls:
+            # shape = (n_lines, walls, 2)
+            wall_intersect_coords = self.check_wall_collisions(
+                ray_start_coords, ray_end_coords
+            )
+
+            # Need to get coords of intersected walls, each ray can intersect a max of
+            # of 1 wall, so we just find the minimum non nan coords
+            # shape = (n_lines, 2)
+            with warnings.catch_warnings():
+                # if no wall intersected, we take min of all NaN which throws a warning
+                # but this is acceptable behevaiour, so we suppress the warning
+                warnings.simplefilter("ignore")
+                wall_intersect_coords = np.nanmin(wall_intersect_coords, axis=1)
+
+            dists = np.sqrt(
+                ((wall_intersect_coords - ray_start_coords) ** 2).sum(axis=1)
+            )
+
+            collision_types[
+                dists < closest_distances
+            ] = CollisionType.BORDER_COLLISION.value
+            np.fmin(closest_distances, dists, out=closest_distances)
+
+        return closest_distances, collision_types
+
+    def check_collision_circular_rays(
+        self,
+        origin: Position,
+        ray_distance: float,
+        n_rays: int,
+        other_agents: Optional[np.ndarray] = None,
+        include_blocks: bool = True,
+        check_walls: bool = True,
+        use_relative_angle: bool = True,
+        angle_bounds: Tuple[float, float] = (0.0, 2 * np.pi),
+    ) -> np.ndarray:
+        return self._check_collision_circular_rays(
+            origin,
+            ray_distance,
+            n_rays,
+            other_agents,
+            include_blocks,
+            check_walls,
+            use_relative_angle,
+            angle_bounds,
+        )[0]
+
+    def get_all_shortest_paths(
+        self, origins: Iterable[Position]
+    ) -> Dict[Tuple[int, int], Dict[Tuple[int, int], int]]:
+        """Get shortest path distance from every origin to all other coords."""
+        src_dists = {}
+        for origin in origins:
+            origin_coord = self.convert_position_to_coord(origin)
+            src_dists[origin_coord] = self.dijkstra(origin)
+        return src_dists
+
+    def convert_position_to_coord(self, origin: Position) -> Tuple[int, int]:
+        """Convert a position to a integer coords."""
+        return (math.floor(origin[0]), math.floor(origin[1]))
+
+    def dijkstra(self, origin: Position) -> Dict[Tuple[int, int], int]:
+        """Get shortest path distance between origin and all other coords."""
+        coord_origin = self.convert_position_to_coord(origin)
+
+        dist = {coord_origin: 0}
+        pq: PriorityQueue[Tuple[int, Coord]] = PriorityQueue()
+        pq.put((dist[coord_origin], coord_origin))
+
+        visited = {coord_origin}
+
+        while not pq.empty():
+            _, coord = pq.get()
+            for adj_coord in self.get_cardinal_neighbours_coords(
+                coord, ignore_blocks=False
+            ):
+                if dist[coord] + 1 < dist.get(adj_coord, float("inf")):
+                    dist[adj_coord] = dist[coord] + 1
+
+                    if adj_coord not in visited:
+                        pq.put((dist[adj_coord], adj_coord))
+                        visited.add(adj_coord)
+        return dist
+
+    def get_cardinal_neighbours_coords(
+        self,
+        coord: Coord,
+        ignore_blocks=False,
+        include_out_of_bounds=False,
+    ) -> List[Coord]:
+        """Get set of adjacent non-blocked coords."""
+        (min_x, max_x), (min_y, max_y) = self.get_bounds()
+        neighbours = []
+
+        if coord[1] > min_y or include_out_of_bounds:
+            neighbours.append((coord[0], coord[1] - 1))  # N
+        if coord[0] < max_x - 1 or include_out_of_bounds:
+            neighbours.append((coord[0] + 1, coord[1]))  # E
+        if coord[1] < max_y or include_out_of_bounds:
+            neighbours.append((coord[0], coord[1] + 1))  # S
+        if coord[0] > min_x or include_out_of_bounds:
+            neighbours.append((coord[0] - 1, coord[1]))  # W
+
+        if ignore_blocks:
+            return neighbours
+        for i in range(len(neighbours), 0, -1):
+            if neighbours[i - 1] in self.blocked_coords:
+                neighbours.pop(i - 1)
+
+        return neighbours
 
 
-def array_to_position(coords: np.ndarray) -> Tuple[Position, ...]:
-    if coords.ndim == 2:
-        assert coords.shape[1] == 3
-        output = []
-        for i in range(coords.shape[0]):
-            output.append(tuple(coords[i, :]))
-        return tuple(output)  # type: ignore
+class SquareContinuousWorld(AbstractContinuousWorld):
+    def add_walls_to_space(self, size: float):
+        # world border lines (start coords, end coords)
+        # bottom, left, top, right
+        self.walls = (
+            np.array([[0, 0], [0, 0], [0, size], [size, 0]], dtype=np.float32),
+            np.array(
+                [[size, 0], [0, size], [size, size], [size, size]],
+                dtype=np.float32,
+            ),
+        )
 
-    elif coords.ndim == 1:
-        assert coords.shape[0] == 3
-        return tuple(coords)
-    else:
-        raise Exception("Cannot convert")
+        for w_start, w_end in zip(*self.walls):
+            wall = pymunk.Segment(
+                self.space.static_body,
+                (w_start[0], w_start[1]),
+                (w_end[0], w_end[1]),
+                self.border_thickness,
+            )
+            wall.friction = 1.0
+            wall.collision_type = self.get_collision_id() + 1
+            wall.color = self.WALL_COLOR
+            self.space.add(wall)
+
+    def check_wall_collisions(
+        self, ray_start_coords: np.ndarray, ray_end_coords: np.ndarray
+    ) -> np.ndarray:
+        return self.check_line_line_intersection(
+            ray_start_coords, ray_end_coords, *self.walls
+        )
+
+
+class CircularContinuousWorld(AbstractContinuousWorld):
+    def add_walls_to_space(self, size: float):
+        # world border lines (start coords, end coords)
+        # bottom, left, top, right
+
+        num_segments = 64
+        radius = size / 2
+
+        segment_angle = 2 * math.pi / num_segments
+        self.walls = []
+
+        for i in range(num_segments):
+            angle = i * segment_angle
+            x1 = radius * math.cos(angle) + size / 2
+            y1 = radius * math.sin(angle) + size / 2
+            x2 = (radius + self.border_thickness) * math.cos(angle) + size / 2
+            y2 = (radius + self.border_thickness) * math.sin(angle) + size / 2
+            wall = pymunk.Segment(
+                self.space.static_body,
+                (x1, y1),
+                (x2, y2),
+                self.border_thickness,
+            )
+            wall.friction = 1.0
+            wall.collision_type = 1
+            wall.color = self.WALL_COLOR
+            wall.collision_type = self.get_collision_id() + 1
+            self.walls.append(wall)
+
+        for wall in self.walls:
+            self.space.add(wall)
+
+        self.size = size
+
+    def check_wall_collisions(
+        self, ray_start_coords: np.ndarray, ray_end_coords: np.ndarray
+    ) -> np.ndarray:
+        center = np.array([0, 0]).reshape(1, 2)
+        return self.check_circle_line_intersection(
+            center, np.array([self.size]), ray_start_coords, ray_end_coords
+        )
 
 
 def single_item_to_position(coords: np.ndarray) -> Position:
-    assert coords.shape[0] == 3
-    return tuple(coords)  # type: ignore
+    assert coords.shape[0] >= 3
+    return tuple(coords[:3])  # type: ignore

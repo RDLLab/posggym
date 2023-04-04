@@ -24,7 +24,7 @@ from posggym.core import DefaultEnv
 from posggym.utils import seeding
 from posggym import logger
 
-from posggym.envs.continuous.core2 import (
+from posggym.envs.continuous.core import (
     Position,
     CircleEntity,
     PMBodyState,

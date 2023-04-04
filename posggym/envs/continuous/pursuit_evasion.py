@@ -21,7 +21,7 @@ import posggym.model as M
 from posggym.core import DefaultEnv
 
 from posggym import logger
-from posggym.envs.continuous.core2 import (
+from posggym.envs.continuous.core import (
     CircleEntity,
     Position,
     SquareContinuousWorld,

@@ -21,14 +21,24 @@ from typing import (
     NamedTuple,
     Optional,
     Tuple,
+    cast,
 )
 
 import numpy as np
+import pymunk
+from pymunk import Vec2d
+
 from gymnasium import spaces
 
 import posggym.model as M
 from posggym.core import DefaultEnv
-from posggym.envs.continuous.core import CircularContinuousWorld, Position, clip_actions
+
+from posggym.envs.continuous.core import (
+    CircularContinuousWorld,
+    PMBodyState,
+    Position,
+    clip_actions,
+)
 from posggym.utils import seeding
 from posggym import logger
 
@@ -36,10 +46,10 @@ from posggym import logger
 class DTCState(NamedTuple):
     """A state in the Drone Team Capture Environment."""
 
-    pursuer_coords: Tuple[Position, ...]
-    prev_pursuer_coords: Tuple[Position, ...]
-    target_coords: Position
-    prev_target_coords: Position
+    pursuer_coords: np.ndarray
+    prev_pursuer_coords: np.ndarray
+    target_coords: np.ndarray
+    prev_target_coords: np.ndarray
     target_vel: float
 
 
@@ -89,7 +99,7 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
     `observation_limit` which specifies the maximum distance another agent can be seen.
     If they are outside this radius, the observations of these agents will be `-1`.
 
-    There is also the `n_communicating_purusers` which will limit the maximum amount of
+    There is also the `n_communicating_pursuers` which will limit the maximum amount of
     other pursuers an agent can observe.
 
     Rewards
@@ -100,7 +110,7 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
 
     Dynamics
     --------
-    Actions of the puruser agents are deterministic and consist of moving based on the
+    Actions of the pursuer agents are deterministic and consist of moving based on the
     non-holonomic model.
 
     The target will move following a holonomic model TODO
@@ -122,7 +132,7 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
 
     - `num_agents` - The number of agents which exist in the environment
         Must be between 1 and 8 (default = `3`)
-    - `n_communicating_puruser - The maximum number of agents which an
+    - `n_communicating_pursuer - The maximum number of agents which an
         agent can receive information from (default = `3`)
     - `velocity_control` - If the agents have control of their linear velocity
         (default = `False`)
@@ -147,7 +157,7 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
         'DroneTeamCapture-v0',
         max_episode_steps=100,
         num_agents=8,
-        n_communicating_puruser=4,
+        n_communicating_pursuer=4,
     )
     ```
 
@@ -165,7 +175,7 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
     def __init__(
         self,
         num_agents: int = 3,
-        n_communicating_purusers: int = 3,
+        n_communicating_pursuers: int = 3,
         arena_size: float = 430,
         observation_limit: float = 430,
         velocity_control: bool = False,
@@ -176,7 +186,7 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
         super().__init__(
             DTCModel(
                 num_agents,
-                n_communicating_purusers,
+                n_communicating_pursuers,
                 velocity_control,
                 use_curriculum=use_curriculum,
                 arena_size=arena_size,
@@ -187,8 +197,14 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
         )
 
         self._viewer = None
+        self.window_surface = None
         self._renderer = None
         self.render_mode = render_mode
+        self.clock = None
+
+        self.window_size = 600
+        self.draw_options = None
+        self.world = None
 
     def render(self):
         if self.render_mode is None:
@@ -212,30 +228,68 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
             return
 
     def _render_img(self):
-        import posggym.envs.continuous.render as render_lib
+        import pygame
+        from pymunk import pygame_util
 
-        if self._renderer is None:
-            self._renderer = render_lib.GWContinuousRender(
-                render_mode=self.render_mode,
-                domain_max=(self.model.r_arena),
-                domain_min=(-self.model.r_arena),
-                arena_size=200,
-                num_colors=3,
-                render_fps=self.metadata["render_fps"],
-                arena_type=render_lib.ArenaTypes.Circle,
-                env_name="Multi-agent pursuit evasion",
+        model = cast(DTCModel, self.model)
+        state = cast(DTCState, self.state)
+        scale_factor = self.window_size // model.world.size
+
+        if self.window_surface is None:
+            pygame.init()
+            if self.render_mode == "human":
+                pygame.display.init()
+                pygame.display.set_caption(self.__class__.__name__)
+                self.window_surface = pygame.display.set_mode(
+                    (self.window_size, self.window_size)
+                )
+            else:
+                self.window_surface = pygame.Surface(
+                    (self.window_size, self.window_size)
+                )
+            # Turn off alpha since we don't use it.
+            self.window_surface.set_alpha(None)
+
+        if self.clock is None:
+            self.clock = pygame.time.Clock()
+
+        if self.draw_options is None:
+            pygame_util.positive_y_is_up = False
+            self.draw_options = pygame_util.DrawOptions(self.window_surface)
+            self.draw_options.transform = pymunk.Transform.scaling(scale_factor)
+            # don't render collision lines
+            self.draw_options.flags = (
+                pygame_util.DrawOptions.DRAW_SHAPES
+                | pygame_util.DrawOptions.DRAW_CONSTRAINTS
             )
 
-        colored_pred = tuple(t + (0,) for t in self._state.pursuer_coords)
-        colored_target = (self._state.target_coords + (1,),)
+        if self.world is None:
+            # get copy of model world, so we can use it for rendering without
+            # affecting the original
+            self.world = model.world.copy()
 
-        is_holomic = [True] + ([False] * len(self._state.pursuer_coords))
-        size = [self.model.cap_rad] + [30] * len(self._state.pursuer_coords)
+        for i, p_state in enumerate(state.pursuer_coords):
+            self.world.set_entity_state(f"pursuer_{i}", p_state)
 
-        self._renderer.clear_render()
-        self._renderer.draw_arena()
-        self._renderer.draw_agents(colored_target + colored_pred, is_holomic, size)
-        return self._renderer.render()
+        self.world.set_entity_state("evader", state.target_coords)
+
+        # Need to do this for space to update with changes
+        self.world.space.step(0.0001)
+
+        # reset screen
+        self.window_surface.fill(pygame.Color("white"))
+
+        self.world.space.debug_draw(self.draw_options)
+
+        if self.render_mode == "human":
+            pygame.event.pump()
+            pygame.display.update()
+            self.clock.tick(self.metadata["render_fps"])
+            return None
+
+        return np.transpose(
+            np.array(pygame.surfarray.pixels3d(self.window_surface)), axes=(1, 0, 2)
+        )
 
 
 class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
@@ -246,7 +300,7 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
     num_agents: int,
         The number of agents which exist in the environment
         Must be between 1 and 8
-    n_communicating_purusers: int
+    n_communicating_pursuers: int
         The maximum number of agents which an agent can receive information from
     velocity_control: bool
         If the agents have control of their linear velocity
@@ -260,11 +314,13 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
     """
 
     R_MAX = 130
+    PURSUER_COLOR = (55, 155, 205, 255)  # Blueish
+    EVADER_COLOR = (110, 55, 155, 255)  # purpleish
 
     def __init__(
         self,
         num_agents: int,
-        n_communicating_purusers: int,
+        n_communicating_pursuers: int,
         velocity_control: bool = False,
         arena_size: float = 430,
         observation_limit: float = 430,
@@ -292,7 +348,7 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
         self.obs_self_pursuer = 6
 
         # Number of communicating pursuers in environment
-        self.n_pursuers_com = n_communicating_purusers
+        self.n_pursuers_com = n_communicating_pursuers
 
         # TODO: remove this
         self.arena_dim_square = 1000
@@ -338,9 +394,16 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
             str(i): spaces.Box(low=actlow, high=acthigh) for i in self.possible_agents
         }
 
-        self.grid = CircularContinuousWorld(radius=self.r_arena, block_coords=None)
+        self.world = CircularContinuousWorld(
+            size=self.r_arena, agent_radius=30.0, blocks=None, enable_physics=False
+        )
 
         self.is_symmetric = True
+
+        # Add physical entities to the world
+        for i in range(self.n_pursuers):
+            self.world.add_entity(f"pursuer_{i}", None, color=self.PURSUER_COLOR)
+        self.world.add_entity("evader", None, color=self.EVADER_COLOR)
 
     def get_agents(self, state: DTCState) -> List[M.AgentID]:
         return list(self.possible_agents)
@@ -354,6 +417,16 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
             pursuer_coords.append((x, 0.0, 0.0))
             prev_pursuer_coords.append((x, 0.0, 0.0))
 
+        pursuer_states = np.zeros(
+            (self.n_pursuers, PMBodyState.num_features()), dtype=np.float32
+        )
+        prev_pursuer_states = np.zeros(
+            (self.n_pursuers, PMBodyState.num_features()), dtype=np.float32
+        )
+        for i in range(self.n_pursuers):
+            pursuer_states[i][:3] = pursuer_coords[i]
+            prev_pursuer_states[i][:3] = prev_pursuer_coords[i]
+
         bounds = self.r_arena * 0.7
         x = self.rng.random() * (bounds * 2) - bounds
         y = self.rng.random() * (bounds * 2) - bounds
@@ -361,14 +434,17 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
         # The velocity of the target varies
         relative_target_vel = float(self.rng.random() * self.max_vel_tar)
 
-        target_coords = (x, y, 0.0)
-        prev_target_coords = (x, y, 0.0)
+        target_array = np.zeros((PMBodyState.num_features()), dtype=np.float32)
+        target_array[:3] = (x, y, 0.0)
+
+        prev_target_array = np.zeros((PMBodyState.num_features()), dtype=np.float32)
+        prev_target_array[:3] = (x, y, 0.0)
 
         return DTCState(
-            tuple(pursuer_coords),
-            tuple(prev_pursuer_coords),
-            target_coords,
-            prev_target_coords,
+            pursuer_states,
+            prev_pursuer_states,
+            target_array,
+            prev_target_array,
             relative_target_vel,
         )
 
@@ -401,7 +477,9 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
     def decrease_cap_rad(self):
         self.cap_rad -= 5
 
-    def check_capture(self, target_coords: Position, pursuer_coord: Position) -> bool:
+    def check_capture(
+        self, target_coords: np.ndarray, pursuer_coord: np.ndarray
+    ) -> bool:
         # Check distance between pursuer and target
         dist = CircularContinuousWorld.euclidean_dist(target_coords, pursuer_coord)
         return dist < self.cap_rad
@@ -414,28 +492,46 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
     def _get_next_state(
         self, state: DTCState, actions: Dict[M.AgentID, DTCAction]
     ) -> DTCState:
-        prev_target = state.target_coords
-        prev_pursuer = state.pursuer_coords
+        prev_target = state.target_coords.copy()
+        prev_pursuer = state.pursuer_coords.copy()
 
-        new_target_coords = self.target_move_repulsive(state.target_coords, state)
-        new_pursuer_coords = []
-        for i, pred_pos in enumerate(state.pursuer_coords):
-            # Force velocity to be 1, if only controlling angular speed
+        for i in range(self.n_pursuers):
+            self.world.set_entity_state(f"pursuer_{i}", state.pursuer_coords[i])
+
             velocity_factor = 1 if not self.velocity_control else actions[str(i)][1]
+            pursuer_angle = state.pursuer_coords[i][2] + actions[str(i)][0]
+            print(pursuer_angle)
+            pursuer_vel = velocity_factor * Vec2d(1, 0).rotated(pursuer_angle)
 
-            new_coords, _ = self.grid._get_next_coord(
-                pred_pos,
-                [actions[str(i)][0], self.vel_pur * velocity_factor],
-                True,
-                use_holonomic_model=False,
+            self.world.update_entity_state(
+                f"pursuer_{i}",
+                angle=pursuer_angle,
+                vel=pursuer_vel,
             )
 
-            new_pursuer_coords.append(new_coords)
+        self.world.simulate(1.0 / 10, 10)
+
+        next_pursuer_states = np.array(
+            [
+                self.world.get_entity_state(f"pursuer_{i}")
+                for i in range(self.n_pursuers)
+            ],
+            dtype=np.float32,
+        )
+
+        target_pos = (
+            state.target_coords[0],
+            state.target_coords[1],
+            state.target_coords[2],
+        )
+        new_target_coords = self.target_move_repulsive(target_pos, state)
+        state.target_coords[:3] = new_target_coords
+        self.world.set_entity_state("evader", state.target_coords)
 
         return DTCState(
-            tuple(new_pursuer_coords),
+            next_pursuer_states,
             prev_pursuer,
-            new_target_coords,
+            state.target_coords,
             prev_target,
             state.target_vel,
         )
@@ -540,7 +636,7 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
         return done, reward
 
     def engagmment(
-        self, agent_i: Position, agent_j: Position, dist_factor: float
+        self, agent_i: np.ndarray, agent_j: np.ndarray, dist_factor: float
     ) -> Tuple[Tuple[float, ...], bool]:
         dist = CircularContinuousWorld.euclidean_dist(agent_i, agent_j)
 
@@ -585,7 +681,7 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
         # Find unit vectors between target and pursuers
         unit = []
         for p in state.pursuer_coords:
-            dist = self.grid.euclidean_dist(p, state.target_coords)
+            dist = self.world.euclidean_dist(p, state.target_coords)
             unit.append([p[0] / dist, p[1] / dist])
         return unit
 
