@@ -11,21 +11,14 @@ from typing import (
     Callable,
     cast,
 )
-from gymnasium import spaces
-import math
-import posggym.model as M
-from posggym.core import DefaultEnv
-
-# from posggym.envs.grid_world.core import Coord, Direction, Grid
-from posggym.envs.continuous.core import (
-    position_to_array,
-    single_item_to_position,
-)
-
 import numpy as np
 import pymunk
 from pymunk import Vec2d
 
+from gymnasium import spaces
+import math
+import posggym.model as M
+from posggym.core import DefaultEnv
 
 from posggym import logger
 from posggym.envs.continuous.core2 import (
@@ -34,6 +27,8 @@ from posggym.envs.continuous.core2 import (
     SquareContinuousWorld,
     clip_actions,
     CollisionType,
+    single_item_to_position,
+    PMBodyState,
 )
 from posggym.utils import seeding
 
@@ -346,12 +341,12 @@ class PursuitEvasionEnv(DefaultEnv):
             (model.PURSUER_IDX, state.pursuer_coord),
         ]
 
-        for idx, _, p_state in info:
+        for idx, p_state in info:
             obs_i = self._last_obs[str(idx)][0]
             x, y, agent_angle = p_state[:3]
             angle_inc = 2 * math.pi / n_sensors
             for k in range(n_sensors):
-                dist = min([obs_i[k], obs_i[n_sensors + k], obs_i[2 * n_sensors + k]])
+                dist = min([obs_i[k], obs_i[n_sensors + k]])
 
                 angle = angle_inc * k + agent_angle
                 end_x = x + dist * math.cos(angle)
@@ -365,6 +360,16 @@ class PursuitEvasionEnv(DefaultEnv):
                     scaled_start,
                     scaled_end,
                 )
+
+        x, y, _ = state.evader_goal_coord
+        scaled_center = (int(x * scale_factor), int(y * scale_factor))
+        scaled_r = int(model.world.agent_radius * scale_factor)
+        pygame.draw.circle(
+            self.window_surface,
+            pygame.Color(model.GOAL_COLOR),
+            scaled_center,
+            scaled_r,
+        )
 
         self.world.space.debug_draw(self.draw_options)
 
@@ -403,7 +408,8 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
     HEARING_DIST = 2
 
     EVADER_COLOR = (55, 155, 205, 255)  # Blueish
-    PURSUER_COLOR = (110, 55, 155, 255)  # purpleish
+    PURSUER_COLOR = (255, 55, 55, 255)  # purpleish
+    GOAL_COLOR = (55, 100, 155, 255)  # Blueish
 
     def __init__(
         self,
@@ -558,19 +564,22 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
     ) -> PEState:
         if evader_coord is None:
             evader_coord_pos = self.rng.choice(self.grid.evader_start_coords)
-            evader_coord_pos = cast(List[Position], [evader_coord_pos])
-            evader_coord = position_to_array(evader_coord_pos)
+
+            evader_coord = np.zeros(PMBodyState.num_features(), dtype=np.float32)
+            evader_coord[:3] = evader_coord_pos
+
         if pursuer_coord is None:
             pursuer_coord_pos = self.rng.choice(self.grid.pursuer_start_coords)
-            pursuer_coord_pos = cast(List[Position], [pursuer_coord_pos])
-            pursuer_coord = position_to_array(pursuer_coord_pos)
+            pursuer_coord = np.zeros(PMBodyState.num_features(), dtype=np.float32)
+            pursuer_coord[:3] = pursuer_coord_pos
+
         if goal_coord is None:
             evader_coord_pos = single_item_to_position(evader_coord)
             goal_coord_pos = self.rng.choice(
                 self.grid.get_goal_coords(evader_coord_pos)
             )
             goal_coord_pos = cast(List[Position], [goal_coord_pos])
-            goal_coord = position_to_array(goal_coord_pos)
+            goal_coord = np.array(goal_coord_pos).squeeze()
         return PEState(
             evader_coord,
             pursuer_coord,
@@ -621,6 +630,9 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             and self.rng.random() > self._action_probs[self.PURSUER_IDX]
         ):
             pursuer_a = self.action_spaces[str(self.PURSUER_IDX)].sample()
+
+        self.world.set_entity_state("pursuer", state.pursuer_coord)
+        self.world.set_entity_state("evader", state.evader_coord)
 
         pursuer_angle = state.pursuer_coord[2] + pursuer_a[0]
         pursuer_vel = pursuer_a[1] * Vec2d(1, 0).rotated(pursuer_angle)
@@ -681,8 +693,8 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         )
 
     def _get_obs(self, state: PEState) -> Tuple[Dict[M.AgentID, PEObs], bool]:
-        evader_coord = single_item_to_position(state.evader_coord)
-        pursuer_coord = single_item_to_position(state.pursuer_coord)
+        evader_coord = single_item_to_position(state.evader_coord.squeeze())
+        pursuer_coord = single_item_to_position(state.pursuer_coord.squeeze())
         walls, seen, heard = self._get_agent_obs(evader_coord, pursuer_coord)
 
         evader_obs: PEEvaderObs = (

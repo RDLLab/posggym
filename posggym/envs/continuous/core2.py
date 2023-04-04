@@ -660,3 +660,8 @@ class SquareContinuousWorld:
                 neighbours.pop(i - 1)
 
         return neighbours
+
+
+def single_item_to_position(coords: np.ndarray) -> Position:
+    assert coords.shape[0] >= 3
+    return tuple(coords[:3])  # type: ignore
