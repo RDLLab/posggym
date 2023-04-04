@@ -31,6 +31,7 @@ POSGGym includes the following families of environments. The code for implemente
 
 - *Classic* - These are classic POSG problems from the literature.
 - *Grid-World* - These environments are all based in a 2D Gridworld.
+- *Continuous* - Continuous state and action adaptation of some grid-world environments.
 
 You can see a list of all environments by running:
 

@@ -16,6 +16,7 @@ from typing import (
     TYPE_CHECKING,
     Optional,
 )
+from abc import ABC, abstractmethod
 
 import numpy as np
 from gymnasium import spaces
@@ -81,10 +82,10 @@ def clip_actions(
     return clipped_actions
 
 
-class SquareContinuousWorld:
+class AbstractContinuousWorld(ABC):
     """A continuous 2D world with a rectangular border."""
 
-    WALL_COLOR = (0, 0, 0, 255)  # Black
+    WALL_COLOR = (0, 255, 0, 255)  # Black
     BLOCK_COLOR = (0, 0, 0, 255)  # Black
 
     def __init__(
@@ -93,6 +94,7 @@ class SquareContinuousWorld:
         blocks: Optional[List[CircleEntity]] = None,
         agent_radius: float = 0.5,
         border_thickness=0.1,
+        enable_physics=True,
     ):
         self.size = size
         self.blocks = [] if blocks is None else blocks
@@ -101,31 +103,21 @@ class SquareContinuousWorld:
         # access via blocked_coords property
         self._blocked_coords: Optional[Set[Coord]] = None
 
-        # world border lines (start coords, end coords)
-        # bottom, left, top, right
-        self.walls = (
-            np.array([[0, 0], [0, 0], [0, size], [size, 0]], dtype=np.float32),
-            np.array(
-                [[size, 0], [0, size], [size, size], [size, size]],
-                dtype=np.float32,
-            ),
-        )
+        self.collision_id = 0
+        self.enable_physics = enable_physics
 
         # 2D physics stuff
         self.space = pymunk.Space()
         self.space.gravity = Vec2d(0.0, 0.0)
 
-        for w_start, w_end in zip(*self.walls):
-            wall = pymunk.Segment(
-                self.space.static_body,
-                (w_start[0], w_start[1]),
-                (w_end[0], w_end[1]),
-                self.border_thickness,
-            )
-            wall.friction = 1.0
-            wall.collision_type = 1
-            wall.color = self.WALL_COLOR
-            self.space.add(wall)
+        if not enable_physics:
+            # Turn off all collisions
+            def ignore_collisions(arbiter, space, data):
+                return False
+
+            self.space.add_collision_handler(0, 0).pre_solve = ignore_collisions
+
+        self.add_walls_to_space(size)
 
         for pos, radius in self.blocks:
             body = pymunk.Body(body_type=pymunk.Body.STATIC)
@@ -133,10 +125,21 @@ class SquareContinuousWorld:
             body.position = Vec2d(pos[0], pos[1])
             shape.elasticity = 0.0  # no bouncing
             shape.color = self.BLOCK_COLOR
+            shape.collision_type = self.get_collision_id()
             self.space.add(body, shape)
 
         # moveable entities in the world
         self.entities: Dict[str, Tuple[pymunk.Body, pymunk.Circle]] = {}
+
+    @abstractmethod
+    def add_walls_to_space(self, size: float):
+        pass
+
+    @abstractmethod
+    def check_wall_collisions(
+        self, ray_start_coords: np.ndarray, ray_end_coords: np.ndarray
+    ) -> np.ndarray:
+        pass
 
     def simulate(self, dt: float = 1.0 / 10, t: int = 10):
         """Simulate the world, updating all entities.
@@ -168,9 +171,9 @@ class SquareContinuousWorld:
         """
         return self.space.copy()
 
-    def copy(self) -> "SquareContinuousWorld":
+    def copy(self) -> "AbstractContinuousWorld":
         """Get a deep copy of this world."""
-        world = SquareContinuousWorld(
+        world = type(self)(
             self.size, self.blocks, self.agent_radius, self.border_thickness
         )
         for id, (body, shape) in self.entities.items():
@@ -212,13 +215,20 @@ class SquareContinuousWorld:
         body_type = pymunk.Body.STATIC if is_static else pymunk.Body.DYNAMIC
         body = pymunk.Body(mass, inertia, body_type=body_type)
         shape = pymunk.Circle(body, radius)
+
+        shape.collision_type = self.get_collision_id()
+
         shape.elasticity = 0.0  # no bouncing
+        shape.collision_type = self.get_collision_id()
         if color is not None:
             shape.color = color
 
         self.space.add(body, shape)
         self.entities[id] = (body, shape)
         return body, shape
+
+    def get_collision_id(self):
+        return self.collision_id
 
     def get_entity_state(self, id: str) -> PMBodyState:
         """Get underlying state of an entity in the world."""
@@ -526,7 +536,7 @@ class SquareContinuousWorld:
             angles, CollisionType.NO_COLLISION.value, dtype=np.uint8
         )
 
-        if other_agents is not None:
+        if other_agents is not None and len(other_agents) > 0:
             radii = np.array([self.agent_radius] * len(other_agents))
             dists = self.check_circle_line_intersection(
                 other_agents, radii, ray_start_coords, ray_end_coords
@@ -560,9 +570,10 @@ class SquareContinuousWorld:
 
         if check_walls:
             # shape = (n_lines, walls, 2)
-            wall_intersect_coords = self.check_line_line_intersection(
-                ray_start_coords, ray_end_coords, *self.walls
+            wall_intersect_coords = self.check_wall_collisions(
+                ray_start_coords, ray_end_coords
             )
+
             # Need to get coords of intersected walls, each ray can intersect a max of
             # of 1 wall, so we just find the minimum non nan coords
             # shape = (n_lines, 2)
@@ -668,6 +679,81 @@ class SquareContinuousWorld:
                 neighbours.pop(i - 1)
 
         return neighbours
+
+
+class SquareContinuousWorld(AbstractContinuousWorld):
+    def add_walls_to_space(self, size: float):
+        # world border lines (start coords, end coords)
+        # bottom, left, top, right
+        self.walls = (
+            np.array([[0, 0], [0, 0], [0, size], [size, 0]], dtype=np.float32),
+            np.array(
+                [[size, 0], [0, size], [size, size], [size, size]],
+                dtype=np.float32,
+            ),
+        )
+
+        for w_start, w_end in zip(*self.walls):
+            wall = pymunk.Segment(
+                self.space.static_body,
+                (w_start[0], w_start[1]),
+                (w_end[0], w_end[1]),
+                self.border_thickness,
+            )
+            wall.friction = 1.0
+            wall.collision_type = 1
+            wall.color = self.WALL_COLOR
+            self.space.add(wall)
+
+    def check_wall_collisions(
+        self, ray_start_coords: np.ndarray, ray_end_coords: np.ndarray
+    ) -> np.ndarray:
+        return self.check_line_line_intersection(
+            ray_start_coords, ray_end_coords, *self.walls
+        )
+
+
+class CircularContinuousWorld(AbstractContinuousWorld):
+    def add_walls_to_space(self, size: float):
+        # world border lines (start coords, end coords)
+        # bottom, left, top, right
+
+        num_segments = 64
+        radius = size / 2
+
+        segment_angle = 2 * math.pi / num_segments
+        self.walls = []
+
+        for i in range(num_segments):
+            angle = i * segment_angle
+            x1 = radius * math.cos(angle) + size / 2
+            y1 = radius * math.sin(angle) + size / 2
+            x2 = (radius + self.border_thickness) * math.cos(angle) + size / 2
+            y2 = (radius + self.border_thickness) * math.sin(angle) + size / 2
+            wall = pymunk.Segment(
+                self.space.static_body,
+                (x1, y1),
+                (x2, y2),
+                self.border_thickness,
+            )
+            wall.friction = 1.0
+            wall.collision_type = 1
+            wall.color = self.WALL_COLOR
+            wall.collision_type = self.get_collision_id()
+            self.walls.append(wall)
+
+        for wall in self.walls:
+            self.space.add(wall)
+
+        self.size = size
+
+    def check_wall_collisions(
+        self, ray_start_coords: np.ndarray, ray_end_coords: np.ndarray
+    ) -> np.ndarray:
+        center = np.array([0, 0]).reshape(1, 2)
+        return self.check_circle_line_intersection(
+            center, np.array([self.size]), ray_start_coords, ray_end_coords
+        )
 
 
 def single_item_to_position(coords: np.ndarray) -> Position:
