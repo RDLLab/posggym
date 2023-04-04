@@ -664,13 +664,14 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                     crashed = True
                     collision_types[idx] = CollisionType.VEHICLE
 
-            # for (b, radius) in self.world.blocks:
-            #     dist = np.linalg.norm(b[:2] - coord[:2])
+            for b, _ in self.world.blocks:
+                dist = np.linalg.norm(b[:2] - next_coord[:2])
 
-            #     if dist <= self.COLLISION_DIST:
-            #         coord = state[idx].coord
-            #         crashed = True
-            #         collision_types[idx] = CollisionType.OBSTACLE
+                if dist <= self.COLLISION_DIST:
+                    next_coord = state[idx].coord
+                    crashed = self._obstacle_collisions
+                    collision_types[idx] = CollisionType.OBSTACLE
+
             crashed = crashed or bool(state_i.status[1])
 
             next_coord[2] = self.world.convert_angle_to_0_2pi_interval(next_coord[2])
@@ -753,7 +754,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             self.n_sensors,
             vehicle_coords,
             include_blocks=False,
-            check_border=False,
+            check_walls=False,
             use_relative_angle=True,
         )
 
@@ -763,7 +764,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             self.n_sensors,
             other_agents=None,
             include_blocks=True,
-            check_border=True,
+            check_walls=True,
             use_relative_angle=True,
         )
 
@@ -773,7 +774,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             self.n_sensors,
             np.expand_dims(state_i.dest_coord[:2], axis=0),
             include_blocks=True,
-            check_border=True,
+            check_walls=True,
             use_relative_angle=True,
         )
 

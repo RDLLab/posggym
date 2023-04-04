@@ -33,6 +33,15 @@ except ImportError as e:
         "pymunk is not installed, run `pip install posggym[continuous]`"
     ) from e
 
+from enum import Enum
+
+
+class CollisionType(Enum):
+    NO_COLLISION = 0
+    AGENT_COLLISION = 1
+    BLOCK_COLLISION = 2
+    BORDER_COLLISION = 3
+
 
 # (x, y) coord = (col, row) coord
 Coord = Tuple[int, int]
@@ -459,16 +468,16 @@ class SquareContinuousWorld:
             new_angle = abs(new_angle) + 2 * (np.pi - abs(new_angle))
         return new_angle
 
-    def check_collision_circular_rays(
+    def _check_collision_circular_rays(
         self,
         origin: Position,
         ray_distance: float,
         n_rays: int,
         other_agents: Optional[np.ndarray] = None,
         include_blocks: bool = True,
-        check_border: bool = True,
+        check_walls: bool = True,
         use_relative_angle: bool = True,
-    ) -> np.ndarray:
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """Check for collision along rays that radiate away from the origin.
 
         Rays are evenly spaced around the origin, with the number of rays controlled
@@ -507,6 +516,9 @@ class SquareContinuousWorld:
         ray_end_coords = np.stack([ray_end_xs, ray_end_ys], axis=1)
 
         closest_distances = np.full_like(angles, ray_distance)
+        collision_types = np.full_like(
+            angles, CollisionType.NO_COLLISION.value, dtype=np.uint8
+        )
 
         if other_agents is not None:
             radii = np.array([self.agent_radius] * len(other_agents))
@@ -518,6 +530,9 @@ class SquareContinuousWorld:
                 warnings.simplefilter("ignore")
                 min_dists = np.nanmin(dists, axis=0)
 
+            collision_types[
+                min_dists < closest_distances
+            ] = CollisionType.AGENT_COLLISION.value
             np.fmin(closest_distances, min_dists, out=closest_distances)
 
         if include_blocks:
@@ -532,9 +547,12 @@ class SquareContinuousWorld:
                 warnings.simplefilter("ignore")
                 min_dists = np.nanmin(dists, axis=0)
 
+            collision_types[
+                min_dists < closest_distances
+            ] = CollisionType.BLOCK_COLLISION.value
             np.fmin(closest_distances, min_dists, out=closest_distances)
 
-        if check_border:
+        if check_walls:
             # shape = (n_lines, walls, 2)
             wall_intersect_coords = self.check_line_line_intersection(
                 ray_start_coords, ray_end_coords, *self.walls
@@ -547,12 +565,37 @@ class SquareContinuousWorld:
                 # but this is acceptable behevaiour, so we suppress the warning
                 warnings.simplefilter("ignore")
                 wall_intersect_coords = np.nanmin(wall_intersect_coords, axis=1)
+
             dists = np.sqrt(
                 ((wall_intersect_coords - ray_start_coords) ** 2).sum(axis=1)
             )
+
+            collision_types[
+                dists < closest_distances
+            ] = CollisionType.BORDER_COLLISION.value
             np.fmin(closest_distances, dists, out=closest_distances)
 
-        return closest_distances
+        return closest_distances, collision_types
+
+    def check_collision_circular_rays(
+        self,
+        origin: Position,
+        ray_distance: float,
+        n_rays: int,
+        other_agents: Optional[np.ndarray] = None,
+        include_blocks: bool = True,
+        check_walls: bool = True,
+        use_relative_angle: bool = True,
+    ) -> np.ndarray:
+        return self._check_collision_circular_rays(
+            origin,
+            ray_distance,
+            n_rays,
+            other_agents,
+            include_blocks,
+            check_walls,
+            use_relative_angle,
+        )[0]
 
     def get_all_shortest_paths(
         self, origins: Iterable[Position]

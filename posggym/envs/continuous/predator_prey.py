@@ -22,8 +22,9 @@ from typing import Dict, List, NamedTuple, Optional, Set, Tuple, Union, cast
 
 import numpy as np
 import pymunk
-from gymnasium import spaces
 from pymunk import Vec2d
+
+from gymnasium import spaces
 
 import posggym.model as M
 from posggym import logger
@@ -286,7 +287,6 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
             return
 
     def _render_img(self):
-        # import posggym.envs.continuous.render as render_lib
         import pygame
         from pymunk import pygame_util
 
@@ -723,7 +723,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             self.n_sensors,
             prey_coords,
             include_blocks=False,
-            check_border=False,
+            check_walls=False,
             use_relative_angle=True,
         )
 
@@ -737,7 +737,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             self.n_sensors,
             pred_coords,
             include_blocks=False,
-            check_border=False,
+            check_walls=False,
             use_relative_angle=True,
         )
 
@@ -747,7 +747,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             self.n_sensors,
             other_agents=None,
             include_blocks=True,
-            check_border=True,
+            check_walls=True,
             use_relative_angle=True,
         )
 
