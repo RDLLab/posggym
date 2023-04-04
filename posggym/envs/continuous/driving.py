@@ -1,4 +1,4 @@
-"""The Driving Grid World Environment."""
+"""The Driving Continuous Environment."""
 import enum
 from itertools import product
 from typing import (
@@ -176,7 +176,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
     ---------
 
     - `grid` - the grid layout to use. This can either be a string specifying one of
-         the supported grids, or a custom :class:`DrivingGrid` object
+         the supported grids, or a custom :class:`DrivingWorld` object
          (default = `"14x14RoundAbout"`).
     - `num_agents` - the number of agents in the environment (default = `2`).
     - `obs_dim` - the local observation distance, specifying how the distance which an
@@ -235,7 +235,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
 
     def __init__(
         self,
-        grid: Union[str, "DrivingGrid"] = "7x7RoundAbout",
+        grid: Union[str, "DrivingWorld"] = "7x7RoundAbout",
         num_agents: int = 2,
         obs_dim: float = 3.0,
         n_lines: int = 10,
@@ -397,7 +397,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
     Parameters
     ----------
-    grid : DrivingGrid
+    grid : DrivingWorld
         the grid environment for the model scenario
     num_agents : int
         the number of agents in the model scenario
@@ -421,7 +421,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
     def __init__(
         self,
-        grid: Union[str, "DrivingGrid"],
+        grid: Union[str, "DrivingWorld"],
         num_agents: int,
         obs_dim: float,
         n_lines: int,
@@ -443,7 +443,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             )
         else:
             assert 0 < num_agents <= grid.supported_num_agents, (
-                f"Supplied DrivingGrid `{grid}` does not support {num_agents} agents. "
+                f"Supplied DrivingWorld `{grid}` does not support {num_agents} agents. "
                 "The supported number of agents is from 1 up to "
                 f"{grid.supported_num_agents}."
             )
@@ -823,7 +823,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         return rewards
 
 
-class DrivingGrid(SquareContinuousWorld):
+class DrivingWorld(SquareContinuousWorld):
     """A grid for the Driving Problem."""
 
     def __init__(
@@ -855,7 +855,7 @@ class DrivingGrid(SquareContinuousWorld):
         return int(max([max(d.values()) for d in self.shortest_paths.values()]))
 
 
-def parseworld_str(grid_str: str, supported_num_agents: int) -> DrivingGrid:
+def parseworld_str(grid_str: str, supported_num_agents: int) -> DrivingWorld:
     """Parse a str representation of a grid.
 
     Notes on grid str representation:
@@ -947,7 +947,7 @@ def parseworld_str(grid_str: str, supported_num_agents: int) -> DrivingGrid:
         agent_dest_coords.update(agent_dest_coords_map.get(i, {}))
         dest_coords.append(agent_dest_coords)
 
-    return DrivingGrid(
+    return DrivingWorld(
         size=grid_width,
         blocks=block_coords,
         start_coords=start_coords,

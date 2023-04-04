@@ -85,7 +85,7 @@ def clip_actions(
 class AbstractContinuousWorld(ABC):
     """A continuous 2D world with a rectangular border."""
 
-    WALL_COLOR = (0, 255, 0, 255)  # Black
+    WALL_COLOR = (0, 0, 0, 255)  # Black
     BLOCK_COLOR = (0, 0, 0, 255)  # Black
 
     def __init__(
@@ -171,11 +171,19 @@ class AbstractContinuousWorld(ABC):
         """
         return self.space.copy()
 
+    def get_parent_classes(self, cls):
+        parents = []
+        for parent in cls.__bases__:
+            parents.append(parent)
+            parents.extend(self.get_parent_classes(parent))
+        return parents
+
     def copy(self) -> "AbstractContinuousWorld":
         """Get a deep copy of this world."""
-        world = type(self)(
-            self.size, self.blocks, self.agent_radius, self.border_thickness
-        )
+        pr = self.get_parent_classes(type(self))
+        # [..., SquareContinous, Abstract, ABC, Object]
+        world = pr[-4](self.size, self.blocks, self.agent_radius, self.border_thickness)
+
         for id, (body, shape) in self.entities.items():
             # make copies of each entity, and ensure the copies are linked correctly
             # and added to the new world and world space
