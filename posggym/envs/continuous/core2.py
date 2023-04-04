@@ -5,7 +5,17 @@ from itertools import product
 import math
 from queue import PriorityQueue
 import warnings
-from typing import Dict, Iterable, List, NamedTuple, Set, Tuple, Union, TYPE_CHECKING
+from typing import (
+    Dict,
+    Iterable,
+    List,
+    NamedTuple,
+    Set,
+    Tuple,
+    Union,
+    TYPE_CHECKING,
+    Optional,
+)
 
 import numpy as np
 from gymnasium import spaces
@@ -71,7 +81,7 @@ class SquareContinuousWorld:
     def __init__(
         self,
         size: float,
-        blocks: List[CircleEntity] | None = None,
+        blocks: Optional[List[CircleEntity]] = None,
         agent_radius: float = 0.5,
         border_thickness=0.1,
     ):
@@ -80,7 +90,7 @@ class SquareContinuousWorld:
         self.agent_radius = agent_radius
         self.border_thickness = border_thickness
         # access via blocked_coords property
-        self._blocked_coords: Set[Coord] | None = None
+        self._blocked_coords: Optional[Set[Coord]] = None
 
         # world border lines (start coords, end coords)
         # bottom, left, top, right
@@ -168,8 +178,8 @@ class SquareContinuousWorld:
     def add_entity(
         self,
         id: str,
-        radius: float | None,
-        color: Tuple[int, int, int, int] | None,
+        radius: Optional[float],
+        color: Optional[Tuple[int, int, int, int]],
         is_static: bool = False,
     ) -> Tuple[pymunk.Body, pymunk.Circle]:
         """Add moveable entity to the world.
@@ -224,10 +234,14 @@ class SquareContinuousWorld:
         self,
         id: str,
         *,
-        coord: Union[Tuple[float, float], List[float], np.ndarray, Vec2d] | None = None,
-        angle: float | None = None,
-        vel: Union[Tuple[float, float], List[float], np.ndarray, Vec2d] | None = None,
-        vangle: float | None = None,
+        coord: Optional[
+            Union[Tuple[float, float], List[float], np.ndarray, Vec2d]
+        ] = None,
+        angle: Optional[float] = None,
+        vel: Optional[
+            Union[Tuple[float, float], List[float], np.ndarray, Vec2d]
+        ] = None,
+        vangle: Optional[float] = None,
         acceleration: Union[Tuple[float, float], List[float], np.ndarray, Vec2d]
         | None = None,
     ):
@@ -308,40 +322,43 @@ class SquareContinuousWorld:
 
     def check_circle_line_intersection(
         self,
-        circle_coord: np.ndarray,
-        circle_radius: float,
+        circle_coords: np.ndarray,
+        circle_radii: np.ndarray,
         lines_start_coords: np.ndarray,
         lines_end_coords: np.ndarray,
     ) -> np.ndarray:
-        """Check if lines intersect circle.
+        """Check if lines intersect circles.
 
         Arguments
         ---------
-        circle_coords: the `(x, y)` coords of the center of the circle.
-        circle_radius: the radius of the circle.
-        line_start_coords: array containing the `(x, y)` coords of the start of each of
+        circle_coords: array containing the `(x, y)` of the center of each circle.
+            Should have shape `(n_circles, 2)`
+        circle_radii: array containing the radius of each circle. Should have shape
+            `(n_circles,)`
+        lines_start_coords: array containing the `(x, y)` coords of the start of each of
             the lines. Should have shape `(n_lines, 2)`
-        line_end_coords: array containing the `(x, y)` coords of the end of of each of
+        lines_end_coords: array containing the `(x, y)` coords of the end of of each of
             the lines. Should have shape `(n_lines, 2)`
 
         Returns
         -------
         distances: An array containing the euclidean distance from each lines start to
-            the first point of intersection with the circle. If the line does not
-            intersect the circle, it's distance will be `np.nan`
+            the first point of intersection with the corresponding circle. If the line
+            does not intersect the circle, its distance will be `np.nan`.
+            Should have shape `(n_circles, n_lines)`
 
         """
-        # https://math.stackexchange.com/questions/275529/check-if-line-intersects-with-circles-perimeter
-        starts = lines_start_coords - circle_coord
-        ends = lines_end_coords - circle_coord
+        starts = lines_start_coords[None, :, :] - circle_coords[:, None, :]
+        ends = lines_end_coords[None, :, :] - circle_coords[:, None, :]
         v = ends - starts
 
-        a = (v**2).sum(axis=1)
-        b = 2 * (starts * v).sum(axis=1)
-        c = (starts**2).sum(axis=1) - 0.5**2
+        a = (v**2).sum(axis=2)
+        b = 2 * (starts * v).sum(axis=2)
+        c = (starts**2).sum(axis=2) - circle_radii[:, None] ** 2
         disc = b**2 - 4 * a * c
+
         with np.errstate(invalid="ignore"):
-            # this will outpit np.nan for any negative discriminants, which is what we
+            # this will output np.nan for any negative discriminants, which is what we
             # want, but will throw a runtime warning which we want to ignore
             sqrtdisc = np.sqrt(disc)
 
@@ -352,7 +369,7 @@ class SquareContinuousWorld:
         t = np.where(t1 <= t2, t1, t2)
 
         t = np.expand_dims(t, axis=-1)
-        return np.sqrt(((t * v) ** 2).sum(axis=1))
+        return np.sqrt(((t * v) ** 2).sum(axis=2))  # type: ignore
 
     def check_line_line_intersection(
         self,
@@ -447,7 +464,7 @@ class SquareContinuousWorld:
         origin: Position,
         ray_distance: float,
         n_rays: int,
-        other_agents: np.ndarray | None = None,
+        other_agents: Optional[np.ndarray] = None,
         include_blocks: bool = True,
         check_border: bool = True,
         use_relative_angle: bool = True,
@@ -482,6 +499,7 @@ class SquareContinuousWorld:
             rel_angle = 0.0
 
         angles = np.linspace(0.0, 2 * math.pi, n_rays, endpoint=False, dtype=np.float32)
+
         ray_end_xs = x + ray_distance * np.cos(angles + rel_angle)
         ray_end_ys = y + ray_distance * np.sin(angles + rel_angle)
 
@@ -491,19 +509,30 @@ class SquareContinuousWorld:
         closest_distances = np.full_like(angles, ray_distance)
 
         if other_agents is not None:
-            for i, coord in enumerate(other_agents):
-                dists = self.check_circle_line_intersection(
-                    coord, self.agent_radius, ray_start_coords, ray_end_coords
-                )
-                # use fmin to ignore NaNs
-                np.fmin(closest_distances, dists, out=closest_distances)
+            radii = np.array([self.agent_radius] * len(other_agents))
+            dists = self.check_circle_line_intersection(
+                other_agents, radii, ray_start_coords, ray_end_coords
+            )
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                min_dists = np.nanmin(dists, axis=0)
+
+            np.fmin(closest_distances, min_dists, out=closest_distances)
 
         if include_blocks:
-            for pos, size in self.blocks:
-                dists = self.check_circle_line_intersection(
-                    np.array([pos[0], pos[1]]), size, ray_start_coords, ray_end_coords
-                )
-                np.fmin(closest_distances, dists, out=closest_distances)
+            radii = np.array([s for _, s in self.blocks])
+            block_array = np.array([[pos[0], pos[1]] for pos, _ in self.blocks])
+
+            dists = self.check_circle_line_intersection(
+                block_array, radii, ray_start_coords, ray_end_coords
+            )
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                min_dists = np.nanmin(dists, axis=0)
+
+            np.fmin(closest_distances, min_dists, out=closest_distances)
 
         if check_border:
             # shape = (n_lines, walls, 2)
