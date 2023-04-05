@@ -233,7 +233,7 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
 
         model = cast(DTCModel, self.model)
         state = cast(DTCState, self.state)
-        scale_factor = self.window_size // model.world.size
+        scale_factor = self.window_size / model.world.size
 
         if self.window_surface is None:
             pygame.init()
@@ -395,7 +395,11 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
         }
 
         self.world = CircularContinuousWorld(
-            size=self.r_arena, agent_radius=30.0, blocks=None, enable_physics=False
+            size=self.r_arena * 2,
+            agent_radius=30.0,
+            blocks=None,
+            enable_agent_collisions=False,
+            border_thickness=5,
         )
 
         self.is_symmetric = True
@@ -413,9 +417,9 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
         prev_pursuer_coords = []
         for i in range(self.n_pursuers):
             # distributes the agents based in their number
-            x = 50.0 * (-math.floor(self.n_pursuers / 2) + i)
-            pursuer_coords.append((x, 0.0, 0.0))
-            prev_pursuer_coords.append((x, 0.0, 0.0))
+            x = 50.0 * (-math.floor(self.n_pursuers / 2) + i) + self.r_arena
+            pursuer_coords.append((x, self.r_arena, 0.0))
+            prev_pursuer_coords.append((x, self.r_arena, 0.0))
 
         pursuer_states = np.zeros(
             (self.n_pursuers, PMBodyState.num_features()), dtype=np.float32
@@ -428,8 +432,8 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
             prev_pursuer_states[i][:3] = prev_pursuer_coords[i]
 
         bounds = self.r_arena * 0.7
-        x = self.rng.random() * (bounds * 2) - bounds
-        y = self.rng.random() * (bounds * 2) - bounds
+        x = self.rng.random() * (bounds * 2) - bounds + self.r_arena
+        y = self.rng.random() * (bounds * 2) - bounds + self.r_arena
 
         # The velocity of the target varies
         relative_target_vel = float(self.rng.random() * self.max_vel_tar)
@@ -500,7 +504,6 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
 
             velocity_factor = 1 if not self.velocity_control else actions[str(i)][1]
             pursuer_angle = state.pursuer_coords[i][2] + actions[str(i)][0]
-            print(pursuer_angle)
             pursuer_vel = velocity_factor * Vec2d(1, 0).rotated(pursuer_angle)
 
             self.world.update_entity_state(
@@ -524,8 +527,19 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
             state.target_coords[1],
             state.target_coords[2],
         )
-        new_target_coords = self.target_move_repulsive(target_pos, state)
-        state.target_coords[:3] = new_target_coords
+
+        x, y, _ = self.target_move_repulsive(target_pos, state)
+        """ Virtual limits """
+        # Calculating polar coordinates
+        r = np.linalg.norm([y - self.r_arena, x - self.r_arena])
+        gamma = math.atan2(y - self.r_arena, x - self.r_arena)
+        # Virtual barriere:
+        if r > self.r_arena:
+            x = self.r_arena * math.cos(gamma) + self.r_arena
+            y = self.r_arena * math.sin(gamma) + self.r_arena
+
+        state.target_coords[:2] = (x, y)
+
         self.world.set_entity_state("evader", state.target_coords)
 
         return DTCState(

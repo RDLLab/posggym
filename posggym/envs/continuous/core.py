@@ -94,7 +94,7 @@ class AbstractContinuousWorld(ABC):
         blocks: Optional[List[CircleEntity]] = None,
         agent_radius: float = 0.5,
         border_thickness=0.1,
-        enable_physics=True,
+        enable_agent_collisions=True,
     ):
         self.size = size
         self.blocks = [] if blocks is None else blocks
@@ -104,13 +104,13 @@ class AbstractContinuousWorld(ABC):
         self._blocked_coords: Optional[Set[Coord]] = None
 
         self.collision_id = 0
-        self.enable_physics = enable_physics
+        self.enable_agent_collisions = enable_agent_collisions
 
         # 2D physics stuff
         self.space = pymunk.Space()
         self.space.gravity = Vec2d(0.0, 0.0)
 
-        if not enable_physics:
+        if not enable_agent_collisions:
             # Turn off all collisions
             def ignore_collisions(arbiter, space, data):
                 return False
@@ -726,10 +726,7 @@ class SquareContinuousWorld(AbstractContinuousWorld):
 
 class CircularContinuousWorld(AbstractContinuousWorld):
     def add_walls_to_space(self, size: float):
-        # world border lines (start coords, end coords)
-        # bottom, left, top, right
-
-        num_segments = 64
+        num_segments = 128
         radius = size / 2
 
         segment_angle = 2 * math.pi / num_segments
@@ -748,7 +745,6 @@ class CircularContinuousWorld(AbstractContinuousWorld):
                 self.border_thickness,
             )
             wall.friction = 1.0
-            wall.collision_type = 1
             wall.color = self.WALL_COLOR
             wall.collision_type = self.get_collision_id() + 1
             self.walls.append(wall)
