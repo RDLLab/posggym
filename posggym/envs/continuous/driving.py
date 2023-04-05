@@ -1,36 +1,24 @@
 """The Driving Continuous Environment."""
 import enum
-from itertools import product
-from typing import (
-    Any,
-    Dict,
-    List,
-    NamedTuple,
-    Optional,
-    Set,
-    Tuple,
-    Union,
-    cast,
-)
 import math
-import pymunk
+from itertools import product
+from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple, Union, cast
 
-from gymnasium import spaces
 import numpy as np
+import pymunk
+from gymnasium import spaces
 
 import posggym.model as M
-from posggym.core import DefaultEnv
-
-from posggym.utils import seeding
 from posggym import logger
-
+from posggym.core import DefaultEnv
 from posggym.envs.continuous.core import (
-    Position,
     CircleEntity,
     PMBodyState,
+    Position,
     SquareContinuousWorld,
     clip_actions,
 )
+from posggym.utils import seeding
 
 
 class CollisionType(enum.IntEnum):

@@ -1,6 +1,8 @@
 """The Pursuit-Evasion Grid World Environment."""
+import math
 from typing import (
     Any,
+    Callable,
     Dict,
     List,
     NamedTuple,
@@ -8,32 +10,27 @@ from typing import (
     Set,
     Tuple,
     Union,
-    Callable,
     cast,
 )
+
 import numpy as np
 import pymunk
+from gymnasium import spaces
 from pymunk import Vec2d
 
-from gymnasium import spaces
-import math
 import posggym.model as M
-from posggym.core import DefaultEnv
-
 from posggym import logger
+from posggym.core import DefaultEnv
 from posggym.envs.continuous.core import (
     CircleEntity,
+    CollisionType,
+    PMBodyState,
     Position,
     SquareContinuousWorld,
     clip_actions,
-    CollisionType,
     single_item_to_position,
-    PMBodyState,
 )
 from posggym.utils import seeding
-
-
-# State = (e_coord, e_dir, p_coord, p_dir, e_0_coord, p_0_coord, e_goal_coord)
 
 
 class PEState(NamedTuple):

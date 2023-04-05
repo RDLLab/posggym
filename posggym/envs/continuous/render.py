@@ -6,7 +6,7 @@ import numpy as np
 
 from posggym.error import DependencyNotInstalled
 from posggym.model import AgentID
-from posggym.envs.continuous.core import ArenaTypes, Object, Position
+from posggym.envs.continuous.core import Position
 
 ColorTuple = Union[Tuple[int, int, int], Tuple[int, int, int, int]]
 
@@ -18,12 +18,16 @@ except ImportError as e:
     ) from e
 
 
+# This file not currently used, so could remove.
+# Keeping for reference while we finish implementing continuous problems.
+
+
 class GWContinuousRender:
     def __init__(
         self,
         render_mode: str,
         env_name: str,
-        arena_type: ArenaTypes = ArenaTypes.Square,
+        arena_type,
         render_fps: int = 15,
         screen_width: int = 640,
         screen_height: int = 480,
@@ -124,7 +128,7 @@ class GWContinuousRender:
         pygame.draw.circle(shape_surf, color, (radius, radius), radius)
         surface.blit(shape_surf, target_rect)
 
-    def draw_blocks(self, blocks: List[Object]):
+    def draw_blocks(self, blocks: List):
         for block in blocks:
             (x, y, _), radius = block
 
@@ -136,7 +140,7 @@ class GWContinuousRender:
 
     def draw_arena(self):
         # Draw the arena
-        if self.arena_type == ArenaTypes.Square:
+        if self.arena_type == 1:
             arena_rect = pygame.Rect(
                 self.arena_x - self.arena_size / 2,
                 self.arena_y - self.arena_size / 2,

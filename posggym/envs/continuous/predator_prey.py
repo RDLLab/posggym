@@ -22,9 +22,8 @@ from typing import Dict, List, NamedTuple, Optional, Set, Tuple, Union, cast
 
 import numpy as np
 import pymunk
-from pymunk import Vec2d
-
 from gymnasium import spaces
+from pymunk import Vec2d
 
 import posggym.model as M
 from posggym import logger

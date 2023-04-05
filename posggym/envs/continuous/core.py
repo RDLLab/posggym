@@ -1,27 +1,29 @@
 """Core functionality for continuous environments."""
 from __future__ import annotations
 
-from itertools import product
 import math
-from queue import PriorityQueue
 import warnings
+from abc import ABC, abstractmethod
+from enum import Enum
+from itertools import product
+from queue import PriorityQueue
 from typing import (
+    TYPE_CHECKING,
     Dict,
     Iterable,
     List,
     NamedTuple,
+    Optional,
     Set,
     Tuple,
     Union,
-    TYPE_CHECKING,
-    Optional,
 )
-from abc import ABC, abstractmethod
 
 import numpy as np
 from gymnasium import spaces
 
 from posggym.error import DependencyNotInstalled
+
 
 if TYPE_CHECKING:
     import posggym.model as M
@@ -34,10 +36,10 @@ except ImportError as e:
         "pymunk is not installed, run `pip install posggym[continuous]`"
     ) from e
 
-from enum import Enum
-
 
 class CollisionType(Enum):
+    """Type of collision in world."""
+
     NO_COLLISION = 0
     AGENT_COLLISION = 1
     BLOCK_COLLISION = 2
@@ -695,6 +697,8 @@ class AbstractContinuousWorld(ABC):
 
 
 class SquareContinuousWorld(AbstractContinuousWorld):
+    """A continuous world with a square border."""
+
     def add_walls_to_space(self, size: float):
         # world border lines (start coords, end coords)
         # bottom, left, top, right
@@ -727,6 +731,8 @@ class SquareContinuousWorld(AbstractContinuousWorld):
 
 
 class CircularContinuousWorld(AbstractContinuousWorld):
+    """A 2D continuous world with a circular border."""
+
     def add_walls_to_space(self, size: float):
         num_segments = 128
         radius = size / 2
@@ -766,5 +772,6 @@ class CircularContinuousWorld(AbstractContinuousWorld):
 
 
 def single_item_to_position(coords: np.ndarray) -> Position:
+    """Convert from numpy array to tuple representation of a Position."""
     assert coords.shape[0] >= 3
-    return tuple(coords[:3])  # type: ignore
+    return (coords[0], coords[1], coords[2])  # type: ignore

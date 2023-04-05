@@ -15,24 +15,16 @@ Reference
 
 """
 import math
-from typing import (
-    Dict,
-    List,
-    NamedTuple,
-    Optional,
-    Tuple,
-    cast,
-)
+from typing import Dict, List, NamedTuple, Optional, Tuple, cast
 
 import numpy as np
 import pymunk
+from gymnasium import spaces
 from pymunk import Vec2d
 
-from gymnasium import spaces
-
 import posggym.model as M
+from posggym import logger
 from posggym.core import DefaultEnv
-
 from posggym.envs.continuous.core import (
     CircularContinuousWorld,
     PMBodyState,
@@ -40,7 +32,6 @@ from posggym.envs.continuous.core import (
     clip_actions,
 )
 from posggym.utils import seeding
-from posggym import logger
 
 
 class DTCState(NamedTuple):

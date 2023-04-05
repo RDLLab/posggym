@@ -52,6 +52,9 @@ class AgentHistory(Generic[M.ActType, M.ObsType]):
             return cls(())
         return cls(((None, obs),))
 
+    def __len__(self) -> int:
+        return len(self.history)
+
     def __hash__(self):
         return hash(self.history)
 
@@ -140,6 +143,9 @@ class JointHistory:
         for i in range(self.num_agents):
             sub_agent_histories.append(AgentHistory(self.agent_histories[i][:-1]))
         return JointHistory(tuple(sub_agent_histories))
+
+    def __len__(self) -> int:
+        return len(self.agent_histories[0])
 
     def __hash__(self):
         return hash(self.agent_histories)
