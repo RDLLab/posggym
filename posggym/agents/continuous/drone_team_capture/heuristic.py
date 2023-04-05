@@ -1,6 +1,7 @@
-"""Shortest path policy for PursuitEvasion env."""
+"""Heuiristic policies for DroneTeamCapture env."""
 from __future__ import annotations
 
+import abc
 import math
 from typing import TYPE_CHECKING, Dict, List, Tuple
 
@@ -14,7 +15,7 @@ if TYPE_CHECKING:
     from posggym.model import AgentID
 
 
-class DTCHeuristicPolicy(Policy[DTCAction, DTCState]):
+class DTCHeuristicPolicy(Policy[DTCAction, DTCState], abc.ABC):
     """Heuristic Policies for the Drone Team Capture continuous environment.
 
     This is the abstract Drone Team Capture heuristic policy class. Concrete
@@ -41,6 +42,7 @@ class DTCHeuristicPolicy(Policy[DTCAction, DTCState]):
     def step(self, state: DTCState) -> DTCAction:
         return self._get_action(state)
 
+    @abc.abstractmethod
     def _get_action(self, state: DTCState) -> DTCAction:
         """Get the next action from the state.
 
@@ -67,7 +69,7 @@ class DTCHeuristicPolicy(Policy[DTCAction, DTCState]):
         return {self._get_action(state["last_state"]): 1.0}
 
     def euclidean_dist(self, coord1: np.ndarray, coord2: np.ndarray) -> float:
-        return math.sqrt((coord1[0] - coord2[0]) ** 2 + (coord1[1] - coord2[1]) ** 2)
+        return float(np.linalg.norm(coord1[:2] - coord2[:2]))
 
     def rot(self, Los_angle: float) -> np.ndarray:
         R = np.array(
@@ -79,11 +81,7 @@ class DTCHeuristicPolicy(Policy[DTCAction, DTCState]):
         return R
 
     def sat(self, val: float, min: float, max: float) -> float:
-        if val >= max:
-            val = max
-        if val <= min:
-            val = min
-        return val
+        return np.clip(val, min, max)
 
     def pp(self, alpha: float) -> float:
         Kpp = 100
@@ -92,10 +90,8 @@ class DTCHeuristicPolicy(Policy[DTCAction, DTCState]):
         return omega
 
     def alignment(self, pursuers: np.ndarray, pursuers_prev: np.ndarray) -> List[float]:
-        dx, dy = 0.0, 0.0
-        for i in range(len(pursuers)):
-            dx = dx + (pursuers[i][0] - pursuers_prev[i][0])
-            dy = dy + (pursuers[i][1] - pursuers_prev[i][1])
+        pursuers_diff = pursuers[:, :2] - pursuers_prev[:, :2]
+        dx, dy = np.sum(pursuers_diff, axis=0)
         dx, dy = self.normalise(dx, dy)
         return [dx, dy]
 
@@ -186,16 +182,16 @@ class DTCJanosovHeuristicPolicy(DTCHeuristicPolicy):
 
         return [chase_x, chase_y]
 
-    def alignment2(self, pursuer, pursuer_prev, i):
-        inte_x = 0
-        inte_y = 0
+    def alignment2(self, pursuer: np.ndarray, pursuer_prev: np.ndarray, i: int):
+        inte_x = 0.0
+        inte_y = 0.0
         rad_inter = 250
         C_inter = 0.5
         C_f = 0.5
         for j in range(len(pursuer)):
             if j != i:
                 d_ij = (np.array(pursuer[i]) - np.array(pursuer[j]))[:2]
-                d = np.linalg.norm(d_ij)
+                d = float(np.linalg.norm(d_ij))
 
                 d_ij = self.normalise(d_ij[0], d_ij[1])
 
