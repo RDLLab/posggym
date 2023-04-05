@@ -102,3 +102,53 @@ class InvalidFrame(Error):
     """Invalid video frame error."""
 
     pass
+
+
+# posggym.agent specific errors
+
+
+class UnregisteredPolicy(Unregistered):
+    """Raised when user requests policy from registry that doesn't exist."""
+
+
+class PolicyEnvIDNotFound(UnregisteredPolicy):
+    """Raised when user requests policy from registry with env-id that doesn't exist."""
+
+
+class PolicyEnvArgsIDNotFound(UnregisteredPolicy):
+    """Raised when user requests policy from registry with env-args that don't exist."""
+
+
+class PolicyNameNotFound(UnregisteredPolicy):
+    """Raised when user requests policy from registry where name doesn't exist."""
+
+
+class PolicyVersionNotFound(UnregisteredPolicy):
+    """Raised when user requests policy from registry where version doesn't exist."""
+
+
+class DeprecatedPolicy(Error):
+    """Raised when user requests policy from registry with old version.
+
+    I.e. if the version number is older than the latest version env with the same
+    name.
+    """
+
+
+class PolicyRegistrationError(Error):
+    """Raised when the user attempts to register an invalid policy.
+
+    For example, an unversioned policy when a versioned env exists.
+    """
+
+
+class UnseedablePolicy(Error):
+    """Raised when the user tries to seed an policy that does not support seeding."""
+
+
+class InvalidFile(Error):
+    """Raised when trying to access and invalid posggym file."""
+
+
+class DownloadError(Error):
+    """Raised when error occurred while trying to download posggym file."""

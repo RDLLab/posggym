@@ -1,6 +1,9 @@
 # Custom additions
 tests/wrappers/videos/
 
+# ignore model files, these are stored in posggym-agent-models repo
+*.pkl
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

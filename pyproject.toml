@@ -36,7 +36,7 @@ dynamic = ["version"]
 # Update dependencies in `all` if any are added or removed
 grid-world = ["pygame >=2.0"]
 continuous = ["pygame >=2.0", "pymunk>=6.0.0"]
-all = [
+envs_all = [
 	# Dependencies for all environment types above
 	# NOTE: No need to manually remove the duplicates, setuptools automatically does that.
 	# grid-world
@@ -44,6 +44,15 @@ all = [
 	# continuous
 	"pygame >=2.0",
     "pymunk>=6.0.0",
+]
+agents = [
+	"types-requests >=2.28",
+	"requests >= 2.28",
+	"clint >= 0.5.1",
+	"torch >=1.11.0",
+	"ray[rllib] >=2.3",
+	"pandas >=1.0",
+	"prettytable >=3.6.0",
 ]
 pettingzoo = ["pettingzoo >=1.22"]
 rllib = ["ray[rllib]>=2.3"]
@@ -70,7 +79,7 @@ posggym = [
 # Linters and Test tools #######################################################
 [tool.ruff]
 # https://beta.ruff.rs/docs/settings/
-src = ["posggym", "tests", "docs/scripts"]
+src = ["posggym", "tests", "docs/scripts", "scripts", "examples", "notebooks"]
 extend-select = ["C4", "SIM", "TCH"]
 show-fixes = true
 # Same as Black.
