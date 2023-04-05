@@ -504,7 +504,9 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
 
             velocity_factor = 1 if not self.velocity_control else actions[str(i)][1]
             pursuer_angle = state.pursuer_coords[i][2] + actions[str(i)][0]
-            pursuer_vel = velocity_factor * Vec2d(1, 0).rotated(pursuer_angle)
+            pursuer_vel = (
+                velocity_factor * self.vel_pur * Vec2d(1, 0).rotated(pursuer_angle)
+            )
 
             self.world.update_entity_state(
                 f"pursuer_{i}",
