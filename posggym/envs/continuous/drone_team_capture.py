@@ -496,8 +496,8 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
     def _get_next_state(
         self, state: DTCState, actions: Dict[M.AgentID, DTCAction]
     ) -> DTCState:
-        prev_target = state.target_coords.copy()
-        prev_pursuer = state.pursuer_coords.copy()
+        prev_target = np.copy(state.target_coords)
+        prev_pursuer = np.copy(state.pursuer_coords)
 
         for i in range(self.n_pursuers):
             self.world.set_entity_state(f"pursuer_{i}", state.pursuer_coords[i])
@@ -538,14 +538,15 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
             x = self.r_arena * math.cos(gamma) + self.r_arena
             y = self.r_arena * math.sin(gamma) + self.r_arena
 
-        state.target_coords[:2] = (x, y)
+        target_coords = np.zeros_like(state.target_coords)
+        target_coords[:2] = (x, y)
 
         self.world.set_entity_state("evader", state.target_coords)
 
         return DTCState(
             next_pursuer_states,
             prev_pursuer,
-            state.target_coords,
+            target_coords,
             prev_target,
             state.target_vel,
         )

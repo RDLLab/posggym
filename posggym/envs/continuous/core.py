@@ -53,6 +53,11 @@ Location = Union[Coord, Position, np.ndarray, Tuple[float, float]]
 CircleEntity = Tuple[Position, float]
 
 
+# This function needs to be in global scope or we get pickle errors
+def ignore_collisions(arbiter, space, data):
+    return False
+
+
 class PMBodyState(NamedTuple):
     """State of a Pymunk Body."""
 
@@ -112,9 +117,6 @@ class AbstractContinuousWorld(ABC):
 
         if not enable_agent_collisions:
             # Turn off all collisions
-            def ignore_collisions(arbiter, space, data):
-                return False
-
             self.space.add_collision_handler(0, 0).pre_solve = ignore_collisions
 
         self.add_walls_to_space(size)
