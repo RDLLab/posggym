@@ -7,7 +7,7 @@ import requests
 from clint.textui import progress  # type: ignore
 
 from posggym import error, logger
-from posggym.agents.config import AGENT_MODEL_REPO_URL
+from posggym.config import AGENT_MODEL_REPO_URL
 
 
 # largest policy file is ~ 1.3-4 MB
@@ -81,27 +81,16 @@ def download_from_repo(file_path: str, rewrite_existing: bool = False):
         return
 
     path = pathlib.Path(file_path)
-    if "posggym" not in path.parts or "agents" not in path.parts:
+    if "agents" not in path.parts:
         raise error.InvalidFile(
             f"Invalid posggym.agents file path '{file_path}'. Path must contain the "
-            "`posggym/agents` directory."
+            "`agents` directory."
         )
 
-    base_repo_dir_index = path.parts.index("posggym")
-    for i in range(base_repo_dir_index, len(path.parts) - 1):
-        if path.parts[i] == "posggym" and path.parts[i + 1] == "agents":
-            base_repo_dir_index = i
-
-    if (
-        path.parts[base_repo_dir_index] != "posggym"
-        and path.parts[base_repo_dir_index + 1] != "agents"
-    ):
-        raise error.InvalidFile(
-            f"Invalid posggym.agents file path '{file_path}'. Path must contain"
-            "`posggym/agents`."
-        )
-
-    file_repo_url = AGENT_MODEL_REPO_URL + "/".join(path.parts[base_repo_dir_index:])
+    base_repo_dir_index = path.parts.index("agents")
+    file_repo_url = (
+        AGENT_MODEL_REPO_URL + "posggym/" + "/".join(path.parts[base_repo_dir_index:])
+    )
 
     logger.info(
         f"Downloading file from posggym-agent-models repository: {file_repo_url}."

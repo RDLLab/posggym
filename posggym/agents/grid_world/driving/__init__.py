@@ -2,10 +2,11 @@
 import os.path as osp
 
 from posggym.agents.rllib import load_rllib_policy_specs_from_files
+from posggym.config import AGENT_MODEL_DIR
 
 
 ENV_ID = "Driving-v0"
-base_dir = osp.dirname(osp.abspath(__file__))
+agent_model_dir = osp.join(AGENT_MODEL_DIR, "grid_world", "driving")
 policy_specs = {}
 
 # 7x7RoundAbout-n2-v0
@@ -18,7 +19,7 @@ policy_specs.update(
             "obs_dim": (3, 1, 1),
             "obstacle_collisions": False,
         },
-        policy_file_dir_path=osp.join(base_dir, "driving_7x7roundabout_n2_v0"),
+        policy_file_dir_path=osp.join(agent_model_dir, "driving_7x7roundabout_n2_v0"),
         policy_file_names=[
             "klr_k0_seed0.pkl",
             "klr_k0_seed1.pkl",
@@ -68,7 +69,7 @@ policy_specs.update(
             "obs_dim": (3, 1, 1),
             "obstacle_collisions": False,
         },
-        policy_file_dir_path=osp.join(base_dir, "driving_14x14roundabout_n2_v0"),
+        policy_file_dir_path=osp.join(agent_model_dir, "driving_14x14roundabout_n2_v0"),
         policy_file_names=[
             "klr_k0_seed0.pkl",
             "klr_k0_seed1.pkl",

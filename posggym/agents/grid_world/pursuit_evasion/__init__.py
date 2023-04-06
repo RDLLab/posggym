@@ -4,10 +4,11 @@ import os.path as osp
 from posggym.agents.grid_world.pursuit_evasion.shortest_path import PEShortestPathPolicy
 from posggym.agents.registration import PolicySpec
 from posggym.agents.rllib import load_rllib_policy_specs_from_files
+from posggym.config import AGENT_MODEL_DIR
 
 
 ENV_ID = "PursuitEvasion-v0"
-_base_dir = osp.dirname(osp.abspath(__file__))
+agent_model_dir = osp.join(AGENT_MODEL_DIR, "grid_world", "pursuit_evasion")
 policy_specs = {}
 
 _shortest_path_spec = PolicySpec(
@@ -27,7 +28,7 @@ policy_specs.update(
     load_rllib_policy_specs_from_files(
         env_id=ENV_ID,
         env_args={"grid": "16x16"},
-        policy_file_dir_path=osp.join(_base_dir, "pursuitevasion_16x16_v0"),
+        policy_file_dir_path=osp.join(agent_model_dir, "pursuitevasion_16x16_v0"),
         policy_file_names=[
             "klr_k0_seed0_i0.pkl",
             "klr_k0_seed1_i0.pkl",
@@ -75,7 +76,7 @@ policy_specs.update(
     load_rllib_policy_specs_from_files(
         env_id=ENV_ID,
         env_args={"grid": "16x16"},
-        policy_file_dir_path=osp.join(_base_dir, "pursuitevasion_16x16_v0"),
+        policy_file_dir_path=osp.join(agent_model_dir, "pursuitevasion_16x16_v0"),
         policy_file_names=[
             "klr_k0_seed0_i1.pkl",
             "klr_k0_seed1_i1.pkl",
@@ -125,7 +126,7 @@ policy_specs.update(
     load_rllib_policy_specs_from_files(
         env_id=ENV_ID,
         env_args={"grid": "8x8"},
-        policy_file_dir_path=osp.join(_base_dir, "pursuitevasion_8x8_v0"),
+        policy_file_dir_path=osp.join(agent_model_dir, "pursuitevasion_8x8_v0"),
         policy_file_names=[
             "klr_k0_seed0_i0.pkl",
             "klr_k0_seed1_i0.pkl",
@@ -173,7 +174,7 @@ policy_specs.update(
     load_rllib_policy_specs_from_files(
         env_id=ENV_ID,
         env_args={"grid": "8x8"},
-        policy_file_dir_path=osp.join(_base_dir, "pursuitevasion_8x8_v0"),
+        policy_file_dir_path=osp.join(agent_model_dir, "pursuitevasion_8x8_v0"),
         policy_file_names=[
             "klr_k0_seed0_i1.pkl",
             "klr_k0_seed1_i1.pkl",

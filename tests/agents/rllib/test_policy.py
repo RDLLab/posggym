@@ -21,7 +21,9 @@ TEST_POLICY_FILE_NAME = "klr_k0_seed0.pkl"
 TEST_POLICY_NAME = TEST_POLICY_FILE_NAME.split(".")[0]
 TEST_POLICY_VERSION = 0
 TEST_POLICY_FILE = osp.join(
-    driving_agents.base_dir, "driving_14x14roundabout_n2_v0", TEST_POLICY_FILE_NAME
+    driving_agents.agent_model_dir,
+    "driving_14x14roundabout_n2_v0",
+    TEST_POLICY_FILE_NAME,
 )
 
 

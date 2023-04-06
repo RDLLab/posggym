@@ -7,13 +7,15 @@ import pytest
 
 from posggym import error
 import posggym.agents.grid_world.driving as driving_agents
-from posggym.agents.config import AGENT_MODEL_REPO_URL
+from posggym.config import AGENT_MODEL_REPO_URL
 from posggym.agents.utils import download
 
 
 TEST_POLICY_FILE_NAME = "klr_k0_seed0.pkl"
 TEST_POLICY_FILE = osp.join(
-    driving_agents.base_dir, "driving_14x14roundabout_n2_v0", TEST_POLICY_FILE_NAME
+    driving_agents.agent_model_dir,
+    "driving_14x14roundabout_n2_v0",
+    TEST_POLICY_FILE_NAME,
 )
 TEST_POLICY_FILE_URL = AGENT_MODEL_REPO_URL + (
     "posggym/agents/grid_world/driving/driving_14x14roundabout_n2_v0/"

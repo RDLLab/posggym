@@ -1,11 +1,12 @@
 """Policies for the PredatorPrey-v0 environment."""
 import os.path as osp
 
+from posggym.config import AGENT_MODEL_DIR
 from posggym.agents.rllib import load_rllib_policy_specs_from_files
 
 
 ENV_ID = "PredatorPrey-v0"
-_base_dir = osp.dirname(osp.abspath(__file__))
+agent_model_dir = osp.join(AGENT_MODEL_DIR, "grid_world", "predator_prey")
 policy_specs = {}
 
 # PredatorPrey-10x10-P2-p3-s2-coop-v0
@@ -20,7 +21,9 @@ policy_specs.update(
             "prey_strength": 2,
             "obs_dim": 2,
         },
-        policy_file_dir_path=osp.join(_base_dir, "predatorprey_10x10_P2_p3_s2_coop_v0"),
+        policy_file_dir_path=osp.join(
+            agent_model_dir, "predatorprey_10x10_P2_p3_s2_coop_v0"
+        ),
         policy_file_names=[
             "sp_seed0.pkl",
             "sp_seed1.pkl",
@@ -46,7 +49,9 @@ policy_specs.update(
             "prey_strength": 2,
             "obs_dim": 2,
         },
-        policy_file_dir_path=osp.join(_base_dir, "predatorprey_10x10_P3_p3_s2_coop_v0"),
+        policy_file_dir_path=osp.join(
+            agent_model_dir, "predatorprey_10x10_P3_p3_s2_coop_v0"
+        ),
         policy_file_names=[
             "sp_seed0.pkl",
             "sp_seed1.pkl",
@@ -71,7 +76,9 @@ policy_specs.update(
             "prey_strength": 3,
             "obs_dim": 2,
         },
-        policy_file_dir_path=osp.join(_base_dir, "predatorprey_10x10_P4_p3_s3_coop_v0"),
+        policy_file_dir_path=osp.join(
+            agent_model_dir, "predatorprey_10x10_P4_p3_s3_coop_v0"
+        ),
         policy_file_names=[
             "sp_seed0.pkl",
             "sp_seed1.pkl",
