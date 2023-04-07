@@ -28,14 +28,7 @@ For the stable version we aim to have:
   - [x] using posggym Env and posggym Models
   - [x] creating your own environment
   - [ ] using posggym.agents
-  - [ ] creating your own agents
-  - [ ] using posggym with pettingzoo
-  - [ ] using posggym with rllib
 - [ ] posggym.agents installation and packaging working correctly
-- [ ] have the following additional agents implemented
-  - [ ] grid_world/driving - shortest path agent (ideally with different aggressiveness: "aggressive" doesn't consider other cars, "mixed" sometimes aggressive sometimes waits, "timid/not aggressive" will wait till all cars are gone before progressing.)
-  - [ ] continuous/driving - shortest path agent
-  - [ ] continuous/pursuit_evasion - shortest path agent
 
 ### Future developments
 
@@ -47,7 +40,13 @@ The following are things we would like to add in future versions:
   - more from: https://github.com/MADPToolbox/MADP
 - Train/create agents for each supported environment
   - [ ] predator_prey (continuous and grid world) - handcrafted agents similar to level-based foraging.
+  - [ ] driving (continuous and grid world) - shortest path agent (ideally with different aggressiveness: "aggressive" doesn't consider other cars, "mixed" sometimes aggressive sometimes waits, "timid/not aggressive" will wait till all cars are gone before progressing.)
+  - [ ] continuous/pursuit_evasion - shortest path agent
 - Setup CI checking
+- [ ] documentation of the following:
+  - [ ] creating your own agents
+  - [ ] using posggym with pettingzoo
+  - [ ] using posggym with rllib
 
 ## Development
 

@@ -30,7 +30,7 @@ register(
 register(
     id="DrivingContinuous-v0",
     entry_point="posggym.envs.continuous.driving:DrivingEnv",
-    max_episode_steps=5000,
+    max_episode_steps=100,
     kwargs={
         "grid": "14x14RoundAbout",
         "num_agents": 2,
@@ -66,13 +66,14 @@ register(
         "prey_strength": None,
         "obs_dist": 3,
         "n_sensors": 16,
-        "use_holonomic": True,
+        "use_holonomic": False,
     },
 )
 
 register(
     id="PursuitEvasionContinuous-v0",
     entry_point="posggym.envs.continuous.pursuit_evasion:PursuitEvasionEnv",
+    max_episode_steps=100,
     kwargs={
         "grid": "16x16",
         "action_probs": 1.0,

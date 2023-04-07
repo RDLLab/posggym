@@ -76,12 +76,13 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
     Each agent's actions is made up of two parts, which depend on the dynamics model
     used by the environment.
 
+    In the non-holonomic model (the default), the first action component specifies the
+    angular velocity in `[-2*pi, 2*pi]`, and the second component specifies the linear
+    velocity in `[0, 1]`.
+
     In the `holonomic` the action components specify the velocity along the x and y
     axes, respectively. With possible values in `[-1, 1]`.
 
-    In the non-holonomic model, the first action component specifies the angular
-    velocity in `[-2*pi, 2*pi]`, and the second component specifies the linear velocity
-    in `[0, 1]`.
 
     Observation Space
     -----------------
@@ -240,7 +241,7 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
         prey_strength: Optional[int] = None,
         obs_dist: float = 2,
         n_sensors: int = 10,
-        use_holonomic: bool = True,
+        use_holonomic: bool = False,
         render_mode: Optional[str] = None,
         **kwargs,
     ):

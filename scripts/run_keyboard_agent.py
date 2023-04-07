@@ -1,74 +1,197 @@
 """Run a keyboard agent on an environment."""
-from argparse import ArgumentParser
+import math
 import os.path as osp
-from typing import Dict, List, Optional
+import sys
+from argparse import ArgumentParser
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+import pygame
 from gymnasium import spaces
 
 import posggym
 import posggym.model as M
 
 
-def get_discrete_action(env: posggym.Env, keyboard_agent_ids: List[M.AgentID]):
-    """Get discrete action from user."""
-    actions = {}
-    for i in env.agents:
-        action_space: spaces.Discrete = env.action_spaces[i]  # type: ignore
-        if i in keyboard_agent_ids:
-            while True:
-                try:
-                    agent_a = int(
-                        input(f"Select action for agent {i} (0, {action_space.n-1}): ")
-                    )
-                    break
-                except ValueError:
-                    print("Invalid selection. Try again.")
-        else:
-            agent_a = action_space.sample()
-        actions[i] = agent_a
-    return actions
+grid_world_key_action_map = {
+    "Driving-v0": {
+        None: 0,
+        pygame.K_UP: 1,
+        pygame.K_DOWN: 2,
+        pygame.K_RIGHT: 3,
+        pygame.K_LEFT: 4,
+    },
+    "LevelBasedForaging-v2": {
+        None: 0,
+        pygame.K_UP: 1,
+        pygame.K_DOWN: 2,
+        pygame.K_LEFT: 3,
+        pygame.K_RIGHT: 4,
+        pygame.K_SPACE: 5,
+    },
+    "PredatorPrey-v0": {
+        None: 0,
+        pygame.K_UP: 1,
+        pygame.K_DOWN: 2,
+        pygame.K_LEFT: 3,
+        pygame.K_RIGHT: 4,
+    },
+    "PursuitEvasion-v0": {
+        None: 0,
+        pygame.K_UP: 0,
+        pygame.K_DOWN: 1,
+        pygame.K_LEFT: 2,
+        pygame.K_RIGHT: 3,
+    },
+    "TwoPaths-v0": {
+        None: 1,
+        pygame.K_UP: 1,
+        pygame.K_DOWN: 2,
+        pygame.K_LEFT: 3,
+        pygame.K_RIGHT: 2,
+    },
+    "UAV-v0": {
+        None: 1,
+        pygame.K_UP: 1,
+        pygame.K_DOWN: 2,
+        pygame.K_LEFT: 3,
+        pygame.K_RIGHT: 2,
+    },
+}
+grid_world_key_action_map["DrivingGen-v0"] = grid_world_key_action_map["Driving-v0"]
 
 
-def get_continuous_action(env: posggym.Env, keyboard_agent_ids: List[M.AgentID]):
-    """Get continuous action from user."""
-    actions = {}
-    for i in env.agents:
-        action_space: spaces.Box = env.action_spaces[i]  # type: ignore
-        if i in keyboard_agent_ids:
-            action = []
-            for dim in range(action_space.shape[0]):
-                low, high = action_space.low[dim], action_space.high[dim]
-                while True:
-                    try:
-                        a = float(
-                            input(f"Select action for agent {i} ({low}, {high}): ")
-                        )
-                        assert low <= a <= high
-                        action.append(a)
-                        break
-                    except (ValueError, AssertionError):
-                        print("Invalid selection. Try again.")
-            actions[i] = np.array(action)
+def display_key_action_map(key_action_map):
+    """Prints the key action map."""
+    print("Key-Action Bindings")
+    for k, a in key_action_map.items():
+        if k is None:
+            print(f"None: {a}")
         else:
-            actions[i] = action_space.sample()
-    return actions
+            print(f"{pygame.key.name(k)}: {a}")
+
+
+def run_grid_world_env_keyboard_agent(
+    env: posggym.Env,
+    keyboard_agent_id: M.AgentID,
+) -> Tuple[Dict[str, float], int]:
+    """Run keyboard agent in continuous environment.
+
+    Assumes environment actions are angular and linear velocity.
+    """
+    assert env.spec is not None
+    key_action_map = grid_world_key_action_map[env.spec.id]
+    env.metadata["render_fps"] = 4
+
+    o, _ = env.reset()
+    env.render()
+
+    t = 0
+    done = False
+    rewards = {i: 0.0 for i in env.possible_agents}
+    while not done:
+        action_i = key_action_map[None]
+        events = pygame.event.get()
+        for event in events:
+            if event.type == pygame.KEYDOWN:
+                if event.key in key_action_map:
+                    action_i = key_action_map[event.key]
+                elif (
+                    event.key == pygame.K_c and pygame.key.get_mods() & pygame.KMOD_CTRL
+                ):
+                    # exit on control-c
+                    env.close()
+                    sys.exit()
+
+        actions = {}
+        for i in env.agents:
+            if i == keyboard_agent_id:
+                actions[i] = action_i
+            else:
+                actions[i] = env.action_spaces[i].sample()
+
+        _, r, _, _, done, _ = env.step(actions)
+        t += 1
+
+        for i, r_i in r.items():
+            rewards[i] += r_i  # type: ignore
+
+        env.render()
+
+    return rewards, t
+
+
+def run_continuous_env_keyboard_agent(
+    env: posggym.Env,
+    keyboard_agent_id: M.AgentID,
+) -> Tuple[Dict[str, float], int]:
+    """Run keyboard agent in continuous environment.
+
+    Assumes environment actions are angular and linear velocity.
+    """
+    import pygame
+
+    angular_vel_inc = math.pi / 10
+    linear_vel_inc = 0.25
+
+    o, _ = env.reset()
+    env.render()
+
+    t = 0
+    done = False
+    rewards = {i: 0.0 for i in env.possible_agents}
+    action_i = np.array([0.0, 0.0], dtype=np.float32)
+    while not done:
+        # reset angular velocity, but maintain linear velocity
+        action_i[0] = 0.0
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_LEFT]:
+            action_i[0] = -angular_vel_inc
+        elif keys[pygame.K_RIGHT]:
+            action_i[0] = +angular_vel_inc
+
+        if keys[pygame.K_UP]:
+            action_i[1] = linear_vel_inc
+        elif keys[pygame.K_DOWN]:
+            action_i[1] = -linear_vel_inc
+
+        if keys[pygame.K_c] and pygame.key.get_mods() & pygame.KMOD_CTRL:
+            # exit on control-c
+            env.close()
+            sys.exit()
+
+        actions = {}
+        for i in env.agents:
+            if i == keyboard_agent_id:
+                actions[i] = action_i
+            else:
+                actions[i] = env.action_spaces[i].sample()
+
+        _, r, _, _, done, _ = env.step(actions)
+        t += 1
+
+        for i, r_i in r.items():
+            rewards[i] += r_i  # type: ignore
+
+        env.render()
+
+    return rewards, t
 
 
 def run_keyboard_agent(
     env_id: str,
     keyboard_agent_ids: List[M.AgentID],
     num_episodes: int,
-    episode_step_limit: Optional[int] = None,
+    max_episode_steps: Optional[int] = None,
     seed: Optional[int] = None,
     render_mode: Optional[str] = None,
     pause_each_step: bool = False,
     record_env: bool = False,
 ):
     """Run keyboard agents."""
-    if episode_step_limit is not None:
+    if max_episode_steps is not None:
         env = posggym.make(
-            env_id, render_mode=render_mode, max_episode_steps=episode_step_limit
+            env_id, render_mode=render_mode, max_episode_steps=max_episode_steps
         )
     else:
         env = posggym.make(env_id, render_mode=render_mode)
@@ -78,18 +201,15 @@ def run_keyboard_agent(
         keyboard_agent_ids = [int(i) for i in keyboard_agent_ids]
 
     action_spaces = env.action_spaces
-    if all(isinstance(action_spaces[i], spaces.Discrete) for i in keyboard_agent_ids):
-        get_action_fn = get_discrete_action
+
+    if env_id in grid_world_key_action_map:
+        key_action_map = grid_world_key_action_map[env_id]
+        display_key_action_map(key_action_map)
+        run_env_episode_fn = run_grid_world_env_keyboard_agent
     elif all(isinstance(action_spaces[i], spaces.Box) for i in keyboard_agent_ids):
-        assert all(
-            len(action_spaces[i].shape) == 1 for i in keyboard_agent_ids  # type: ignore
-        ), "Only 1D continuous actions supported."
-        get_action_fn = get_continuous_action
+        run_env_episode_fn = run_continuous_env_keyboard_agent
     else:
-        raise AssertionError(
-            "Only discrete and 1D continuous action spaces supported for keyboard "
-            "agents."
-        )
+        raise AssertionError
 
     if record_env:
         video_save_dir = osp.join(osp.expanduser("~"), "posggym_video")
@@ -99,46 +219,13 @@ def run_keyboard_agent(
 
     env.reset(seed=seed)
 
-    dones = 0
     episode_steps = []
     episode_rewards: Dict[M.AgentID, List[float]] = {i: [] for i in env.possible_agents}
     for ep_num in range(num_episodes):
-        o, _ = env.reset()
-
-        if render_mode:
-            env.render()
-
-        if pause_each_step:
-            input("Press any key")
-
-        from pprint import pprint
-
-        t = 0
-        done = False
-        rewards = {i: 0.0 for i in env.possible_agents}
-        while episode_step_limit is None or t < episode_step_limit:
-            pprint(o)
-
-            a = get_action_fn(env, keyboard_agent_ids)
-            o, r, _, _, done, _ = env.step(a)
-            t += 1
-
-            for i, r_i in r.items():
-                rewards[i] += r_i  # type: ignore
-
-            if render_mode:
-                env.render()
-
-            if pause_each_step:
-                input("Press any key")
-
-            if done:
-                print(f"End episode {ep_num}")
-                print(f"Returns: {rewards}")
-                break
-
-        dones += int(done)
-        episode_steps.append(t)
+        rewards, steps = run_env_episode_fn(
+            env, keyboard_agent_id=keyboard_agent_ids[0]
+        )
+        episode_steps.append(steps)
 
         for j in env.possible_agents:
             episode_rewards[j].append(rewards[j])
@@ -146,7 +233,6 @@ def run_keyboard_agent(
     env.close()
 
     print("All episodes finished")
-    print(f"Episodes ending with 'done=True' = {dones} out of {num_episodes}")
     mean_steps = sum(episode_steps) / len(episode_steps)
     print(f"Mean episode steps = {mean_steps:.2f}")
     mean_returns = {i: sum(r) / len(r) for i, r in episode_rewards.items()}
@@ -169,7 +255,7 @@ if __name__ == "__main__":
         help="The number of episodes to run (default=1)",
     )
     parser.add_argument(
-        "--episode_step_limit",
+        "--max_episode_steps",
         type=int,
         default=None,
         help="Max number of steps to run each episode for (default=None)",

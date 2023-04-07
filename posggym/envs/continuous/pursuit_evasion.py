@@ -505,7 +505,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         # 0 to n_sensors = wall distance obs
         # n_sensors to (2 * n_sensors) = evaer dist
         self.n_sensors = 4
-        self.obs_dist = 1
+        self.obs_dist = self._max_obs_distance
         self.obs_dim = self.n_sensors * 2
 
         # o = Tuple[Tuple[WallObs, seen , heard], Coord, Coord, Coord]

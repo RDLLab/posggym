@@ -11,7 +11,7 @@ import posggym
 
 import posggym.agents as pga
 from posggym.agents.registration import PolicySpec
-from tests.conftest import env_name_prefix
+from tests.conftest import env_id_prefix
 
 
 def try_make_policy(spec: PolicySpec) -> Optional[pga.Policy]:
@@ -49,7 +49,7 @@ def try_make_policy(spec: PolicySpec) -> Optional[pga.Policy]:
 _all_testing_initialised_policies: List[Optional[pga.Policy]] = [
     try_make_policy(policy_spec)
     for policy_spec in pga.registry.values()
-    if env_name_prefix is None or policy_spec.id.startswith(env_name_prefix)
+    if env_id_prefix is None or policy_spec.id.startswith(env_id_prefix)
 ]
 all_testing_initialised_policies: List[pga.Policy] = [
     policy for policy in _all_testing_initialised_policies if policy is not None

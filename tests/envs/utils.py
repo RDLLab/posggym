@@ -10,7 +10,7 @@ import numpy as np
 import posggym
 from posggym import logger
 from posggym.envs.registration import EnvSpec
-from tests.conftest import env_name_prefix
+from tests.conftest import env_id_prefix
 
 
 def try_make_env(env_spec: EnvSpec) -> Optional[posggym.Env]:
@@ -39,7 +39,7 @@ def try_make_env(env_spec: EnvSpec) -> Optional[posggym.Env]:
 _all_testing_initialised_envs: List[Optional[posggym.Env]] = [
     try_make_env(env_spec)
     for env_spec in posggym.envs.registry.values()
-    if env_name_prefix is None or env_spec.id.startswith(env_name_prefix)
+    if env_id_prefix is None or env_spec.id.startswith(env_id_prefix)
 ]
 all_testing_initialised_envs: List[posggym.Env] = [
     env for env in _all_testing_initialised_envs if env is not None
@@ -48,17 +48,6 @@ all_testing_initialised_envs: List[posggym.Env] = [
 # All testing posggym environment specs
 all_testing_env_specs: List[EnvSpec] = [
     env.spec for env in all_testing_initialised_envs if env.spec is not None
-]
-
-
-gym_testing_env_specs: List[EnvSpec] = [
-    env_spec
-    for env_spec in all_testing_env_specs
-    if any(
-        isinstance(env_spec.entry_point, str)
-        and f"posggym.envs.{ep}" in env_spec.entry_point
-        for ep in ["classic", "grid_world"]
-    )
 ]
 
 

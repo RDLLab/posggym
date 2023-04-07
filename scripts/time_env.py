@@ -52,7 +52,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("env_id", type=str, help="ID of environment to test")
+    parser.add_argument(
+        "--env_id",
+        type=str,
+        default=None,
+        help="ID of environment to test. If none will run all registered environments.",
+    )
     parser.add_argument(
         "--num_steps", type=int, default=10000, help="The number of steps to test for."
     )
@@ -64,6 +69,25 @@ if __name__ == "__main__":
         help="Mode to use for rendering. If None then doesn't render environment.",
     )
     args = parser.parse_args()
-    print(f"Timing {args.env_id} environment for {args.num_steps} steps.")
-    step_rate = time_env_step_rate(**vars(args))
-    print(f"Step rate for '{args.env_id}' = {step_rate:.4f} steps per second")
+
+    env_ids = list(posggym.registry) if args.env_id is None else [args.env_id]
+
+    results = {}
+    for env_id in env_ids:
+        print(f"Timing {env_id} environment for {args.num_steps} steps.")
+        step_rate = time_env_step_rate(
+            env_id=env_id,
+            num_steps=args.num_steps,
+            seed=args.seed,
+            render_mode=args.render_mode,
+        )
+        print(f"Step rate for '{args.env_id}' = {step_rate:.4f} steps per second")
+        results[env_id] = step_rate
+
+    max_env_id_len = max(len(env_id) for env_id in results)
+    second_col_header = "Steps per second"
+    col2_width = len(second_col_header)
+    print(f"| {'Env':<{max_env_id_len}} | Steps per second |")
+    print(f"| {'-' * max_env_id_len} | {'-' * col2_width} |")
+    for env_id, step_rate in results.items():
+        print(f"| {env_id:<{max_env_id_len}} | {step_rate:<{col2_width}.2f} |")

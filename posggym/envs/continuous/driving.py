@@ -223,10 +223,10 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
 
     def __init__(
         self,
-        grid: Union[str, "DrivingWorld"] = "7x7RoundAbout",
+        grid: Union[str, "DrivingWorld"] = "14x14RoundAbout",
         num_agents: int = 2,
         obs_dim: float = 3.0,
-        n_lines: int = 10,
+        n_lines: int = 16,
         obstacle_collisions: bool = False,
         render_mode: Optional[str] = None,
     ):
