@@ -717,7 +717,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         prey_coords = state.prey_states[state.prey_caught == 0, :2]
 
-        prey_obs = self.world.check_collision_circular_rays(
+        prey_obs, _ = self.world.check_collision_circular_rays(
             pos_i,
             self.obs_dist,
             self.n_sensors,
@@ -731,7 +731,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         mask[int(agent_id)] = False
         pred_coords = state.predator_states[mask, :2]
 
-        pred_obs = self.world.check_collision_circular_rays(
+        pred_obs, _ = self.world.check_collision_circular_rays(
             pos_i,
             self.obs_dist,
             self.n_sensors,
@@ -741,7 +741,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             use_relative_angle=True,
         )
 
-        obstacle_obs = self.world.check_collision_circular_rays(
+        obstacle_obs, _ = self.world.check_collision_circular_rays(
             pos_i,
             self.obs_dist,
             self.n_sensors,

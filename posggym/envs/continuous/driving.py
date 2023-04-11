@@ -13,10 +13,12 @@ from posggym import logger
 from posggym.core import DefaultEnv
 from posggym.envs.continuous.core import (
     CircleEntity,
+    Line,
     PMBodyState,
     Position,
     SquareContinuousWorld,
     clip_actions,
+    parse_world_str_interior_walls,
 )
 from posggym.utils import seeding
 
@@ -736,7 +738,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 if i != int(agent_id)
             ]
         )
-        vehicle_obs = self.world.check_collision_circular_rays(
+        vehicle_obs, _ = self.world.check_collision_circular_rays(
             pos_i,
             self.obs_dist,
             self.n_sensors,
@@ -746,7 +748,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             use_relative_angle=True,
         )
 
-        obstacle_obs = self.world.check_collision_circular_rays(
+        obstacle_obs, _ = self.world.check_collision_circular_rays(
             pos_i,
             self.obs_dist,
             self.n_sensors,
@@ -756,7 +758,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             use_relative_angle=True,
         )
 
-        dest_obs = self.world.check_collision_circular_rays(
+        dest_obs, _ = self.world.check_collision_circular_rays(
             pos_i,
             self.obs_dist,
             self.n_sensors,
@@ -818,10 +820,18 @@ class DrivingWorld(SquareContinuousWorld):
         self,
         size: int,
         blocks: Optional[List[CircleEntity]],
+        interior_walls: Optional[List[Line]],
         start_coords: List[Set[Position]],
         dest_coords: List[Set[Position]],
     ):
-        super().__init__(size=size, blocks=blocks, agent_radius=0.5)
+        super().__init__(
+            size=size,
+            blocks=blocks,
+            interior_walls=interior_walls,
+            agent_radius=0.5,
+            border_thickness=0.01,
+            enable_agent_collisions=True,
+        )
         assert len(start_coords) == len(dest_coords)
         self.start_coords = start_coords
         self.dest_coords = dest_coords
@@ -887,7 +897,8 @@ def parseworld_str(grid_str: str, supported_num_agents: int) -> DrivingWorld:
     agent_start_chars = set(["+"] + [str(i) for i in range(10)])
     agent_dest_chars = set(["-"] + list("abcdefghij"))
 
-    block_coords: List[CircleEntity] = []
+    interior_walls = parse_world_str_interior_walls(grid_str)
+
     shared_start_coords: Set[Position] = set()
     agent_start_coords_map: Dict[int, Set[Position]] = {}
     shared_dest_coords: Set[Position] = set()
@@ -896,9 +907,7 @@ def parseworld_str(grid_str: str, supported_num_agents: int) -> DrivingWorld:
         coord = (c + 0.5, r + 0.5, 0.0)
         char = row_strs[r][c]
 
-        if char == "#":
-            block_coords.append((coord, 0.25))
-        elif char in agent_start_chars:
+        if char in agent_start_chars:
             if char != "+":
                 agent_id = int(char)
                 if agent_id not in agent_start_coords_map:
@@ -937,7 +946,8 @@ def parseworld_str(grid_str: str, supported_num_agents: int) -> DrivingWorld:
 
     return DrivingWorld(
         size=grid_width,
-        blocks=block_coords,
+        blocks=None,
+        interior_walls=interior_walls,
         start_coords=start_coords,
         dest_coords=dest_coords,
     )
@@ -952,7 +962,7 @@ SUPPORTED_WORLDS: Dict[str, Dict[str, Any]] = {
     },
     "6x6Intersection": {
         "grid_str": ("##0b##\n" "##..##\n" "d....3\n" "2....c\n" "##..##\n" "##a1##\n"),
-        "supperted_num_agets": 4,
+        "supported_num_agents": 4,
         "max_episode_steps": 20,
     },
     "7x7Blocks": {

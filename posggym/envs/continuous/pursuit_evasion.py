@@ -1,5 +1,6 @@
 """The Pursuit-Evasion Grid World Environment."""
 import math
+from itertools import product
 from typing import (
     Any,
     Callable,
@@ -24,10 +25,12 @@ from posggym.core import DefaultEnv
 from posggym.envs.continuous.core import (
     CircleEntity,
     CollisionType,
+    Line,
     PMBodyState,
     Position,
     SquareContinuousWorld,
     clip_actions,
+    parse_world_str_interior_walls,
     single_item_to_position,
 )
 from posggym.utils import seeding
@@ -504,7 +507,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         # Observes entity and distance to entity along a n_sensors rays from the agent
         # 0 to n_sensors = wall distance obs
         # n_sensors to (2 * n_sensors) = evaer dist
-        self.n_sensors = 4
+        self.n_sensors = 8
         self.obs_dist = self._max_obs_distance
         self.obs_dim = self.n_sensors * 2
 
@@ -731,7 +734,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
     ) -> Tuple[np.ndarray, int, int]:
         seen = False
 
-        agent_obs = self.world.check_collision_circular_rays(
+        agent_obs, _ = self.world.check_collision_circular_rays(
             agent_coord,
             self.obs_dist,
             self.n_sensors,
@@ -742,7 +745,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             angle_bounds=(self.fov / 2, self.fov / 2),
         )
 
-        obstacle_obs = self.world.check_collision_circular_rays(
+        obstacle_obs, _ = self.world.check_collision_circular_rays(
             agent_coord,
             self.obs_dist,
             self.n_sensors,
@@ -775,17 +778,18 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
 
         _ego_coord = (ego_coord[0], ego_coord[1], angle)
 
-        _, type = self.world._check_collision_circular_rays(
+        _, collision_type = self.world.check_collision_circular_rays(
             _ego_coord,
             self._max_obs_distance,
-            1,
+            8,
             np.array([opp_coord[:2]]),
             include_blocks=True,
             check_walls=True,
             use_relative_angle=True,
+            angle_bounds=(1 / 4 * np.pi, -1 / 4 * np.pi),
         )
 
-        if type[0] == CollisionType.AGENT_COLLISION:
+        if collision_type[0] == CollisionType.AGENT_COLLISION:
             return abs(angle) < self.fov / 2 and dist < self._max_obs_distance
 
         return False
@@ -869,12 +873,20 @@ class PEWorld(SquareContinuousWorld):
     def __init__(
         self,
         size: int,
-        block_coords: List[CircleEntity],
+        blocks: Optional[List[CircleEntity]],
+        interior_walls: List[Line],
         goal_coords_map: Dict[Position, List[Position]],
         evader_start_coords: List[Position],
         pursuer_start_coords: List[Position],
     ):
-        super().__init__(size, block_coords)
+        super().__init__(
+            size=size,
+            blocks=blocks,
+            interior_walls=interior_walls,
+            agent_radius=0.4,
+            border_thickness=0.01,
+            enable_agent_collisions=True,
+        )
 
         self._goal_coords_map = goal_coords_map
         self.evader_start_coords = evader_start_coords
@@ -931,14 +943,14 @@ def get_8x8_grid() -> PEWorld:
     map.
     """
     ascii_map = (
-        "  9 #8 #"
-        "# #    #"
-        "# ## # 7"
-        "  6   # "
-        "# #5# # "
-        "   #    "
-        "#    #2 "
-        "0 #1### "
+        "  9 #8 #\n"
+        "# #    #\n"
+        "# ## # 7\n"
+        "  6   # \n"
+        "# #5# # \n"
+        "   #    \n"
+        "#    #2 \n"
+        "0 #1### \n"
     )
 
     return _convert_map_to_grid(ascii_map, 8, 8)
@@ -959,22 +971,22 @@ def get_16x16_grid() -> PEWorld:
 
     """
     ascii_map = (
-        "  ## ####### ###"
-        "    9##    8 ###"
-        "##       # # ###"
-        "## ## ##      ##"
-        "## ## ##   ## ##"
-        "#  #  ##   ## 7#"
-        "# ## ###   #   #"
-        "  #  6       # #"
-        "#   ## ##  ##  #"
-        "##   #5##  #   #"
-        "## #   #     # #"
-        "   # #   ##    #"
-        " # # ##  ##   ##"
-        "0#       #     #"
-        "   ### #   ##2  "
-        "###    1 #####  "
+        "  ## ####### ###\n"
+        "    9##    8 ###\n"
+        "##       # # ###\n"
+        "## ## ##      ##\n"
+        "## ## ##   ## ##\n"
+        "#  #  ##   ## 7#\n"
+        "# ## ###   #   #\n"
+        "  #  6       # #\n"
+        "#   ## ##  ##  #\n"
+        "##   #5##  #   #\n"
+        "## #   #     # #\n"
+        "   # #   ##    #\n"
+        " # # ##  ##   ##\n"
+        "0#       #     #\n"
+        "   ### #   ##2  \n"
+        "###    1 #####  \n"
     )
     return _convert_map_to_grid(ascii_map, 16, 16)
 
@@ -994,38 +1006,38 @@ def get_32x32_grid() -> PEWorld:
 
     """
     ascii_map = (
-        "       #  ########### #         "
-        "   #####  ########### #  #######"
-        "      #   ######      8  #######"
-        " #       9#               ######"
-        " ##              #### ##  ######"
-        " ##   #####  ##  #### ##   #####"
-        " ##   #####  ##  ##        #####"
-        "      ##### ####      ###  #####"
-        " ### ###### ####      ###   ####"
-        " ### #####  ####      ####  ####"
-        " ##  ##### #####      ##### 7###"
-        " ##  ####  #####       ####  ###"
-        " #  #####  #####       ####  ###"
-        " #  ##### ######       #     ###"
-        " #       6               ##  ###"
-        "    #       #   ##      ####  ##"
-        "     #   ####  ###     ####   ##"
-        "#### #   ####  ###    ####    ##"
-        "#### #   ### 5####   ####     ##"
-        "####  #      ####     ##  #   ##"
-        "##### #      ####        ##   ##"
-        "#                          ##  #"
-        "         ###        ##    2 #  #"
-        "  ###### ###      #### ## #    #"
-        "########  ##      ####    #  #  "
-        "########  ##       ####     ####"
-        "###          ##   1##        ###"
-        "          #  ####       #       "
-        "   0  ###### ######   ####      "
-        "  ########## #        #####     "
-        "##########      ############    "
-        "#                               "
+        "       #  ########### #         \n"
+        "   #####  ########### #  #######\n"
+        "      #   ######      8  #######\n"
+        " #       9#               ######\n"
+        " ##              #### ##  ######\n"
+        " ##   #####  ##  #### ##   #####\n"
+        " ##   #####  ##  ##        #####\n"
+        "      ##### ####      ###  #####\n"
+        " ### ###### ####      ###   ####\n"
+        " ### #####  ####      ####  ####\n"
+        " ##  ##### #####      ##### 7###\n"
+        " ##  ####  #####       ####  ###\n"
+        " #  #####  #####       ####  ###\n"
+        " #  ##### ######       #     ###\n"
+        " #       6               ##  ###\n"
+        "    #       #   ##      ####  ##\n"
+        "     #   ####  ###     ####   ##\n"
+        "#### #   ####  ###    ####    ##\n"
+        "#### #   ### 5####   ####     ##\n"
+        "####  #      ####     ##  #   ##\n"
+        "##### #      ####        ##   ##\n"
+        "#                          ##  #\n"
+        "         ###        ##    2 #  #\n"
+        "  ###### ###      #### ## #    #\n"
+        "########  ##      ####    #  #  \n"
+        "########  ##       ####     ####\n"
+        "###          ##   1##        ###\n"
+        "          #  ####       #       \n"
+        "   0  ###### ######   ####      \n"
+        "  ########## #        #####     \n"
+        "##########      ############    \n"
+        "#                               \n"
     )
     return _convert_map_to_grid(ascii_map, 32, 32)
 
@@ -1043,7 +1055,10 @@ def _convert_map_to_grid(
     evader_start_symbols: Optional[Set[str]] = None,
     evader_goal_symbol_map: Optional[Dict] = None,
 ) -> PEWorld:
-    assert len(ascii_map) == height * width
+    row_strs = ascii_map.splitlines()
+    assert len(row_strs) > 1
+    assert all(len(row) == len(row_strs[0]) for row in row_strs)
+    assert len(row_strs[0]) > 1
 
     if pursuer_start_symbols is None:
         pursuer_start_symbols = {"3", "4", "5", "6"}
@@ -1059,22 +1074,23 @@ def _convert_map_to_grid(
             "9": ["0", "1", "2"],
         }
 
-    block_coords: List[CircleEntity] = []
+    interior_walls = parse_world_str_interior_walls(ascii_map)
+
     evader_start_coords = []
     pursuer_start_coords = []
     evader_symbol_coord_map = {}
-
-    for loc, symbol in enumerate(ascii_map):
-        coord = _loc_to_coord(loc, width)
-        if symbol == block_symbol:
-            # The radius of the block is slightly smaller, otherwise
-            # agents get stuck
-            block_coords.append(((coord[0], coord[1], 0), 0.4))
-        elif symbol in pursuer_start_symbols:
-            pursuer_start_coords.append(coord)
+    for r, c in product(range(height), range(width)):
+        pos = (c + 0.5, r + 0.5, 0.0)
+        symbol = row_strs[r][c]
+        # if symbol == block_symbol:
+        # The radius of the block is slightly smaller, otherwise
+        # agents get stuck
+        # block_coords.append(((coord[0], coord[1], 0), 0.4))
+        if symbol in pursuer_start_symbols:
+            pursuer_start_coords.append(pos)
         elif symbol in evader_start_symbols:
-            evader_start_coords.append(coord)
-            evader_symbol_coord_map[symbol] = coord
+            evader_start_coords.append(pos)
+            evader_symbol_coord_map[symbol] = pos
 
     evader_goal_coords_map = {}
     for start_symbol, goal_symbols in evader_goal_symbol_map.items():
@@ -1085,7 +1101,8 @@ def _convert_map_to_grid(
 
     return PEWorld(
         size=width,
-        block_coords=block_coords,
+        blocks=None,
+        interior_walls=interior_walls,
         goal_coords_map=evader_goal_coords_map,
         evader_start_coords=evader_start_coords,
         pursuer_start_coords=pursuer_start_coords,

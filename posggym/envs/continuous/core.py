@@ -53,6 +53,9 @@ Position = Tuple[float, float, float]
 Location = Union[Coord, Position, np.ndarray, Tuple[float, float]]
 # Position, radius
 CircleEntity = Tuple[Position, float]
+# start (x, y), end (x, y)
+Line = Tuple[Tuple[float, float], Tuple[float, float]]
+CoordLine = Tuple[Tuple[int, int], Tuple[int, int]]
 
 
 # This function needs to be in global scope or we get pickle errors
@@ -85,7 +88,6 @@ def clip_actions(
         a_space = action_spaces[i]
         assert isinstance(a_space, spaces.Box)
         clipped_actions[i] = np.clip(a, a_space.low, a_space.high)
-
     return clipped_actions
 
 
@@ -99,12 +101,14 @@ class AbstractContinuousWorld(ABC):
         self,
         size: float,
         blocks: Optional[List[CircleEntity]] = None,
+        interior_walls: Optional[List[Line]] = None,
         agent_radius: float = 0.5,
-        border_thickness=0.1,
-        enable_agent_collisions=True,
+        border_thickness: float = 0.1,
+        enable_agent_collisions: bool = True,
     ):
         self.size = size
         self.blocks = [] if blocks is None else blocks
+        self.interior_walls = [] if interior_walls is None else interior_walls
         self.agent_radius = agent_radius
         self.border_thickness = border_thickness
         # access via blocked_coords property
@@ -121,7 +125,8 @@ class AbstractContinuousWorld(ABC):
             # Turn off all collisions
             self.space.add_collision_handler(0, 0).pre_solve = ignore_collisions
 
-        self.add_walls_to_space(size)
+        self.add_border_to_space(size)
+        self.add_interior_walls_to_space(self.interior_walls)
 
         for pos, radius in self.blocks:
             body = pymunk.Body(body_type=pymunk.Body.STATIC)
@@ -135,14 +140,35 @@ class AbstractContinuousWorld(ABC):
         # moveable entities in the world
         self.entities: Dict[str, Tuple[pymunk.Body, pymunk.Circle]] = {}
 
+    def add_interior_walls_to_space(self, walls: List[Line]):
+        """Adds interior walls to the world physics space."""
+        self.interior_walls_array = (
+            np.array([ln[0] for ln in walls], dtype=np.float32),
+            np.array([ln[1] for ln in walls], dtype=np.float32),
+        )
+
+        for w_start, w_end in walls:
+            wall = pymunk.Segment(
+                self.space.static_body,
+                w_start,
+                w_end,
+                self.border_thickness,
+            )
+            wall.friction = 1.0
+            wall.collision_type = self.get_collision_id() + 1
+            wall.color = self.WALL_COLOR
+            self.space.add(wall)
+
     @abstractmethod
-    def add_walls_to_space(self, size: float):
+    def add_border_to_space(self, size: float):
+        """Adds solid border to the world physics space."""
         pass
 
     @abstractmethod
-    def check_wall_collisions(
+    def check_border_collisions(
         self, ray_start_coords: np.ndarray, ray_end_coords: np.ndarray
     ) -> np.ndarray:
+        """Check for collision between rays and world border."""
         pass
 
     def simulate(self, dt: float = 1.0 / 10, t: int = 10):
@@ -188,7 +214,11 @@ class AbstractContinuousWorld(ABC):
         # [..., SquareContinous, Abstract, ABC, Object]
         abc_instance = pr.index(AbstractContinuousWorld)
         world = pr[abc_instance - 1](
-            self.size, self.blocks, self.agent_radius, self.border_thickness
+            size=self.size,
+            blocks=self.blocks,
+            interior_walls=self.interior_walls,
+            agent_radius=self.agent_radius,
+            border_thickness=self.border_thickness,
         )
 
         for id, (body, shape) in self.entities.items():
@@ -493,7 +523,119 @@ class AbstractContinuousWorld(ABC):
             new_angle = abs(new_angle) + 2 * (np.pi - abs(new_angle))
         return new_angle
 
-    def _check_collision_circular_rays(
+    def check_ray_collisions(
+        self,
+        ray_start_coords: np.ndarray,
+        ray_end_coords: np.ndarray,
+        other_agents: Optional[np.ndarray] = None,
+        include_blocks: bool = True,
+        check_walls: bool = True,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Check for collision along rays.
+
+        Arguments
+        ---------
+        ray_start_coords: start coords of rays. Should be 2D array with shape
+           `(n_rays, 2`),
+        ray_end_coords: end coords of rays. Should be 2D array with shape
+           `(n_rays, 2`),
+        other_agents: `(x, y)` coordinates of any other agents to check for collisions
+           with. Should be a 2D array with shape `(n_agents, 2)`.
+        include_blocks: whether to check for collisions with blocks in the world
+        check_walls: whether to check for collisions with the world border.
+
+        Returns
+        -------
+        distances: the distance each ray extends sway from the origin, up to a max of
+            `ray_distance`. Array will have shape `(n_rays,)`.
+        collision_types: the type of collision for each ray (see CollisionType), if any.
+            Will have shape `(n_rays,)`.
+
+        """
+        n_rays = len(ray_start_coords)
+        closest_distances = np.full(n_rays, self.size, dtype=np.float32)
+        collision_types = np.full(
+            n_rays, CollisionType.NO_COLLISION.value, dtype=np.uint8
+        )
+
+        if other_agents is not None and len(other_agents) > 0:
+            radii = np.array([self.agent_radius] * len(other_agents))
+            dists = self.check_circle_line_intersection(
+                other_agents, radii, ray_start_coords, ray_end_coords
+            )
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                min_dists = np.nanmin(dists, axis=0)
+
+            collision_types[
+                min_dists < closest_distances
+            ] = CollisionType.AGENT_COLLISION.value
+            np.fmin(closest_distances, min_dists, out=closest_distances)
+
+        if include_blocks and len(self.blocks) > 0:
+            radii = np.array([s for _, s in self.blocks])
+            block_array = np.array([[pos[0], pos[1]] for pos, _ in self.blocks])
+
+            dists = self.check_circle_line_intersection(
+                block_array, radii, ray_start_coords, ray_end_coords
+            )
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                min_dists = np.nanmin(dists, axis=0)
+
+            collision_types[
+                min_dists < closest_distances
+            ] = CollisionType.BLOCK_COLLISION.value
+            np.fmin(closest_distances, min_dists, out=closest_distances)
+
+        if check_walls:
+            # shape = (n_lines, walls, 2)
+            wall_intersect_coords = self.check_border_collisions(
+                ray_start_coords, ray_end_coords
+            )
+
+            # Need to get coords of intersected walls, each ray can intersect a max of
+            # of 1 wall, so we just find the minimum non nan coords
+            # shape = (n_lines, 2)
+            with warnings.catch_warnings():
+                # if no wall intersected, we take min of all NaN which throws a warning
+                # but this is acceptable behevaiour, so we suppress the warning
+                warnings.simplefilter("ignore")
+                wall_intersect_coords = np.nanmin(wall_intersect_coords, axis=1)
+
+            dists = np.sqrt(
+                ((wall_intersect_coords - ray_start_coords) ** 2).sum(axis=1)
+            )
+
+            collision_types[
+                dists < closest_distances
+            ] = CollisionType.BORDER_COLLISION.value
+            np.fmin(closest_distances, dists, out=closest_distances)
+
+        if check_walls and len(self.interior_walls):
+            interior_wall_intersect_coords = self.check_line_line_intersection(
+                ray_start_coords, ray_end_coords, *self.interior_walls_array
+            )
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                interior_wall_intersect_coords = np.nanmin(
+                    interior_wall_intersect_coords, axis=1
+                )
+
+            dists = np.sqrt(
+                ((interior_wall_intersect_coords - ray_start_coords) ** 2).sum(axis=1)
+            )
+
+            collision_types[
+                dists < closest_distances
+            ] = CollisionType.BORDER_COLLISION.value
+            np.fmin(closest_distances, dists, out=closest_distances)
+
+        return closest_distances, collision_types
+
+    def check_collision_circular_rays(
         self,
         origin: Position,
         ray_distance: float,
@@ -546,90 +688,13 @@ class AbstractContinuousWorld(ABC):
         ray_start_coords = np.tile((x, y), (n_rays, 1))
         ray_end_coords = np.stack([ray_end_xs, ray_end_ys], axis=1)
 
-        closest_distances = np.full_like(angles, ray_distance)
-        collision_types = np.full_like(
-            angles, CollisionType.NO_COLLISION.value, dtype=np.uint8
+        return self.check_ray_collisions(
+            ray_start_coords,
+            ray_end_coords,
+            other_agents=other_agents,
+            include_blocks=include_blocks,
+            check_walls=check_walls,
         )
-
-        if other_agents is not None and len(other_agents) > 0:
-            radii = np.array([self.agent_radius] * len(other_agents))
-            dists = self.check_circle_line_intersection(
-                other_agents, radii, ray_start_coords, ray_end_coords
-            )
-
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                min_dists = np.nanmin(dists, axis=0)
-
-            collision_types[
-                min_dists < closest_distances
-            ] = CollisionType.AGENT_COLLISION.value
-            np.fmin(closest_distances, min_dists, out=closest_distances)
-
-        if include_blocks and len(self.blocks) > 0:
-            radii = np.array([s for _, s in self.blocks])
-            block_array = np.array([[pos[0], pos[1]] for pos, _ in self.blocks])
-
-            dists = self.check_circle_line_intersection(
-                block_array, radii, ray_start_coords, ray_end_coords
-            )
-
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                min_dists = np.nanmin(dists, axis=0)
-
-            collision_types[
-                min_dists < closest_distances
-            ] = CollisionType.BLOCK_COLLISION.value
-            np.fmin(closest_distances, min_dists, out=closest_distances)
-
-        if check_walls:
-            # shape = (n_lines, walls, 2)
-            wall_intersect_coords = self.check_wall_collisions(
-                ray_start_coords, ray_end_coords
-            )
-
-            # Need to get coords of intersected walls, each ray can intersect a max of
-            # of 1 wall, so we just find the minimum non nan coords
-            # shape = (n_lines, 2)
-            with warnings.catch_warnings():
-                # if no wall intersected, we take min of all NaN which throws a warning
-                # but this is acceptable behevaiour, so we suppress the warning
-                warnings.simplefilter("ignore")
-                wall_intersect_coords = np.nanmin(wall_intersect_coords, axis=1)
-
-            dists = np.sqrt(
-                ((wall_intersect_coords - ray_start_coords) ** 2).sum(axis=1)
-            )
-
-            collision_types[
-                dists < closest_distances
-            ] = CollisionType.BORDER_COLLISION.value
-            np.fmin(closest_distances, dists, out=closest_distances)
-
-        return closest_distances, collision_types
-
-    def check_collision_circular_rays(
-        self,
-        origin: Position,
-        ray_distance: float,
-        n_rays: int,
-        other_agents: Optional[np.ndarray] = None,
-        include_blocks: bool = True,
-        check_walls: bool = True,
-        use_relative_angle: bool = True,
-        angle_bounds: Tuple[float, float] = (0.0, 2 * np.pi),
-    ) -> np.ndarray:
-        return self._check_collision_circular_rays(
-            origin,
-            ray_distance,
-            n_rays,
-            other_agents,
-            include_blocks,
-            check_walls,
-            use_relative_angle,
-            angle_bounds,
-        )[0]
 
     def get_all_shortest_paths(
         self, origins: Iterable[Position]
@@ -671,8 +736,8 @@ class AbstractContinuousWorld(ABC):
     def get_cardinal_neighbours_coords(
         self,
         coord: Coord,
-        ignore_blocks=False,
-        include_out_of_bounds=False,
+        ignore_blocks: bool = False,
+        include_out_of_bounds: bool = False,
     ) -> List[Coord]:
         """Get set of adjacent non-blocked coords."""
         (min_x, max_x), (min_y, max_y) = self.get_bounds()
@@ -699,10 +764,10 @@ class AbstractContinuousWorld(ABC):
 class SquareContinuousWorld(AbstractContinuousWorld):
     """A continuous world with a square border."""
 
-    def add_walls_to_space(self, size: float):
+    def add_border_to_space(self, size: float):
         # world border lines (start coords, end coords)
         # bottom, left, top, right
-        self.walls = (
+        self.border = (
             np.array([[0, 0], [0, 0], [0, size], [size, 0]], dtype=np.float32),
             np.array(
                 [[size, 0], [0, size], [size, size], [size, size]],
@@ -710,7 +775,7 @@ class SquareContinuousWorld(AbstractContinuousWorld):
             ),
         )
 
-        for w_start, w_end in zip(*self.walls):
+        for w_start, w_end in zip(*self.border):
             wall = pymunk.Segment(
                 self.space.static_body,
                 (w_start[0], w_start[1]),
@@ -722,23 +787,23 @@ class SquareContinuousWorld(AbstractContinuousWorld):
             wall.color = self.WALL_COLOR
             self.space.add(wall)
 
-    def check_wall_collisions(
+    def check_border_collisions(
         self, ray_start_coords: np.ndarray, ray_end_coords: np.ndarray
     ) -> np.ndarray:
         return self.check_line_line_intersection(
-            ray_start_coords, ray_end_coords, *self.walls
+            ray_start_coords, ray_end_coords, *self.border
         )
 
 
 class CircularContinuousWorld(AbstractContinuousWorld):
     """A 2D continuous world with a circular border."""
 
-    def add_walls_to_space(self, size: float):
+    def add_border_to_space(self, size: float):
         num_segments = 128
         radius = size / 2
 
         segment_angle = 2 * math.pi / num_segments
-        self.walls = []
+        self.border = []
 
         for i in range(num_segments):
             angle = i * segment_angle
@@ -755,14 +820,14 @@ class CircularContinuousWorld(AbstractContinuousWorld):
             wall.friction = 1.0
             wall.color = self.WALL_COLOR
             wall.collision_type = self.get_collision_id() + 1
-            self.walls.append(wall)
+            self.border.append(wall)
 
-        for wall in self.walls:
+        for wall in self.border:
             self.space.add(wall)
 
         self.size = size
 
-    def check_wall_collisions(
+    def check_border_collisions(
         self, ray_start_coords: np.ndarray, ray_end_coords: np.ndarray
     ) -> np.ndarray:
         center = np.array([0, 0]).reshape(1, 2)
@@ -775,3 +840,140 @@ def single_item_to_position(coords: np.ndarray) -> Position:
     """Convert from numpy array to tuple representation of a Position."""
     assert coords.shape[0] >= 3
     return (coords[0], coords[1], coords[2])  # type: ignore
+
+
+def parse_world_str_interior_walls(world_str: str) -> List[Line]:
+    """Parse a str representation of a world into list of interior walls.
+
+    Notes on world str representation:
+
+    The `#` character is treated as a block, and all other characters are treated as
+    empty.
+
+    1. A 3x3 world with a 1x1 block in the center
+
+    ...
+    .#.
+    ...
+
+    Output would be [
+        ((1, 1), (2, 1)),
+        ((1, 1), (1, 2)),
+        ((2, 1), (2, 2)),
+        ((1, 2), (2, 2)),
+    ]
+
+    2. A 6x6 grid with a irregular obstacle and a 3x2 block
+
+    ..##..
+    ...#..
+    ......
+    ......
+    ...###
+    ...###
+
+    Output would be [
+        # irregular obstacle
+        ((2, 0), (4, 0)),
+        ((2, 0), (2, 1)),
+        ((2, 1), (3, 1)),
+        ((3, 1), (3, 2)),
+        ((3, 2), (4, 2)),
+        ((4, 0), (4, 2)),
+        # 3 x 2 block
+        ((3, 4), (6, 4)),
+        ((3, 4), (3, 6)),
+        ((3, 6), (6, 6)),
+        ((6, 4), (6, 6)),
+    ]
+
+    """
+    row_strs = world_str.splitlines()
+    assert len(row_strs) > 1
+    assert all(len(row) == len(row_strs[0]) for row in row_strs)
+    assert len(row_strs[0]) > 1
+
+    height = len(row_strs)
+    width = len(row_strs[0])
+
+    block_coords: Set[Coord] = set()
+    for r, c in product(range(height), range(width)):
+        if row_strs[r][c] == "#":
+            # x = c, y = r
+            block_coords.add((c, r))
+
+    # dx, dy
+    # north, east, south, west
+    directions = [(0, -1), (1, 0), (0, 1), (-1, 0)]
+    line_offsets = [
+        ((0, 0), (1, 0)),
+        ((1, 0), (1, 1)),
+        ((0, 1), (1, 1)),
+        ((0, 0), (0, 1)),
+    ]
+
+    # get line for each block face adjacent to empty cell
+    lines_map: Dict[Coord, Set[Coord]] = {}
+    lines: Set[CoordLine] = set()
+    for x, y in block_coords:
+        for (dx, dy), line_offset in zip(directions, line_offsets):
+            if (x + dx, y + dy) in block_coords:
+                # adjacent cell blocked
+                continue
+
+            s_offset, e_offset = line_offset
+            l_start = (x + s_offset[0], y + s_offset[1])
+            l_end = (x + e_offset[0], y + e_offset[1])
+            if (
+                (l_start[0] == 0 and l_end[0] == 0)
+                or (l_start[0] == width and l_end[0] == width)
+                or (l_start[1] == 0 and l_end[1] == 0)
+                or (l_start[1] == height and l_end[1] == height)
+            ):
+                # line is along border
+                continue
+
+            if l_start not in lines_map:
+                lines_map[l_start] = set()
+            lines_map[l_start].add(l_end)
+            lines.add((l_start, l_end))
+
+    # merge lines
+    merged_lines: List[CoordLine] = []
+
+    # lines l1 and l2 can merge if
+    # 1. l1[1] == l2[0] and (l1[0][0] == l2[1][0] or l1[0][1] == l2[1][1]
+    # or vice versa with l1 and l2 swapped
+    # Assumes lines are parallel to either x or y axis
+
+    # Basically a DFS
+    stack = list(lines)
+    stack.sort(reverse=True)
+
+    visited: Set[CoordLine] = set()
+    while len(stack):
+        line = stack.pop()
+        if line in visited:
+            continue
+
+        visited.add(line)
+        l_start, l_end = line
+        line_extended = True
+        while l_end in lines_map and line_extended:
+            line_extended = False
+            for l_end_next in lines_map[l_end]:
+                if l_end_next != l_start and (
+                    l_start[0] == l_end_next[0] or l_start[1] == l_end_next[1]
+                ):
+                    # merge
+                    visited.add((l_end, l_end_next))
+                    visited.add((l_end_next, l_end))
+                    l_end = l_end_next
+                    line_extended = True
+
+        merged_lines.append((l_start, l_end))
+
+    return [
+        ((float(ln[0][0]), float(ln[0][1])), (float(ln[1][0]), float(ln[1][1])))
+        for ln in merged_lines
+    ]
