@@ -760,7 +760,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         idx = np.ravel_multi_index(
             (min_idx, np.arange(self.n_sensors)), dims=sensor_readings.shape
         )
-        obs[idx] = min_val
+        obs[idx] = np.minimum(min_val, obs[idx])
 
         return obs
 

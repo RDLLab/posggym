@@ -777,8 +777,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         idx = np.ravel_multi_index(
             (min_idx, np.arange(self.n_sensors)), dims=sensor_readings.shape
         )
-        obs[idx] = min_val
-
+        obs[idx] = np.minimum(min_val, obs[idx])
         return obs
 
     def _get_rewards(
@@ -792,8 +791,8 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 r_i = 0.0
             elif (
                 self._obstacle_collisions
-                and collision_types[idx] == CollisionType.OBSTACLE
-            ) or collision_types[idx] == CollisionType.VEHICLE:
+                and collision_types[idx] == CollisionType.OBSTACLE.value
+            ) or collision_types[idx] == CollisionType.VEHICLE.value:
                 # Treat as if crashed into a vehicle
                 r_i = self.R_CRASH_VEHICLE
             elif next_state[idx].status[0]:
@@ -806,7 +805,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
             if (
                 not self._obstacle_collisions
-                and collision_types[idx] == CollisionType.OBSTACLE
+                and collision_types[idx] == CollisionType.OBSTACLE.value
             ):
                 r_i += self.R_CRASH_OBJECT
             rewards[i] = r_i

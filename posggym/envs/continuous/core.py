@@ -40,10 +40,11 @@ except ImportError as e:
 class CollisionType(Enum):
     """Type of collision in world."""
 
-    NO_COLLISION = 0
-    AGENT_COLLISION = 1
-    BLOCK_COLLISION = 2
-    BORDER_COLLISION = 3
+    NONE = 0
+    AGENT = 1
+    BLOCK = 2
+    BORDER = 3
+    INTERIOR_WALL = 4
 
 
 # (x, y) coord = (col, row) coord
@@ -107,8 +108,8 @@ class AbstractContinuousWorld(ABC):
         enable_agent_collisions: bool = True,
     ):
         self.size = size
-        self.blocks = [] if blocks is None else blocks
-        self.interior_walls = [] if interior_walls is None else interior_walls
+        self.blocks = blocks or []
+        self.interior_walls = interior_walls or []
         self.agent_radius = agent_radius
         self.border_thickness = border_thickness
         # access via blocked_coords property
@@ -554,11 +555,9 @@ class AbstractContinuousWorld(ABC):
         """
         n_rays = len(ray_start_coords)
         closest_distances = np.full(n_rays, self.size, dtype=np.float32)
-        collision_types = np.full(
-            n_rays, CollisionType.NO_COLLISION.value, dtype=np.uint8
-        )
+        collision_types = np.full(n_rays, CollisionType.NONE.value, dtype=np.uint8)
 
-        if other_agents is not None and len(other_agents) > 0:
+        if other_agents is not None and len(other_agents):
             radii = np.array([self.agent_radius] * len(other_agents))
             dists = self.check_circle_line_intersection(
                 other_agents, radii, ray_start_coords, ray_end_coords
@@ -568,12 +567,10 @@ class AbstractContinuousWorld(ABC):
                 warnings.simplefilter("ignore")
                 min_dists = np.nanmin(dists, axis=0)
 
-            collision_types[
-                min_dists < closest_distances
-            ] = CollisionType.AGENT_COLLISION.value
+            collision_types[min_dists < closest_distances] = CollisionType.AGENT.value
             np.fmin(closest_distances, min_dists, out=closest_distances)
 
-        if include_blocks and len(self.blocks) > 0:
+        if include_blocks and len(self.blocks):
             radii = np.array([s for _, s in self.blocks])
             block_array = np.array([[pos[0], pos[1]] for pos, _ in self.blocks])
 
@@ -585,9 +582,7 @@ class AbstractContinuousWorld(ABC):
                 warnings.simplefilter("ignore")
                 min_dists = np.nanmin(dists, axis=0)
 
-            collision_types[
-                min_dists < closest_distances
-            ] = CollisionType.BLOCK_COLLISION.value
+            collision_types[min_dists < closest_distances] = CollisionType.BLOCK.value
             np.fmin(closest_distances, min_dists, out=closest_distances)
 
         if check_walls:
@@ -609,9 +604,7 @@ class AbstractContinuousWorld(ABC):
                 ((wall_intersect_coords - ray_start_coords) ** 2).sum(axis=1)
             )
 
-            collision_types[
-                dists < closest_distances
-            ] = CollisionType.BORDER_COLLISION.value
+            collision_types[dists < closest_distances] = CollisionType.BORDER.value
             np.fmin(closest_distances, dists, out=closest_distances)
 
         if check_walls and len(self.interior_walls):
@@ -630,7 +623,7 @@ class AbstractContinuousWorld(ABC):
 
             collision_types[
                 dists < closest_distances
-            ] = CollisionType.BORDER_COLLISION.value
+            ] = CollisionType.INTERIOR_WALL.value
             np.fmin(closest_distances, dists, out=closest_distances)
 
         return closest_distances, collision_types

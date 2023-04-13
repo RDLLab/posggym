@@ -47,7 +47,6 @@ class PEState(NamedTuple):
     min_goal_dist: int  # for evader
 
 
-# Action = ??
 PEAction = np.ndarray
 
 # E Obs = Tuple[WallObs, seen, heard, e_0_coord, p_0_coord, goal_coord]
@@ -765,7 +764,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         idx = np.ravel_multi_index(
             (min_idx, np.arange(self.n_sensors)), dims=sensor_readings.shape
         )
-        obs[idx] = min_val
+        obs[idx] = np.minimum(min_val, obs[idx])
 
         seen = self._get_opponent_seen(agent_coord, opp_coord)
         dist = self.grid.euclidean_dist(agent_coord, opp_coord)
@@ -789,7 +788,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             angle_bounds=(1 / 4 * np.pi, -1 / 4 * np.pi),
         )
 
-        if collision_type[0] == CollisionType.AGENT_COLLISION:
+        if collision_type[0] == CollisionType.AGENT.value:
             return abs(angle) < self.fov / 2 and dist < self._max_obs_distance
 
         return False
