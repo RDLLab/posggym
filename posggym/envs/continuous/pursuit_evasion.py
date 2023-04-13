@@ -741,7 +741,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             include_blocks=False,
             check_walls=False,
             use_relative_angle=True,
-            angle_bounds=(self.fov / 2, self.fov / 2),
+            angle_bounds=(-self.fov / 2, self.fov / 2),
         )
 
         obstacle_obs, _ = self.world.check_collision_circular_rays(
@@ -752,7 +752,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             include_blocks=True,
             check_walls=True,
             use_relative_angle=True,
-            angle_bounds=(self.fov / 2, self.fov / 2),
+            angle_bounds=(-self.fov / 2, self.fov / 2),
         )
 
         obs = np.full((self.obs_dim,), self.obs_dist, dtype=np.float32)

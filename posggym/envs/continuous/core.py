@@ -442,7 +442,7 @@ class AbstractContinuousWorld(ABC):
         l1_end_coords: np.ndarray,
         l2_start_coords: np.ndarray,
         l2_end_coords: np.ndarray,
-    ) -> np.ndarray:
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """Check if lines intersect.
 
         Checks for each line in `l1` if it intersects with any line in `l2`.
@@ -464,6 +464,10 @@ class AbstractContinuousWorld(ABC):
            (x, y) coords for the point of intersection between each pair of line
            segments from `l1` and `l2`. If a pair of lines does not intersect, the
            x and y coordinate values will be `np.nan`.
+        distances: array with shape `(n_lines1, n_lines2)` containing the distances
+            between the intersection point (if exists) and the corresponding point in
+            l1_start_cooords.  If a pair of lines does not intersect, the distance value
+            will be `np.nan`.
 
         """
         # https://stackoverflow.com/questions/3252194/numpy-and-line-intersections?noredirect=1&lq=1
@@ -515,7 +519,12 @@ class AbstractContinuousWorld(ABC):
         u = np.where(((u >= 0) & (u <= 1) & (t >= 0) & (t <= 1)), u, np.nan)
         u = u[:, :, np.newaxis]  # (n_lines1, n_lines2, 1)
 
-        return u * dl2 + l2_start_coords
+        intersection_coords = u * dl2 + l2_start_coords
+        intersection_distances = np.linalg.norm(
+            intersection_coords - l1_start_coords[:, np.newaxis], axis=2
+        )
+
+        return intersection_coords, intersection_distances
 
     @staticmethod
     def convert_angle_to_0_2pi_interval(angle):
@@ -608,18 +617,13 @@ class AbstractContinuousWorld(ABC):
             np.fmin(closest_distances, dists, out=closest_distances)
 
         if check_walls and len(self.interior_walls):
-            interior_wall_intersect_coords = self.check_line_line_intersection(
+            _, distances = self.check_line_line_intersection(
                 ray_start_coords, ray_end_coords, *self.interior_walls_array
             )
+
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                interior_wall_intersect_coords = np.nanmin(
-                    interior_wall_intersect_coords, axis=1
-                )
-
-            dists = np.sqrt(
-                ((interior_wall_intersect_coords - ray_start_coords) ** 2).sum(axis=1)
-            )
+                dists = np.nanmin(distances, axis=1)
 
             collision_types[
                 dists < closest_distances
@@ -785,7 +789,7 @@ class SquareContinuousWorld(AbstractContinuousWorld):
     ) -> np.ndarray:
         return self.check_line_line_intersection(
             ray_start_coords, ray_end_coords, *self.border
-        )
+        )[0]
 
 
 class CircularContinuousWorld(AbstractContinuousWorld):
