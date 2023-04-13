@@ -273,7 +273,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
 
         model = cast(DrivingModel, self.model)
         state = cast(DState, self.state)
-        scale_factor = self.window_size // model.world.size
+        scale_factor = self.window_size / model.world.size
 
         if self.window_surface is None:
             pygame.init()

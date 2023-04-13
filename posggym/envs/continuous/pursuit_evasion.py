@@ -305,7 +305,7 @@ class PursuitEvasionEnv(DefaultEnv):
 
         model = cast(PursuitEvasionModel, self.model)
         state = cast(PEState, self.state)
-        scale_factor = self.window_size // model.world.size
+        scale_factor = self.window_size / model.world.size
 
         if self.window_surface is None:
             pygame.init()

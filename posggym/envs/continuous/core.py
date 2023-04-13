@@ -771,8 +771,8 @@ class SquareContinuousWorld(AbstractContinuousWorld):
         for w_start, w_end in zip(*self.border):
             wall = pymunk.Segment(
                 self.space.static_body,
-                (w_start[0], w_start[1]),
-                (w_end[0], w_end[1]),
+                tuple(w_start),
+                tuple(w_end),
                 self.border_thickness,
             )
             wall.friction = 1.0
