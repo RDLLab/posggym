@@ -49,14 +49,15 @@ class CollisionType(Enum):
 
 # (x, y) coord = (col, row) coord
 Coord = Tuple[int, int]
+FloatCoord = Tuple[float, float]
 # (x, y, yaw) in continuous world
 Position = Tuple[float, float, float]
-Location = Union[Coord, Position, np.ndarray, Tuple[float, float]]
+Location = Union[Coord, FloatCoord, Position, np.ndarray]
 # Position, radius
 CircleEntity = Tuple[Position, float]
 # start (x, y), end (x, y)
-Line = Tuple[Tuple[float, float], Tuple[float, float]]
-CoordLine = Tuple[Tuple[int, int], Tuple[int, int]]
+Line = Tuple[FloatCoord, FloatCoord]
+IntLine = Tuple[Tuple[int, int], Tuple[int, int]]
 
 
 # This function needs to be in global scope or we get pickle errors
@@ -78,6 +79,19 @@ class PMBodyState(NamedTuple):
     def num_features() -> int:
         """Get the number of features of a pymunk body state."""
         return 6
+
+    @staticmethod
+    def get_space(world_size: float) -> spaces.Box:
+        """Get the space for a pymunk body's state."""
+        # x, y, angle, vx, vy, vangle
+        # shape = (1, 6)
+        size, angle = world_size, 2 * math.pi
+        low = np.array([-1, -1, -angle, -1, -1, -angle], dtype=np.float32)
+        high = np.array(
+            [size, size, angle, 1.0, 1.0, angle],
+            dtype=np.float32,
+        )
+        return spaces.Box(low=low, high=high)
 
 
 def clip_actions(
@@ -299,16 +313,11 @@ class AbstractContinuousWorld(ABC):
         self,
         id: str,
         *,
-        coord: Optional[
-            Union[Tuple[float, float], List[float], np.ndarray, Vec2d]
-        ] = None,
+        coord: Optional[Union[FloatCoord, List[float], np.ndarray, Vec2d]] = None,
         angle: Optional[float] = None,
-        vel: Optional[
-            Union[Tuple[float, float], List[float], np.ndarray, Vec2d]
-        ] = None,
+        vel: Optional[Union[FloatCoord, List[float], np.ndarray, Vec2d]] = None,
         vangle: Optional[float] = None,
-        acceleration: Union[Tuple[float, float], List[float], np.ndarray, Vec2d]
-        | None = None,
+        acceleration: Union[FloatCoord, List[float], np.ndarray, Vec2d] | None = None,
     ):
         """Update the state of an entity.
 
@@ -341,7 +350,7 @@ class AbstractContinuousWorld(ABC):
             )
             body.torque = angular_acc * body.moment
 
-    def get_bounds(self) -> Tuple[Tuple[float, float], Tuple[float, float]]:
+    def get_bounds(self) -> Tuple[FloatCoord, FloatCoord]:
         """Get  (min x, max_x), (min y, max y) bounds of the world."""
         return (0, self.size), (0, self.size)
 
@@ -694,22 +703,22 @@ class AbstractContinuousWorld(ABC):
         )
 
     def get_all_shortest_paths(
-        self, origins: Iterable[Position]
+        self, origins: Iterable[Union[FloatCoord, Coord, Position]]
     ) -> Dict[Tuple[int, int], Dict[Tuple[int, int], int]]:
         """Get shortest path distance from every origin to all other coords."""
         src_dists = {}
         for origin in origins:
-            origin_coord = self.convert_position_to_coord(origin)
+            origin_coord = self.convert_to_coord(origin)
             src_dists[origin_coord] = self.dijkstra(origin)
         return src_dists
 
-    def convert_position_to_coord(self, origin: Position) -> Tuple[int, int]:
-        """Convert a position to a integer coords."""
+    def convert_to_coord(self, origin: Union[FloatCoord, Coord, Position]) -> Coord:
+        """Convert a position/float coord to a integer coords."""
         return (math.floor(origin[0]), math.floor(origin[1]))
 
-    def dijkstra(self, origin: Position) -> Dict[Tuple[int, int], int]:
+    def dijkstra(self, origin: Union[FloatCoord, Coord, Position]) -> Dict[Coord, int]:
         """Get shortest path distance between origin and all other coords."""
-        coord_origin = self.convert_position_to_coord(origin)
+        coord_origin = self.convert_to_coord(origin)
 
         dist = {coord_origin: 0}
         pq: PriorityQueue[Tuple[int, Coord]] = PriorityQueue()
@@ -833,10 +842,10 @@ class CircularContinuousWorld(AbstractContinuousWorld):
         )
 
 
-def single_item_to_position(coords: np.ndarray) -> Position:
+def array_to_position(arr: np.ndarray) -> Position:
     """Convert from numpy array to tuple representation of a Position."""
-    assert coords.shape[0] >= 3
-    return (coords[0], coords[1], coords[2])  # type: ignore
+    assert arr.shape[0] >= 3
+    return (arr[0], arr[1], arr[2])
 
 
 def parse_world_str_interior_walls(world_str: str) -> List[Line]:
@@ -911,7 +920,7 @@ def parse_world_str_interior_walls(world_str: str) -> List[Line]:
 
     # get line for each block face adjacent to empty cell
     lines_map: Dict[Coord, Set[Coord]] = {}
-    lines: Set[CoordLine] = set()
+    lines: Set[IntLine] = set()
     for x, y in block_coords:
         for (dx, dy), line_offset in zip(directions, line_offsets):
             if (x + dx, y + dy) in block_coords:
@@ -936,7 +945,7 @@ def parse_world_str_interior_walls(world_str: str) -> List[Line]:
             lines.add((l_start, l_end))
 
     # merge lines
-    merged_lines: List[CoordLine] = []
+    merged_lines: List[IntLine] = []
 
     # lines l1 and l2 can merge if
     # 1. l1[1] == l2[0] and (l1[0][0] == l2[1][0] or l1[0][1] == l2[1][1]
@@ -947,7 +956,7 @@ def parse_world_str_interior_walls(world_str: str) -> List[Line]:
     stack = list(lines)
     stack.sort(reverse=True)
 
-    visited: Set[CoordLine] = set()
+    visited: Set[IntLine] = set()
     while len(stack):
         line = stack.pop()
         if line in visited:

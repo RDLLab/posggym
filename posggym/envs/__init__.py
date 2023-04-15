@@ -73,9 +73,9 @@ register(
 register(
     id="PursuitEvasionContinuous-v0",
     entry_point="posggym.envs.continuous.pursuit_evasion:PursuitEvasionEnv",
-    max_episode_steps=100,
+    max_episode_steps=200,
     kwargs={
-        "grid": "16x16",
+        "world": "16x16",
         "action_probs": 1.0,
         "max_obs_distance": 12,
         "normalize_reward": True,

@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 def run_random_agent(
     env: Union[str, posggym.Env],
     num_episodes: int,
-    episode_step_limit: Optional[int] = None,
+    max_episode_steps: Optional[int] = None,
     seed: Optional[int] = None,
     render_mode: Optional[str] = None,
     pause_each_step: bool = False,
@@ -20,9 +20,9 @@ def run_random_agent(
 ):
     """Run random agents."""
     if isinstance(env, str):
-        if episode_step_limit is not None:
+        if max_episode_steps is not None:
             env = posggym.make(
-                env, render_mode=render_mode, max_episode_steps=episode_step_limit
+                env, render_mode=render_mode, max_episode_steps=max_episode_steps
             )
         else:
             env = posggym.make(env, render_mode=render_mode)
@@ -50,7 +50,7 @@ def run_random_agent(
         t = 0
         done = False
         rewards = {i: 0.0 for i in env.possible_agents}
-        while episode_step_limit is None or t < episode_step_limit:
+        while max_episode_steps is None or t < max_episode_steps:
             a = {i: env.action_spaces[i].sample() for i in env.agents}
             _, r, _, _, done, _ = env.step(a)
             t += 1
@@ -99,7 +99,7 @@ if __name__ == "__main__":
         help="The number of episodes to run.",
     )
     parser.add_argument(
-        "--episode_step_limit",
+        "--max_episode_steps",
         type=int,
         default=None,
         help="Max number of steps to run each episode for.",
