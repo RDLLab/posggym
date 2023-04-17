@@ -30,12 +30,12 @@ register(
 register(
     id="DrivingContinuous-v0",
     entry_point="posggym.envs.continuous.driving:DrivingEnv",
-    max_episode_steps=100,
+    max_episode_steps=200,
     kwargs={
-        "grid": "14x14RoundAbout",
+        "world": "14x14RoundAbout",
         "num_agents": 2,
-        "obs_dim": 3.0,
-        "n_lines": 16,
+        "obs_dist": 3.0,
+        "n_sensors": 16,
         "obstacle_collisions": False,
     },
 )
@@ -57,7 +57,7 @@ register(
 register(
     id="PredatorPreyContinuous-v0",
     entry_point="posggym.envs.continuous.predator_prey:PredatorPreyContinuous",
-    max_episode_steps=100,
+    max_episode_steps=200,
     kwargs={
         "world": "10x10",
         "num_predators": 2,

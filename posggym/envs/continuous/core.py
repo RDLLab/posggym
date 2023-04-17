@@ -7,17 +7,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from itertools import product
 from queue import PriorityQueue
-from typing import (
-    TYPE_CHECKING,
-    Dict,
-    Iterable,
-    List,
-    NamedTuple,
-    Optional,
-    Set,
-    Tuple,
-    Union,
-)
+from typing import TYPE_CHECKING, Dict, Iterable, List, NamedTuple, Set, Tuple, Union
 
 import numpy as np
 from gymnasium import spaces
@@ -37,16 +27,6 @@ except ImportError as e:
     ) from e
 
 
-class CollisionType(Enum):
-    """Type of collision in world."""
-
-    NONE = 0
-    AGENT = 1
-    BLOCK = 2
-    BORDER = 3
-    INTERIOR_WALL = 4
-
-
 # (x, y) coord = (col, row) coord
 Coord = Tuple[int, int]
 FloatCoord = Tuple[float, float]
@@ -59,10 +39,27 @@ CircleEntity = Tuple[Position, float]
 Line = Tuple[FloatCoord, FloatCoord]
 IntLine = Tuple[Tuple[int, int], Tuple[int, int]]
 
+# (Main, Alternative) agent colors (from pygame.colordict.THECOLORS)
+AGENT_COLORS = [
+    ((255, 0, 0, 255), (205, 0, 0, 255)),  # red, red3
+    ((0, 0, 255, 255), (0, 0, 205, 255)),  # blue, blue3
+    ((0, 255, 0, 255), (0, 205, 0, 255)),  # green, green3
+    ((160, 32, 240, 255), (125, 38, 205, 255)),  # purple, purple3
+    ((255, 255, 0, 255), (205, 205, 0, 255)),  # yellow, yellow3
+    ((0, 255, 255, 255), (0, 205, 205, 255)),  # cyan, cyan3
+    ((255, 105, 180, 255), (205, 96, 144, 255)),  # hotpink, hotpink3
+    ((255, 165, 0, 255), (205, 133, 0, 255)),  # orange, orange3
+]
 
-# This function needs to be in global scope or we get pickle errors
-def ignore_collisions(arbiter, space, data):
-    return False
+
+class CollisionType(Enum):
+    """Type of collision in world."""
+
+    NONE = 0
+    AGENT = 1
+    BLOCK = 2
+    BORDER = 3
+    INTERIOR_WALL = 4
 
 
 class PMBodyState(NamedTuple):
@@ -94,6 +91,12 @@ class PMBodyState(NamedTuple):
         return spaces.Box(low=low, high=high)
 
 
+# This function needs to be in global scope or we get pickle errors
+def ignore_collisions(arbiter, space, data):
+    """Pymunk collision handler which ignores collisions."""
+    return False
+
+
 def clip_actions(
     actions: Dict[M.AgentID, np.ndarray], action_spaces: Dict[M.AgentID, spaces.Space]
 ) -> Dict[M.AgentID, np.ndarray]:
@@ -110,13 +113,13 @@ class AbstractContinuousWorld(ABC):
     """A continuous 2D world with a rectangular border."""
 
     WALL_COLOR = (0, 0, 0, 255)  # Black
-    BLOCK_COLOR = (0, 0, 0, 255)  # Black
+    BLOCK_COLOR = (50, 50, 50, 255)  # Black
 
     def __init__(
         self,
         size: float,
-        blocks: Optional[List[CircleEntity]] = None,
-        interior_walls: Optional[List[Line]] = None,
+        blocks: List[CircleEntity] | None = None,
+        interior_walls: List[Line] | None = None,
         agent_radius: float = 0.5,
         border_thickness: float = 0.1,
         enable_agent_collisions: bool = True,
@@ -127,7 +130,7 @@ class AbstractContinuousWorld(ABC):
         self.agent_radius = agent_radius
         self.border_thickness = border_thickness
         # access via blocked_coords property
-        self._blocked_coords: Optional[Set[Coord]] = None
+        self._blocked_coords: Set[Coord] | None = None
 
         self.collision_id = 0
         self.enable_agent_collisions = enable_agent_collisions
@@ -155,25 +158,6 @@ class AbstractContinuousWorld(ABC):
         # moveable entities in the world
         self.entities: Dict[str, Tuple[pymunk.Body, pymunk.Circle]] = {}
 
-    def add_interior_walls_to_space(self, walls: List[Line]):
-        """Adds interior walls to the world physics space."""
-        self.interior_walls_array = (
-            np.array([ln[0] for ln in walls], dtype=np.float32),
-            np.array([ln[1] for ln in walls], dtype=np.float32),
-        )
-
-        for w_start, w_end in walls:
-            wall = pymunk.Segment(
-                self.space.static_body,
-                w_start,
-                w_end,
-                self.border_thickness,
-            )
-            wall.friction = 1.0
-            wall.collision_type = self.get_collision_id() + 1
-            wall.color = self.WALL_COLOR
-            self.space.add(wall)
-
     @abstractmethod
     def add_border_to_space(self, size: float):
         """Adds solid border to the world physics space."""
@@ -184,6 +168,11 @@ class AbstractContinuousWorld(ABC):
         self, ray_start_coords: np.ndarray, ray_end_coords: np.ndarray
     ) -> np.ndarray:
         """Check for collision between rays and world border."""
+        pass
+
+    @abstractmethod
+    def copy(self) -> "AbstractContinuousWorld":
+        """Get a deep copy of this world."""
         pass
 
     def simulate(self, dt: float = 1.0 / 10, t: int = 10):
@@ -208,50 +197,11 @@ class AbstractContinuousWorld(ABC):
         for _ in range(t):
             self.space.step(dt)
 
-    def get_copy_of_pymunk_space(self) -> pymunk.Space:
-        """Get a copy of this world's underlying 2D physisc space.
-
-        This returns a deepcopy, so can be used to simulate actions, etc, without
-        affecting the original space.
-        """
-        return self.space.copy()
-
-    def get_parent_classes(self, cls):
-        parents = []
-        for parent in cls.__bases__:
-            parents.append(parent)
-            parents.extend(self.get_parent_classes(parent))
-        return parents
-
-    def copy(self) -> "AbstractContinuousWorld":
-        """Get a deep copy of this world."""
-        pr = [type(self)] + self.get_parent_classes(type(self))
-        # [..., SquareContinous, Abstract, ABC, Object]
-        abc_instance = pr.index(AbstractContinuousWorld)
-        world = pr[abc_instance - 1](
-            size=self.size,
-            blocks=self.blocks,
-            interior_walls=self.interior_walls,
-            agent_radius=self.agent_radius,
-            border_thickness=self.border_thickness,
-        )
-
-        for id, (body, shape) in self.entities.items():
-            # make copies of each entity, and ensure the copies are linked correctly
-            # and added to the new world and world space
-            body = body.copy()
-            shape = shape.copy()
-            shape.body = body
-
-            world.space.add(body, shape)
-            world.entities[id] = (body, shape)
-        return world
-
     def add_entity(
         self,
         id: str,
-        radius: Optional[float],
-        color: Optional[Tuple[int, int, int, int]],
+        radius: float | None,
+        color: Tuple[int, int, int, int] | None,
         is_static: bool = False,
     ) -> Tuple[pymunk.Body, pymunk.Circle]:
         """Add moveable entity to the world.
@@ -287,6 +237,25 @@ class AbstractContinuousWorld(ABC):
         self.entities[id] = (body, shape)
         return body, shape
 
+    def add_interior_walls_to_space(self, walls: List[Line]):
+        """Adds interior walls to the world physics space."""
+        self.interior_walls_array = (
+            np.array([ln[0] for ln in walls], dtype=np.float32),
+            np.array([ln[1] for ln in walls], dtype=np.float32),
+        )
+
+        for w_start, w_end in walls:
+            wall = pymunk.Segment(
+                self.space.static_body,
+                w_start,
+                w_end,
+                self.border_thickness,
+            )
+            wall.friction = 1.0
+            wall.collision_type = self.get_collision_id() + 1
+            wall.color = self.WALL_COLOR
+            self.space.add(wall)
+
     def get_collision_id(self):
         return self.collision_id
 
@@ -297,7 +266,7 @@ class AbstractContinuousWorld(ABC):
         vx, vy = body.velocity
         return PMBodyState(x, y, body.angle, vx, vy, body.angular_velocity)
 
-    def set_entity_state(self, id: str, state: Union[PMBodyState, np.ndarray]):
+    def set_entity_state(self, id: str, state: PMBodyState | np.ndarray):
         """Set the state of an entity.
 
         If state is a np.ndarray, then it should be 1D with values ordered the same as
@@ -313,11 +282,10 @@ class AbstractContinuousWorld(ABC):
         self,
         id: str,
         *,
-        coord: Optional[Union[FloatCoord, List[float], np.ndarray, Vec2d]] = None,
-        angle: Optional[float] = None,
-        vel: Optional[Union[FloatCoord, List[float], np.ndarray, Vec2d]] = None,
-        vangle: Optional[float] = None,
-        acceleration: Union[FloatCoord, List[float], np.ndarray, Vec2d] | None = None,
+        coord: FloatCoord | List[float] | np.ndarray | Vec2d | None = None,
+        angle: float | None = None,
+        vel: FloatCoord | List[float] | np.ndarray | Vec2d | None = None,
+        vangle: float | None = None,
     ):
         """Update the state of an entity.
 
@@ -338,18 +306,6 @@ class AbstractContinuousWorld(ABC):
         if vangle is not None:
             body.angular_velocity = vangle
 
-        if acceleration is not None:
-            linear_acc = acceleration[0]
-            angular_acc = acceleration[1]
-            body.apply_force_at_local_point(
-                Vec2d(
-                    linear_acc * body.mass * math.cos(body.angle),
-                    linear_acc * body.mass * math.sin(body.angle),
-                ),
-                Vec2d(0, 0),
-            )
-            body.torque = angular_acc * body.moment
-
     def get_bounds(self) -> Tuple[FloatCoord, FloatCoord]:
         """Get  (min x, max_x), (min y, max y) bounds of the world."""
         return (0, self.size), (0, self.size)
@@ -365,10 +321,24 @@ class AbstractContinuousWorld(ABC):
             max_coord = math.ceil(round(self.size, 6))
             for x, y in product(list(range(max_coord)), repeat=2):
                 offset_coord = (x + offset, y + offset)
+
+                # check if cell contains any block
                 for pos, r in self.blocks:
                     if self.euclidean_dist(offset_coord, pos) < (offset + r):
                         self._blocked_coords.add((x, y))
                         break
+
+                # check if cell contains any wall
+                if len(self.interior_walls):
+                    dists = self.check_circle_line_intersection(
+                        np.array([[x, y]]),
+                        np.array([offset]),
+                        *self.interior_walls_array,
+                    )
+                    if np.any(np.where(dists < offset, True, False)):
+                        self._blocked_coords.add((x, y))
+                        break
+
         return self._blocked_coords
 
     @staticmethod
@@ -546,7 +516,8 @@ class AbstractContinuousWorld(ABC):
         self,
         ray_start_coords: np.ndarray,
         ray_end_coords: np.ndarray,
-        other_agents: Optional[np.ndarray] = None,
+        max_ray_distance: float,
+        other_agents: np.ndarray | None = None,
         include_blocks: bool = True,
         check_walls: bool = True,
     ) -> Tuple[np.ndarray, np.ndarray]:
@@ -558,6 +529,7 @@ class AbstractContinuousWorld(ABC):
            `(n_rays, 2`),
         ray_end_coords: end coords of rays. Should be 2D array with shape
            `(n_rays, 2`),
+        max_ray_distance: maximum ray distance
         other_agents: `(x, y)` coordinates of any other agents to check for collisions
            with. Should be a 2D array with shape `(n_agents, 2)`.
         include_blocks: whether to check for collisions with blocks in the world
@@ -566,13 +538,13 @@ class AbstractContinuousWorld(ABC):
         Returns
         -------
         distances: the distance each ray extends sway from the origin, up to a max of
-            `ray_distance`. Array will have shape `(n_rays,)`.
+            `max_ray_distance`. Array will have shape `(n_rays,)`.
         collision_types: the type of collision for each ray (see CollisionType), if any.
             Will have shape `(n_rays,)`.
 
         """
         n_rays = len(ray_start_coords)
-        closest_distances = np.full(n_rays, self.size, dtype=np.float32)
+        closest_distances = np.full(n_rays, max_ray_distance, dtype=np.float32)
         collision_types = np.full(n_rays, CollisionType.NONE.value, dtype=np.uint8)
 
         if other_agents is not None and len(other_agents):
@@ -646,7 +618,7 @@ class AbstractContinuousWorld(ABC):
         origin: Position,
         ray_distance: float,
         n_rays: int,
-        other_agents: Optional[np.ndarray] = None,
+        other_agents: np.ndarray | None = None,
         include_blocks: bool = True,
         check_walls: bool = True,
         use_relative_angle: bool = True,
@@ -697,13 +669,14 @@ class AbstractContinuousWorld(ABC):
         return self.check_ray_collisions(
             ray_start_coords,
             ray_end_coords,
+            max_ray_distance=ray_distance,
             other_agents=other_agents,
             include_blocks=include_blocks,
             check_walls=check_walls,
         )
 
     def get_all_shortest_paths(
-        self, origins: Iterable[Union[FloatCoord, Coord, Position]]
+        self, origins: Iterable[FloatCoord | Coord | Position]
     ) -> Dict[Tuple[int, int], Dict[Tuple[int, int], int]]:
         """Get shortest path distance from every origin to all other coords."""
         src_dists = {}
@@ -712,11 +685,11 @@ class AbstractContinuousWorld(ABC):
             src_dists[origin_coord] = self.dijkstra(origin)
         return src_dists
 
-    def convert_to_coord(self, origin: Union[FloatCoord, Coord, Position]) -> Coord:
+    def convert_to_coord(self, origin: FloatCoord | Coord | Position) -> Coord:
         """Convert a position/float coord to a integer coords."""
         return (math.floor(origin[0]), math.floor(origin[1]))
 
-    def dijkstra(self, origin: Union[FloatCoord, Coord, Position]) -> Dict[Coord, int]:
+    def dijkstra(self, origin: FloatCoord | Coord | Position) -> Dict[Coord, int]:
         """Get shortest path distance between origin and all other coords."""
         coord_origin = self.convert_to_coord(origin)
 
@@ -770,6 +743,26 @@ class AbstractContinuousWorld(ABC):
 class SquareContinuousWorld(AbstractContinuousWorld):
     """A continuous world with a square border."""
 
+    def copy(self) -> "SquareContinuousWorld":
+        world = SquareContinuousWorld(
+            size=self.size,
+            blocks=self.blocks,
+            interior_walls=self.interior_walls,
+            agent_radius=self.agent_radius,
+            border_thickness=self.border_thickness,
+        )
+
+        for id, (body, shape) in self.entities.items():
+            # make copies of each entity, and ensure the copies are linked correctly
+            # and added to the new world and world space
+            body = body.copy()
+            shape = shape.copy()
+            shape.body = body
+
+            world.space.add(body, shape)
+            world.entities[id] = (body, shape)
+        return world
+
     def add_border_to_space(self, size: float):
         # world border lines (start coords, end coords)
         # bottom, left, top, right
@@ -784,8 +777,8 @@ class SquareContinuousWorld(AbstractContinuousWorld):
         for w_start, w_end in zip(*self.border):
             wall = pymunk.Segment(
                 self.space.static_body,
-                tuple(w_start),
-                tuple(w_end),
+                (w_start[0], w_start[1]),
+                (w_end[0], w_end[1]),
                 self.border_thickness,
             )
             wall.friction = 1.0
@@ -803,6 +796,26 @@ class SquareContinuousWorld(AbstractContinuousWorld):
 
 class CircularContinuousWorld(AbstractContinuousWorld):
     """A 2D continuous world with a circular border."""
+
+    def copy(self) -> "CircularContinuousWorld":
+        world = CircularContinuousWorld(
+            size=self.size,
+            blocks=self.blocks,
+            interior_walls=self.interior_walls,
+            agent_radius=self.agent_radius,
+            border_thickness=self.border_thickness,
+        )
+
+        for id, (body, shape) in self.entities.items():
+            # make copies of each entity, and ensure the copies are linked correctly
+            # and added to the new world and world space
+            body = body.copy()
+            shape = shape.copy()
+            shape.body = body
+
+            world.space.add(body, shape)
+            world.entities[id] = (body, shape)
+        return world
 
     def add_border_to_space(self, size: float):
         num_segments = 128
@@ -848,66 +861,10 @@ def array_to_position(arr: np.ndarray) -> Position:
     return (arr[0], arr[1], arr[2])
 
 
-def parse_world_str_interior_walls(world_str: str) -> List[Line]:
-    """Parse a str representation of a world into list of interior walls.
-
-    Notes on world str representation:
-
-    The `#` character is treated as a block, and all other characters are treated as
-    empty.
-
-    1. A 3x3 world with a 1x1 block in the center
-
-    ...
-    .#.
-    ...
-
-    Output would be [
-        ((1, 1), (2, 1)),
-        ((1, 1), (1, 2)),
-        ((2, 1), (2, 2)),
-        ((1, 2), (2, 2)),
-    ]
-
-    2. A 6x6 grid with a irregular obstacle and a 3x2 block
-
-    ..##..
-    ...#..
-    ......
-    ......
-    ...###
-    ...###
-
-    Output would be [
-        # irregular obstacle
-        ((2, 0), (4, 0)),
-        ((2, 0), (2, 1)),
-        ((2, 1), (3, 1)),
-        ((3, 1), (3, 2)),
-        ((3, 2), (4, 2)),
-        ((4, 0), (4, 2)),
-        # 3 x 2 block
-        ((3, 4), (6, 4)),
-        ((3, 4), (3, 6)),
-        ((3, 6), (6, 6)),
-        ((6, 4), (6, 6)),
-    ]
-
-    """
-    row_strs = world_str.splitlines()
-    assert len(row_strs) > 1
-    assert all(len(row) == len(row_strs[0]) for row in row_strs)
-    assert len(row_strs[0]) > 1
-
-    height = len(row_strs)
-    width = len(row_strs[0])
-
-    block_coords: Set[Coord] = set()
-    for r, c in product(range(height), range(width)):
-        if row_strs[r][c] == "#":
-            # x = c, y = r
-            block_coords.add((c, r))
-
+def generate_interior_walls(
+    width: int, height: int, blocked_coords: Iterable[Coord]
+) -> List[Line]:
+    """Generate interior walls for rectangular world based on blocked coordinates."""
     # dx, dy
     # north, east, south, west
     directions = [(0, -1), (1, 0), (0, 1), (-1, 0)]
@@ -921,9 +878,9 @@ def parse_world_str_interior_walls(world_str: str) -> List[Line]:
     # get line for each block face adjacent to empty cell
     lines_map: Dict[Coord, Set[Coord]] = {}
     lines: Set[IntLine] = set()
-    for x, y in block_coords:
+    for x, y in blocked_coords:
         for (dx, dy), line_offset in zip(directions, line_offsets):
-            if (x + dx, y + dy) in block_coords:
+            if (x + dx, y + dy) in blocked_coords:
                 # adjacent cell blocked
                 continue
 
