@@ -132,8 +132,10 @@ def run_continuous_env_keyboard_agent(
     """
     import pygame
 
-    angular_vel_inc = math.pi / 10
-    linear_vel_inc = 0.1
+    use_linear_acc = env.spec is not None and env.spec.id in ("DrivingContinuous-v0",)
+
+    angle_inc = math.pi / 10
+    vel_inc = 0.1
 
     o, _ = env.reset()
     env.render()
@@ -153,18 +155,18 @@ def run_continuous_env_keyboard_agent(
                         action_entered = True
                         break
 
-        # reset angular velocity, but maintain linear velocity
         action_i[0] = 0.0
+        action_i[1] = 0.0 if use_linear_acc else action_i[1]
         keys = pygame.key.get_pressed()
         if keys[pygame.K_LEFT]:
-            action_i[0] = -angular_vel_inc
+            action_i[0] = -angle_inc
         elif keys[pygame.K_RIGHT]:
-            action_i[0] = +angular_vel_inc
+            action_i[0] = +angle_inc
 
         if keys[pygame.K_UP]:
-            action_i[1] = min(1.0, action_i[1] + linear_vel_inc)
+            action_i[1] = vel_inc if use_linear_acc else action_i[1] + vel_inc
         elif keys[pygame.K_DOWN]:
-            action_i[1] = max(-1.0, action_i[1] - linear_vel_inc)
+            action_i[1] = -vel_inc if use_linear_acc else action_i[1] - vel_inc
 
         if keys[pygame.K_c] and pygame.key.get_mods() & pygame.KMOD_CTRL:
             # exit on control-c

@@ -5,6 +5,7 @@ from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple, Union, cas
 
 import numpy as np
 from gymnasium import spaces
+from pymunk import Vec2d
 
 import posggym.model as M
 from posggym import logger
@@ -16,9 +17,9 @@ from posggym.envs.continuous.core import (
     FloatCoord,
     PMBodyState,
     SquareContinuousWorld,
+    clamp_norm,
     clip_actions,
     generate_interior_walls,
-    linear_to_xy_velocity,
 )
 from posggym.utils import seeding
 
@@ -45,31 +46,26 @@ class DrivingContinuousEnv(DefaultEnv[DState, DObs, DAction]):
 
     A general-sum 2D continuous world problem involving multiple agents. Each agent
     controls a vehicle and is tasked with driving the vehicle from it's start
-    location to a destination location while avoiding crashing into obstacles
-    or other vehicles.
-
-    This environment requires each agent to navigate in the world while also
-    taking care to avoid crashing into other agents. The dynamics and
-    observations of the environment are such that avoiding collisions requires
-    some planning in order for the vehicle to brake in time or maintain a good
-    speed. Depending on the grid layout, the environment will require agents to
-    reason about and possibly coordinate with the other vehicles.
+    location to a destination location while avoiding crashing into other vehicles.
+    This requires agents to coordinate to avoid collisions and can be used to explore
+    conventions in multi-agent decision-making.
 
     Possible Agents
     ---------------
-    The environment supports two or more agents, depending on the grid. It is possible
-    for some agents to finish the episode before other agents by either crashing or
-    reaching their destination, and so not all agents are guaranteed to be active at
-    the same time. All agents will be active at the start of the episode however.
+    The environment supports two or more agents, depending on the world layout. It is
+    possible for some agents to finish the episode before other agents by either
+    crashing or reaching their destination, and so not all agents are guaranteed to be
+    active at the same time. All agents will be active at the start of the episode.
 
     State Space
     -----------
-    Each state is made up of the state of each vehicle, which in turn is defined by:
+    Each state is made up of the state of each vehicle (see `VehicleState` class),
+    which in turn is defined by the vehicle's:
 
-    - the `(x, y)` coordinates (x=column, y=row, with origin at the top-left square of
-      the grid) of the vehicle,
-    - the direction the vehicle is facing [0, 2π]
-    - the speed of the vehicle: [-1, 1],
+    - `(x, y)` coordinates in [0, world_size]
+    - direction in [-2π, 2π]
+    - x, y velocity both in [-1, 1]
+    - the angular velocity of the vehicle in [-2π, 2π]
     - the `(x, y)` coordinate of the vehicles destination
     - whether the vehicle has reached it's destination or not: `1` or `0`
     - whether the vehicle has crashed or not: `1` or `0`
@@ -80,106 +76,106 @@ class DrivingContinuousEnv(DefaultEnv[DState, DObs, DAction]):
     ------------
     Each agent has 2 actions, which are the angular velocity and linear acceleration.
 
-
     Observation Space
     -----------------
     Each agent observes a local circle around themselves as a vector. This is achieved
     by a series of 'n_sensors' lines starting at the agent which extend for a distance
-    of 'obs_dist'. For each line the agent observes the closest entity (wall, predator,
-    prey) along the line. This table enumerates the observation space:
+    of 'obs_dist'. For each line the agent observes the closest entity along the line,
+    specifically if there is a wall or another vehicle. Along with the sensor reading
+    each agent also observes their vehicles angle, velocity (in x, y), and the distance
+    to their destination.
 
-    |        Index: [start, end)        | Description                       | Values |
-    | :-------------------------------: | --------------------------------: | :----: |
-    |           0 - n_sensors           | Wall distance for each sensor     | [0, d] |
-    |    n_sensors - (2 * n_sensors)    | Predator distance for each sensor | [0, d] |
+    This table enumerates the observation space:
 
-    Where `d = obs_dist`.
+    |    Index: [start, end)     | Description                          |  Values   |
+    | :------------------------: | :----------------------------------: | :-------: |
+    |       0,  n_sensors        | Wall distance                        | [0, d]    |
+    | n_sensors, (2 * n_sensors) | Other vehicle distance               | [0, d]    |
+    | 2 * n_sensors,             | Vehicle angle                        | [-2π, 2π] |
+    | 2 * n_sensors + 1          | Vehicle x velocity                   | [-1, 1]   |
+    | 2 * n_sensors + 2          | Vehicle y velocity                   | [-1, 1]   |
+    | 2 * n_sensors + 3          | distance to destination along x axis | [0, s]    |
+    | 2 * n_sensors + 4          | distance to destination along y axis | [0, s]    |
 
-    If an entity is not observed (i.e. there is none along the sensor's line or it
-    isn't the closest entity to the observing agent along the line), The distance will
-    be 1.
+    Where `d = obs_dist` and `s = world.size`
+
+    If an entity is not observed by a sensor (i.e. it's not within `obs_dist` or not
+    the closest entity to the observing agent along the line), The distance will be
+    `obs_dist`.
 
     The sensor reading ordering is relative to the agent's direction. I.e. the values
-    for the first sensor at indices `0`, `n_sensors`, `2*n_sensors` correspond to the
-    distance reading to a wall/obstacle, predator, and prey, respectively, in the
-    direction the agent is facing.
+    for the first sensor at indices `0`, `n_sensors`, correspond to the distance
+    reading to a wall, and other vehicle, respectively, in the direction the agent is
+    facing.
 
     Rewards
     -------
     All agents receive a penalty of `0.0` for each step. They receive a penalty of
-    `-1.0` for crashing (i.e. hitting another vehicle), and `-0.05` for moving into a
-    wall. A reward of `1.0` is given if the agent reaches it's destination and a reward
-    of `0.05` is given if the agent makes progress towards it's destination (i.e. it
-    reduces it's minimum distance achieved to the destination for the episode).
-
-    If `obstacle_collision=True` then running into a wall is treated as crashing the
-    vehicle, and so results in a penalty of `-1.0`.
+    `-1.0` for crashing (i.e. hitting another vehicle). A reward of `1.0` is given if
+    the agent reaches it's destination and a reward of `0.05` is given to the agent at
+    certain points as it makes progress towards it's destination (i.e. as it reduces
+    it's minimum distance achieved along the shortest path to the destination for the
+    episode).
 
     Dynamics
     --------
     Actions are deterministic and movement is determined by direction the vehicle is
-    facing and it's speed:
+    facing and it's speed. Vehicles are able to reverse, but cannot change direction
+    while reversing.
 
-    Accelerating increases speed, while deceleration decreased speed. If the
-    vehicle will hit a wall or another vehicle when moving from one cell to another then
-    it remains in it's current cell and it's crashed state variable is updated
-    appropriately.
+    Max and min velocity are `1.0` and `-1.0`, and max linear acceleration is `0.25`,
+    while max angular velocity is `π / 10`.
 
     Starting State
     --------------
-    Each agent is randomly assigned to one of the possible starting locations on the
-    grid and one of the possible destination locations, with no two agents starting in
+    Each agent is randomly assigned to one of the possible starting locations in the
+    world and one of the possible destination locations, with no two agents starting in
     the same location or having the same destination location. The possible start and
-    destination locations are determined by the grid layout being used.
+    destination locations are determined by the world layout being used.
 
     Episodes End
     ------------
     Episodes end when all agents have either reached their destination or crashed. By
-    default a `max_episode_steps` is also set for each Driving environment. The default
-    value is `50` steps, but this may need to be adjusted when using larger grids (this
-    can be done by manually specifying a value for `max_episode_steps` when creating the
-    environment with `posggym.make`).
+    default a `max_episode_steps` is also set for each DrivingContinuous environment.
+    The default value is `200` steps, but this may need to be adjusted when using
+    larger worlds (this can be done by manually specifying a value for
+    `max_episode_steps` when creating the environment with `posggym.make`).
 
     Arguments
     ---------
 
-    - `grid` - the grid layout to use. This can either be a string specifying one of
-         the supported grids, or a custom :class:`DrivingWorld` object
+    - `world` - the world layout to use. This can either be a string specifying one of
+         the supported worlds, or a custom :class:`DrivingWorld` object
          (default = `"14x14RoundAbout"`).
     - `num_agents` - the number of agents in the environment (default = `2`).
-    - `obs_dist` - the local observation distance, specifying the distance away from
+    - `obs_dist` - the sensor observation distance, specifying the distance away from
          itself which an agent can observe along each sensor (default = `3`).
     - `n_sensors` - the number of sensor lines eminating from the agent. The agent will
          observe at `n_sensors` equidistance intervals over `[0, 2*pi]`
          (default = `16`).
-    - `obstacle_collisions` -  whether running into a wall results in the agent's
-         vehicle crashing and thus the agent reaching a terminal state. This can make
-         the problem significantly harder (default = "False").
 
     Available variants
     ------------------
+    The DrivingContinuous environment comes with a number of pre-built world layouts
+    which can be passed as an argument to `posggym.make`, to create different worlds:
 
-    The Driving environment comes with a number of pre-built grid layouts which can be
-    passed as an argument to `posggym.make`, to create different grids:
-
-    | Grid name         | Max number of agents | Grid size |
-    |-------------------|----------------------|---------- |
-    | `3x3`             | 2                    | 3x3       |
-    | `6x6`             | 6                    | 6x6       |
-    | `7x7Blocks`       | 4                    | 7x7       |
-    | `7x7CrissCross`   | 6                    | 7x7       |
-    | `7x7RoundAbout`   | 4                    | 7x7       |
-    | `14x14Blocks`     | 4                    | 14x14     |
-    | `14x14CrissCross` | 8                    | 14x14     |
-    | `14x14RoundAbout` | 4                    | 14x14     |
+    | World name        | Max number of agents | World size |
+    |-------------------|----------------------|----------- |
+    | `6x6`             | 6                    | 6x6        |
+    | `7x7Blocks`       | 4                    | 7x7        |
+    | `7x7CrissCross`   | 6                    | 7x7        |
+    | `7x7RoundAbout`   | 4                    | 7x7        |
+    | `14x14Blocks`     | 4                    | 14x14      |
+    | `14x14CrissCross` | 8                    | 14x14      |
+    | `14x14RoundAbout` | 4                    | 14x14      |
 
 
-    For example to use the DrivingContinuous environment with the `7x7RoundAbout` grid
-    and 2 agents, you would use:
+    For example to use the DrivingContinuous environment with the `7x7RoundAbout`
+    layout and 2 agents, you would use:
 
     ```python
     import posggym
-    env = posggym.make('DrivingContinuous-v0', grid="7x7RoundAbout", num_agents=2)
+    env = posggym.make('DrivingContinuous-v0', world="7x7RoundAbout", num_agents=2)
     ```
 
     Version History
@@ -208,18 +204,12 @@ class DrivingContinuousEnv(DefaultEnv[DState, DObs, DAction]):
         num_agents: int = 2,
         obs_dist: float = 3.0,
         n_sensors: int = 16,
-        obstacle_collisions: bool = False,
         render_mode: Optional[str] = None,
     ):
         super().__init__(
-            DrivingContinuousModel(
-                world, num_agents, obs_dist, n_sensors, obstacle_collisions
-            ),
+            DrivingContinuousModel(world, num_agents, obs_dist, n_sensors),
             render_mode=render_mode,
         )
-        self._obs_dist = obs_dist
-        self._renderer = None
-        self._agent_imgs = None
         self.window_surface = None
         self.clock = None
         self.window_size = 600
@@ -329,7 +319,7 @@ class DrivingContinuousEnv(DefaultEnv[DState, DObs, DAction]):
                 ]
                 dist_idx = min(range(len(values)), key=values.__getitem__)
                 dist = values[dist_idx]
-                dist_idx = len(values) if dist == self._obs_dist else dist_idx
+                dist_idx = len(values) if dist == model.obs_dist else dist_idx
 
                 angle = angle_inc * k + agent_angle
                 end_x = x + dist * math.cos(angle)
@@ -368,9 +358,11 @@ class DrivingContinuousEnv(DefaultEnv[DState, DObs, DAction]):
         )
 
     def close(self) -> None:
-        if self._renderer is not None:
-            # self._renderer.close()
-            self._renderer = None
+        if self.window_surface is not None:
+            import pygame
+
+            pygame.display.quit()
+            pygame.quit()
 
 
 class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
@@ -378,21 +370,19 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
 
     Parameters
     ----------
-    world : DrivingWorld
+    world : str, DrivingWorld
         the world environment for the model scenario
     num_agents : int
         the number of agents in the model scenario
     obs_dists : float
         number of cells in front, behind, and to the side that each agent
         can observe
-    obstacle_collisions : bool
-        whether cars can crash into wall and other obstacles, on top of
-        crashing into other vehicles
+    n_sensors : the number of sensor lines eminating from the agent. The agent will
+        observe at `n_sensors` equidistance intervals over `[0, 2*pi]`
 
     """
 
     R_STEP_COST = 0.00
-    R_CRASH_OBJECT = -0.05
     R_CRASH_VEHICLE = -1.0
     R_DESTINATION_REACHED = 1.0
     R_PROGRESS = 0.05
@@ -403,7 +393,6 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
         num_agents: int,
         obs_dist: float,
         n_sensors: int,
-        obstacle_collisions: bool,
     ):
         if isinstance(world, str):
             assert world in SUPPORTED_WORLDS, (
@@ -421,7 +410,6 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
         )
 
         self.world = world
-        self.obstacle_collisions = obstacle_collisions
         self.n_sensors = n_sensors
         self.obs_dist = obs_dist
         self.vehicle_collision_dist = (
@@ -453,11 +441,13 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
         )
 
         self.dyaw_limit = math.pi / 10
-        # dyaw, vel
+        self.dvel_limit = 0.25
+        self.vel_limit_norm = 1.0
+        # dyaw, dvel
         self.action_spaces = {
             i: spaces.Box(
-                low=np.array([-self.dyaw_limit, -1.0], dtype=np.float32),
-                high=np.array([self.dyaw_limit, 1.0], dtype=np.float32),
+                low=np.array([-self.dyaw_limit, -self.dvel_limit], dtype=np.float32),
+                high=np.array([self.dyaw_limit, self.dvel_limit], dtype=np.float32),
             )
             for i in self.possible_agents
         }
@@ -576,17 +566,20 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
         for i in range(len(self.possible_agents)):
             state_i, action_i = state[i], actions[str(i)]
             self.world.set_entity_state(f"vehicle_{i}", state_i.body)
+
             if state[i].status[0] or state[i].status[1]:
-                action_i[0] = 0
-                action_i[1] = 0
-            else:
-                if action_i[1] < 0:
-                    # No turning in reverse.
-                    action_i[0] = 0
+                self.world.update_entity_state(f"vehicle_{i}", vel=(0.0, 0.0))
+                continue
 
             v_angle = state_i.body[2] + action_i[0]
-            v_vel = linear_to_xy_velocity(action_i[1], v_angle)
-            self.world.update_entity_state(f"vehicle_{i}", angle=v_angle, vel=v_vel)
+            v_vel = Vec2d(*state_i.body[3:5]).rotated(action_i[0]) + (
+                action_i[1] * Vec2d(1, 0).rotated(v_angle)
+            )
+            self.world.update_entity_state(
+                f"vehicle_{i}",
+                angle=v_angle,
+                vel=clamp_norm(v_vel[0], v_vel[1], self.vel_limit_norm),
+            )
 
         self.world.simulate(1.0 / 10, 10)
 
@@ -614,13 +607,6 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
                         # if it has not already reached destination
                         other_v_state.status[1] = int(True)
                         collision_types[other_idx] = CollisionType.AGENT
-
-            # Need to check for collisions with walls
-            for b, _ in self.world.blocks:
-                dist = np.linalg.norm(b[:2] - next_v_coords)
-                if dist <= self.vehicle_collision_dist:
-                    crashed = self.obstacle_collisions
-                    collision_types[idx] = CollisionType.BLOCK
 
             crashed = crashed or bool(state_i.status[1])
 
@@ -698,9 +684,7 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
             if any(state[idx].status):
                 # already in terminal/rewarded state
                 r_i = 0.0
-            elif (
-                self.obstacle_collisions and collision_types[idx] == CollisionType.BLOCK
-            ) or collision_types[idx] == CollisionType.AGENT:
+            elif collision_types[idx] == CollisionType.AGENT:
                 # Treat as if crashed into a vehicle
                 r_i = self.R_CRASH_VEHICLE
             elif next_state[idx].status[0]:
@@ -710,12 +694,6 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
 
             progress = (state[idx].min_dest_dist - next_state[idx].min_dest_dist)[0]
             r_i += max(0, progress) * self.R_PROGRESS
-
-            if (
-                not self.obstacle_collisions
-                and collision_types[idx] == CollisionType.BLOCK
-            ):
-                r_i += self.R_CRASH_OBJECT
             rewards[i] = r_i
         return rewards
 

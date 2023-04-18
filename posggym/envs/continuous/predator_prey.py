@@ -356,7 +356,11 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
         )
 
     def close(self) -> None:
-        pass
+        if self.window_surface is not None:
+            import pygame
+
+            pygame.display.quit()
+            pygame.quit()
 
 
 class PPModel(M.POSGModel[PPState, PPObs, PPAction]):

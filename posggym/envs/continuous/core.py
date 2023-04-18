@@ -866,6 +866,20 @@ def linear_to_xy_velocity(linear_vel: float, angle: float) -> Vec2d:
     return linear_vel * Vec2d(1, 0).rotated(angle)
 
 
+def rotate_vector(vx: float, vy: float, angle: float) -> Vec2d:
+    """Rotate a 2D vector by given angle."""
+    return Vec2d(vx, vy).rotated(angle)
+
+
+def clamp_norm(vx: float, vy: float, norm_max: float) -> Tuple[float, float]:
+    """Clamp x, y vector to within a given max norm."""
+    if vx == 0.0 and vy == 0.0:
+        return vx, vy
+    norm = math.sqrt(vx**2 + vy**2)
+    f = min(norm, norm_max) / norm
+    return f * vx, f * vy
+
+
 def generate_interior_walls(
     width: int, height: int, blocked_coords: Iterable[Coord]
 ) -> List[Line]:

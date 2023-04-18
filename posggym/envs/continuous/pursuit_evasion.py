@@ -238,10 +238,6 @@ class PursuitEvasionEnv(DefaultEnv):
             **kwargs,
         )
         super().__init__(model, render_mode=render_mode)
-
-        self.max_obs_distance = max_obs_distance
-        self.renderer = None
-        self._agent_imgs = None
         self.window_surface = None
         self.blocked_surface = None
         self.clock = None
@@ -358,13 +354,11 @@ class PursuitEvasionEnv(DefaultEnv):
             )
             for k in range(n_sensors):
                 dist = min([obs_i[k], obs_i[n_sensors + k]])
-
                 angle = angles[k] + agent_angle
                 end_x = x + dist * math.cos(angle)
                 end_y = y + dist * math.sin(angle)
                 scaled_start = (int(x * scale_factor), int(y * scale_factor))
                 scaled_end = int(end_x * scale_factor), (end_y * scale_factor)
-
                 pygame.draw.line(
                     self.window_surface,
                     pygame.Color("red"),
@@ -395,9 +389,11 @@ class PursuitEvasionEnv(DefaultEnv):
         )
 
     def close(self) -> None:
-        if self.renderer is not None:
-            self.renderer.close()
-            self.renderer = None
+        if self.window_surface is not None:
+            import pygame
+
+            pygame.display.quit()
+            pygame.quit()
 
 
 class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):

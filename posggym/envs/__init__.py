@@ -36,7 +36,6 @@ register(
         "num_agents": 2,
         "obs_dist": 4.0,
         "n_sensors": 16,
-        "obstacle_collisions": False,
     },
 )
 
