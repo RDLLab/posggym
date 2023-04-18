@@ -72,16 +72,9 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
 
     Action Space
     ------------
-    Each agent's actions is made up of two parts, which depend on the dynamics model
-    used by the environment.
-
-    In the non-holonomic model (the default), the first action component specifies the
-    angular velocity in `[-2*pi, 2*pi]`, and the second component specifies the linear
-    velocity in `[0, 1]`.
-
-    In the `holonomic` the action components specify the velocity along the x and y
-    axes, respectively. With possible values in `[-1, 1]`.
-
+    Each agent's actions is made up of two parts. The first action component specifies
+    the angular velocity in `[-2*pi, 2*pi]`, and the second component specifies the
+    linear velocity in `[0, 1]`.
 
     Observation Space
     -----------------
@@ -169,10 +162,6 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
         direction each predator and prey agent observes (default = `2`).
     - `n_sensors` - the number of lines eminating from the agent. The agent will observe
         at `n` equidistance intervals over `[0, 2*pi]` (default = `10`).
-    - `use_holonomic_predator` - the movement model to use for the predator. There are
-        two modes - holonomic or non holonmic, with a unicycle model (default = 'True`).
-    - `use_holonomic_prey` - the movement model to use for the prey. There are two
-        modes - holonomic or non holonmic, with a unicycle model (default = 'True`).
 
     Available variants
     ------------------
@@ -240,7 +229,6 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
         prey_strength: Optional[int] = None,
         obs_dist: float = 2,
         n_sensors: int = 10,
-        use_holonomic: bool = False,
         render_mode: Optional[str] = None,
         **kwargs,
     ):
@@ -253,7 +241,6 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
                 prey_strength,
                 obs_dist,
                 n_sensors,
-                use_holonomic,
             ),
             render_mode=render_mode,
         )
@@ -393,9 +380,6 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         observe
     n_sensors : int
         the number of sensor lines for each predator
-    use_holonomic : bool
-        whether to use holonomic dynamics (each action specifies dx, dy of agent) or
-        non-holonomic dynamics (each action is a dyaw, velocity of agent)
 
     """
 
@@ -417,7 +401,6 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         prey_strength: Optional[int],
         obs_dist: float,
         n_sensors: int,
-        use_holonomic: bool,
         **kwargs,
     ):
         assert 1 < num_predators <= 8
@@ -449,7 +432,6 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             "different world layout."
         )
 
-        # self.world.set_holonomic_model(use_holonomic)
         self.num_predators = num_predators
         self.num_prey = num_prey
         self.obs_dist = obs_dist
@@ -457,7 +439,6 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         self.prey_strength = prey_strength
         self._per_prey_reward = self.R_MAX / self.num_prey
         self.n_sensors = n_sensors
-        self.use_holonomic = use_holonomic
         self.communication_radius = 1
 
         def _pos_space(n_agents: int):
@@ -487,24 +468,14 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         )
 
         self.dyaw_limit = math.pi / 10
-        if self.use_holonomic:
-            # dx, dy
-            self.action_spaces = {
-                i: spaces.Box(
-                    low=np.array([-1.0, -1.0], dtype=np.float32),
-                    high=np.array([1.0, 1.0], dtype=np.float32),
-                )
-                for i in self.possible_agents
-            }
-        else:
-            # dyaw, vel
-            self.action_spaces = {
-                i: spaces.Box(
-                    low=np.array([-self.dyaw_limit, 0.0], dtype=np.float32),
-                    high=np.array([self.dyaw_limit, 1.0], dtype=np.float32),
-                )
-                for i in self.possible_agents
-            }
+        # dyaw, vel
+        self.action_spaces = {
+            i: spaces.Box(
+                low=np.array([-self.dyaw_limit, 0.0], dtype=np.float32),
+                high=np.array([self.dyaw_limit, 1.0], dtype=np.float32),
+            )
+            for i in self.possible_agents
+        }
 
         # Observes entity and distance to entity along a n_sensors rays from the agent
         # 0 to n_sensors = wall distance obs
@@ -610,17 +581,12 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         for i in range(self.num_predators):
             action = actions[str(i)]
             self.world.set_entity_state(f"pred_{i}", state.predator_states[i])
-            if self.use_holonomic:
-                self.world.update_entity_state(
-                    f"pred_{i}", angle=math.atan2(action[1], action[0]), vel=action
-                )
-            else:
-                angle = state.predator_states[i][2] + action[0]
-                self.world.update_entity_state(
-                    f"pred_{i}",
-                    angle=angle,
-                    vel=linear_to_xy_velocity(action[1], angle),
-                )
+            angle = state.predator_states[i][2] + action[0]
+            self.world.update_entity_state(
+                f"pred_{i}",
+                angle=angle,
+                vel=linear_to_xy_velocity(action[1], angle),
+            )
 
         # simulate
         self.world.simulate(1.0 / 10, 10)
@@ -773,7 +739,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         new_caught_prey = []
         for i in range(self.num_prey):
             if not state.prey_caught[i] and next_state.prey_caught[i]:
-                new_caught_prey.append(next_state.prey_states[i])
+                new_caught_prey.append(state.prey_states[i])
 
         if len(new_caught_prey) == 0:
             return {i: 0.0 for i in self.possible_agents}
@@ -805,7 +771,7 @@ class PPWorld(SquareContinuousWorld):
         prey_start_positions: Optional[List[Position]] = None,
     ):
         assert size >= 3
-        super().__init__(size=size, blocks=blocks, agent_radius=0.5)
+        super().__init__(size=size, blocks=blocks, agent_radius=0.4)
 
         if predator_start_positions is None:
             predator_start_positions = []

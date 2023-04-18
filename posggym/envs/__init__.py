@@ -66,7 +66,6 @@ register(
         "prey_strength": None,
         "obs_dist": 3,
         "n_sensors": 16,
-        "use_holonomic": False,
     },
 )
 

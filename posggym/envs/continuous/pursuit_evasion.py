@@ -552,6 +552,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         clipped_actions = clip_actions(actions, self.action_spaces)
         next_state = self._get_next_state(state, clipped_actions)
         obs, evader_seen = self._get_obs(next_state)
+
         rewards = self._get_reward(state, next_state, evader_seen)
         all_done = self._is_done(next_state, evader_seen)
         terminated = {i: all_done for i in self.possible_agents}
@@ -560,6 +561,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         if all_done:
             for i, outcome in self._get_outcome(next_state, evader_seen).items():
                 info[i]["outcome"] = outcome
+
         return M.JointTimestep(
             next_state, obs, rewards, terminated, truncated, all_done, info
         )
@@ -610,12 +612,12 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
 
     def _get_obs(self, state: PEState) -> Tuple[Dict[M.AgentID, PEObs], bool]:
         evader_obs, _ = self._get_agent_obs(state, evader=True)
-        pursuer_obs, seen = self._get_agent_obs(state, evader=False)
+        pursuer_obs, evader_seen = self._get_agent_obs(state, evader=False)
 
         return {
             str(self.EVADER_IDX): evader_obs,
             str(self.PURSUER_IDX): pursuer_obs,
-        }, seen
+        }, evader_seen
 
     def _get_agent_obs(
         self,
@@ -657,7 +659,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         )
         obs[flat_obs_idx] = ray_dists
 
-        seen = any(c == CollisionType.AGENT.value for c in ray_col_type)
+        other_agent_seen = any(c == CollisionType.AGENT.value for c in ray_col_type)
         dist = self.world.euclidean_dist(agent_pos, opp_coord)
 
         aux_obs_idx = self.sensor_obs_dim
@@ -670,7 +672,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         else:
             obs[aux_obs_idx + 5 : aux_obs_idx + 7] = [0, 0]
 
-        return obs, seen
+        return obs, other_agent_seen
 
     def _get_reward(
         self, state: PEState, next_state: PEState, evader_seen: bool
@@ -698,7 +700,8 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         }
 
     def _is_done(self, state: PEState, evader_seen: bool) -> bool:
-        return (
+        # need to do explicit bool conversion as conditions can return np.bool
+        return bool(
             evader_seen
             or self.world.agents_collide(state.evader_state, state.pursuer_state)
             or self.world.agents_collide(state.evader_state, state.evader_goal_coord)

@@ -20,7 +20,6 @@ def test_obs():
         prey_strength=2,
         obs_dist=obs_dist,
         n_sensors=n_sensors,
-        use_holonomic=True,
     )
     env.reset(seed=26)
 
@@ -45,9 +44,8 @@ def test_obs():
     ).all()
 
 
-@pytest.mark.parametrize("use_holonomic", [True, False])
 @pytest.mark.parametrize("world", list(SUPPORTED_WORLDS))
-def test_collisions(world, use_holonomic):
+def test_collisions(world):
     """Check no collisions between predators, prey, blocks and world border."""
     env = posggym.make(
         "PredatorPreyContinuous-v0",
@@ -57,7 +55,6 @@ def test_collisions(world, use_holonomic):
         prey_strength=2,
         obs_dist=3,
         n_sensors=1,  # don't need for test, making it smaller speeds tests up
-        use_holonomic=True,
     )
     env.reset(seed=35)
 
