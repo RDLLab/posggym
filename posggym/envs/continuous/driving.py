@@ -5,20 +5,20 @@ from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple, Union, cas
 
 import numpy as np
 from gymnasium import spaces
-from pymunk import Vec2d
 
 import posggym.model as M
 from posggym import logger
 from posggym.core import DefaultEnv
 from posggym.envs.continuous.core import (
     AGENT_COLORS,
-    Coord,
     CollisionType,
+    Coord,
     FloatCoord,
     PMBodyState,
     SquareContinuousWorld,
     clip_actions,
     generate_interior_walls,
+    linear_to_xy_velocity,
 )
 from posggym.utils import seeding
 
@@ -40,8 +40,8 @@ DObs = np.ndarray
 DAction = np.ndarray
 
 
-class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
-    """The Driving Grid World Environment.
+class DrivingContinuousEnv(DefaultEnv[DState, DObs, DAction]):
+    """The Driving Continuous World Environment.
 
     A general-sum 2D continuous world problem involving multiple agents. Each agent
     controls a vehicle and is tasked with driving the vehicle from it's start
@@ -212,7 +212,9 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
         render_mode: Optional[str] = None,
     ):
         super().__init__(
-            DrivingModel(world, num_agents, obs_dist, n_sensors, obstacle_collisions),
+            DrivingContinuousModel(
+                world, num_agents, obs_dist, n_sensors, obstacle_collisions
+            ),
             render_mode=render_mode,
         )
         self._obs_dist = obs_dist
@@ -251,7 +253,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
         import pygame
         from pymunk import Transform, pygame_util
 
-        model = cast(DrivingModel, self.model)
+        model = cast(DrivingContinuousModel, self.model)
         state = cast(DState, self.state)
         scale_factor = self.window_size / model.world.size
 
@@ -371,7 +373,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
             self._renderer = None
 
 
-class DrivingModel(M.POSGModel[DState, DObs, DAction]):
+class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
     """Driving Problem Model.
 
     Parameters
@@ -583,8 +585,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                     action_i[0] = 0
 
             v_angle = state_i.body[2] + action_i[0]
-            v_vel = action_i[1] * Vec2d(1, 0).rotated(v_angle)
-
+            v_vel = linear_to_xy_velocity(action_i[1], v_angle)
             self.world.update_entity_state(f"vehicle_{i}", angle=v_angle, vel=v_vel)
 
         self.world.simulate(1.0 / 10, 10)
@@ -881,11 +882,6 @@ def parseworld_str(world_str: str, supported_num_agents: int) -> DrivingWorld:
 
 
 SUPPORTED_WORLDS: Dict[str, Dict[str, Any]] = {
-    "3x3": {
-        "world_str": ("a1.\n" ".#.\n" ".0b\n"),
-        "supported_num_agents": 2,
-        "max_episode_steps": 15,
-    },
     "6x6Intersection": {
         "world_str": (
             "##0b##\n" "##..##\n" "d....3\n" "2....c\n" "##..##\n" "##a1##\n"

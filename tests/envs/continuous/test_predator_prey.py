@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 import posggym
+
 from posggym.envs.continuous.predator_prey import SUPPORTED_WORLDS, PPModel, PPState
 
 

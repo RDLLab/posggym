@@ -21,9 +21,7 @@ from itertools import product
 from typing import Dict, List, NamedTuple, Optional, Set, Tuple, Union, cast
 
 import numpy as np
-import pymunk
 from gymnasium import spaces
-from pymunk import Vec2d
 
 import posggym.model as M
 from posggym import logger
@@ -34,6 +32,7 @@ from posggym.envs.continuous.core import (
     Position,
     SquareContinuousWorld,
     clip_actions,
+    linear_to_xy_velocity,
 )
 from posggym.utils import seeding
 
@@ -288,7 +287,7 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
 
     def _render_img(self):
         import pygame
-        from pymunk import pygame_util
+        from pymunk import Transform, pygame_util
 
         model = cast(PPModel, self.model)
         state = cast(PPState, self.state)
@@ -315,7 +314,7 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
         if self.draw_options is None:
             pygame_util.positive_y_is_up = False
             self.draw_options = pygame_util.DrawOptions(self.window_surface)
-            self.draw_options.transform = pymunk.Transform.scaling(scale_factor)
+            self.draw_options.transform = Transform.scaling(scale_factor)
             # don't render collision lines
             self.draw_options.flags = (
                 pygame_util.DrawOptions.DRAW_SHAPES
@@ -604,7 +603,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             self.world.update_entity_state(
                 f"prey_{i}",
                 angle=prey_move_angles[i],
-                vel=self.STEP_VEL * Vec2d(1, 0).rotated(prey_move_angles[i]),
+                vel=linear_to_xy_velocity(self.STEP_VEL, prey_move_angles[i]),
             )
 
         # apply predator actions
@@ -612,12 +611,16 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             action = actions[str(i)]
             self.world.set_entity_state(f"pred_{i}", state.predator_states[i])
             if self.use_holonomic:
-                angle = math.atan2(action[1], action[0])
-                vel = Vec2d(action[0], action[1])
+                self.world.update_entity_state(
+                    f"pred_{i}", angle=math.atan2(action[1], action[0]), vel=action
+                )
             else:
                 angle = state.predator_states[i][2] + action[0]
-                vel = action[1] * Vec2d(1, 0).rotated(angle)
-            self.world.update_entity_state(f"pred_{i}", angle=angle, vel=vel)
+                self.world.update_entity_state(
+                    f"pred_{i}",
+                    angle=angle,
+                    vel=linear_to_xy_velocity(action[1], angle),
+                )
 
         # simulate
         self.world.simulate(1.0 / 10, 10)
@@ -847,6 +850,23 @@ class PPWorld(SquareContinuousWorld):
                     prey_start_positions.append((x, y, 0.0))
 
         self.prey_start_positions = prey_start_positions
+
+    def copy(self) -> "PPWorld":
+        world = PPWorld(
+            size=int(self.size),
+            blocks=self.blocks,
+            predator_start_positions=self.predator_start_positions,
+            prey_start_positions=self.prey_start_positions,
+        )
+        for id, (body, shape) in self.entities.items():
+            # make copies of each entity, and ensure the copies are linked correctly
+            # and added to the new world and world space
+            body = body.copy()
+            shape = shape.copy()
+            shape.body = body
+            world.space.add(body, shape)
+            world.entities[id] = (body, shape)
+        return world
 
 
 def parse_world_str(world_str: str) -> PPWorld:

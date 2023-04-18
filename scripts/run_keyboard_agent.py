@@ -72,8 +72,7 @@ def display_key_action_map(key_action_map):
 
 
 def run_grid_world_env_keyboard_agent(
-    env: posggym.Env,
-    keyboard_agent_id: M.AgentID,
+    env: posggym.Env, keyboard_agent_id: M.AgentID, pause_each_step: bool = False
 ) -> Tuple[Dict[str, float], int]:
     """Run keyboard agent in continuous environment.
 
@@ -91,17 +90,20 @@ def run_grid_world_env_keyboard_agent(
     rewards = {i: 0.0 for i in env.possible_agents}
     while not done:
         action_i = key_action_map[None]
-        events = pygame.event.get()
-        for event in events:
-            if event.type == pygame.KEYDOWN:
-                if event.key in key_action_map:
-                    action_i = key_action_map[event.key]
-                elif (
-                    event.key == pygame.K_c and pygame.key.get_mods() & pygame.KMOD_CTRL
-                ):
-                    # exit on control-c
-                    env.close()
-                    sys.exit()
+        action_entered = False
+        while pause_each_step and not action_entered:
+            for event in pygame.event.get():
+                if event.type == pygame.KEYDOWN:
+                    if event.key in key_action_map:
+                        action_i = key_action_map[event.key]
+                        action_entered = True
+                    elif (
+                        event.key == pygame.K_c
+                        and pygame.key.get_mods() & pygame.KMOD_CTRL
+                    ):
+                        # exit on control-c
+                        env.close()
+                        sys.exit()
 
         actions = {}
         for i in env.agents:
@@ -122,8 +124,7 @@ def run_grid_world_env_keyboard_agent(
 
 
 def run_continuous_env_keyboard_agent(
-    env: posggym.Env,
-    keyboard_agent_id: M.AgentID,
+    env: posggym.Env, keyboard_agent_id: M.AgentID, pause_each_step: bool = False
 ) -> Tuple[Dict[str, float], int]:
     """Run keyboard agent in continuous environment.
 
@@ -132,7 +133,7 @@ def run_continuous_env_keyboard_agent(
     import pygame
 
     angular_vel_inc = math.pi / 10
-    linear_vel_inc = 0.25
+    linear_vel_inc = 0.1
 
     o, _ = env.reset()
     env.render()
@@ -141,7 +142,17 @@ def run_continuous_env_keyboard_agent(
     done = False
     rewards = {i: 0.0 for i in env.possible_agents}
     action_i = np.array([0.0, 0.0], dtype=np.float32)
+
     while not done:
+        if pause_each_step:
+            # wait till key pressed
+            action_entered = False
+            while not action_entered:
+                for event in pygame.event.get():
+                    if event.type == pygame.KEYDOWN:
+                        action_entered = True
+                        break
+
         # reset angular velocity, but maintain linear velocity
         action_i[0] = 0.0
         keys = pygame.key.get_pressed()
@@ -151,9 +162,9 @@ def run_continuous_env_keyboard_agent(
             action_i[0] = +angular_vel_inc
 
         if keys[pygame.K_UP]:
-            action_i[1] = linear_vel_inc
+            action_i[1] = min(1.0, action_i[1] + linear_vel_inc)
         elif keys[pygame.K_DOWN]:
-            action_i[1] = -linear_vel_inc
+            action_i[1] = max(-1.0, action_i[1] - linear_vel_inc)
 
         if keys[pygame.K_c] and pygame.key.get_mods() & pygame.KMOD_CTRL:
             # exit on control-c
@@ -167,7 +178,7 @@ def run_continuous_env_keyboard_agent(
             else:
                 actions[i] = env.action_spaces[i].sample()
 
-        _, r, _, _, done, _ = env.step(actions)
+        o, r, _, _, done, _ = env.step(actions)
         t += 1
 
         for i, r_i in r.items():
@@ -223,7 +234,9 @@ def run_keyboard_agent(
     episode_rewards: Dict[M.AgentID, List[float]] = {i: [] for i in env.possible_agents}
     for ep_num in range(num_episodes):
         rewards, steps = run_env_episode_fn(
-            env, keyboard_agent_id=keyboard_agent_ids[0]
+            env,
+            keyboard_agent_id=keyboard_agent_ids[0],
+            pause_each_step=pause_each_step,
         )
         episode_steps.append(steps)
 

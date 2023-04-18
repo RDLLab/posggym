@@ -29,12 +29,12 @@ register(
 # -------------------------------------------
 register(
     id="DrivingContinuous-v0",
-    entry_point="posggym.envs.continuous.driving:DrivingEnv",
+    entry_point="posggym.envs.continuous.driving:DrivingContinuousEnv",
     max_episode_steps=200,
     kwargs={
         "world": "14x14RoundAbout",
         "num_agents": 2,
-        "obs_dist": 3.0,
+        "obs_dist": 4.0,
         "n_sensors": 16,
         "obstacle_collisions": False,
     },
@@ -76,7 +76,6 @@ register(
     max_episode_steps=200,
     kwargs={
         "world": "16x16",
-        "action_probs": 1.0,
         "max_obs_distance": 12,
         "normalize_reward": True,
         "use_progress_reward": True,

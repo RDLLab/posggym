@@ -18,9 +18,7 @@ import math
 from typing import Dict, List, NamedTuple, Optional, Tuple, cast
 
 import numpy as np
-import pymunk
 from gymnasium import spaces
-from pymunk import Vec2d
 
 import posggym.model as M
 from posggym import logger
@@ -30,6 +28,7 @@ from posggym.envs.continuous.core import (
     PMBodyState,
     Position,
     clip_actions,
+    linear_to_xy_velocity,
 )
 from posggym.utils import seeding
 
@@ -220,7 +219,7 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
 
     def _render_img(self):
         import pygame
-        from pymunk import pygame_util
+        from pymunk import Transform, pygame_util
 
         model = cast(DTCModel, self.model)
         state = cast(DTCState, self.state)
@@ -247,7 +246,7 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
         if self.draw_options is None:
             pygame_util.positive_y_is_up = False
             self.draw_options = pygame_util.DrawOptions(self.window_surface)
-            self.draw_options.transform = pymunk.Transform.scaling(scale_factor)
+            self.draw_options.transform = Transform.scaling(scale_factor)
             # don't render collision lines
             self.draw_options.flags = (
                 pygame_util.DrawOptions.DRAW_SHAPES
@@ -495,8 +494,8 @@ class DTCModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
 
             velocity_factor = 1 if not self.velocity_control else actions[str(i)][1]
             pursuer_angle = state.pursuer_coords[i][2] + actions[str(i)][0]
-            pursuer_vel = (
-                velocity_factor * self.vel_pur * Vec2d(1, 0).rotated(pursuer_angle)
+            pursuer_vel = linear_to_xy_velocity(
+                velocity_factor * self.vel_pur, pursuer_angle
             )
 
             self.world.update_entity_state(

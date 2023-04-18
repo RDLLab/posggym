@@ -861,6 +861,11 @@ def array_to_position(arr: np.ndarray) -> Position:
     return (arr[0], arr[1], arr[2])
 
 
+def linear_to_xy_velocity(linear_vel: float, angle: float) -> Vec2d:
+    """Convert from linear velocity to velocity along x and y axis."""
+    return linear_vel * Vec2d(1, 0).rotated(angle)
+
+
 def generate_interior_walls(
     width: int, height: int, blocked_coords: Iterable[Coord]
 ) -> List[Line]:
