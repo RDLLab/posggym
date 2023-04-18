@@ -103,6 +103,13 @@ tutorials/api_comparison.md
 
 ```{toctree}
 :hidden:
+:caption: Statistics
+
+statistics/env_speed.md
+```
+
+```{toctree}
+:hidden:
 :caption: Development
 
 Github <https://github.com/RDLLab/posggym>
