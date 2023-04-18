@@ -18,17 +18,17 @@ On Intel® Core™ i7-10750H CPU @ 2.60GHz with 16 GB RAM.
 
 | Env                            | Steps per second |
 | ------------------------------ | ---------------- |
-| MultiAccessBroadcastChannel-v0 | 58095.11         |
-| MultiAgentTiger-v0             | 66191.19         |
-| RockPaperScissors-v0           | 88039.06         |
-| DrivingContinuous-v0           | 565.00           |
-| DroneTeamCapture-v0            | 1539.91          |
-| PredatorPreyContinuous-v0      | 511.40           |
-| PursuitEvasionContinuous-v0    | 477.47           |
-| Driving-v0                     | 11943.63         |
-| DrivingGen-v0                  | 1925.79          |
-| LevelBasedForaging-v2          | 19632.33         |
-| PredatorPrey-v0                | 8642.39          |
-| PursuitEvasion-v0              | 14946.60         |
-| TwoPaths-v0                    | 27706.63         |
-| UAV-v0                         | 43118.94         |
+| MultiAccessBroadcastChannel-v0 | 58268.71         |
+| MultiAgentTiger-v0             | 66175.21         |
+| RockPaperScissors-v0           | 87995.65         |
+| DrivingContinuous-v0           | 530.87           |
+| DroneTeamCapture-v0            | 1489.70          |
+| PredatorPreyContinuous-v0      | 457.22           |
+| PursuitEvasionContinuous-v0    | 460.06           |
+| Driving-v0                     | 12414.77         |
+| DrivingGen-v0                  | 1866.07          |
+| LevelBasedForaging-v2          | 18848.95         |
+| PredatorPrey-v0                | 8707.06          |
+| PursuitEvasion-v0              | 14856.54         |
+| TwoPaths-v0                    | 26030.25         |
+| UAV-v0                         | 43277.41         |
