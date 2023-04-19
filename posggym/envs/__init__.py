@@ -56,14 +56,14 @@ register(
 register(
     id="PredatorPreyContinuous-v0",
     entry_point="posggym.envs.continuous.predator_prey:PredatorPreyContinuous",
-    max_episode_steps=200,
+    max_episode_steps=100,
     kwargs={
         "world": "10x10",
         "num_predators": 2,
         "num_prey": 3,
         "cooperative": True,
         "prey_strength": None,
-        "obs_dist": 3,
+        "obs_dist": 4,
         "n_sensors": 16,
     },
 )

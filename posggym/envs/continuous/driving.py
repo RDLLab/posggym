@@ -75,6 +75,9 @@ class DrivingContinuousEnv(DefaultEnv[DState, DObs, DAction]):
     Action Space
     ------------
     Each agent has 2 actions, which are the angular velocity and linear acceleration.
+    Each agent's actions is made up of two parts. The first action component specifies
+    the angular velocity in `[-pi/10, pi/10]`, and the second component specifies the
+    linear acceleration in `[-0.25, 0.25]`.
 
     Observation Space
     -----------------
@@ -412,9 +415,7 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
         self.world = world
         self.n_sensors = n_sensors
         self.obs_dist = obs_dist
-        self.vehicle_collision_dist = (
-            self.world.agent_radius * 2
-        ) + 0.1 * self.world.agent_radius
+        self.vehicle_collision_dist = 2.1 * self.world.agent_radius
 
         self.possible_agents = tuple(str(i) for i in range(num_agents))
         self.state_space = spaces.Tuple(

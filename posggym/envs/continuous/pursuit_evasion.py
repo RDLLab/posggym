@@ -90,7 +90,9 @@ class PursuitEvasionContinuousEnv(DefaultEnv):
 
     Action Space
     ------------
-    Each agent has 2 actions, which are the angular and linear velocity.
+    Each agent's actions is made up of two parts. The first action component specifies
+    the angular velocity in `[-pi/10, pi/10]`, and the second component specifies the
+    linear velocity in `[0, 1]`.
 
     Observation Space
     -----------------

@@ -1,21 +1,4 @@
-"""The Continuous Predator-Prey Environment.
-
-A co-operative 2D continuous world problem involving multiple predator agents working
-together to catch prey agents in the environment.
-
-This intends to be an adaptation of the 2D grid-world to the continuous setting.
-
-Reference
----------
-- Ming Tan. 1993. Multi-Agent Reinforcement Learning: Independent vs. Cooperative Agents
-  In Proceedings of the Tenth International Conference on Machine Learning. 330–337.
-- J. Z. Leibo, V. F. Zambaldi, M. Lanctot, J. Marecki, and T. Graepel. 2017. Multi-Agent
-  Reinforcement Learning in Sequential Social Dilemmas. In AAMAS, Vol. 16. ACM, 464–473
-- Lowe, Ryan, Yi I. Wu, Aviv Tamar, Jean Harb, OpenAI Pieter Abbeel, and Igor Mordatch.
-  2017. “Multi-Agent Actor-Critic for Mixed Cooperative-Competitive Environments.”
-  Advances in Neural Information Processing Systems 30.
-
-"""
+"""The Continuous Predator-Prey Environment."""
 import math
 from itertools import product
 from typing import Dict, List, NamedTuple, Optional, Set, Tuple, Union, cast
@@ -63,17 +46,21 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
     -----------
     Each state consists of:
 
-    1. tuple of the (x, y) position of all predators
-    2. tuple of the (x, y) position of all preys
-    3. tuple of whether each prey has been caught or not (0=no, 1=yes)
+    1. 2D array containing the state of each predator
+    2. 2D array containing the state of each prey
+    3. 1D array containing whether each prey has been caught or not (0=no, 1=yes)
 
-    For the coordinate x=column, y=row, with the origin (0, 0) at the top-left square
-    of the world.
+    The state of each predator and prey is a 1D array containing their:
+
+    - `(x, y)` coordinate
+    - angle/yaw (in radians)
+    - velocity in x and y directions
+    - angular velocity (in radians)
 
     Action Space
     ------------
     Each agent's actions is made up of two parts. The first action component specifies
-    the angular velocity in `[-2*pi, 2*pi]`, and the second component specifies the
+    the angular velocity in `[-pi/10, pi/10]`, and the second component specifies the
     linear velocity in `[0, 1]`.
 
     Observation Space
@@ -94,7 +81,7 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
 
     If an entity is not observed (i.e. there is none along the sensor's line or it
     isn't the closest entity to the observing agent along the line), The distance will
-    be 1.
+    be `obs_dist`.
 
     The sensor reading ordering is relative to the agent's direction. I.e. the values
     for the first sensor at indices `0`, `n_sensors`, `2*n_sensors` correspond to the
@@ -118,30 +105,27 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
     Dynamics
     --------
     Actions of the predator agents are deterministic and consist of moving based on
-    the dynamic model. If two or more predators attempt to move into the same location
-    then no agent moves.
+    their angle and linear velocity.
 
     Prey move according to the following rules (in order of priority):
 
-    1. if predator is within `obs_dist` distance, moves away from closest predator
+    1. if a predator is within `obs_dist` distance, moves away from closest predator
     2. if another prey is within `obs_dist` distance, moves away from closest prey
     3. else move randomly
 
-    Prey always move first and predators and prey cannot occupy the same location.
-    The only exception being if a prey has been caught their final coord is
-    recorded in the state but predator and prey agents will be able to move
-    into the final coord.
+    If a prey is caught it is removed from the world (i.e. it's coords become
+    `(-1, -1)`).
 
     Starting State
     --------------
     Predators start from random separate locations along the edge of the world
-    (either in a corner, or half-way along a side), while prey start together
-    in the middle.
+    (either in a corner, or half-way along a side), while prey start at random locations
+    around the middle of the world.
 
     Episodes End
     ------------
     Episodes ends when all prey have been captured. By default a `max_episode_steps`
-    limit of `50` steps is also set. This may need to be adjusted when using larger
+    limit of `100` steps is also set. This may need to be adjusted when using larger
     worlds (this can be done by manually specifying a value for `max_episode_steps` when
     creating the environment with `posggym.make`).
 
@@ -159,9 +143,9 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
         `1` and maximum is `min(4, num_predators)`. If `None` this is set to
         `min(4, num_predators)` (default = 'None`)
     - `obs_dist` - the local observation distance, specifying how far away in each
-        direction each predator and prey agent observes (default = `2`).
+        direction each predator and prey agent observes (default = `4`).
     - `n_sensors` - the number of lines eminating from the agent. The agent will observe
-        at `n` equidistance intervals over `[0, 2*pi]` (default = `10`).
+        at `n` equidistance intervals over `[0, 2*pi]` (default = `16`).
 
     Available variants
     ------------------
@@ -227,24 +211,23 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
         num_prey: int = 3,
         cooperative: bool = True,
         prey_strength: Optional[int] = None,
-        obs_dist: float = 2,
-        n_sensors: int = 10,
+        obs_dist: float = 4,
+        n_sensors: int = 16,
         render_mode: Optional[str] = None,
         **kwargs,
     ):
         super().__init__(
-            PPModel(
-                world,
-                num_predators,
-                num_prey,
-                cooperative,
-                prey_strength,
-                obs_dist,
-                n_sensors,
+            PredatorPreyContinuousModel(
+                world=world,
+                num_predators=num_predators,
+                num_prey=num_prey,
+                cooperative=cooperative,
+                prey_strength=prey_strength,
+                obs_dist=obs_dist,
+                n_sensors=n_sensors,
             ),
             render_mode=render_mode,
         )
-        self._obs_dist = obs_dist
         self.window_surface = None
         self.clock = None
         self.window_size = 600
@@ -276,7 +259,7 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
         import pygame
         from pymunk import Transform, pygame_util
 
-        model = cast(PPModel, self.model)
+        model = cast(PredatorPreyContinuousModel, self.model)
         state = cast(PPState, self.state)
         scale_factor = self.window_size / model.world.size
 
@@ -363,8 +346,8 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
             pygame.quit()
 
 
-class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
-    """Predator-Prey Problem Model.
+class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
+    """Predator-Prey Continuous Problem Model.
 
     Parameters
     ----------
@@ -388,10 +371,8 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
     """
 
     R_MAX = 1.0
-    # max distance a predator or prey agent can move in a single step
-    STEP_VEL = 0.5
-    # distance predator can be from prey to be considered to be within catching range
-    COLLISION_DIST = 1.2
+    # prey agent move distance per step
+    PREY_STEP_VEL = 0.5
 
     PREDATOR_COLOR = (55, 155, 205, 255)  # Blueish
     PREY_COLOR = (110, 55, 155, 255)  # purpleish
@@ -421,7 +402,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
                 f"Unsupported world name '{world}'. World name must be one of: "
                 f"{list(SUPPORTED_WORLDS)}."
             )
-            world = SUPPORTED_WORLDS[world][0]()
+            world = SUPPORTED_WORLDS[world]()
         # Cannot be a string by this point.
         self.world = cast(PPWorld, world)
 
@@ -441,9 +422,10 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         self.obs_dist = obs_dist
         self.cooperative = cooperative
         self.prey_strength = prey_strength
-        self._per_prey_reward = self.R_MAX / self.num_prey
+        self.per_prey_reward = self.R_MAX / self.num_prey
         self.n_sensors = n_sensors
-        self.communication_radius = 1
+        self.prey_capture_dist = 2.2 * self.world.agent_radius
+        self.possible_agents = tuple((str(x) for x in range(self.num_predators)))
 
         def _pos_space(n_agents: int):
             # x, y, angle, vx, vy, vangle
@@ -459,7 +441,6 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
                 low=np.tile(low, (n_agents, 1)), high=np.tile(high, (n_agents, 1))
             )
 
-        self.possible_agents = tuple((str(x) for x in range(self.num_predators)))
         self.state_space = spaces.Tuple(
             (
                 # state of each predator
@@ -472,7 +453,6 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         )
 
         self.dyaw_limit = math.pi / 10
-        # dyaw, vel
         self.action_spaces = {
             i: spaces.Box(
                 low=np.array([-self.dyaw_limit, 0.0], dtype=np.float32),
@@ -481,10 +461,6 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             for i in self.possible_agents
         }
 
-        # Observes entity and distance to entity along a n_sensors rays from the agent
-        # 0 to n_sensors = wall distance obs
-        # n_sensors to (2 * n_sensors) = pred dist
-        # (2 * n_sensors) to (3 * n_sensors) = prey dist
         self.obs_dim = self.n_sensors * 3
         self.observation_spaces = {
             i: spaces.Box(
@@ -578,7 +554,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             self.world.update_entity_state(
                 f"prey_{i}",
                 angle=prey_move_angles[i],
-                vel=linear_to_xy_velocity(self.STEP_VEL, prey_move_angles[i]),
+                vel=linear_to_xy_velocity(self.PREY_STEP_VEL, prey_move_angles[i]),
             )
 
         # apply predator actions
@@ -618,7 +594,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
                 next_prey_states[i][:2] - next_pred_states[:, :2], axis=1
             )
             if (
-                np.where(pred_dists <= self.COLLISION_DIST, 1, 0).sum()
+                np.where(pred_dists <= self.prey_capture_dist, 1, 0).sum()
                 >= self.prey_strength
             ):
                 next_prey_caught[i] = 1
@@ -749,15 +725,15 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
             return {i: 0.0 for i in self.possible_agents}
 
         if self.cooperative:
-            reward = len(new_caught_prey) * (self._per_prey_reward)
+            reward = len(new_caught_prey) * (self.per_prey_reward)
             return {i: reward for i in self.possible_agents}
 
         rewards = {i: 0.0 for i in self.possible_agents}
         pred_states = next_state.predator_states
         for prey_state in new_caught_prey:
             pred_dists = np.linalg.norm(prey_state[:2] - pred_states[:, :2], axis=1)
-            involved_predators = np.where(pred_dists <= self.COLLISION_DIST)[0]
-            predator_reward = self._per_prey_reward / len(involved_predators)
+            involved_predators = np.where(pred_dists <= self.prey_capture_dist)[0]
+            predator_reward = self.per_prey_reward / len(involved_predators)
             for i in involved_predators:
                 rewards[str(i)] += predator_reward
 
@@ -775,7 +751,14 @@ class PPWorld(SquareContinuousWorld):
         prey_start_positions: Optional[List[Position]] = None,
     ):
         assert size >= 3
-        super().__init__(size=size, blocks=blocks, agent_radius=0.4)
+        super().__init__(
+            size=size,
+            blocks=blocks,
+            interior_walls=None,
+            agent_radius=0.4,
+            border_thickness=0.1,
+            enable_agent_collisions=True,
+        )
 
         if predator_start_positions is None:
             predator_start_positions = []
@@ -981,14 +964,14 @@ def get_20x20_blocks_world() -> PPWorld:
     return get_default_world(20, include_blocks=True)
 
 
-#  (world_make_fn, step_limit)
+#  world: world_make_fn
 SUPPORTED_WORLDS = {
-    "5x5": (get_5x5_world, 25),
-    "5x5Blocks": (get_5x5_blocks_world, 50),
-    "10x10": (get_10x10_world, 50),
-    "10x10Blocks": (get_10x10_blocks_world, 50),
-    "15x15": (get_15x15_world, 100),
-    "15x15Blocks": (get_15x15_blocks_world, 100),
-    "20x20": (get_20x20_world, 200),
-    "20x20Blocks": (get_20x20_blocks_world, 200),
+    "5x5": get_5x5_world,
+    "5x5Blocks": get_5x5_blocks_world,
+    "10x10": get_10x10_world,
+    "10x10Blocks": get_10x10_blocks_world,
+    "15x15": get_15x15_world,
+    "15x15Blocks": get_15x15_blocks_world,
+    "20x20": get_20x20_world,
+    "20x20Blocks": get_20x20_blocks_world,
 }
