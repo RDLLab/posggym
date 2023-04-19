@@ -191,11 +191,11 @@ class PursuitEvasionContinuousEnv(DefaultEnv):
     layouts which can be passed as an argument to `posggym.make`, to create different
     worlds.
 
-    | World name         | World size |
-    |-------------------|-----------|
-    | `5x5`             | 8x8       |
-    | `16x16`           | 16x16     |
-    | `32x32`           | 32x32     |
+    | World name       | World size |
+    |------------------|------------|
+    | `8x8`            |  8x8       |
+    | `16x16`          |  16x16     |
+    | `32x32`          |  32x32     |
 
     For example to use the PursuitEvasionContinuous environment with the `32x32` world
     layout, and episode step limit of 200, and the default values for the other

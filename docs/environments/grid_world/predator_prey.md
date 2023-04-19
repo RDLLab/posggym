@@ -139,7 +139,7 @@ other parameters (`cooperative`, `obs_dim`, `prey_strength`) you would use:
 
 ```python
 import posggym
-env = posgggym.make(
+env = posggym.make(
     'PredatorPrey-v0',
     max_episode_steps=100,
     grid="15x15Blocks",

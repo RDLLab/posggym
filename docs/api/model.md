@@ -89,10 +89,10 @@ title: Model
 .. autoattribute:: posggym.model.JointTimestep.state
 .. autoattribute:: posggym.model.JointTimestep.observations
 .. autoattribute:: posggym.model.JointTimestep.rewards
-.. autoattribute:: posggym.model.JointTimestep.terminated
-.. autoattribute:: posggym.model.JointTimestep.truncated
+.. autoattribute:: posggym.model.JointTimestep.terminations
+.. autoattribute:: posggym.model.JointTimestep.truncations
 .. autoattribute:: posggym.model.JointTimestep.all_done
-.. autoattribute:: posggym.model.JointTimestep.info
+.. autoattribute:: posggym.model.JointTimestep.infos
 ```
 
 ## posggym.model.Outcome

@@ -137,10 +137,17 @@ title: {title_env_name}
             + f"<a href='..'>{env_type_title} environments</a>. "
             + "Please read that page first for general information."
         )
+
+        act_spaces_str = str(env.action_spaces)
+        act_spaces_str = act_spaces_str.replace("\n", " ")
+
+        obs_spaces_str = str(env.observation_spaces)
+        obs_spaces_str = obs_spaces_str.replace("\n", " ")
+
         env_table = "|   |   |\n|---|---|\n"
         env_table += f"| Possible Agents | {env.possible_agents} |\n"
-        env_table += f"| Action Spaces | {env.action_spaces} |\n"
-        env_table += f"| Observation Spaces | {env.observation_spaces} |\n"
+        env_table += f"| Action Spaces | {act_spaces_str} |\n"
+        env_table += f"| Observation Spaces | {obs_spaces_str} |\n"
         env_table += f"| Symmetric | {env.is_symmetric} |\n"
 
         # if env.observation_space.shape:

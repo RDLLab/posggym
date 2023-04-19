@@ -12,7 +12,7 @@ repos:
       - id: check-toml
       - id: check-ast
       - id: check-added-large-files
-        args: ["--maxkb=1000"]
+        args: ["--maxkb=2000"]
       - id: check-merge-conflict
       - id: check-executables-have-shebangs
       - id: check-shebang-scripts-are-executable

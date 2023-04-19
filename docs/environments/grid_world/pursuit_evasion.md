@@ -154,7 +154,7 @@ use:
 
 ```python
 import posggym
-env = posgggym.make(
+env = posggym.make(
     'PursuitEvasion-v0',
     max_episode_steps=200,
     grid="32x32",
