@@ -48,15 +48,15 @@ PEAction = np.ndarray
 PEObs = np.ndarray
 
 
-class PursuitEvasionEnv(DefaultEnv):
-    """The Pursuit-Evasion Grid World Environment.
+class PursuitEvasionContinuousEnv(DefaultEnv):
+    """The Pursuit-Evasion Continuous World Environment.
 
     An adversarial continuous world problem involving two agents: an evader and a
     pursuer. The evader's goal is to reach a goal location, on the other side of
-    the grid, while the goal of the pursuer is to spot the evader before it reaches
+    the world, while the goal of the pursuer is to spot the evader before it reaches
     it's goal. The evader is considered caught if it is observed by the pursuer, or
     occupies the same location. The evader and pursuer have knowledge of each others
-    starting locations. However, only the evader has knowledge of it's goal location.
+    starting locations, however only the evader has knowledge of it's goal location.
     The pursuer only knowns that the evader's goal location is somewhere on the opposite
     side of the world to the evaders start location.
 
@@ -72,14 +72,21 @@ class PursuitEvasionEnv(DefaultEnv):
     -----------
     Each state is made up of:
 
-    0. the `(x, y, yaw)` coordinate of the evader
-    1. the `(x, y, yaw)` coordinate of the pursuer
-    2. the `(x, y, yaw)` coordinate of the evader's start location
-    3. the `(x, y, yaw)` coordinate of the pursuer's start location
-    4. the `(x, y, yaw)` coordinate of the evader's goal
+    0. the state of the evader
+    1. the state of the pursuer
+    2. the `(x, y)` coordinate of the evader's start location
+    3. the `(x, y)` coordinate of the pursuer's start location
+    4. the `(x, y)` coordinate of the evader's goal
     5. the minimum distance to it's goal along the shortest discrete path achieved
        by the evader in the current episode (this is needed to correctly reward
        the agent for making progress.)
+
+    Both the evader and pursuer state consist of their:
+
+    - `(x, y)` coordinate
+    - angle/yaw (in radians)
+    - velocity in x and y directions
+    - angular velocity (in radians)
 
     Action Space
     ------------
@@ -87,39 +94,34 @@ class PursuitEvasionEnv(DefaultEnv):
 
     Observation Space
     -----------------
-    Each agent observes:
+    Each agent observes the local world in a `fov` radian cone in front of
+    themselves. This is achieved by a series of `n_sensors` sensor lines starting
+    at the agent which extend up to `max_obs_distance` away from the agent.
+    For each sensor line the agent observes the closest entity along the line,
+    specifically if there is a wall or the other agent. Along with the sensor
+    readings each agent also observes whether they hear the other agent within
+    a circle with radius ``HEARING_DIST = 4.0` around themselves, the `(x, y)`
+    coordinate of the evader's start location and the `(x, y)` coordinate of the
+    pursuer's start location. The evader also observes  the `(x, y)` coordinate of
+    their goal location, while the pursuer receives a value of `(0, 0` for
+    this feature.
 
-    1. Each agent observes a local sector around themselves as a vector. The angle of
-    this sector is between -fov and fov. This observation is done by a series of
-    n_sensors' lines starting at the agent which extend for a distance of 'obs_dist'.
-    For each line the agent observes the closest entity (wall, pursuer, evader) along
-    the line. This table enumerates the first part of the observation space:
+    This table enumerates the first part of the observation space:
 
-    |        Index: [start, end)        | Description                       | Values |
-    | :-------------------------------: | --------------------------------: | :----: |
-    |           0 - n_sensors           | Wall distance for each sensor     | [0, d] |
-    |    n_sensors - (2 * n_sensors)    | Other agent dist for each sensor  | [0, d] |
+    | Index: start          | Description                          |  Values   |
+    | :-------------------: | :----------------------------------: | :-------: |
+    | 0                     | Wall distance                        | [0, d]    |
+    | n_sensors             | Other agent distance                 | [0, d]    |
+    | 2 * n_sensors         | Other agent heard                    | [0, 1]    |
+    | 2 * n_sensors + 1     | Evader start coordinates             | [0, s]    |
+    | 2 * n_sensors + 3     | Pursuer start coordinates            | [0, s]    |
+    | 2 * n_sensors + 5     | Evader goal coordinates              | [0, s]    |
 
-    Where `d = obs_dist`.
+    Where `d = max_obs_distance` and `s = world.size`
 
-    If an entity is not observed (i.e. there is none along the sensor's line or it
-    isn't the closest entity to the observing agent along the line), The distance will
-    be 1.
-
-    The sensor reading ordering is relative to the agent's direction. I.e. the values
-    for the first sensor at indices `0`, `n_sensors`, `2*n_sensors` correspond to the
-    distance reading to a wall/obstacle, predator, and prey, respectively, in the
-    direction the agent is facing.
-
-    2. whether they see the other agent in a cone in front of them (`1`) or not (`0`).
-       The cone projects forward up to 'max_obs_distance' (default=`12`) cells in front
-       of the agent.
-    3. whether they hear the other agent (`1`) or not (`0`). The other agent is heard if
-       they are within distance 2 from the agent in any direction.
-    4. the `(x, y, yaw)` coordinate of the evader's start location,
-    5. the `(x, y, yaw)` coordinate of the pursuer's start location,
-    6. Evader: the `(x, y, 0)` coordinate of the evader's goal location.
-       Pursuer: blank coordinate `(0, 0, 0)`.
+    If an entity is not observed by a sensor (i.e. it's not within `max_obs_distance`
+    or is not the closest entity to the observing agent along the line), The distance
+    reading will be `max_obs_distance`.
 
     Note, the goal and start coordinate observations do not change during a single
     episode, but they do change between episodes.
@@ -135,12 +137,13 @@ class PursuitEvasionEnv(DefaultEnv):
     reward of `0.01` each time it's minimum distance achieved to it's goal along the
     shortest path decreases for the current episode. This is to make it so the
     environment is no longer sparesely rewarded and helps with exploration and learning
-    (it can be disabled by the `use_progress_reward` parameter.)+
+    (it can be disabled by the `use_progress_reward` parameter.)
 
     Dynamics
     --------
-    By default actions are deterministic and will move the agent one cell in the target
-    direction if the cell is empty.
+    Actions are deterministic and will change the agents direction and velocity in the
+    direction they are facing. The velocity range of an agent is [0, 1]; agent's cannot
+    move backwards (have negative velocity).
 
     Starting State
     --------------
@@ -153,34 +156,38 @@ class PursuitEvasionEnv(DefaultEnv):
 
     Episode End
     -----------
-    An episode ends when either the evader is caught or the evader reaches it's goal.
-    By default a `max_episode_steps` limit of `100` steps is also set. This may need to
-    be adjusted when using larger worlds (this can be done by manually specifying a
-    value for `max_episode_steps` when creating the environment with `posggym.make`).
+    An episode ends when either the evader is seen or touched by the pursuer or the
+    evader reaches it's goal. By default a `max_episode_steps` limit of `200` steps is
+    also set. This may need to be adjusted when using larger worlds (this can be done
+    by manually specifying a value for `max_episode_steps` when creating the environment
+    with `posggym.make`).
 
     Arguments
     ---------
 
     - `world` - the world layout to use. This can either be a string specifying one of
-         the supported worlds, or a custom :class:`PEWorld` object
-         (default = `"16x16"`).
-    - `max_obs_distance` - the maximum number of cells in front each agent's field of
-        vision extends (default = `12`).
+         the supported worlds (see SUPPORTED_WORLDS), or a custom :class:`PEWorld`
+         object (default = `"16x16"`).
+    - `max_obs_distance` - the maximum distance from the agent that each agent's field
+        of vision extends (default = `12`).
+    - `fov` - the field of view of the agent in radians. This will determine the
+        angle of the cone in front of the agent which it can see. The FOV will be
+        relative to the angle of the agent.
+    - `n_sensors` - the number of sensor lines eminating from the agent within their
+        FOV. The agent will observe at `n_sensors` equidistance intervals over
+        `[-fov / 2, fov / 2]` (default = `8`).
     - `normalize_reward` - whether to normalize both agents' rewards to be between `-1`
         and `1` (default = 'True`)
     - `use_progress_reward` - whether to reward the evader agent for making progress
         towards it's goal. If False the evader will only be rewarded when it reaches
         it's goal, making it a sparse reward problem (default = 'True`).
-    - `fov` - the Field of View of the agent in radians. This will determine the
-        sector of which the agent can see. This FOV will be relative to the angle
-        of the agent.
 
     Available variants
     ------------------
 
     The PursuitEvasionContinuous environment comes with a number of pre-built world
-    layouts which can be passed as an argument to `posggym.make`, to create
-    different worlds.
+    layouts which can be passed as an argument to `posggym.make`, to create different
+    worlds.
 
     | World name         | World size |
     |-------------------|-----------|
@@ -222,19 +229,21 @@ class PursuitEvasionEnv(DefaultEnv):
     def __init__(
         self,
         world: Union[str, "PEWorld"] = "16x16",
-        max_obs_distance: int = 12,
+        max_obs_distance: float = 12.0,
+        fov: float = np.pi / 2,
+        n_sensors: int = 8,
         normalize_reward: bool = True,
         use_progress_reward: bool = True,
-        fov: float = np.pi / 2,
         render_mode: Optional[str] = None,
         **kwargs,
     ):
-        model = PursuitEvasionModel(
+        model = PursuitEvasionContinuousModel(
             world,
             max_obs_distance=max_obs_distance,
             normalize_reward=normalize_reward,
             use_progress_reward=use_progress_reward,
             fov=fov,
+            n_sensors=n_sensors,
             **kwargs,
         )
         super().__init__(model, render_mode=render_mode)
@@ -278,7 +287,7 @@ class PursuitEvasionEnv(DefaultEnv):
         import pygame
         from pymunk import Transform, pygame_util
 
-        model = cast(PursuitEvasionModel, self.model)
+        model = cast(PursuitEvasionContinuousModel, self.model)
         state = cast(PEState, self.state)
         scale_factor = self.window_size / model.world.size
 
@@ -396,8 +405,33 @@ class PursuitEvasionEnv(DefaultEnv):
             pygame.quit()
 
 
-class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
-    """Discrete Pursuit-Evasion Model."""
+class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
+    """Continuous Pursuit-Evasion Model.
+
+    Arguments
+    ---------
+    world : str, PEWorld
+        the world layout to use. This can either be a string specifying one of
+        the supported worlds (see SUPPORTED_WORLDS), or a custom :class:`PEWorld`
+        object.
+    max_obs_distance : float
+        the maximum distance from the agent that each agent's field of vision extends.
+    fov : float
+        the field of view of the agent in radians. This will determine the angle of the
+        cone in front of the agent which it can see. The FOV will be relative to the
+        angle of the agent.
+    n_sensors : int
+        the number of sensor lines eminating from the agent within their FOV. The agent
+        will observe at `n_sensors` equidistance intervals over `[-fov / 2, fov / 2]`
+        (default = `8`).
+    normalize_reward : bool
+        whether to normalize both agents' rewards to be between `-1` and `1`
+    use_progress_reward : bool
+        whether to reward the evader agent for making progress towards it's goal. If
+        False the evader will only be rewarded when it reaches it's goal, making it a
+        sparse reward problem.
+
+    """
 
     NUM_AGENTS = 2
 
@@ -406,8 +440,6 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
 
     # Evader-centric rewards
     R_PROGRESS = 0.01  # Reward making progress toward goal
-    R_EVADER_ACTION = -0.01  # Reward each step for evader
-    R_PURSUER_ACTION = -0.01  # Reward each step for pursuer
     R_EVASION = 1.0  # Reward for reaching goal (capture reward is -R_EVASION)
 
     HEARING_DIST = 4
@@ -419,17 +451,18 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
     def __init__(
         self,
         world: Union[str, "PEWorld"],
-        max_obs_distance: int = 12,
+        max_obs_distance: float = 12.0,
+        fov: float = np.pi / 2,
+        n_sensors: int = 8,
         normalize_reward: bool = True,
         use_progress_reward: bool = True,
-        fov: float = np.pi / 2,
     ):
         if isinstance(world, str):
             assert world in SUPPORTED_WORLDS, (
                 f"Unsupported world name '{world}'. If world is a string it must be "
                 f"one of: {SUPPORTED_WORLDS.keys()}."
             )
-            world = SUPPORTED_WORLDS[world][0]()
+            world = SUPPORTED_WORLDS[world]()
 
         self.world = world
         self.max_obs_distance = max_obs_distance
@@ -450,8 +483,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             )
 
         self.possible_agents = tuple(str(i) for i in range(self.NUM_AGENTS))
-        # s = Tuple[Coord, Direction, Coord, Direction, Coord, Coord, Coord, int]
-        # e_coord, e_dir, p_coord, p_dir, e_start, p_start, e_goal, max_sp
+        # e_state, p_state, e_start_coord, p_start_coord, e_goal_coord, min_sp
         self.state_space = spaces.Tuple(
             (
                 PMBodyState.get_space(self.world.size),
@@ -472,16 +504,10 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             for i in self.possible_agents
         }
 
-        # Observes distance to wall or other agent along n_sensors rays from the agent
-        # observes wall or other agent, whatever is closer along ray
-        # 0 to n_sensors = wall distance
-        # n_sensors to (2 * n_sensors) = other agent distance
         self.obs_dist = self.max_obs_distance
-        self.n_sensors = 8
+        self.n_sensors = n_sensors
         self.sensor_obs_dim = self.n_sensors * 2
         self.obs_dim = self.sensor_obs_dim + 7
-
-        # o = [sensors wall, sensors agent, heard, e_start, p_start, e_goal]
         sensor_low = [0.0] * self.sensor_obs_dim
         sensor_high = [self.max_obs_distance] * self.sensor_obs_dim
         size = self.world.size
@@ -677,9 +703,8 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         if self._use_progress_reward and next_state.min_goal_dist < state.min_goal_dist:
             evader_reward += self.R_PROGRESS
 
-        if (
-            self.world.agents_collide(next_state.evader_state, next_state.pursuer_state)
-            or evader_seen
+        if evader_seen or self.world.agents_collide(
+            next_state.evader_state, next_state.pursuer_state
         ):
             evader_reward -= self.R_EVASION
         elif self.world.agents_collide(
@@ -798,18 +823,7 @@ class PEWorld(SquareContinuousWorld):
 
 
 def get_8x8_world() -> PEWorld:
-    """Generate the 8-by-8 PE world layout.
-
-    This is an approximate discrete version of the map layout from:
-    Seaman et al 2018, 'Nested Reasoning About Autonomous Agents Using
-    Probabilistic Programs'
-
-    - 0, 1, 2, 7, 8, 9 are possible evader start and goal locations
-    - 5, 6 are possible pursuer start locations
-
-    The evader start and goal locations are always on opposite sides of the
-    map.
-    """
+    """Generate the 8-by-8 PE world layout."""
     ascii_map = (
         "  9 #8 #\n"
         "# #    #\n"
@@ -820,24 +834,11 @@ def get_8x8_world() -> PEWorld:
         "#    #2 \n"
         "0 #1### \n"
     )
-
-    return _convert_map_to_world(ascii_map, 8, 8)
+    return convert_map_to_world(ascii_map, 8, 8)
 
 
 def get_16x16_world() -> PEWorld:
-    """Generate the 16-by-16 PE world layout.
-
-    This is an approximate discrete version of the map layout from:
-    Seaman et al 2018, 'Nested Reasoning About Autonomous Agents Using
-    Probabilistic Programs'
-
-    - 0, 1, 2, 7, 8, 9 are possible evader start and goal locations
-    - 5, 6 are possible pursuer start locations
-
-    The evader start and goal locations are always on opposite sides of the
-    map.
-
-    """
+    """Generate the 16-by-16 PE world layout."""
     ascii_map = (
         "  ## ####### ###\n"
         "    9##    8 ###\n"
@@ -856,23 +857,11 @@ def get_16x16_world() -> PEWorld:
         "   ### #   ##2  \n"
         "###    1 #####  \n"
     )
-    return _convert_map_to_world(ascii_map, 16, 16)
+    return convert_map_to_world(ascii_map, 16, 16)
 
 
 def get_32x32_world() -> PEWorld:
-    """Generate the 32-by-32 PE world layout.
-
-    This is an approximate discrete version of the map layout from:
-    Seaman et al 2018, 'Nested Reasoning About Autonomous Agents Using
-    Probabilistic Programs'
-
-    - 0, 1, 2, 7, 8, 9 are possible evader start and goal locations
-    - 5, 6 are possible pursuer start locations
-
-    The evader start and goal locations are always on opposite sides of the
-    map.
-
-    """
+    """Generate the 32-by-32 PE world layout."""
     ascii_map = (
         "       #  ########### #         \n"
         "   #####  ########### #  #######\n"
@@ -907,10 +896,10 @@ def get_32x32_world() -> PEWorld:
         "##########      ############    \n"
         "#                               \n"
     )
-    return _convert_map_to_world(ascii_map, 32, 32)
+    return convert_map_to_world(ascii_map, 32, 32)
 
 
-def _convert_map_to_world(
+def convert_map_to_world(
     ascii_map: str,
     height: int,
     width: int,
@@ -919,6 +908,18 @@ def _convert_map_to_world(
     evader_start_symbols: Optional[Set[str]] = None,
     evader_goal_symbol_map: Optional[Dict] = None,
 ) -> PEWorld:
+    """Generate PE world layout from ascii map.
+
+    By default
+    - 0, 1, 2, 7, 8, 9 are possible evader start and goal locations
+    - 5, 6 are possible pursuer start locations
+    - # are blocks
+
+    The default maps are approximate discrete versions of the map layout from:
+    Seaman et al 2018, 'Nested Reasoning About Autonomous Agents Using
+    Probabilistic Programs'
+
+    """
     row_strs = ascii_map.splitlines()
     assert len(row_strs) > 1
     assert all(len(row) == len(row_strs[0]) for row in row_strs)
@@ -969,9 +970,9 @@ def _convert_map_to_world(
     )
 
 
-# world_name: (world_make_fn, step_limit)
-SUPPORTED_WORLDS: Dict[str, Tuple[Callable[[], PEWorld], int]] = {
-    "8x8": (get_8x8_world, 50),
-    "16x16": (get_16x16_world, 100),
-    "32x32": (get_32x32_world, 200),
+# world_name: world_make_fn
+SUPPORTED_WORLDS: Dict[str, Callable[[], PEWorld]] = {
+    "8x8": get_8x8_world,
+    "16x16": get_16x16_world,
+    "32x32": get_32x32_world,
 }

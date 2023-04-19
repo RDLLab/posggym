@@ -87,21 +87,21 @@ class DrivingContinuousEnv(DefaultEnv[DState, DObs, DAction]):
 
     This table enumerates the observation space:
 
-    |    Index: [start, end)     | Description                          |  Values   |
-    | :------------------------: | :----------------------------------: | :-------: |
-    |       0,  n_sensors        | Wall distance                        | [0, d]    |
-    | n_sensors, (2 * n_sensors) | Other vehicle distance               | [0, d]    |
-    | 2 * n_sensors,             | Vehicle angle                        | [-2π, 2π] |
-    | 2 * n_sensors + 1          | Vehicle x velocity                   | [-1, 1]   |
-    | 2 * n_sensors + 2          | Vehicle y velocity                   | [-1, 1]   |
-    | 2 * n_sensors + 3          | distance to destination along x axis | [0, s]    |
-    | 2 * n_sensors + 4          | distance to destination along y axis | [0, s]    |
+    | Index: start          | Description                          |  Values   |
+    | :-------------------: | :----------------------------------: | :-------: |
+    | 0                     | Wall distance                        | [0, d]    |
+    | n_sensors             | Other vehicle distance               | [0, d]    |
+    | 2 * n_sensors         | Vehicle angle                        | [-2π, 2π] |
+    | 2 * n_sensors + 1     | Vehicle x velocity                   | [-1, 1]   |
+    | 2 * n_sensors + 2     | Vehicle y velocity                   | [-1, 1]   |
+    | 2 * n_sensors + 3     | distance to destination along x axis | [0, s]    |
+    | 2 * n_sensors + 4     | distance to destination along y axis | [0, s]    |
 
     Where `d = obs_dist` and `s = world.size`
 
-    If an entity is not observed by a sensor (i.e. it's not within `obs_dist` or not
-    the closest entity to the observing agent along the line), The distance will be
-    `obs_dist`.
+    If an entity is not observed by a sensor (i.e. it's not within `obs_dist` or is not
+    the closest entity to the observing agent along the line), The distance reading will
+    be `obs_dist`.
 
     The sensor reading ordering is relative to the agent's direction. I.e. the values
     for the first sensor at indices `0`, `n_sensors`, correspond to the distance

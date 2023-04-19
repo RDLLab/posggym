@@ -70,11 +70,13 @@ register(
 
 register(
     id="PursuitEvasionContinuous-v0",
-    entry_point="posggym.envs.continuous.pursuit_evasion:PursuitEvasionEnv",
+    entry_point="posggym.envs.continuous.pursuit_evasion:PursuitEvasionContinuousEnv",
     max_episode_steps=200,
     kwargs={
         "world": "16x16",
         "max_obs_distance": 12,
+        "fov": math.pi / 2,
+        "n_sensors": 8,
         "normalize_reward": True,
         "use_progress_reward": True,
     },
