@@ -15,7 +15,6 @@ from posggym.envs.continuous.core import (
     Position,
     SquareContinuousWorld,
     clip_actions,
-    linear_to_xy_velocity,
 )
 from posggym.utils import seeding
 
@@ -554,7 +553,9 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
             self.world.update_entity_state(
                 f"prey_{i}",
                 angle=prey_move_angles[i],
-                vel=linear_to_xy_velocity(self.PREY_STEP_VEL, prey_move_angles[i]),
+                vel=self.world.linear_to_xy_velocity(
+                    self.PREY_STEP_VEL, prey_move_angles[i]
+                ),
             )
 
         # apply predator actions
@@ -565,7 +566,7 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
             self.world.update_entity_state(
                 f"pred_{i}",
                 angle=angle,
-                vel=linear_to_xy_velocity(action[1], angle),
+                vel=self.world.linear_to_xy_velocity(action[1], angle),
             )
 
         # simulate

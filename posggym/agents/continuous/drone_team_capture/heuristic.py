@@ -8,7 +8,11 @@ from typing import TYPE_CHECKING, Dict, List, Tuple
 import numpy as np
 
 from posggym.agents.policy import Policy, PolicyID, PolicyState
-from posggym.envs.continuous.drone_team_capture import DTCAction, DTCModel, DTCState
+from posggym.envs.continuous.drone_team_capture import (
+    DroneTeamCaptureModel,
+    DTCAction,
+    DTCState,
+)
 
 
 if TYPE_CHECKING:
@@ -28,7 +32,7 @@ class DTCHeuristicPolicy(Policy[DTCAction, DTCState], abc.ABC):
 
     def __init__(
         self,
-        model: DTCModel,
+        model: DroneTeamCaptureModel,
         agent_id: AgentID,
         policy_id: PolicyID,
     ):
@@ -136,19 +140,19 @@ class DTCJanosovHeuristicPolicy(DTCHeuristicPolicy):
         arena = self.arena()
         coll = [0, 0]
         chase = self.attraction2(
-            state.pursuer_coords[agent_idx],
-            state.prev_pursuer_coords[agent_idx],
-            state.target_coords,
-            state.prev_target_coords,
+            state.pursuer_states[agent_idx],
+            state.prev_pursuer_states[agent_idx],
+            state.target_state,
+            state.prev_target_state,
         )
 
         inter = self.alignment2(
-            state.pursuer_coords, state.prev_pursuer_coords, agent_idx
+            state.pursuer_states, state.prev_pursuer_states, agent_idx
         )
         vx = arena[0] + coll[0] + chase[0] + inter[0]
         vy = arena[1] + coll[1] + chase[1] + inter[1]
 
-        R = self.rot(state.pursuer_coords[agent_idx][2])
+        R = self.rot(state.pursuer_states[agent_idx][2])
         Direction = R.dot([vx, vy])
         alpha = math.atan2(Direction[1], Direction[0])
         omega = self.pp(alpha)
@@ -252,14 +256,14 @@ class DTCAngelaniHeuristicPolicy(DTCHeuristicPolicy):
 
     def _get_action(self, state: DTCState) -> DTCAction:
         agent_idx = int(self.agent_id)
-        rep = self.repulsion(state.pursuer_coords, agent_idx)
-        align = self.alignment(state.pursuer_coords, state.prev_pursuer_coords)
-        atrac = self.attraction(state.pursuer_coords[agent_idx], state.target_coords)
+        rep = self.repulsion(state.pursuer_states, agent_idx)
+        align = self.alignment(state.pursuer_states, state.prev_pursuer_states)
+        atrac = self.attraction(state.pursuer_states[agent_idx], state.target_state)
 
         vx = rep[0] + align[0] + atrac[0]
         vy = rep[1] + align[1] + atrac[1]
 
-        R = self.rot(state.pursuer_coords[agent_idx][2])
+        R = self.rot(state.pursuer_states[agent_idx][2])
         direction = R.dot([vx, vy])
         alpha = math.atan2(direction[1], direction[0])
         omega_i = self.pp(alpha)
@@ -301,15 +305,15 @@ class DTCDPPHeuristicPolicy(DTCHeuristicPolicy):
     def _get_action(self, state: DTCState) -> DTCAction:
         offset = math.pi / 8
         sense = 0.0
-        n_pursuers = len(state.pursuer_coords)
-        pursuer_i = state.pursuer_coords[self.agent_idx]
+        n_pursuers = len(state.pursuer_states)
+        pursuer_i = state.pursuer_states[self.agent_idx]
         for j in range(n_pursuers):
             if j != self.agent_idx:
                 sense += self.delta(
-                    pursuer_i, state.pursuer_coords[j], state.target_coords
+                    pursuer_i, state.pursuer_states[j], state.target_state
                 )
 
-        alphaiT, _ = self.engagmment(pursuer_i, state.target_coords)
+        alphaiT, _ = self.engagmment(pursuer_i, state.target_state)
         omega_i = 0.6 * (alphaiT - sense * offset)
         omega_i = self.sat(omega_i, -self.omega_max, self.omega_max)
         return np.array([omega_i], dtype=np.float32)

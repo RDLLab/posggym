@@ -28,7 +28,6 @@ from posggym.envs.continuous.core import (
     SquareContinuousWorld,
     clip_actions,
     generate_interior_walls,
-    linear_to_xy_velocity,
 )
 from posggym.utils import seeding
 
@@ -600,11 +599,11 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
         self.world.set_entity_state("evader", state.evader_state)
 
         pursuer_angle = state.pursuer_state[2] + pursuer_a[0]
-        pursuer_vel = linear_to_xy_velocity(pursuer_a[1], pursuer_angle)
+        pursuer_vel = self.world.linear_to_xy_velocity(pursuer_a[1], pursuer_angle)
         self.world.update_entity_state("pursuer", angle=pursuer_angle, vel=pursuer_vel)
 
         evader_angle = state.evader_state[2] + evader_a[0]
-        evader_vel = linear_to_xy_velocity(evader_a[1], evader_angle)
+        evader_vel = self.world.linear_to_xy_velocity(evader_a[1], evader_angle)
         self.world.update_entity_state("evader", angle=evader_angle, vel=evader_vel)
 
         # simulate

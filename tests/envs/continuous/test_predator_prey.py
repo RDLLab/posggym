@@ -5,8 +5,11 @@ import numpy as np
 import pytest
 
 import posggym
-
-from posggym.envs.continuous.predator_prey import SUPPORTED_WORLDS, PPModel, PPState
+from posggym.envs.continuous.predator_prey import (
+    SUPPORTED_WORLDS,
+    PPState,
+    PredatorPreyContinuousModel,
+)
 
 
 def test_obs():
@@ -23,7 +26,7 @@ def test_obs():
     )
     env.reset(seed=26)
 
-    model = cast(PPModel, env.model)
+    model = cast(PredatorPreyContinuousModel, env.model)
     state = cast(PPState, env.state)
 
     state.predator_states[0][:3] = (1, 1, 0)
@@ -58,7 +61,7 @@ def test_collisions(world):
     )
     env.reset(seed=35)
 
-    model = cast(PPModel, env.model)
+    model = cast(PredatorPreyContinuousModel, env.model)
     size = model.world.agent_radius
     # pypunk munk allows overlaps, but only typically ~10-15%, so if overlap is as big
     # as agent radius then something is wrong

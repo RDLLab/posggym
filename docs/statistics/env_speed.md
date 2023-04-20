@@ -22,7 +22,7 @@ On Intel® Core™ i7-10750H CPU @ 2.60GHz with 16 GB RAM.
 | MultiAgentTiger-v0             | 63343.43         |
 | RockPaperScissors-v0           | 76395.78         |
 | DrivingContinuous-v0           | 551.53           |
-| DroneTeamCapture-v0            | 1491.05          |
+| DroneTeamCapture-v0            | 1627.19          |
 | PredatorPreyContinuous-v0      | 479.37           |
 | PursuitEvasionContinuous-v0    | 481.14           |
 | Driving-v0                     | 12128.70         |

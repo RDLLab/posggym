@@ -15,8 +15,8 @@ This environment is part of the <a href='..'>Continuous environments</a>. Please
 |   |   |
 |---|---|
 | Possible Agents | ('0', '1', '2') |
-| Action Spaces | {'0': Box(-1.0, 1.0, (1,), float32), '1': Box(-1.0, 1.0, (1,), float32), '2': Box(-1.0, 1.0, (1,), float32)} |
-| Observation Spaces | {'0': Box(-inf, inf, (10,), float32), '1': Box(-inf, inf, (10,), float32), '2': Box(-inf, inf, (10,), float32)} |
+| Action Spaces | {'0': Box(-0.31415927, 0.31415927, (1,), float32), '1': Box(-0.31415927, 0.31415927, (1,), float32), '2': Box(-0.31415927, 0.31415927, (1,), float32)} |
+| Observation Spaces | {'0': Box(-1.0, 1.0, (12,), float32), '1': Box(-1.0, 1.0, (12,), float32), '2': Box(-1.0, 1.0, (12,), float32)} |
 | Symmetric | True |
 | Import | `posggym.make("DroneTeamCapture-v0")` |
 
@@ -26,6 +26,9 @@ The Drone Team Capture Environment.
 A co-operative 2D continuous world problem involving multiple pursuer drone agents
 working together to catch a target agent in the environment.
 
+This is an adaption of the original code base to allow for partially observable
+environments.
+
 Possible Agents
 ---------------
 Varied number (1-8)
@@ -34,14 +37,19 @@ State Space
 -----------
 Each state consists of:
 
-1. tuple of the (x, y) position of all pursuers
-2. tuple of the (x, y) previous position of all pursuers
-3. tuple of the (x, y) position of the target
-4. tuple of the (x, y) previous position of the target
-5. The speed of the target relative to the pursuer (0.0 -> 2.0)
+1. 2D array containing the state of each pursuer
+2. 2D array containing the previous state of each pursuer
+3. 1D array containing the state of the target
+4. 1D array containing the previous state of the target
+5. The velocity of the target (between 0.5 and 2.0 time max velocity of pursuers)
 
-For the coordinate x=column, y=row, with the origin (0, 0) at the
-top-left square of the world.
+The state of each pursuer and the target are a 1D array containing their:
+
+- `(x, y)` coordinate
+- angle/yaw (in radians)
+- velocity in x and y directions
+- angular velocity (in radians)
+
 
 Action Space
 ------------
@@ -51,18 +59,34 @@ has two actions, which are the angular and linear velocity, in that order.
 
 Observation Space
 -----------------
-Each agent observes the other pursuers and target. For each pursuer they will
-observe the relative position and angle of the pursuer. They will observe
-their own heading and change in heading. They will also observe the distance
-to the target, and the angle to the target, as well as, their derivatives.
-The pursuers will be ordered by the relative distance to the target.
+Each agent receives a 1D vector observation containing information about their
+current state as well as some information about the other pursuers and the target.
 
-However, there are two parameters to change this behaviour. Firstly,
-`observation_limit` which specifies the maximum distance another agent can be seen.
-If they are outside this radius, the observations of these agents will be `-1`.
+- *Self obs* - observe angle that pursuer is facing and current angular velocity.
+- *Target obs* - observe the angle and distance to the target (if target is within
+    `observation_limit`), as well as rate of change of angle and distance to the
+    target.
+- *Other pursuer obs* - observes the angle and distance to the
+    `n_communicating_pursuers` closest pursuer agents (if they are within
+    `observation_limit` distance).
 
-There is also the `n_communicating_pursuers` which will limit the maximum amount of
-other pursuers an agent can observe.
+All observation features have values normalized into [-1, 1] interval. Observation
+feature values are `-1` for any pursuers or the target if they are out of range
+observation range.
+
+This table enumerates the observation space:
+
+| Index: start          | Description                          |  Values   |
+| :-------------------: | :----------------------------------: | :-------: |
+| 0                     | Agent angle                          | [-1, 1[   |
+| 1                     | Agent angular velocity               | [-1, 1]   |
+| 2                     | Angle to target                      | [-1, 1]   |
+| 3                     | Distance to target                   | [-1, 1]   |
+| 4                     | Angular velocity of angle to target  | [-1, 1]   |
+| 5                     | Velocity of distance to target       | [-1, 1]   |
+| 6 to (6 + 2 * n)      | Other pursuer angle and distance     | [-1, 1]   |
+
+Where `n = n_communicating_pursuers`.
 
 Rewards
 -------
@@ -73,45 +97,51 @@ the target. On successful capture, the capturing pursuer will receive a reward o
 Dynamics
 --------
 Actions of the pursuer agents are deterministic and consist of moving based on the
-non-holonomic model.
+angular and linear velocity.
 
-The target will move following a holonomic model TODO
+The target has a maximum velocity that varies per episodes and it actively moves
+away from the pursuers and also the walls.
 
 Starting State
 --------------
 Target will start near the outside of the circle, while pursuers will start in a
-line on the middle. The pursuers will start with a random yaw.
+line on the middle.
+
+The velocity of the target is chosen uniformly at random at the start of each
+episode to be between 0.5 and 2.0 times the max velocity of the pursuers.
 
 Episodes End
 ------------
 Episodes ends when the target has been captured. By default a `max_episode_steps`
-limit of `50` steps is also set. This may need to be adjusted when using larger
-grids (this can be done by manually specifying a value for `max_episode_steps`when
-creating the environment with `posggym.make`).
+limit of `100` steps is also set. This may need to be adjusted when using larger
+world sizes (this can be done by manually specifying a value for
+`max_episode_steps` when creating the environment with `posggym.make`).
+
 
 Arguments
 ---------
 
 - `num_agents` - The number of agents which exist in the environment
     Must be between 1 and 8 (default = `3`)
-- `n_communicating_pursuer - The maximum number of agents which an
+- `n_communicating_pursuers - The maximum number of agents which an
     agent can receive information from (default = `3`)
 - `velocity_control` - If the agents have control of their linear velocity
     (default = `False`)
 - `arena_size` - Size of the arena (default = `430`)
 - `observation_limit` - The limit of which agents can see other agents
     (default = `430`)
-- `use_curriculum` - If curriculum learning is used, a large capture radius is used
-    the capture radius needs to be decreased using the 'decrease_cap_rad' function
-    (default = `False`)
+- `capture_radius` - Distance from target pursuer needs to be within to capture
+    target. As per original paper, the user can adjust this to set a learning
+    curriculum (larger values are easier) (default = `30`, which is the radius of
+    the target).
+
 
 Available variants
 ------------------
-
-For example to use the Drone Team Capture environment with 8 communicating pursuers
-and episode step limit of 100, and the default values for the other parameters
-(`velocity_control`, `arena_size`, `observation_limit`, `use_curriculum`) you would
-use:
+For example to use the Drone Team Capture environment with 8 pursuer drones, with
+communication between max 4 closest drones and episode step limit of 100, and the
+default values for the other parameters (`velocity_control`, `arena_size`,
+`observation_limit`, `capture_radius`) you would use:
 
 ```python
 import posggym
@@ -119,10 +149,17 @@ env = posggym.make(
     'DroneTeamCapture-v0',
     max_episode_steps=100,
     num_agents=8,
-    n_communicating_pursuer=4,
+    n_communicating_pursuers=4,
 )
 ```
 
 Version History
 ---------------
 - `v0`: Initial version
+
+Reference
+---------
+- C. de Souza, R. Newbury, A. Cosgun, P. Castillo, B. Vidolov and D. Kulić,
+  "Decentralized Multi-Agent Pursuit Using Deep Reinforcement Learning,"
+  in IEEE Robotics and Automation Letters, vol. 6, no. 3, pp. 4552-4559,
+  July 2021, doi: 10.1109/LRA.2021.3068952.

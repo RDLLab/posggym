@@ -17,7 +17,6 @@ from posggym.envs.continuous.core import (
     FloatCoord,
     PMBodyState,
     SquareContinuousWorld,
-    clamp_norm,
     clip_actions,
     generate_interior_walls,
 )
@@ -579,7 +578,7 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
             self.world.update_entity_state(
                 f"vehicle_{i}",
                 angle=v_angle,
-                vel=clamp_norm(v_vel[0], v_vel[1], self.vel_limit_norm),
+                vel=self.world.clamp_norm(v_vel[0], v_vel[1], self.vel_limit_norm),
             )
 
         self.world.simulate(1.0 / 10, 10)

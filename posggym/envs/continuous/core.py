@@ -175,7 +175,9 @@ class AbstractContinuousWorld(ABC):
         """Get a deep copy of this world."""
         pass
 
-    def simulate(self, dt: float = 1.0 / 10, t: int = 10):
+    def simulate(
+        self, dt: float = 1.0 / 10, t: int = 10, normalize_angles: bool = True
+    ):
         """Simulate the world, updating all entities.
 
         As per pymunk.Space.step documentation, using a fixed time step `dt` is
@@ -188,6 +190,8 @@ class AbstractContinuousWorld(ABC):
         ---------
         dt: the step size
         t: the number of steps
+        normalize_angles: whether to normalize angle of each entity to be in [0, 2*pi]
+            at the end of the simulation.
 
         Reference
         ---------
@@ -196,6 +200,13 @@ class AbstractContinuousWorld(ABC):
         """
         for _ in range(t):
             self.space.step(dt)
+
+        if normalize_angles:
+            for body, _ in self.entities.values():
+                body.angle = self.convert_angle_to_0_2pi_interval(body.angle)
+                body.angular_velocity = self.convert_angle_to_0_2pi_interval(
+                    body.angular_velocity
+                )
 
     def add_entity(
         self,
@@ -356,6 +367,50 @@ class AbstractContinuousWorld(ABC):
         """Get Squared Euclidean distance between two positions on the grid."""
         return (loc1[0] - loc2[0]) ** 2 + (loc1[1] - loc2[1]) ** 2
 
+    @staticmethod
+    def convert_angle_to_0_2pi_interval(angle: float) -> float:
+        return angle % (2 * math.pi)
+
+    @staticmethod
+    def convert_angle_to_negpi_pi_interval(angle: float) -> float:
+        """Convert angle in radians to be in (-pi, pi] interval."""
+        angle = angle % (2 * math.pi)
+        if angle > math.pi:
+            angle -= 2 * math.pi
+        return angle
+
+    @staticmethod
+    def array_to_position(arr: np.ndarray) -> Position:
+        """Convert from numpy array to tuple representation of a Position."""
+        assert arr.shape[0] >= 3
+        return (arr[0], arr[1], arr[2])
+
+    @staticmethod
+    def linear_to_xy_velocity(linear_vel: float, angle: float) -> Vec2d:
+        """Convert from linear velocity to velocity along x and y axis."""
+        return linear_vel * Vec2d(1, 0).rotated(angle)
+
+    @staticmethod
+    def rotate_vector(vx: float, vy: float, angle: float) -> Vec2d:
+        """Rotate a 2D vector by given angle."""
+        return Vec2d(vx, vy).rotated(angle)
+
+    @staticmethod
+    def clamp_norm(vx: float, vy: float, norm_max: float) -> Tuple[float, float]:
+        """Clamp x, y vector to within a given max norm."""
+        if vx == 0.0 and vy == 0.0:
+            return vx, vy
+        norm = math.sqrt(vx**2 + vy**2)
+        f = min(norm, norm_max) / norm
+        return f * vx, f * vy
+
+    @staticmethod
+    def convert_into_interval(
+        x: float, x_min: float, x_max: float, new_min: float, new_max: float
+    ) -> float:
+        """Convert variable from [x_min, x_max] to [new_min, new_max] interval."""
+        return (x - x_min) / (x_max - x_min) * (new_max - new_min) + new_min
+
     def agents_collide(self, loc1: Location, loc2: Location) -> bool:
         """Get whether two agents have collided or not.
 
@@ -504,13 +559,6 @@ class AbstractContinuousWorld(ABC):
         )
 
         return intersection_coords, intersection_distances
-
-    @staticmethod
-    def convert_angle_to_0_2pi_interval(angle):
-        new_angle = np.arctan2(np.sin(angle), np.cos(angle))
-        if new_angle < 0:
-            new_angle = abs(new_angle) + 2 * (np.pi - abs(new_angle))
-        return new_angle
 
     def check_ray_collisions(
         self,
@@ -805,38 +853,36 @@ class CircularContinuousWorld(AbstractContinuousWorld):
             agent_radius=self.agent_radius,
             border_thickness=self.border_thickness,
         )
-
         for id, (body, shape) in self.entities.items():
             # make copies of each entity, and ensure the copies are linked correctly
             # and added to the new world and world space
             body = body.copy()
             shape = shape.copy()
             shape.body = body
-
             world.space.add(body, shape)
             world.entities[id] = (body, shape)
         return world
 
     def add_border_to_space(self, size: float):
-        num_segments = 128
+        num_segments = 180
         radius = size / 2
+        segment_angle_inc = 2 * math.pi / num_segments
 
-        segment_angle = 2 * math.pi / num_segments
         self.border = []
-
         for i in range(num_segments):
-            angle = i * segment_angle
-            x1 = radius * math.cos(angle) + size / 2
-            y1 = radius * math.sin(angle) + size / 2
-            x2 = (radius + self.border_thickness) * math.cos(angle) + size / 2
-            y2 = (radius + self.border_thickness) * math.sin(angle) + size / 2
+            prev_angle = i * segment_angle_inc
+            angle = (i + 1) * segment_angle_inc
+            x1 = radius * math.cos(prev_angle) + radius
+            y1 = radius * math.sin(prev_angle) + radius
+            x2 = radius * math.cos(angle) + radius
+            y2 = radius * math.sin(angle) + radius
             wall = pymunk.Segment(
                 self.space.static_body,
                 (x1, y1),
                 (x2, y2),
                 self.border_thickness,
             )
-            wall.friction = 1.0
+            wall.friction = 0.0
             wall.color = self.WALL_COLOR
             wall.collision_type = self.get_collision_id() + 1
             self.border.append(wall)
@@ -853,31 +899,6 @@ class CircularContinuousWorld(AbstractContinuousWorld):
         return self.check_circle_line_intersection(
             center, np.array([self.size]), ray_start_coords, ray_end_coords
         )
-
-
-def array_to_position(arr: np.ndarray) -> Position:
-    """Convert from numpy array to tuple representation of a Position."""
-    assert arr.shape[0] >= 3
-    return (arr[0], arr[1], arr[2])
-
-
-def linear_to_xy_velocity(linear_vel: float, angle: float) -> Vec2d:
-    """Convert from linear velocity to velocity along x and y axis."""
-    return linear_vel * Vec2d(1, 0).rotated(angle)
-
-
-def rotate_vector(vx: float, vy: float, angle: float) -> Vec2d:
-    """Rotate a 2D vector by given angle."""
-    return Vec2d(vx, vy).rotated(angle)
-
-
-def clamp_norm(vx: float, vy: float, norm_max: float) -> Tuple[float, float]:
-    """Clamp x, y vector to within a given max norm."""
-    if vx == 0.0 and vy == 0.0:
-        return vx, vy
-    norm = math.sqrt(vx**2 + vy**2)
-    f = min(norm, norm_max) / norm
-    return f * vx, f * vy
 
 
 def generate_interior_walls(
