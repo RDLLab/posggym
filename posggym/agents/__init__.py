@@ -1,5 +1,9 @@
 """Root '__init__' of the posggym package."""
 # isort: skip_file
+import warnings
+
+warnings.filterwarnings("ignore", module="gymnasium", category=UserWarning)
+
 from posggym.agents.registration import (
     make,
     pprint_registry,

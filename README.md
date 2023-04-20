@@ -46,6 +46,14 @@ If you want to download all models at once you can use the provided download scr
 
 **Note** this only works for Linux/macOS.
 
+### Installing everything
+
+To install dependencies for all implemented environments and posggym agents:
+
+```
+pip install posggym[all]
+```
+
 
 ## Environments
 
@@ -60,7 +68,6 @@ You can see a list of all environments by running:
 ```python
 import posggym
 posggym.pprint_registry()
-
 ```
 
 

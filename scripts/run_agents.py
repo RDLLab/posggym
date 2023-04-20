@@ -1,31 +1,34 @@
-"""Script for rendering episodes of posggym.agents policies.
+"""Script for running episodes of posggym.agents policies.
 
 The script takes an environment ID and a list of policy ids as arguments.
 It then runs and renders episodes.
 
 """
 import argparse
-from pprint import pprint
+from typing import List, Optional, Dict
 
 import posggym
-
 import posggym.agents as pga
-import posggym.agents.evaluation as eval_lib
 
 
-def main(args):  # noqa
-    print("\n== Rendering Episodes ==")
-    pprint(vars(args))
-
+def run_agents(
+    env_id: str,
+    policy_ids: List[str],
+    num_episodes: int,
+    seed: Optional[int] = None,
+    render_mode: str = "human",
+):
+    """Run agents."""
+    print("\n== Running Agents ==")
     policy_specs = []
     env_args, env_args_id = None, None
-    for i, policy_id in enumerate(args.policy_ids):
+    for i, policy_id in enumerate(policy_ids):
         try:
             pi_spec = pga.spec(policy_id)
         except posggym.error.NameNotFound as e:
             if "/" not in policy_id:
                 # try prepending env id
-                policy_id = f"{args.env_id}/{policy_id}"
+                policy_id = f"{env_id}/{policy_id}"
                 pi_spec = pga.spec(policy_id)
             else:
                 raise e
@@ -37,9 +40,9 @@ def main(args):  # noqa
         policy_specs.append(pi_spec)
 
     if env_args:
-        env = posggym.make(args.env_id, render_mode=args.render_mode, **env_args)
+        env = posggym.make(env_id, render_mode=render_mode, **env_args)
     else:
-        env = posggym.make(args.env_id, render_mode=args.render_mode)
+        env = posggym.make(env_id, render_mode=render_mode)
 
     assert len(policy_specs) == len(env.possible_agents)
 
@@ -48,27 +51,44 @@ def main(args):  # noqa
         agent_id = env.possible_agents[idx]
         policies[agent_id] = pga.make(spec.id, env.model, agent_id)
 
-    if args.seed is not None:
-        env.reset(seed=args.seed)
+    if seed is not None:
+        env.reset(seed=seed)
         for i, policy in enumerate(policies.values()):
-            policy.reset(seed=args.seed + i)
+            policy.reset(seed=seed + i)
 
-    eval_lib.run_episode(
-        env,
-        policies,
-        args.num_episodes,
-        trackers=eval_lib.get_default_trackers(),
-        renderers=[eval_lib.EpisodeRenderer()],
-        time_limit=None,
-        logger=None,
-        writer=None,
-    )
+    episode_steps = []
+    episode_rewards: Dict[str, List[float]] = {i: [] for i in env.possible_agents}
+    for ep_num in range(num_episodes):
+        obs, _ = env.reset()
+        env.render()
+        for policy in policies.values():
+            policy.reset()
+
+        t = 0
+        all_done = False
+        rewards = {i: 0.0 for i in env.possible_agents}
+        while not all_done:
+            actions = {i: policies[i].step(obs[i]) for i in env.agents}
+            obs, rews, _, _, all_done, _ = env.step(actions)
+            env.render()
+
+            t += 1
+            for agent_id, r_i in rews.items():
+                rewards[agent_id] += r_i
+
+        episode_steps.append(t)
+        for j in env.possible_agents:
+            episode_rewards[j].append(rewards[j])
 
     env.close()
     for policy in policies.values():
         policy.close()
 
-    print("== All done ==")
+    print("\n== All done ==")
+    mean_steps = sum(episode_steps) / len(episode_steps)
+    print(f"Mean episode steps = {mean_steps:.2f}")
+    mean_returns = {i: sum(r) / len(r) for i, r in episode_rewards.items()}
+    print(f"Mean Episode returns {mean_returns}")
 
 
 if __name__ == "__main__":
@@ -99,4 +119,5 @@ if __name__ == "__main__":
     parser.add_argument(
         "--render_mode", type=str, default="human", help="The render mode to use."
     )
-    main(parser.parse_args())
+    args = parser.parse_args()
+    run_agents(**vars(args))

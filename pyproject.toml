@@ -103,7 +103,7 @@ target-version = "py38"
 
 # Ignore `F401` (import violations) in all `__init__.py` files,
 [tool.ruff.per-file-ignores]
-"__init__.py" = ["F401"]
+"__init__.py" = ["F401", "E402"]
 
 [tool.ruff.mccabe]
 # Unlike Flake8, default to a complexity level of 10.
@@ -131,6 +131,7 @@ line-length = 88
 [tool.mypy]
 python_version = "3.8"
 warn_unused_configs = true
+ignore_missing_imports = true
 plugins = "numpy.typing.mypy_plugin"
 
 [tool.pytest.ini_options]

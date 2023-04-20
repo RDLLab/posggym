@@ -82,6 +82,8 @@ intro/installation
 api/env
 api/model
 api/wrappers
+api/agents
+
 ```
 
 ```{toctree}
@@ -91,6 +93,14 @@ api/wrappers
 environments/classic
 environments/continuous
 environments/grid_world
+```
+
+```{toctree}
+:hidden:
+:caption: Agents
+
+agents/getting_started.md
+agents/agent_creation.md
 ```
 
 ```{toctree}
