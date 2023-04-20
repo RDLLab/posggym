@@ -8,7 +8,7 @@ from ray.rllib.algorithms.ppo import PPOTorchPolicy
 from ray.rllib.policy.policy import PolicySpec
 from ray.tune.registry import register_env
 
-from posggym.agents.config import BASE_RESULTS_DIR
+from posggym.config import BASE_RESULTS_DIR
 from posggym.agents.rllib import pbt
 from posggym.agents.rllib.train.algorithm import (
     CustomPPOAlgorithm,

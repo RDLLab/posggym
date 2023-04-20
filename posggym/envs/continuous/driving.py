@@ -564,13 +564,14 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
         self, state: DState, actions: Dict[M.AgentID, DAction]
     ) -> Tuple[DState, List[CollisionType]]:
         for i in range(len(self.possible_agents)):
-            state_i, action_i = state[i], actions[str(i)]
+            state_i = state[i]
             self.world.set_entity_state(f"vehicle_{i}", state_i.body)
 
             if state[i].status[0] or state[i].status[1]:
                 self.world.update_entity_state(f"vehicle_{i}", vel=(0.0, 0.0))
                 continue
 
+            action_i = actions[str(i)]
             v_angle = state_i.body[2] + action_i[0]
             v_vel = Vec2d(*state_i.body[3:5]).rotated(action_i[0]) + (
                 action_i[1] * Vec2d(1, 0).rotated(v_angle)
