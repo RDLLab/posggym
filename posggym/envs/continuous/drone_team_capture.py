@@ -134,7 +134,7 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
     - `num_agents` - The number of agents which exist in the environment
         Must be between 1 and 8 (default = `3`)
     - `n_communicating_pursuers - The maximum number of agents which an
-        agent can receive information from (default = `3`)
+        agent can receive information from (default = `2`)
     - `velocity_control` - If the agents have control of their linear velocity
         (default = `False`)
     - `arena_size` - Size of the arena (default = `430`)
@@ -184,7 +184,7 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
     def __init__(
         self,
         num_agents: int = 3,
-        n_communicating_pursuers: int = 3,
+        n_communicating_pursuers: int = 2,
         arena_size: float = 430,
         observation_limit: float = 430,
         velocity_control: bool = False,

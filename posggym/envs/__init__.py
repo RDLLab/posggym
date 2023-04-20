@@ -45,7 +45,7 @@ register(
     max_episode_steps=100,
     kwargs={
         "num_agents": 3,
-        "n_communicating_pursuers": 3,
+        "n_communicating_pursuers": 2,
         "arena_size": 430,
         "observation_limit": 430,
         "velocity_control": False,

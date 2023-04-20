@@ -71,6 +71,19 @@ def display_key_action_map(key_action_map):
             print(f"{pygame.key.name(k)}: {a}")
 
 
+def display_vector_obs(obs: np.ndarray, width: int):
+    """Prints vector obs. Useful for debugging."""
+    with np.printoptions(precision=2, suppress=True):
+        print()
+        if width >= obs.shape[0]:
+            print(obs)
+        else:
+            for end in range(width, obs.shape[0], width):
+                print(obs[end - width : end])
+            if width % obs.shape[0]:
+                print(obs[end:])
+
+
 def run_grid_world_env_keyboard_agent(
     env: posggym.Env, keyboard_agent_id: M.AgentID, pause_each_step: bool = False
 ) -> Tuple[Dict[str, float], int]:

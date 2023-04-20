@@ -37,8 +37,13 @@ def test_obs():
 
     # each predator has four sensors going right, up, left, down
     expected_obstacle_obs = [obs_dist, obs_dist, 1.0, 1.0]
-    expected_predator_obs = [model.world.agent_radius, obs_dist, obs_dist, obs_dist]
-    expected_prey_obs = [obs_dist, model.world.agent_radius, obs_dist, obs_dist]
+    expected_predator_obs = [
+        1.0 - model.world.agent_radius,
+        obs_dist,
+        obs_dist,
+        obs_dist,
+    ]
+    expected_prey_obs = [obs_dist, 1.0 - model.world.agent_radius, obs_dist, obs_dist]
     assert np.isclose(
         obs,
         np.concatenate(

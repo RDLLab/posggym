@@ -666,7 +666,6 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
         pos_i = (state_i[0], state_i[1], state_i[2])
 
         prey_coords = state.prey_states[state.prey_caught == 0, :2]
-
         prey_obs, _ = self.world.check_collision_circular_rays(
             pos_i,
             self.obs_dist,
@@ -680,7 +679,6 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
         mask = np.ones(len(state.predator_states), dtype=bool)
         mask[int(agent_id)] = False
         pred_coords = state.predator_states[mask, :2]
-
         pred_obs, _ = self.world.check_collision_circular_rays(
             pos_i,
             self.obs_dist,
