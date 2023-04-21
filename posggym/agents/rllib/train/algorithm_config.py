@@ -27,7 +27,7 @@ def get_default_ppo_training_config(env_id: str, seed: int, log_level: str):
         num_gpus_per_worker=0.0,
         # Number of workers used for training. A value of 0 means training will take
         # place on a local worker on head node CPUs or 1 GPU (determined by
-        # `num_gpus_per_learner_worker`).
+        # `num_gpus_per_trainer_worker`).
         num_trainer_workers=0,
         # Number of CPUs allocated per trainer worker. Only necessary for custom
         # processing pipeline inside each Learner requiring multiple CPU cores.

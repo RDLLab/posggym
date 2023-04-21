@@ -8,6 +8,7 @@ from ray.rllib.algorithms.ppo import PPOTorchPolicy
 from ray.rllib.policy.policy import PolicySpec
 from ray.tune.registry import register_env
 
+import posggym
 from posggym.config import BASE_RESULTS_DIR
 from posggym.agents.rllib import pbt
 from posggym.agents.rllib.train.algorithm import (
@@ -60,10 +61,11 @@ def get_symmetric_sp_algorithm(
     if logger_creator is None:
         logger_creator = standard_logger_creator(env_id, "sp", seed, train_policy_id)
 
+    # Only single algorithm trainer so don't need to use remote actors
     algorithm = get_algorithm(
         algorithm_class=CustomPPOAlgorithm,
         config=config,
-        remote=True,
+        remote=False,
         logger_creator=logger_creator,
     )
 
@@ -71,7 +73,7 @@ def get_symmetric_sp_algorithm(
     igraph.update_policy(
         igraph.SYMMETRIC_ID,
         train_policy_id,
-        algorithm.get_weights.remote(train_policy_id),
+        algorithm.get_weights(train_policy_id),
     )
 
     # need to map from agent_id to algorithm map
@@ -127,7 +129,7 @@ def get_asymmetric_sp_algorithm(
 
         algorithm = get_algorithm(
             algorithm_class=CustomPPOAlgorithm,
-            config=config,
+            config=agent_config,
             remote=True,
             logger_creator=logger_creator,
         )
@@ -144,26 +146,51 @@ def get_asymmetric_sp_algorithm(
 def train_sp_policy(
     env_id: str,
     seed: Optional[int],
-    algorithm_config: AlgorithmConfig,
+    config: AlgorithmConfig,
     num_gpus: float,
     num_iterations: int,
     save_policy: bool = True,
     verbose: bool = True,
 ):
     """Run training of self-play policy."""
-    assert "env_config" in algorithm_config
-    if "env_id" not in algorithm_config.env_config:
-        algorithm_config.env_config["env_id"] = env_id
+    assert "env_config" in config
+    if "env_id" not in config.env_config:
+        config.env_config["env_id"] = env_id
 
-    ray.init()
+    env_kwargs = {
+        k: v for k, v in config.env_config.items() if k not in ("env_id", "flatten_obs")
+    }
+    base_env = posggym.make(env_id, **env_kwargs)
+    if base_env.is_symmetric:
+        # for symmetric SP envs don't need remote actors so only need num cpus required
+        # by a single algorithm
+        total_num_cpus = (
+            config.num_rollout_workers * config.num_cpus_per_worker
+            + config.num_trainer_workers * config.num_cpus_per_trainer_worker
+        )
+    else:
+        # Each rollout worker requires an additional cpu when using remote actors (i.e.
+        # when training more than one policy at a time)
+        # Also need to multiply num cpus needed for a single policy by num agents
+        total_num_cpus = (
+            config.num_rollout_workers * (config.num_cpus_per_worker + 1)
+            + config.num_trainer_workers * config.num_cpus_per_trainer_worker
+        ) * len(base_env.possible_agents)
+
+    print(f"\n{'#'*20}")
+    print(f"Running SP training for {env_id=}")
+    print(f"Using {total_num_cpus=} and {num_gpus=}")
+    print(f"{'#'*20}\n")
+
+    ray.init(num_cpus=total_num_cpus)
     register_env(env_id, posggym_registered_env_creator)
-    env = posggym_registered_env_creator(algorithm_config.env_config)
+    env = posggym_registered_env_creator(config.env_config)
 
     agent_ids = list(env.get_agent_ids())
     agent_ids.sort()
 
     igraph = pbt.construct_sp_interaction_graph(
-        agent_ids, is_symmetric=env.env.model.is_symmetric, seed=seed
+        agent_ids, is_symmetric=env.env.is_symmetric, seed=seed
     )
     igraph.display()
 
@@ -172,7 +199,7 @@ def train_sp_policy(
         "env": env,
         "igraph": igraph,
         "seed": seed,
-        "config": algorithm_config,
+        "config": config,
         "num_gpus": num_gpus,
         "logger_creator": None,
     }
@@ -194,7 +221,7 @@ def train_sp_policy(
             parent_dir,
             igraph,
             algorithm_map,
-            remote=True,
+            remote=not base_env.is_symmetric,
             save_dir_name=save_dir,
         )
         print(f"{export_dir=}")
