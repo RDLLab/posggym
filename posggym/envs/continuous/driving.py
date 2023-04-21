@@ -591,6 +591,15 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
                 self.world.get_entity_state(f"vehicle_{idx}"), dtype=np.float32
             )
 
+            next_v_body_state[2] = self.world.convert_angle_to_0_2pi_interval(
+                next_v_body_state[2]
+            )
+
+            # ensure vx, vy is in [-1, 1]
+            # with collisions, etc pymunk can sometime push it over this limit
+            next_v_body_state[3] = max(-1.0, min(1.0, next_v_body_state[3]))
+            next_v_body_state[4] = max(-1.0, min(1.0, next_v_body_state[4]))
+
             state_i = state[idx]
             next_v_coords = next_v_body_state[:2]
             dest_distance = np.linalg.norm(state_i.dest_coord - next_v_coords)
@@ -610,10 +619,6 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
                         collision_types[other_idx] = CollisionType.AGENT
 
             crashed = crashed or bool(state_i.status[1])
-
-            next_v_body_state[2] = self.world.convert_angle_to_0_2pi_interval(
-                next_v_body_state[2]
-            )
 
             min_dest_dist = min(
                 state_i.min_dest_dist[0],
@@ -662,7 +667,7 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
         )
 
         obs = np.full((self.obs_dim,), self.obs_dist, dtype=np.float32)
-        # Can bucket NONE type colisions with block/border/wall collisions, since these
+        # Can bucket NONE type collisions with block/border/wall collisions, since these
         # will have distance of obs_dist and hence not affect final obs
         obs_type_idx = np.where(ray_col_type == CollisionType.AGENT.value, 1, 0)
         flat_obs_idx = np.ravel_multi_index(
@@ -670,9 +675,12 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
         )
         obs[flat_obs_idx] = ray_dists
 
-        obs[self.sensor_obs_dim : self.sensor_obs_dim + 3] = state_i.body[2:5]
-        obs[-2] = abs(state_i.dest_coord[0] - pos_i[0])
-        obs[-1] = abs(state_i.dest_coord[1] - pos_i[1])
+        d = self.sensor_obs_dim
+        obs[d] = self.world.convert_angle_to_0_2pi_interval(state_i.body[2])
+        obs[d + 1] = max(-1.0, min(1.0, state_i.body[3]))
+        obs[d + 2] = max(-1.0, min(1.0, state_i.body[4]))
+        obs[d + 3] = abs(state_i.dest_coord[0] - pos_i[0])
+        obs[d + 4] = abs(state_i.dest_coord[1] - pos_i[1])
 
         return obs
 
