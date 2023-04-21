@@ -120,7 +120,7 @@ class DTCJanosovHeuristicPolicy(DTCHeuristicPolicy):
 
     Uses the heuristic from the following paper:
 
-    janosov2017 is the policy from this work:
+    DTCJanosovHeuristicPolicy is the policy from this work:
     Janosov, M., Virágh, C., Vásárhelyi, G., & Vicsek, T. (2017). Group chasing tactics:
     how to catch a faster prey. New Journal of Physics, 19(5), 053003.
     doi:10.1088/1367-2630/aa69e7
@@ -240,7 +240,7 @@ class DTCAngelaniHeuristicPolicy(DTCHeuristicPolicy):
 
     Uses the heuristic from the following paper:
 
-    angelani2012 is the policy from this work:
+    DTCAngelaniHeuristicPolicy is the policy from this work:
     Angelani, L. (09 2012). Collective Predation and Escape Strategies.
     Physical Review Letters, 109. doi:10.1103/PhysRevLett.109.118104
 

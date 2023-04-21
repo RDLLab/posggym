@@ -153,7 +153,7 @@ for t in range(100):
 
     if all_done:
         obs, info = env.reset()
-        for i, policy in agents.items():
+        for i, policy in policies.items():
             policy.reset()
 
 env.close()
