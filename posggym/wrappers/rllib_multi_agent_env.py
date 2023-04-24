@@ -125,6 +125,9 @@ class RllibMultiAgentEnv(MultiAgentEnv):
         output = self.env.render()
         if isinstance(output, dict):
             return output.get("env", None)
+
+        if self.env.render_mode == "human" and output is None:
+            return True
         return output
 
     def close(self):

@@ -1,8 +1,9 @@
 """Code for running training using rllib."""
 import os.path as osp
-from typing import Dict, Optional, Type
+from typing import Any, Dict, Optional, Set, Type
 
 import ray
+from ray.air.integrations.wandb import setup_wandb
 from ray.rllib.algorithms.algorithm import Algorithm
 from ray.tune.logger import pretty_print
 
@@ -48,6 +49,7 @@ def run_training(
     igraph: pbt.InteractionGraph,
     num_iterations: int,
     verbose: bool = True,
+    wandb_config: Optional[Dict[str, Any]] = None,
 ):
     """Train Rllib training iterations.
 
@@ -55,6 +57,8 @@ def run_training(
     """
     agent_ids = list(algorithms)
     agent_ids.sort()
+
+    wandb = setup_wandb(config=wandb_config) if wandb_config else None
 
     for iteration in range(num_iterations):
         if verbose:
@@ -85,6 +89,19 @@ def run_training(
                 if verbose:
                     print(f"-- Agent ID {i}, Policy {policy_k_id} --")
                     print(pretty_print(result_k))
+                if wandb:
+                    log_to_wandb(wandb, result_k)
+
+
+def log_to_wandb(wandb, result, exclude: Optional[Set[str]] = None):
+    result = result.copy()
+    result.update(config=None)  # drop config from pretty print
+    result.update(hist_stats=None)  # drop hist_stats from pretty print
+    out = {}
+    for k, v in result.items():
+        if v is not None and (exclude is None or k not in exclude):
+            out[k] = v
+    wandb.log(out)
 
 
 def run_evaluation(algorithms: RllibAlgorithmMap, verbose: bool = True):

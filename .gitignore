@@ -136,3 +136,4 @@ dmypy.json
 
 # Ruff linter
 .ruff_cache/
+/wandb/

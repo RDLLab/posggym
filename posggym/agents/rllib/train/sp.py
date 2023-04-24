@@ -1,6 +1,6 @@
 """Code for training self-play agents using rllib."""
 import os
-from typing import Callable, Optional
+from typing import Any, Callable, Dict, Optional
 
 import ray
 from ray.rllib.algorithms.algorithm_config import AlgorithmConfig
@@ -9,7 +9,6 @@ from ray.rllib.policy.policy import PolicySpec
 from ray.tune.registry import register_env
 
 import posggym
-from posggym.config import BASE_RESULTS_DIR
 from posggym.agents.rllib import pbt
 from posggym.agents.rllib.train.algorithm import (
     CustomPPOAlgorithm,
@@ -23,6 +22,7 @@ from posggym.agents.rllib.train.utils import (
     RllibAlgorithmMap,
     posggym_registered_env_creator,
 )
+from posggym.config import BASE_RESULTS_DIR
 from posggym.wrappers.rllib_multi_agent_env import RllibMultiAgentEnv
 
 
@@ -151,6 +151,7 @@ def train_sp_policy(
     num_iterations: int,
     save_policy: bool = True,
     verbose: bool = True,
+    wandb_config: Optional[Dict[str, Any]] = None,
 ):
     """Run training of self-play policy."""
     assert "env_config" in config
@@ -208,7 +209,13 @@ def train_sp_policy(
     else:
         algorithm_map = get_asymmetric_sp_algorithm(**algorithm_kwargs)
 
-    run_training(algorithm_map, igraph, num_iterations, verbose=verbose)
+    run_training(
+        algorithm_map,
+        igraph,
+        num_iterations,
+        verbose=verbose,
+        wandb_config=wandb_config,
+    )
 
     if save_policy:
         print("== Exporting Graph ==")
