@@ -58,7 +58,7 @@ def run_training(
     agent_ids = list(algorithms)
     agent_ids.sort()
 
-    wandb = setup_wandb(config=wandb_config) if wandb_config else None
+    wandb = setup_wandb(**wandb_config) if wandb_config else None
 
     for iteration in range(num_iterations):
         if verbose:
