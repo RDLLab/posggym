@@ -2,7 +2,7 @@
 import os.path as osp
 
 from posggym.config import AGENT_MODEL_DIR
-from posggym.agents.rllib import load_rllib_policy_specs_from_files
+from posggym.agents.rllib_policy import load_rllib_policy_specs_from_files
 
 
 ENV_ID = "PredatorPrey-v0"

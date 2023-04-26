@@ -1,7 +1,7 @@
 """Script for continuing training of Rllib policies."""
 import argparse
 
-from posggym.agents.rllib.train.train import continue_training
+from posggym.agents.train.rllib.train import continue_training
 
 
 if __name__ == "__main__":

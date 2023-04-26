@@ -1,7 +1,7 @@
 """Policies for the Driving-v0 environment."""
 import os.path as osp
 
-from posggym.agents.rllib import load_rllib_policy_specs_from_files
+from posggym.agents.rllib_policy import load_rllib_policy_specs_from_files
 from posggym.config import AGENT_MODEL_DIR
 
 

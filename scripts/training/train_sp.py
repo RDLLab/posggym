@@ -14,8 +14,8 @@ This will have to be done in a custom script.
 """
 import argparse
 
-from posggym.agents.rllib.train.algorithm_config import get_default_ppo_training_config
-from posggym.agents.rllib.train.sp import train_sp_policy
+from posggym.agents.train.rllib.algorithm_config import get_default_ppo_training_config
+from posggym.agents.train.rllib.sp import train_sp_policy
 
 
 if __name__ == "__main__":
@@ -46,7 +46,7 @@ if __name__ == "__main__":
     train_sp_policy(
         args.env_id,
         seed=args.seed,
-        algorithm_config=config,
+        config=config,
         num_gpus=args.num_gpus,
         num_iterations=args.num_iterations,
         save_policy=args.save_policy,

@@ -13,7 +13,7 @@ from gymnasium import spaces
 from posggym import logger
 from posggym.agents.policy import ActType, ObsType, Policy, PolicyID, PolicyState
 from posggym.agents.registration import PolicySpec
-from posggym.agents.rllib.preprocessors import (
+from posggym.agents.utils.preprocessors import (
     ObsPreprocessor,
     get_flatten_preprocessor,
     identity_preprocessor,

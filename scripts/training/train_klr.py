@@ -14,8 +14,8 @@ This will have to be done in a custom script.
 """
 import argparse
 
-from posggym.agents.rllib.train.algorithm_config import get_default_ppo_training_config
-from posggym.agents.rllib.train.klr import train_klr_policy
+from posggym.agents.train.rllib.algorithm_config import get_default_ppo_training_config
+from posggym.agents.train.rllib.klr import train_klr_policy
 
 
 if __name__ == "__main__":

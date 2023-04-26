@@ -6,7 +6,7 @@ import shutil
 import posggym
 
 import posggym.agents.grid_world.driving as driving_agents
-from posggym.agents.rllib import get_rllib_policy_entry_point
+from posggym.agents.rllib_policy import get_rllib_policy_entry_point
 from posggym.agents.utils import download
 
 

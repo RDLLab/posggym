@@ -13,7 +13,7 @@ import posggym
 import posggym.agents as pga
 from posggym.agents.policy import Policy
 from posggym.agents.registration import PolicySpec
-from posggym.agents.rllib.policy import RllibPolicy
+from posggym.agents.rllib_policy import RllibPolicy
 from tests.agents.helpers import (
     all_testing_initialised_policies,
     all_testing_policy_specs,
