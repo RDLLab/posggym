@@ -22,7 +22,7 @@ The latest version of POSGGym can be installed by running:
 pip install posggym
 ```
 
-This will install the base dependencies for running the main environments, but may not include all dependencies for all environments or for rendering some environments, and will not include dependencies for running any in-built posggym agents. You can install all dependencies for a family of environments like `pip install posggym[grid_world]` or dependencies for all environments using `pip install posggym[envs_all]`.
+This will install the base dependencies for running the main environments, but may not include all dependencies for all environments or for rendering some environments, and will not include dependencies for running any in-built posggym agents. You can install all dependencies for a family of environments like `pip install posggym[grid-world]` or dependencies for all environments using `pip install posggym[envs-all]`.
 
 We support and test for Python>=3.8.
 
@@ -201,8 +201,3 @@ pga.pprint_registry()
 ## License
 
 `MIT` © 2022, Jonathon Schwartz
-
-
-## Versioning
-
-The POSGGym library uses [semantic versioning](https://semver.org/).
