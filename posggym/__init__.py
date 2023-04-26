@@ -1,9 +1,5 @@
 """Root '__init__' of the posggym package."""
 # isort: skip_file
-import warnings
-
-warnings.filterwarnings("ignore", module="gymnasium", category=UserWarning)
-
 # Need to import model and core before other modules
 from posggym.model import POSGFullModel, POSGModel
 from posggym.core import (
@@ -41,4 +37,4 @@ __all__ = [
     "error",
     "logger",
 ]
-__version__ = "0.3.2"
+__version__ = "0.4.0"

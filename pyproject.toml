@@ -11,7 +11,7 @@ readme = "README.md"
 requires-python = ">= 3.8"
 authors = [{ name = "Jonathon Schwartz", email = "jonathon.schwartz@anu.edu.au" }]
 license = { text = "MIT License" }
-keywords = ["reinforcement learning", "game", "RL", "AI", "planning", "posg"]
+keywords = ["Reinforcement Learning", "Planning", "Game", "RL", "AI", "POSG"]
 classifiers = [
 	# change to `5 - Production/Stable` maybe one day
     "Development Status :: 4 - Beta",
@@ -36,7 +36,7 @@ dynamic = ["version"]
 # Update dependencies in `all` if any are added or removed
 grid-world = ["pygame >=2.0"]
 continuous = ["pygame >=2.0", "pymunk >=6.0.0"]
-envs_all = [
+envs-all = [
 	# Dependencies for all environment types above
 	# NOTE: No need to manually remove the duplicates, setuptools automatically does that.
 	# grid-world
