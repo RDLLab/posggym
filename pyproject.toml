@@ -54,6 +54,11 @@ agents = [
 	"pandas >=1.0",
 	"prettytable >=3.6.0",
 ]
+other = [
+	"moviepy >=1.0.0",
+	"pettingzoo >=1.22",
+	"ray[rllib]>=2.3"
+]
 all = [
 	# Dependencieis for all envs and agents
 	# envs
@@ -67,9 +72,11 @@ all = [
 	"ray[rllib] >=2.3",
 	"pandas >=1.0",
 	"prettytable >=3.6.0",
+	# other
+	"moviepy >=1.0.0",
+	"pettingzoo >=1.22",
+	"ray[rllib]>=2.3"
 ]
-pettingzoo = ["pettingzoo >=1.22"]
-rllib = ["ray[rllib]>=2.3"]
 testing = ["pytest >=7.2"]
 
 [project.urls]
