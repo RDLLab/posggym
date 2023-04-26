@@ -16,7 +16,7 @@ def run_agents(
     policy_ids: List[str],
     num_episodes: int,
     seed: Optional[int] = None,
-    render_mode: str = "human",
+    render_mode: Optional[str] = "human",
 ):
     """Run agents."""
     print("\n== Running Agents ==")
@@ -117,7 +117,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--seed", type=int, default=None, help="Environment seed.")
     parser.add_argument(
-        "--render_mode", type=str, default="human", help="The render mode to use."
+        "--render_mode", type=str, default=None, help="The render mode to use."
     )
     args = parser.parse_args()
     run_agents(**vars(args))

@@ -2,16 +2,7 @@
 import math
 from itertools import product
 from os import path
-from typing import (
-    Dict,
-    List,
-    NamedTuple,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-    Union,
-)
+from typing import Dict, List, NamedTuple, Optional, Sequence, Set, Tuple, Union
 
 from gymnasium import spaces
 
@@ -236,7 +227,6 @@ class PPEnv(DefaultEnv[PPState, PPObs, PPAction]):
                 f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
             )
             return
-
         if self.render_mode == "ansi":
             return self._render_ansi()
         return self._render_img()

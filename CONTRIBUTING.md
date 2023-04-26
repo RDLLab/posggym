@@ -17,7 +17,7 @@ Currently working towards releasing a full stable version of posggym, with the f
 
 For the stable version we aim to have:
 
-- [ ] installation working for both via cloning repo and via pypi
+- [x] installation working for both via cloning repo and via pypi
 - [x] all supported environments:
   - [x] implemented
   - [x] tested
@@ -28,7 +28,7 @@ For the stable version we aim to have:
   - [x] using posggym Env and posggym Models
   - [x] creating your own environment
   - [x] using posggym.agents
-- [ ] posggym.agents installation and packaging working correctly
+- [x] posggym.agents installation and packaging working correctly
 
 ### Future developments
 

@@ -1,20 +1,11 @@
 """The Pursuit-Evasion Grid World Environment."""
 from collections import deque
-from typing import (
-    Any,
-    Deque,
-    Dict,
-    List,
-    NamedTuple,
-    Optional,
-    Set,
-    Tuple,
-    Union,
-)
+from typing import Any, Deque, Dict, List, NamedTuple, Optional, Set, Tuple, Union
 
 from gymnasium import spaces
 
 import posggym.model as M
+from posggym import logger
 from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import Coord, Direction, Grid
 from posggym.utils import seeding
@@ -262,6 +253,14 @@ class PursuitEvasionEnv(DefaultEnv):
         return super().reset(seed=seed, options=options)
 
     def render(self):
+        if self.render_mode is None:
+            assert self.spec is not None
+            logger.warn(
+                "You are calling render method without specifying any render mode. "
+                "You can specify the render_mode at initialization, "
+                f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
+            )
+            return
         if self.render_mode == "ansi":
             return self._render_ansi()
         return self._render_img()

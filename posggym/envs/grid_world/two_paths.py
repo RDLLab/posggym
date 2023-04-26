@@ -146,7 +146,6 @@ class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
                 f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
             )
             return
-
         if self.render_mode == "ansi":
             return self._render_ansi()
         return self._render_img()

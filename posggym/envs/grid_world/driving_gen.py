@@ -2,12 +2,8 @@
 from typing import Any, Dict, Optional, Set, Tuple, Union
 
 import posggym.model as M
-from posggym.envs.grid_world.core import (
-    Coord,
-    GridCycler,
-    GridGenerator,
-)
-from posggym.envs.grid_world.driving import DrivingEnv, DrivingGrid, DObs
+from posggym.envs.grid_world.core import Coord, GridCycler, GridGenerator
+from posggym.envs.grid_world.driving import DObs, DrivingEnv, DrivingGrid
 
 
 class DrivingGenEnv(DrivingEnv):

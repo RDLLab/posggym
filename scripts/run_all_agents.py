@@ -11,7 +11,7 @@ from posggym.agents.registration import PolicySpec
 
 
 def try_make_policy(
-    spec: PolicySpec, render_mode: str
+    spec: PolicySpec, render_mode: Optional[str]
 ) -> Tuple[Optional[posggym.Env], Optional[pga.Policy]]:
     """Tries to make the policy showing if it is possible."""
     try:
@@ -41,7 +41,10 @@ def try_make_policy(
 
 
 def run_policy(
-    spec: PolicySpec, num_episodes: int, seed: Optional[int], render_mode: str = "human"
+    spec: PolicySpec,
+    num_episodes: int,
+    seed: Optional[int],
+    render_mode: Optional[str] = "human",
 ):
     """Run a posggym.policy."""
     env, test_policy = try_make_policy(spec, render_mode)
@@ -109,7 +112,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--seed", type=int, default=None, help="Environment seed.")
     parser.add_argument(
-        "--render_mode", type=str, default="human", help="The render mode to use."
+        "--render_mode", type=str, default=None, help="The render mode to use."
     )
     args = parser.parse_args()
     run_all_agents(**vars(args))

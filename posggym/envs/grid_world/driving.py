@@ -1,28 +1,14 @@
 """The Driving Grid World Environment."""
 import enum
 from itertools import product
-from typing import (
-    Any,
-    Dict,
-    List,
-    NamedTuple,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-    Union,
-)
+from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Set, Tuple, Union
 
 from gymnasium import spaces
 
 import posggym.model as M
+from posggym import logger
 from posggym.core import DefaultEnv
-from posggym.envs.grid_world.core import (
-    DIRECTION_ASCII_REPR,
-    Coord,
-    Direction,
-    Grid,
-)
+from posggym.envs.grid_world.core import DIRECTION_ASCII_REPR, Coord, Direction, Grid
 from posggym.utils import seeding
 
 
@@ -260,6 +246,14 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
         self._agent_imgs = None
 
     def render(self):
+        if self.render_mode is None:
+            assert self.spec is not None
+            logger.warn(
+                "You are calling render method without specifying any render mode. "
+                "You can specify the render_mode at initialization, "
+                f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
+            )
+            return
         if self.render_mode == "ansi":
             return self._render_ansi()
         return self._render_img()

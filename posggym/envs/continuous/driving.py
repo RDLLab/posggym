@@ -228,17 +228,7 @@ class DrivingContinuousEnv(DefaultEnv[DState, DObs, DAction]):
                 f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
             )
             return
-        if self.render_mode in ("human", "rgb_array"):
-            return self._render_img()
-        else:
-            logger.warn(
-                "You are calling render method on an invalid render mode"
-                'Continuous environments currently only support "human" or'
-                '"rgb_array" render modes.'
-                "You can specify the render_mode at initialization, "
-                f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
-            )
-            return
+        return self._render_img()
 
     def _render_img(self):
         # import posggym.envs.continuous.render as render_lib

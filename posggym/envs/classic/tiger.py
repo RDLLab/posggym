@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Tuple
 from gymnasium import spaces
 
 import posggym.model as M
+from posggym import logger
 from posggym.core import DefaultEnv
 from posggym.utils import seeding
 
@@ -154,6 +155,15 @@ class MultiAgentTigerEnv(DefaultEnv):
         )
 
     def render(self):
+        if self.render_mode is None:
+            assert self.spec is not None
+            logger.warn(
+                "You are calling render method without specifying any render mode. "
+                "You can specify the render_mode at initialization, "
+                f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
+            )
+            return
+
         assert self._last_obs is not None
 
         state_str = STATE_STRS[self._state]

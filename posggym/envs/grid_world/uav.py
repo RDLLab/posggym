@@ -147,7 +147,6 @@ class UAVEnv(DefaultEnv[UAVState, UAVObs, UAVAction]):
                 f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
             )
             return
-
         if self.render_mode == "ansi":
             return self._render_ansi()
         return self._render_gui()
