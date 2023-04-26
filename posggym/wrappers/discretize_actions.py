@@ -17,12 +17,12 @@ class DiscretrizeActions(ActionWrapper):
 
         self.num_actions = num_actions
         self.flatten = flatten
-        assert all(isinstance(a_s, spaces.Box) for a_s in self.action_spaces)
+        assert all(isinstance(a_s, spaces.Box) for a_s in self.action_spaces.values())
 
         box_actions: Dict[AgentID, spaces.Box] = self.action_spaces  # type: ignore
 
         if self.flatten:
-            self.unflat_space: Dict[AgentID, spaces.Discrete] = {
+            self._unflat_space: Dict[AgentID, spaces.Discrete] = {
                 i: self.discretize_action_space(
                     act_i, num_actions=num_actions, flatten=False
                 )
@@ -39,7 +39,7 @@ class DiscretrizeActions(ActionWrapper):
     def actions(self, actions):
         if self.flatten:
             actions = {
-                i: self.undiscretize_discrete_action(act_i, self._unflat_space[i])
+                i: self.multidiscretize_discrete_action(act_i, self._unflat_space[i])
                 for i, act_i in actions.items()
             }
 
@@ -93,7 +93,7 @@ class DiscretrizeActions(ActionWrapper):
 
         return continuous_action
 
-    def undiscretize_discrete_action(
+    def multidiscretize_discrete_action(
         self, discrete_action: int, multidiscrete_space: spaces.MultiDiscrete
     ):
         # Compute the individual action space sizes
