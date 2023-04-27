@@ -53,7 +53,8 @@ class RllibPolicy(Policy[ActType, ObsType]):
     Note, if `explore=True` then policy performance may not be perfectly reproducible
     even if seed is set in `reset()` function. This is because Rllib makes use of global
     seeds/RNGS for random, numpy, and torch, and so reproducibility is sensitive to any
-    other libraries, policies, etc that also use the global RNGs.
+    other libraries, policies, etc that also use the global RNGs. It may still result
+    in reproducible runs, but behaviour is less isolated.
 
     If `explore=False` then performance will select the maximizing action each step,
     so will be deterministic.
