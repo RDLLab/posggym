@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import abc
+import os
 import os.path as osp
 import pickle
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+import random
 import warnings
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from gymnasium import spaces
@@ -13,12 +15,13 @@ from gymnasium import spaces
 from posggym import logger
 from posggym.agents.policy import ActType, ObsType, Policy, PolicyID, PolicyState
 from posggym.agents.registration import PolicySpec
+from posggym.agents.utils.download import download_from_repo
 from posggym.agents.utils.preprocessors import (
     ObsPreprocessor,
     get_flatten_preprocessor,
     identity_preprocessor,
 )
-from posggym.agents.utils.download import download_from_repo
+
 
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -47,6 +50,14 @@ class RllibPolicy(Policy[ActType, ObsType]):
     This class essentially acts as wrapper for an Rlib Policy class
     (ray.rllib.policy.policy.Policy).
 
+    Note, if `explore=True` then policy performance may not be perfectly reproducible
+    even if seed is set in `reset()` function. This is because Rllib makes use of global
+    seeds/RNGS for random, numpy, and torch, and so reproducibility is sensitive to any
+    other libraries, policies, etc that also use the global RNGs.
+
+    If `explore=False` then performance will select the maximizing action each step,
+    so will be deterministic.
+
     """
 
     def __init__(
@@ -56,11 +67,13 @@ class RllibPolicy(Policy[ActType, ObsType]):
         policy_id: PolicyID,
         policy: rllib.policy.policy.Policy,
         preprocessor: Optional[ObsPreprocessor] = None,
+        explore: bool = False,
     ):
         self._policy = policy
         if preprocessor is None:
             preprocessor = identity_preprocessor
         self._preprocessor = preprocessor
+        self._explore = explore
         super().__init__(model, agent_id, policy_id)
 
     def step(self, obs: ObsType) -> ActType:
@@ -71,6 +84,35 @@ class RllibPolicy(Policy[ActType, ObsType]):
 
     def reset(self, *, seed: int | None = None):
         super().reset(seed=seed)
+        # Rllib doesn't use in-built RNG class, but rather relies on global seed
+        # https://github.com/ray-project/ray/blob/master/rllib/utils/debug/deterministic.py
+        if seed is not None:
+            random.seed(seed)
+            np.random.seed(seed)
+
+            import torch
+
+            # https://pytorch.org/docs/stable/notes/randomness.html
+            torch.manual_seed(seed)
+            torch.use_deterministic_algorithms(True)
+
+            if hasattr(self._policy, "device") and str(self._policy.device) != "cpu":
+                torch.backends.cudnn.benchmark = False
+                # See https://github.com/pytorch/pytorch/issues/47672.
+                # https://docs.nvidia.com/cuda/cublas/index.html#cublasApi_reproducibility
+                cuda_version = torch.version.cuda
+                if (
+                    cuda_version is not None
+                    and float(cuda_version) >= 10.2
+                    and (
+                        "CUBLAS_WORKSPACE_CONFIG" not in os.environ
+                        or (
+                            os.environ["CUBLAS_WORKSPACE_CONFIG"]
+                            not in (":16:8", ":4096:2")
+                        )
+                    )
+                ):
+                    os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:2"
 
     def get_initial_state(self) -> PolicyState:
         state = super().get_initial_state()
@@ -82,7 +124,7 @@ class RllibPolicy(Policy[ActType, ObsType]):
 
     def get_next_state(self, obs: ObsType, state: PolicyState) -> PolicyState:
         action, hidden_state, pi_info = self._compute_action(
-            obs, state["hidden_state"], state["action"], explore=False
+            obs, state["hidden_state"], state["action"], explore=self._explore
         )
         return {
             "last_obs": obs,
@@ -129,7 +171,9 @@ class RllibPolicy(Policy[ActType, ObsType]):
         a_tp1, o_t = history[-1]
 
         for a_t, o_t in history:
-            a_tp1, h_tm1, info_tm1 = self._compute_action(o_t, h_tm1, a_t)
+            a_tp1, h_tm1, info_tm1 = self._compute_action(
+                o_t, h_tm1, a_t, explore=self._explore
+            )
 
         h_t, info_t = h_tm1, info_tm1
         # returns:
@@ -190,7 +234,9 @@ def get_rllib_policy_entry_point(policy_file: str) -> PolicyEntryPoint:
         ppo_policy = PPOTorchPolicy(flat_obs_space, action_space, data["config"])
         ppo_policy.set_state(data["state"])
 
-        return PPORllibPolicy(model, agent_id, policy_id, ppo_policy, preprocessor)
+        return PPORllibPolicy(
+            model, agent_id, policy_id, ppo_policy, preprocessor, **kwargs
+        )
 
     return _entry_point
 

@@ -68,7 +68,8 @@ policy_specs.update(
         ],
         version=0,
         valid_agent_ids=["0"],
-        nondeterministic=True,
+        nondeterministic=False,
+        explore=False,
     )
 )
 # Pursuer (agent=1)
@@ -116,7 +117,8 @@ policy_specs.update(
         ],
         version=0,
         valid_agent_ids=["1"],
-        nondeterministic=True,
+        nondeterministic=False,
+        explore=False,
     )
 )
 
@@ -166,7 +168,8 @@ policy_specs.update(
         ],
         version=0,
         valid_agent_ids=["0"],
-        nondeterministic=True,
+        nondeterministic=False,
+        explore=False,
     )
 )
 # Pursuer (agent=1)
@@ -214,6 +217,7 @@ policy_specs.update(
         ],
         version=0,
         valid_agent_ids=["1"],
-        nondeterministic=True,
+        nondeterministic=False,
+        explore=False,
     )
 )

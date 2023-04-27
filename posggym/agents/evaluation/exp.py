@@ -12,13 +12,13 @@ from pprint import pformat
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple
 
 import posggym
-from posggym import wrappers
 import posggym.agents.evaluation.render as render_lib
 import posggym.agents.evaluation.stats as stats_lib
 import posggym.agents.evaluation.writer as writer_lib
+from posggym import wrappers
 from posggym.agents import make
-from posggym.agents.config import BASE_RESULTS_DIR
 from posggym.agents.evaluation import runner
+from posggym.config import BASE_RESULTS_DIR
 
 
 LINE_BREAK = "-" * 60

@@ -9,7 +9,7 @@ from typing import Any, List, Optional, Sequence
 import pandas as pd
 from prettytable import PrettyTable
 
-from posggym.agents.config import BASE_RESULTS_DIR
+from posggym.config import BASE_RESULTS_DIR
 from posggym.agents.evaluation.stats import AgentStatisticsMap, combine_statistics
 
 

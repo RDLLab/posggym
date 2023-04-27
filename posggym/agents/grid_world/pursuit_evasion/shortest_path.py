@@ -15,7 +15,7 @@ from posggym.envs.grid_world.pursuit_evasion import (
 
 if TYPE_CHECKING:
     from posggym.envs.grid_world.core import Coord, Direction
-    from posggym.model import AgentID
+    from posggym.model import AgentID, POSGModel
     from posggym.utils.history import AgentHistory
 
 
@@ -28,7 +28,7 @@ class PEShortestPathPolicy(Policy[PEAction, PEObs]):
     """
 
     def __init__(
-        self, model: PursuitEvasionModel, agent_id: AgentID, policy_id: PolicyID
+        self, model: POSGModel, agent_id: AgentID, policy_id: PolicyID, **kwargs
     ):
         super().__init__(model, agent_id, policy_id)
         self.model = cast(PursuitEvasionModel, model)

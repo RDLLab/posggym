@@ -54,7 +54,8 @@ policy_specs.update(
         ],
         version=0,
         valid_agent_ids=None,
-        nondeterministic=True,
+        nondeterministic=False,
+        explore=False,
     )
 )
 
@@ -104,6 +105,7 @@ policy_specs.update(
         ],
         version=0,
         valid_agent_ids=None,
-        nondeterministic=True,
+        nondeterministic=False,
+        explore=False,
     )
 )

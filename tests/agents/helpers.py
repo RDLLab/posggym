@@ -82,7 +82,7 @@ def assert_equals(a, b, prefix=None):
             assert_equals(v_a, v_b, prefix)
     elif isinstance(a, np.ndarray):
         np.testing.assert_array_equal(a, b)
-    elif isinstance(a, tuple):
+    elif isinstance(a, (tuple, list)):
         for elem_from_a, elem_from_b in zip(a, b):
             assert_equals(elem_from_a, elem_from_b, prefix)
     else:
