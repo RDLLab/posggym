@@ -8,8 +8,18 @@ class OrderEnforcing(posggym.Wrapper):
 
     Will produce an error if :meth:`step` is called before an initial :meth:`reset`.
 
-    Ref:
+    Arguments
+    ---------
+    env :
+        The environment to apply the wrapper
+    disable_render_order_enforcing :
+        Whether to disable enforcing of reset before render is called or not.
+
+    Notes
+    -----
+    This implementation is based on the similar Gymnasium wrapper:
     https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/wrappers/order_enforcing.py
+
     """
 
     def __init__(self, env: posggym.Env, disable_render_order_enforcing: bool = False):

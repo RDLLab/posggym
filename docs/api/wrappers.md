@@ -105,9 +105,15 @@ POSGGym provides a number of commonly used wrappers listed below.
     * - Name
       - Type
       - Description
+    * - :class:`DiscretizeActions`
+      - Action Wrapper
+      - An Action wrapper that discretizes continuous action spaces
     * - :class:`FlattenObservation`
       - Observation Wrapper
       - An Observation wrapper that flattens the observation
+    * - :class:`RescaleObservation`
+      - Observation Wrapper
+      - An Observation wrapper for rescaling observations
     * - :class:`OrderEnforcing`
       - Misc Wrapper
       - This will produce an error if `step` or `render` is called before `reset`

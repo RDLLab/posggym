@@ -18,13 +18,19 @@ class PassiveEnvChecker(posggym.Wrapper):
     Surrounds the step, reset and render functions to check that they follow the
     posggym environment and model APIs.
 
+    Arguments
+    ---------
+    env :
+        The environment to apply the wrapper
+
+    Notes
+    -----
+    This implementation is based on the similar Gymnasium wrapper:
+    https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/wrappers/env_checker.py
+
     """
 
-    def __init__(self, env):
-        """Initialises the wrapper with the environment.
-
-        Runs the model and space tests.
-        """
+    def __init__(self, env: posggym.Env):
         super().__init__(env)
 
         assert hasattr(env, "model"), "The environment must specify a model."

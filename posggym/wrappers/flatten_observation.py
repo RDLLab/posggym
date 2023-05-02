@@ -7,7 +7,14 @@ from posggym import Env, ObservationWrapper
 class FlattenObservation(ObservationWrapper):
     """Observation wrapper that flattens the observation.
 
-    Ref:
+    Arguments
+    ---------
+    env :
+        The environment to apply the wrapper
+
+    Notes
+    -----
+    This implementation is based on the similar Gymnasium wrapper:
     https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/wrappers/flatten_observation.py
 
     """

@@ -37,9 +37,30 @@ def capped_cubic_video_schedule(episode_id: int) -> bool:
 class RecordVideo(Wrapper):
     """Wrapper for recording videos of rollouts.
 
-    It is based on the gymnasium.wrappers.RecordVideo (version gymnasium 0.27) wrapper.
-    Adapted here to work with posggym's multiagent environment.
+    Arguments
+    ---------
+    env:
+        The environment that will be wrapped
+    video_folder:
+        The folder where the recordings will be stored
+    episode_trigger:
+        Function that accepts an integer and returns ``True`` iff a recording should be
+        started at this episode
+    step_trigger:
+        Function that accepts an integer and returns ``True`` iff a recording should be
+        started at this step
+    video_length:
+        The length of recorded episodes. If 0, entire episodes are recorded. Otherwise,
+        snippets of the specified length are captured
+    name_prefix:
+        Will be prepended to the filename of the recordings
+    disable_logger:
+        Whether to disable moviepy logger or not.
 
+    Notes
+    -----
+    This implementation is based on the gymnasium.wrappers.RecordVideo (version
+    gymnasium 0.27) wrapper, adapted here to work with posggym's multiagent environment:
     https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/wrappers/record_video.py
 
     """
@@ -54,22 +75,6 @@ class RecordVideo(Wrapper):
         name_prefix: str = "posggym-video",
         disable_logger: bool = False,
     ):
-        """Wrapper records videos of rollouts.
-
-        Arguments
-        ---------
-        env: The environment that will be wrapped
-        video_folder: The folder where the recordings will be stored
-        episode_trigger: Function that accepts an integer and returns ``True`` iff a
-            recording should be started at this episode
-        step_trigger: Function that accepts an integer and returns ``True`` iff a
-            recording should be started at this step
-        video_length: The length of recorded episodes. If 0, entire episodes are
-            recorded. Otherwise, snippets of the specified length are captured
-        name_prefix: Will be prepended to the filename of the recordings
-        disable_logger: Whether to disable moviepy logger or not.
-
-        """
         super().__init__(env)
 
         if episode_trigger is None and step_trigger is None:

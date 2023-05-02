@@ -13,7 +13,20 @@ class DiscretizeActions(ActionWrapper):
 
     The base environment :attr:`env` must have an action space of type
     :class:`spaces.Box` for each agent. If :attr:`flatten` is True and original action
-    space is multi-dimensional, then
+    space is multi-dimensional with :attr:`ndim` dimensions, then will create
+    discretized space with :attr:`num_actions ** ndim` actions.
+
+    Arguments
+    ---------
+    env :
+        The environment to apply the wrapper
+    num_actions :
+        The number of actions to discretize space into. For multi-dimensional
+        continuous spaces each dimension will be discretized into this many actions.
+    flatten :
+       Whether to flatten action space into one-dimensional discrete space, or keep
+       number of dimensions of the original action space.
+
     """
 
     def __init__(self, env: Env, num_actions: int, flatten: bool = False):

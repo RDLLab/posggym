@@ -14,9 +14,23 @@ class RescaleObservation(ObservationWrapper):
     The base environment :attr:`env` must have an observation space of type
     :class:`spaces.Box` for each agent. If :attr:`min_obs` or :attr:`max_obs` are numpy
     arrays, the shape must match the shape of the environment's observation space for
-    the given agent.
+    the given agent. If :attr:`min_obs` or :attr:`max_obs` are dictionaries then they
+    must have an entry for each possible agent ID in the wrapped environment.
 
-    Ref: https://stats.stackexchange.com/questions/281162/scale-a-number-between-a-range
+    Arguments
+    ---------
+    env :
+        The environment to apply the wrapper
+    min_obs :
+        The minimum value for the scaled observations.
+    max_obs :
+        The maximum value for the scaled observations.
+
+
+    Notes
+    -----
+    Explanation of how to scale number from one interval into new interval:
+    https://stats.stackexchange.com/questions/281162/scale-a-number-between-a-range
 
     """
 

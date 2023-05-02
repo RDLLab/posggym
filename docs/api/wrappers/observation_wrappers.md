@@ -12,4 +12,5 @@
 
 ```{eval-rst}
 .. autoclass:: posggym.wrappers.FlattenObservation
+.. autoclass:: posggym.wrappers.RescaleObservation
 ```

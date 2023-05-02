@@ -10,7 +10,6 @@
 
 ## Available Action Wrappers
 
-None at present.
-
 ```{eval-rst}
+.. autoclass:: posggym.wrappers.DiscretizeActions
 ```

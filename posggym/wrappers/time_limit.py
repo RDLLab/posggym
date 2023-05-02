@@ -16,8 +16,19 @@ class TimeLimit(posggym.Wrapper):
     of timesteps is exceeded. It will also signal that the episode is `done` for all
     agents.
 
-    Ref:
+    Arguments
+    ---------
+    env :
+        The environment to apply the wrapper
+    max_episode_steps :
+        The maximum length of episode before it is truncated. If None then will not
+        truncate episodes.
+
+    Notes
+    -----
+    This implementation is based on the similar Gymnasium wrapper:
     https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/wrappers/time_limit.py
+
     """
 
     def __init__(self, env: posggym.Env, max_episode_steps: Optional[int] = None):
