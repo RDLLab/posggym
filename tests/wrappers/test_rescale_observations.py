@@ -1,4 +1,4 @@
-"""Test for RescaleObservation Wrapper."""
+"""Test for RescaleObservations Wrapper."""
 import math
 
 import numpy as np
@@ -6,7 +6,7 @@ import pytest
 from gymnasium import spaces
 
 import posggym
-from posggym.wrappers import RescaleObservation
+from posggym.wrappers import RescaleObservations
 
 
 @pytest.mark.parametrize(
@@ -33,7 +33,7 @@ def test_rescale_observation(min_val, max_val):
         obs_dist=obs_dist,
         n_sensors=n_sensors,
     )
-    wrapped_env = RescaleObservation(env, min_val, max_val)
+    wrapped_env = RescaleObservations(env, min_val, max_val)
 
     obs, info = env.reset()
     wrapped_obs, wrapped_obs_info = wrapped_env.reset()

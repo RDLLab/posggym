@@ -1,4 +1,4 @@
-"""Test for FlattenObservation Wrapper.
+"""Test for FlattenObservations Wrapper.
 
 Ref
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/wrappers/test_flatten_observation.py
@@ -9,14 +9,14 @@ from gymnasium import spaces
 
 import posggym
 from posggym.envs.grid_world.driving import CELL_OBS, Speed
-from posggym.wrappers import FlattenObservation
+from posggym.wrappers import FlattenObservations
 
 
 def test_flatten_observation():
     env = posggym.make(
         "Driving-v0", disable_env_checker=True, num_agents=2, grid="7x7RoundAbout"
     )
-    wrapped_env = FlattenObservation(env)
+    wrapped_env = FlattenObservations(env)
 
     obs, info = env.reset()
     wrapped_obs, wrapped_obs_info = wrapped_env.reset()

@@ -5,8 +5,8 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/wrappers/_
 """
 from posggym.wrappers.discretize_actions import DiscretizeActions
 from posggym.wrappers.env_checker import PassiveEnvChecker
-from posggym.wrappers.flatten_observation import FlattenObservation
+from posggym.wrappers.flatten_observations import FlattenObservations
 from posggym.wrappers.order_enforcing import OrderEnforcing
 from posggym.wrappers.record_video import RecordVideo
-from posggym.wrappers.rescale_observation import RescaleObservation
+from posggym.wrappers.rescale_observations import RescaleObservations
 from posggym.wrappers.time_limit import TimeLimit

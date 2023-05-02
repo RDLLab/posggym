@@ -108,10 +108,10 @@ POSGGym provides a number of commonly used wrappers listed below.
     * - :class:`DiscretizeActions`
       - Action Wrapper
       - An Action wrapper that discretizes continuous action spaces
-    * - :class:`FlattenObservation`
+    * - :class:`FlattenObservations`
       - Observation Wrapper
       - An Observation wrapper that flattens the observation
-    * - :class:`RescaleObservation`
+    * - :class:`RescaleObservations`
       - Observation Wrapper
       - An Observation wrapper for rescaling observations
     * - :class:`OrderEnforcing`

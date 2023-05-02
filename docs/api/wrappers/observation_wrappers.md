@@ -11,6 +11,6 @@
 ## Available Observation Wrappers
 
 ```{eval-rst}
-.. autoclass:: posggym.wrappers.FlattenObservation
-.. autoclass:: posggym.wrappers.RescaleObservation
+.. autoclass:: posggym.wrappers.FlattenObservations
+.. autoclass:: posggym.wrappers.RescaleObservations
 ```

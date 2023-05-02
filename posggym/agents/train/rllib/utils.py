@@ -1,5 +1,5 @@
 """Utility functions, classes, and types for rllib training."""
-from typing import Dict
+from typing import Dict, Callable
 
 from ray import rllib
 from ray.rllib.algorithms.algorithm import Algorithm
@@ -8,12 +8,13 @@ from ray.tune.registry import register_env
 import posggym
 import posggym.model as M
 from posggym.agents.policy import PolicyID
-from posggym.wrappers import FlattenObservation
+from posggym.wrappers import FlattenObservations
 from posggym.wrappers.rllib_multi_agent_env import RllibMultiAgentEnv
 
 
 RllibAlgorithmMap = Dict[M.AgentID, Dict[PolicyID, Algorithm]]
 RllibPolicyMap = Dict[M.AgentID, Dict[PolicyID, rllib.policy.policy.Policy]]
+RllibEnvCreatorFn = Callable[[Dict], RllibMultiAgentEnv]
 
 
 def posggym_registered_env_creator(config):
@@ -32,7 +33,7 @@ def posggym_registered_env_creator(config):
     env_kwargs = {k: v for k, v in config.items() if k not in ("env_id", "flatten_obs")}
     env = posggym.make(config["env_id"], **env_kwargs)
     if config.get("flatten_obs", True):
-        env = FlattenObservation(env)
+        env = FlattenObservations(env)
     return RllibMultiAgentEnv(env)
 
 

@@ -4,7 +4,7 @@ from gymnasium import spaces
 from posggym import Env, ObservationWrapper
 
 
-class FlattenObservation(ObservationWrapper):
+class FlattenObservations(ObservationWrapper):
     """Observation wrapper that flattens the observation.
 
     Arguments

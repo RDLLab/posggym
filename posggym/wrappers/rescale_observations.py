@@ -8,7 +8,7 @@ from posggym import Env, ObservationWrapper
 from posggym.model import AgentID
 
 
-class RescaleObservation(ObservationWrapper):
+class RescaleObservations(ObservationWrapper):
     """Observation wrapper that rescales observations to the range [min_obs, max_obs].
 
     The base environment :attr:`env` must have an observation space of type
