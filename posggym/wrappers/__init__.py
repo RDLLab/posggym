@@ -8,5 +8,6 @@ from posggym.wrappers.env_checker import PassiveEnvChecker
 from posggym.wrappers.flatten_observations import FlattenObservations
 from posggym.wrappers.order_enforcing import OrderEnforcing
 from posggym.wrappers.record_video import RecordVideo
+from posggym.wrappers.rescale_actions import RescaleActions
 from posggym.wrappers.rescale_observations import RescaleObservations
 from posggym.wrappers.time_limit import TimeLimit

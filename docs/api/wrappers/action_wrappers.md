@@ -12,4 +12,5 @@
 
 ```{eval-rst}
 .. autoclass:: posggym.wrappers.DiscretizeActions
+.. autoclass:: posggym.wrappers.RescaleActions
 ```
