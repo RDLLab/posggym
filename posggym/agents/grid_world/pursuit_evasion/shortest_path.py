@@ -11,6 +11,8 @@ from posggym.envs.grid_world.pursuit_evasion import (
     PEObs,
     PursuitEvasionModel,
 )
+from posggym.agents.utils import action_distributions
+from posggym.utils import seeding
 
 
 if TYPE_CHECKING:
@@ -48,6 +50,13 @@ class PEShortestPathPolicy(Policy[PEAction, PEObs]):
             set(self._grid.evader_start_coords + self._grid.all_goal_coords)
         )
         self._dists = self._grid.get_all_shortest_paths(evader_end_coords)
+
+        self._rng, _ = seeding.std_random()
+
+    def reset(self, *, seed: int | None = None):
+        super().reset(seed=seed)
+        if seed is not None:
+            self._rng, _ = seeding.std_random(seed=seed)
 
     def get_initial_state(self) -> PolicyState:
         state = super().get_initial_state()
@@ -125,13 +134,14 @@ class PEShortestPathPolicy(Policy[PEAction, PEObs]):
     def sample_action(self, state: PolicyState) -> PEAction:
         return state["action"]
 
-    def get_pi(self, state: PolicyState) -> Dict[PEAction, float]:
-        return self._get_pi_from_coords(
+    def get_pi(self, state: PolicyState) -> action_distributions.ActionDistribution:
+        dist = self._get_pi_from_coords(
             state["facing_dir"],
             state["coord"],
             state["prev_coord"],
             state["target_coord"],
         )
+        return action_distributions.DiscreteActionDistribution(dist, self._rng)
 
     def get_value(self, state: PolicyState) -> float:
         raise NotImplementedError(

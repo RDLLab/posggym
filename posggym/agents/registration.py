@@ -594,7 +594,7 @@ def make(
         policy_creator = load(spec_.entry_point)
 
     try:
-        policy = policy_creator(model, agent_id, spec_.id, **kwargs)
+        policy = policy_creator(model, agent_id, spec_.id, **_kwargs)
     except TypeError as e:
         raise e
 

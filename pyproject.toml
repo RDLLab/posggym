@@ -50,14 +50,11 @@ agents = [
 	"requests >= 2.28",
 	"clint >= 0.5.1",
 	"torch >=1.11.0",
-	"ray[rllib] >=2.3",
 	"pandas >=1.0",
 	"prettytable >=3.6.0",
 ]
 other = [
 	"moviepy >=1.0.0",
-	"pettingzoo >=1.22",
-	"ray[rllib]>=2.3"
 ]
 all = [
 	# Dependencieis for all envs and agents
@@ -69,13 +66,10 @@ all = [
 	"requests >= 2.28",
 	"clint >= 0.5.1",
 	"torch >=1.11.0",
-	"ray[rllib] >=2.3",
 	"pandas >=1.0",
 	"prettytable >=3.6.0",
 	# other
 	"moviepy >=1.0.0",
-	"pettingzoo >=1.22",
-	"ray[rllib]>=2.3"
 ]
 testing = ["pytest >=7.2"]
 
@@ -119,17 +113,6 @@ max-complexity = 10
 [tool.ruff.isort]
 lines-after-imports = 2
 extra-standard-library = ["typing_extensions"]
-
-# Included so isort can be used independently of ruff as well
-# can probably remove it in the future
-[tool.isort]
-atomic = true
-profile = "black"
-src_paths = ["posggym", "tests", "docs/scripts"]
-extra_standard_library = ["typing_extensions"]
-indent = 4
-lines_after_imports = 2
-multi_line_output = 3
 
 [tool.black]
 safe = true

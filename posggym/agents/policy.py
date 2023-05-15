@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from posggym.agents.registration import PolicySpec
     from posggym.model import AgentID, POSGModel
     from posggym.utils.history import AgentHistory
+    from posggym.agents.utils.action_distributions import ActionDistribution
 
 
 # Convenient type definitions
@@ -116,11 +117,8 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
         """Get action given agent's current state."""
 
     @abc.abstractmethod
-    def get_pi(self, state: PolicyState) -> Dict[ActType, float]:
-        """Get policy's distribution over actions for a given history.
-
-        If history is None then should use current history.
-        """
+    def get_pi(self, state: PolicyState) -> ActionDistribution:
+        """Get policy's distribution over actions for given policy state."""
 
     @abc.abstractmethod
     def get_value(self, state: PolicyState) -> float:

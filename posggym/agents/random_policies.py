@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Dict, List
 from gymnasium import spaces
 
 from posggym.agents.policy import ObsType, Policy, PolicyID, PolicyState
+from posggym.agents.utils import action_distributions
+from posggym.utils import seeding
 
 
 if TYPE_CHECKING:
@@ -44,12 +46,12 @@ class DiscreteFixedDistributionPolicy(Policy[int, ObsType]):
             prob_sum = 0.0 if i == 0 else self._cum_weights[-1]
             self._cum_weights.append(self.dist[a] + prob_sum)
 
-        self._rng = random.Random()
+        self._rng, _ = seeding.std_random()
 
     def reset(self, *, seed: int | None = None):
         super().reset(seed=seed)
         if seed is not None:
-            self._rng.seed(seed)
+            self._rng, _ = seeding.std_random(seed=seed)
 
     def get_next_state(
         self,
@@ -63,8 +65,8 @@ class DiscreteFixedDistributionPolicy(Policy[int, ObsType]):
             self._action_space, cum_weights=self._cum_weights, k=1
         )[0]
 
-    def get_pi(self, state: PolicyState) -> Dict[int, float]:
-        return dict(self.dist)
+    def get_pi(self, state: PolicyState) -> action_distributions.ActionDistribution:
+        return action_distributions.DiscreteActionDistribution(self.dist, self._rng)
 
     def get_value(self, state: PolicyState) -> float:
         raise NotImplementedError(
@@ -82,11 +84,13 @@ class RandomPolicy(Policy):
     def __init__(self, model: M.POSGModel, agent_id: M.AgentID, policy_id: PolicyID):
         super().__init__(model, agent_id, policy_id)
         self._action_space = model.action_spaces[agent_id]
+        self._rng = random.Random()
 
     def reset(self, *, seed: int | None = None):
         super().reset(seed=seed)
         if seed is not None:
             self._action_space.seed(seed=seed)
+            self._rng = random.Random(seed)
 
     def get_next_state(
         self,
@@ -98,9 +102,14 @@ class RandomPolicy(Policy):
     def sample_action(self, state: PolicyState) -> int:
         return self._action_space.sample()
 
-    def get_pi(self, state: PolicyState) -> Dict[int, float]:
+    def get_pi(self, state: PolicyState) -> action_distributions.ActionDistribution:
+        if isinstance(self._action_space, spaces.Discrete):
+            dist = {a: 1.0 / self._action_space.n for a in range(self._action_space.n)}
+            return action_distributions.DiscreteActionDistribution(dist, self._rng)
+
         raise NotImplementedError(
-            f"`get_value()` no implemented by {self.__class__.__name__} policy"
+            f"`get_pi()` not implemented by {self.__class__.__name__} policy for "
+            "non-discrete action spaces."
         )
 
     def get_value(self, state: PolicyState) -> float:

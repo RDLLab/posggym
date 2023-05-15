@@ -2,7 +2,7 @@
 import os.path as osp
 
 from posggym.config import AGENT_MODEL_DIR
-from posggym.agents.rllib_policy import load_rllib_policy_specs_from_files
+from posggym.agents.torch_policy import PPOPolicy
 
 
 ENV_ID = "PredatorPrey-v0"
@@ -10,8 +10,14 @@ agent_model_dir = osp.join(AGENT_MODEL_DIR, "grid_world", "predator_prey")
 policy_specs = {}
 
 # PredatorPrey-10x10-P2-p3-s2-coop-v0
-policy_specs.update(
-    load_rllib_policy_specs_from_files(
+for policy_file_name in [
+    "sp_seed0.pkl",
+    "sp_seed1.pkl",
+    "sp_seed2.pkl",
+    "sp_seed3.pkl",
+    "sp_seed4.pkl",
+]:
+    spec = PPOPolicy.get_spec_from_path(
         env_id=ENV_ID,
         env_args={
             "grid": "10x10",
@@ -21,26 +27,26 @@ policy_specs.update(
             "prey_strength": 2,
             "obs_dim": 2,
         },
-        policy_file_dir_path=osp.join(
-            agent_model_dir, "predatorprey_10x10_P2_p3_s2_coop_v0"
+        policy_file_path=osp.join(
+            agent_model_dir, "predatorprey_10x10_P2_p3_s2_coop_v0", policy_file_name
         ),
-        policy_file_names=[
-            "sp_seed0.pkl",
-            "sp_seed1.pkl",
-            "sp_seed2.pkl",
-            "sp_seed3.pkl",
-            "sp_seed4.pkl",
-        ],
         version=0,
         valid_agent_ids=None,
+        # policy is deterministic given random seed
         nondeterministic=False,
-        explore=False,
+        # actions sampled, rather always taking most probable action
+        deterministic=False,
     )
-)
+    policy_specs[spec.id] = spec
+
 
 # PredatorPrey-10x10-P3-p3-s2-coop-v0
-policy_specs.update(
-    load_rllib_policy_specs_from_files(
+for policy_file_name in [
+    "sp_seed0.pkl",
+    "sp_seed1.pkl",
+    "sp_seed2.pkl",
+]:
+    spec = PPOPolicy.get_spec_from_path(
         env_id=ENV_ID,
         env_args={
             "grid": "10x10",
@@ -50,25 +56,28 @@ policy_specs.update(
             "prey_strength": 2,
             "obs_dim": 2,
         },
-        policy_file_dir_path=osp.join(
-            agent_model_dir, "predatorprey_10x10_P3_p3_s2_coop_v0"
+        policy_file_path=osp.join(
+            agent_model_dir, "predatorprey_10x10_P3_p3_s2_coop_v0", policy_file_name
         ),
-        policy_file_names=[
-            "sp_seed0.pkl",
-            "sp_seed1.pkl",
-            "sp_seed2.pkl",
-        ],
         version=0,
         valid_agent_ids=None,
+        # policy is deterministic given random seed
         nondeterministic=False,
-        explore=False,
+        # actions sampled, rather always taking most probable action
+        deterministic=False,
     )
-)
+    policy_specs[spec.id] = spec
 
 
 # PredatorPrey-10x10-P4-p3-s3-coop-v0
-policy_specs.update(
-    load_rllib_policy_specs_from_files(
+for policy_file_name in [
+    "sp_seed0.pkl",
+    "sp_seed1.pkl",
+    "sp_seed2.pkl",
+    "sp_seed3.pkl",
+    "sp_seed4.pkl",
+]:
+    spec = PPOPolicy.get_spec_from_path(
         env_id=ENV_ID,
         env_args={
             "grid": "10x10",
@@ -78,19 +87,14 @@ policy_specs.update(
             "prey_strength": 3,
             "obs_dim": 2,
         },
-        policy_file_dir_path=osp.join(
-            agent_model_dir, "predatorprey_10x10_P4_p3_s3_coop_v0"
+        policy_file_path=osp.join(
+            agent_model_dir, "predatorprey_10x10_P4_p3_s3_coop_v0", policy_file_name
         ),
-        policy_file_names=[
-            "sp_seed0.pkl",
-            "sp_seed1.pkl",
-            "sp_seed2.pkl",
-            "sp_seed3.pkl",
-            "sp_seed4.pkl",
-        ],
         version=0,
         valid_agent_ids=None,
+        # policy is deterministic given random seed
         nondeterministic=False,
-        explore=False,
+        # actions sampled, rather always taking most probable action
+        deterministic=False,
     )
-)
+    policy_specs[spec.id] = spec

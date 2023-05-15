@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, cast
 
 from posggym.agents.policy import Policy, PolicyID, PolicyState
 from posggym.envs.grid_world.lbf import LBFAction, LBFModel, LBFObs
+from posggym.agents.utils import action_distributions
 
 
 if TYPE_CHECKING:
@@ -51,8 +52,9 @@ class LBFHeuristicPolicy(Policy[LBFAction, LBFObs]):
     def sample_action(self, state: PolicyState) -> LBFAction:
         return self._get_action_from_obs(state["last_obs"])
 
-    def get_pi(self, state: PolicyState) -> Dict[LBFAction, float]:
-        return self._get_pi_from_obs(state["last_obs"])
+    def get_pi(self, state: PolicyState) -> action_distributions.ActionDistribution:
+        pi = self._get_pi_from_obs(state["last_obs"])
+        return action_distributions.DiscreteActionDistribution(pi, self._rng)
 
     def get_value(self, state: PolicyState) -> float:
         raise NotImplementedError(

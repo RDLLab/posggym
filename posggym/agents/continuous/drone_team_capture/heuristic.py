@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import abc
 import math
-from typing import TYPE_CHECKING, Dict, List, Tuple
+from typing import TYPE_CHECKING, List, Tuple
 
 import numpy as np
 
@@ -13,6 +13,7 @@ from posggym.envs.continuous.drone_team_capture import (
     DTCAction,
     DTCState,
 )
+from posggym.agents.utils import action_distributions
 
 
 if TYPE_CHECKING:
@@ -69,8 +70,9 @@ class DTCHeuristicPolicy(Policy[DTCAction, DTCState], abc.ABC):
     def sample_action(self, state: PolicyState) -> DTCAction:
         return self._get_action(state["last_state"])
 
-    def get_pi(self, state: PolicyState) -> Dict[DTCAction, float]:
-        return {self._get_action(state["last_state"]): 1.0}
+    def get_pi(self, state: PolicyState) -> action_distributions.ActionDistribution:
+        action = self._get_action(state["last_state"])
+        return action_distributions.DeterministicActionDistribution(action)
 
     def euclidean_dist(self, coord1: np.ndarray, coord2: np.ndarray) -> float:
         return float(np.linalg.norm(coord1[:2] - coord2[:2]))

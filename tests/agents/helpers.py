@@ -7,9 +7,11 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/utils.py
 from typing import List, Optional
 
 import numpy as np
-import posggym
+import torch
 
+import posggym
 import posggym.agents as pga
+from posggym.agents import torch_policy
 from posggym.agents.registration import PolicySpec
 from tests.conftest import env_id_prefix
 
@@ -28,7 +30,6 @@ def try_make_policy(spec: PolicySpec) -> Optional[pga.Policy]:
             agent_id = spec.valid_agent_ids[0]
         else:
             agent_id = env.possible_agents[0]
-
         return pga.make(spec, env.model, agent_id)
     except (
         ImportError,
@@ -54,11 +55,22 @@ _all_testing_initialised_policies: List[Optional[pga.Policy]] = [
 all_testing_initialised_policies: List[pga.Policy] = [
     policy for policy in _all_testing_initialised_policies if policy is not None
 ]
+all_testing_initialised_torch_policies: List[torch_policy.PPOPolicy] = [
+    policy
+    for policy in all_testing_initialised_policies
+    if isinstance(policy, torch_policy.PPOPolicy)
+]
 
 # All testing posggym-agents policy specs
 all_testing_policy_specs: List[PolicySpec] = [
     policy.spec
     for policy in all_testing_initialised_policies
+    if policy.spec is not None
+]
+# All testing posggym-agents policy specs that use torch
+all_testing_torch_policy_specs: List[PolicySpec] = [
+    policy.spec
+    for policy in all_testing_initialised_torch_policies
     if policy.spec is not None
 ]
 
@@ -82,6 +94,8 @@ def assert_equals(a, b, prefix=None):
             assert_equals(v_a, v_b, prefix)
     elif isinstance(a, np.ndarray):
         np.testing.assert_array_equal(a, b)
+    elif isinstance(a, torch.Tensor):
+        assert torch.equal(a, b)
     elif isinstance(a, (tuple, list)):
         for elem_from_a, elem_from_b in zip(a, b):
             assert_equals(elem_from_a, elem_from_b, prefix)
