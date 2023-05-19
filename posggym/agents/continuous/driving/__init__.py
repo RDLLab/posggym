@@ -19,11 +19,11 @@ for policy_file_name in [
         env_args={
             "grid": "14x14RoundAbout",
             "num_agents": 2,
-            "obs_dist": 5,
+            "obs_dist": 5.0,
             "n_sensors": 16,
         },
         policy_file_path=osp.join(
-            agent_model_dir, "driving_14x14roundabout_n2_v0", policy_file_name
+            agent_model_dir, "driving_14x14roundabout", policy_file_name
         ),
         version=0,
         valid_agent_ids=None,

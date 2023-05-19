@@ -20,8 +20,6 @@ DOCS_DIR = osp.abspath(osp.join(osp.dirname(osp.abspath(__file__)), os.pardir))
 # snake to camel case:
 # https://stackoverflow.com/questions/1175208/elegant-python-function-to-convert-camelcase-to-snake-case
 pattern = re.compile(r"(?<!^)(?=[A-Z])")
-# how many steps to record an env for
-LENGTH = 300
 # height of GIF in pixels, width will be scaled to ensure correct aspec ratio
 HEIGHT = 256
 
@@ -30,6 +28,7 @@ def gen_gif(
     env_id: str,
     policy_ids: List[str],
     ignore_existing: bool = False,
+    length : int = 300,
     custom_env: bool = False,
     resize: bool = False,
 ):
@@ -90,14 +89,14 @@ def gen_gif(
         )
         return
 
-    # obtain and save LENGTH frames worth of steps
+    # obtain and save length frames worth of steps
     frames: List[Image] = []
     while True:
         obs, _ = env.reset()
         for policy in policies.values():
             policy.reset()
         all_done = False
-        while not all_done and len(frames) <= LENGTH:
+        while not all_done and len(frames) <= length:
             frame = env.render()  # type: ignore
             repeat = (
                 int(60 / env.metadata["render_fps"]) if env_type == "classic" else 1
@@ -111,9 +110,10 @@ def gen_gif(
                     actions[i] = policies[i].step(env.state)
                 else:
                     actions[i] = policies[i].step(obs[i])
-            obs, _, _, _, all_done, _ = env.step(actions)
+            obs, reward, _, _, all_done, _ = env.step(actions)
+            print(reward)
 
-        if len(frames) > LENGTH:
+        if len(frames) > length:
             break
 
     env.close()
@@ -160,6 +160,12 @@ if __name__ == "__main__":
         action="store_true",
         help="Overwrite existing GIF if it exists.",
     )
+    parser.add_argument(
+        "--length",
+        type=int,
+        help="Number of frames for the GIF.",
+        default=300
+    )    
     args = parser.parse_args()
 
-    gen_gif(args.env_id, args.policy_ids, args.ignore_existing)
+    gen_gif(args.env_id, args.policy_ids, args.ignore_existing, args.length)
