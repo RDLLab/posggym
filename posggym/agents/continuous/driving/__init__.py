@@ -12,7 +12,11 @@ policy_specs = {}
 
 # 14x14RoundAbout-n2-v0
 for policy_file_name in [
-    "sp_seed0.pkl",
+    "sp_seed2.pkl",
+    "sp_seed3.pkl",
+    "sp_seed4.pkl",
+    "sp_seed5.pkl",
+    "sp_seedNone.pkl",
 ]:
     spec = PPOPolicy.get_spec_from_path(
         env_id=ENV_ID,
