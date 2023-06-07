@@ -271,7 +271,6 @@ class PPOLSTMModel(nn.Module):
             )
             value = self.value_branch(hidden_state)
             logits = self.logits_branch(hidden_state)
-            # TODO - add support for continuous action spaces
             if isinstance(self.action_space, spaces.Discrete):
                 action_dist = Categorical(logits=logits)
                 if deterministic:
@@ -294,11 +293,6 @@ class PPOLSTMModel(nn.Module):
                 action_dist = Normal(mean, log_std.exp())
                 action = action_dist.mean if deterministic else action_dist.sample()
                 probs = torch.stack([action_dist.mean, action_dist.stddev])
-                print(f"{mean=}")
-                print(f"{action_dist.mean=}")
-                print(f"{log_std=}")
-                print(f"{action_dist.stddev=}")
-                print(f"{probs=}")
 
         return action, next_lstm_state, value, probs
 
@@ -374,7 +368,24 @@ class PPOLSTMModel(nn.Module):
 
 
 class PPOPolicy(Policy[ActType, ObsType]):
-    """A PyTorch PPO Policy."""
+    """A PyTorch PPO Policy.
+
+    Arguments
+    ---------
+    model: the model of the environment
+    agent_id: ID of the agent in the environment the policy is for
+    policy_id: ID of the policy
+    policy_model: the underlying PyTorch policy model
+    obs_processor: the observation processor to use for processing observations before
+        they are passed into the policy model. If None, then an identity processor is
+        used.
+    action_processor: the action processor to use for processing actions before they
+        are passed into the policy model, and for unprocessing actions sampled from the
+        policy model. If None, then an identity processor is used.
+    deterministic: whether to sample actions from the policy model stochastically or
+        deterministically. If True, then actions are sampled deterministically.
+
+    """
 
     def __init__(
         self,
@@ -401,7 +412,6 @@ class PPOPolicy(Policy[ActType, ObsType]):
                 model.action_spaces[agent_id]
             )
         self.action_processor = action_processor
-        self.action_space = action_processor.get_processed_space()
 
         super().__init__(model, agent_id, policy_id)
 
@@ -453,7 +463,6 @@ class PPOPolicy(Policy[ActType, ObsType]):
         state["prev_action"] = None
         state["prev_reward"] = None
         state["lstm_state"] = self.policy_model.get_initial_state(batch_size=1)
-        # TODO: add support for different action spaces
         state["action_probs"] = None
         state["action"] = None
         state["value"] = 0.0
@@ -461,6 +470,11 @@ class PPOPolicy(Policy[ActType, ObsType]):
 
     def get_next_state(self, obs: ObsType, state: PolicyState) -> PolicyState:
         obs = self.obs_processor(obs)
+
+        if state["action"] is not None:
+            processed_action = self.action_processor(state["action"])
+        else:
+            processed_action = None
         (
             action,
             lstm_state,
@@ -469,7 +483,7 @@ class PPOPolicy(Policy[ActType, ObsType]):
         ) = self.policy_model.get_action_and_value(
             obs,
             state["lstm_state"],
-            state["action"],
+            processed_action,
             prev_reward=None,
             deterministic=self.deterministic,
         )
@@ -486,7 +500,7 @@ class PPOPolicy(Policy[ActType, ObsType]):
             "prev_reward": None,
             "lstm_state": lstm_state,
             "action_probs": action_probs.numpy().squeeze(),
-            "action": self.action_processor(action),
+            "action": self.action_processor.unprocess(action),
             "value": value[0],
         }
 
@@ -494,27 +508,32 @@ class PPOPolicy(Policy[ActType, ObsType]):
         if self.deterministic:
             return state["action"]
 
-        if isinstance(self.action_space, spaces.Discrete):
-            return self._rng.choice(
-                self.action_space.n, p=state["action_probs"], size=1
+        processed_action_space = self.action_processor.input_space
+        if isinstance(processed_action_space, spaces.Discrete):
+            action = self._rng.choice(
+                processed_action_space.n, p=state["action_probs"], size=1
             )[0]
-
-        if isinstance(self.action_space, spaces.MultiDiscrete):
-            return [  # type: ignore
+        elif isinstance(processed_action_space, spaces.MultiDiscrete):
+            action = [  # type: ignore
                 self._rng.choice(
-                    self.action_space.nvec[i], p=state["action_probs"][i], size=1
+                    processed_action_space.nvec[i], p=state["action_probs"][i], size=1
                 )[0]
-                for i in range(len(self.action_space.nvec))
+                for i in range(len(processed_action_space))
             ]
-
-        # Box - continuous action space
-        mean, stdev = state["action_probs"]
-        return self._rng.normal(loc=mean, scale=stdev)
+        else:
+            # Box - continuous action space
+            mean, stdev = state["action_probs"]
+            action = self._rng.normal(loc=mean, scale=stdev)
+        # print(f"processed action: {action}")
+        action = self.action_processor.unprocess(action)
+        # print(f"unprocessed action: {action}")
+        return action
 
     def get_value(self, state: PolicyState) -> float:
         return state["value"]
 
     def get_pi(self, state: PolicyState) -> action_distributions.ActionDistribution:
+        # TODO handle action processing
         if isinstance(self.action_space, spaces.Discrete):
             return action_distributions.DiscreteActionDistribution(
                 state["action_probs"], self._rng
@@ -577,7 +596,7 @@ class PPOPolicy(Policy[ActType, ObsType]):
             action_processor_cls = processors.IdentityProcessor
             action_processor_config = None
 
-        elif action_processor_config is not None:
+        if action_processor_config is not None:
             action_processor: processors.Processor = action_processor_cls(
                 action_space, **action_processor_config
             )

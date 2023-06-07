@@ -8,7 +8,8 @@ import os
 import os.path as osp
 import re
 import argparse
-from typing import List
+from pprint import pprint
+from typing import List, Dict, Any
 
 from PIL import Image
 
@@ -28,14 +29,14 @@ def gen_gif(
     env_id: str,
     policy_ids: List[str],
     ignore_existing: bool = False,
-    length : int = 300,
+    length: int = 300,
     custom_env: bool = False,
     resize: bool = False,
 ):
     """Gen gif for env."""
-    print(env_id)
-    for pi_id in policy_ids:
-        print(pi_id)
+    print(f"\n{env_id=}")
+    for idx, pi_id in enumerate(policy_ids):
+        print(f"i={idx} - {pi_id=}")
 
     policy_specs = []
     env_args, env_args_id = None, None
@@ -57,14 +58,22 @@ def gen_gif(
         policy_specs.append(pi_spec)
 
     env_args = {} if env_args is None else env_args
+    if env_args:
+        print("Env args:")
+        pprint(env_args)
+
     env = posggym.make(
         env_id, disable_env_checker=True, render_mode="rgb_array", **env_args
     )
+    # env = posggym.wrappers.RescaleObservations(env, min_obs=-1.0, max_obs=1.0)
+    # env = posggym.wrappers.RescaleActions(env, min_action=-1.0, max_action=1.0)
 
     policies = {}
     for idx, spec in enumerate(policy_specs):
         agent_id = env.possible_agents[idx]
         policies[agent_id] = pga.make(spec.id, env.model, agent_id)
+        print(f"{agent_id=} - {spec.id=}")
+        pprint(spec.kwargs)
 
     # extract env name/type from class
     split = str(type(env.unwrapped)).split(".")
@@ -90,31 +99,26 @@ def gen_gif(
         return
 
     # obtain and save length frames worth of steps
-    frames: List[Image] = []
-    while True:
-        obs, _ = env.reset()
-        for policy in policies.values():
-            policy.reset()
-        all_done = False
-        while not all_done and len(frames) <= length:
-            frame = env.render()  # type: ignore
-            repeat = (
-                int(60 / env.metadata["render_fps"]) if env_type == "classic" else 1
-            )
-            for _ in range(repeat):
-                frames.append(Image.fromarray(frame))
+    frames: List[Image.Image] = []
+    obs, _ = env.reset()
+    while len(frames) <= length:
+        frame = env.render()  # type: ignore
+        repeat = int(60 / env.metadata["render_fps"]) if env_type == "classic" else 1
+        for _ in range(repeat):
+            frames.append(Image.fromarray(frame))
 
-            actions = {}
-            for i in env.agents:
-                if policies[i].observes_state:
-                    actions[i] = policies[i].step(env.state)
-                else:
-                    actions[i] = policies[i].step(obs[i])
-            obs, reward, _, _, all_done, _ = env.step(actions)
-            print(reward)
+        actions: Dict[str, Any] = {}
+        for i in env.agents:
+            if policies[i].observes_state:
+                actions[i] = policies[i].step(env.state)
+            else:
+                actions[i] = policies[i].step(obs[i])
+        obs, _, _, _, all_done, _ = env.step(actions)
 
-        if len(frames) > length:
-            break
+        if all_done:
+            obs, _ = env.reset()
+            for policy in policies.values():
+                policy.reset()
 
     env.close()
 
@@ -161,11 +165,8 @@ if __name__ == "__main__":
         help="Overwrite existing GIF if it exists.",
     )
     parser.add_argument(
-        "--length",
-        type=int,
-        help="Number of frames for the GIF.",
-        default=300
-    )    
+        "--length", type=int, help="Number of frames for the GIF.", default=300
+    )
     args = parser.parse_args()
 
     gen_gif(args.env_id, args.policy_ids, args.ignore_existing, args.length)

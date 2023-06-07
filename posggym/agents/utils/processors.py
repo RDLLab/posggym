@@ -20,6 +20,10 @@ class Processor(abc.ABC):
         """Process the input."""
 
     @abc.abstractmethod
+    def unprocess(self, processed_input: Any) -> Any:
+        """Unprocess processed input."""
+
+    @abc.abstractmethod
     def get_processed_space(self) -> spaces.Space:
         """Get the processed space."""
 
@@ -33,6 +37,9 @@ class IdentityProcessor(Processor):
     def __call__(self, input: Any) -> Any:
         return input
 
+    def unprocess(self, processed_input: Any) -> Any:
+        return processed_input
+
     def get_processed_space(self) -> spaces.Space:
         return self.input_space
 
@@ -42,6 +49,9 @@ class FlattenProcessor(Processor):
 
     def __call__(self, input: Any) -> Any:
         return spaces.flatten(self.input_space, input)
+
+    def unprocess(self, processed_input: Any) -> Any:
+        return spaces.unflatten(self.input_space, processed_input)
 
     def get_processed_space(self) -> spaces.Space:
         return spaces.flatten_space(self.input_space)
@@ -67,6 +77,11 @@ class RescaleProcessor(Processor):
     def __call__(self, input: Any) -> Any:
         low = self.input_space.low
         return (input - low) * self.rescale_factor + self.min_val
+
+    def unprocess(self, processed_input: Any) -> Any:
+        return (
+            processed_input - self.min_val
+        ) / self.rescale_factor + self.input_space.low
 
     def get_processed_space(self) -> spaces.Space:
         return spaces.Box(

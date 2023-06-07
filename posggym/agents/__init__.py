@@ -10,7 +10,11 @@ from posggym.agents.registration import (
 )
 from posggym.agents.policy import Policy
 from posggym.agents import random_policies
-from posggym.agents.continuous import drone_team_capture, driving as DrivingContinuous, pursuit_evasion as PEContinuous
+from posggym.agents.continuous import (
+    drone_team_capture,
+    driving as DrivingContinuous,
+    pursuit_evasion as PEContinuous,
+)
 from posggym.agents.grid_world import driving, lbf, predator_prey, pursuit_evasion
 
 

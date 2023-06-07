@@ -22,11 +22,9 @@ for policy_file_name in [
             "max_obs_distance": 12.0,
             "n_sensors": 16,
         },
-        policy_file_path=osp.join(
-            agent_model_dir, "pursuit_8x8", policy_file_name
-        ),
+        policy_file_path=osp.join(agent_model_dir, "pursuit_8x8", policy_file_name),
         version=0,
-        valid_agent_ids=None,
+        valid_agent_ids=["0" if policy_file_name.endswith("i0") else "1"],
         # policy is deterministic given random seed
         nondeterministic=False,
         # actions sampled, rather always taking most probable action
@@ -51,11 +49,9 @@ for policy_file_name in [
             "max_obs_distance": 12.0,
             "n_sensors": 16,
         },
-        policy_file_path=osp.join(
-            agent_model_dir, "pursuit_16x16", policy_file_name
-        ),
+        policy_file_path=osp.join(agent_model_dir, "pursuit_16x16", policy_file_name),
         version=0,
-        valid_agent_ids=None,
+        valid_agent_ids=["0" if policy_file_name.endswith("i0") else "1"],
         # policy is deterministic given random seed
         nondeterministic=False,
         # actions sampled, rather always taking most probable action
@@ -66,7 +62,6 @@ for policy_file_name in [
         action_processor_config={"min_val": -1, "max_val": 1},
     )
     policy_specs[spec.id] = spec
-
 
 
 for policy_file_name in [
@@ -81,11 +76,9 @@ for policy_file_name in [
             "max_obs_distance": 12.0,
             "n_sensors": 16,
         },
-        policy_file_path=osp.join(
-            agent_model_dir, "pursuit_32x32", policy_file_name
-        ),
+        policy_file_path=osp.join(agent_model_dir, "pursuit_32x32", policy_file_name),
         version=0,
-        valid_agent_ids=None,
+        valid_agent_ids=["0" if policy_file_name.endswith("i0") else "1"],
         # policy is deterministic given random seed
         nondeterministic=False,
         # actions sampled, rather always taking most probable action

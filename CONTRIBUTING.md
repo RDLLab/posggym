@@ -7,37 +7,14 @@ At this time we are currently accepting the current forms of contributions:
 - Documentation improvements
 - New environments
 
-## Development Roadmap
-
-Currently working towards releasing a full stable version of posggym, with the following environments supported :
-
-- classic: MultiAccessBroadcastChannel, MultiAgentTiger, RockPaperScissors
-- continuous: Driving, DroneTeamCapture, PredatorPrey, PursuitEvasion
-- grid world: Driving, Driving-Gen, Level-Based Foraging, Predator Prey, Pursuit-Evasion, Two Paths, UAV
-
-For the stable version we aim to have:
-
-- [x] installation working for both via cloning repo and via pypi
-- [x] all supported environments:
-  - [x] implemented
-  - [x] tested
-  - [x] documented in-code
-  - [x] documented on website
-- [x] documentation of the following:
-  - [x] installation
-  - [x] using posggym Env and posggym Models
-  - [x] creating your own environment
-  - [x] using posggym.agents
-- [x] posggym.agents installation and packaging working correctly
-
-### Future developments
+### Development Roadmap
 
 The following are things we would like to add in future versions:
 
 - Implement other classic planning benchmarks
-  - wild-fire fighting
-  - human-robot repair: https://arxiv.org/pdf/2302.13916.pdf
-  - more from: https://github.com/MADPToolbox/MADP
+  - [ ] wild-fire fighting
+  - [ ] human-robot repair: https://arxiv.org/pdf/2302.13916.pdf
+  - [ ] more from: https://github.com/MADPToolbox/MADP
 - Train/create agents for each supported environment
   - [ ] predator_prey (continuous and grid world) - handcrafted agents similar to level-based foraging.
   - [ ] driving (continuous and grid world) - shortest path agent (ideally with different aggressiveness: "aggressive" doesn't consider other cars, "mixed" sometimes aggressive sometimes waits, "timid/not aggressive" will wait till all cars are gone before progressing.)
