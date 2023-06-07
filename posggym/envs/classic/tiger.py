@@ -178,6 +178,8 @@ class MultiAgentTigerEnv(DefaultEnv):
         if self._last_actions is not None:
             action_str = ", ".join([ACTION_STR[a] for a in self._last_actions.values()])
             output.insert(1, f"Actions: <{action_str}>")
+
+        if self._last_rewards is not None:
             output.append(f"Rewards: <{tuple(self._last_rewards.values())}>")
 
         output_str = "\n".join(output) + "\n"

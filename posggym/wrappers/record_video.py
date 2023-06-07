@@ -136,6 +136,7 @@ class RecordVideo(Wrapper):
                 self.episode_id += 1
 
             if self.recording:
+                assert self.video_recorder is not None
                 self.video_recorder.capture_frame()
                 self.recorded_frames += 1
                 if self.episode_done or (
@@ -172,6 +173,7 @@ class RecordVideo(Wrapper):
     def _video_enabled(self):
         if self.step_trigger:
             return self.step_trigger(self.step_id)
+        assert self.episode_trigger is not None
         return self.episode_trigger(self.episode_id)
 
     def start_video_recorder(self):

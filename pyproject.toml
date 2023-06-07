@@ -118,11 +118,29 @@ extra-standard-library = ["typing_extensions"]
 safe = true
 line-length = 88
 
-[tool.mypy]
-python_version = "3.8"
-warn_unused_configs = true
-ignore_missing_imports = true
-plugins = "numpy.typing.mypy_plugin"
+[tool.pyright]
+include = ["posggym/**", "tests/**"]
+exclude = ["**/node_modules", "**/__pycache__"]
+strict = []
+
+typeCheckingMode = "basic"
+pythonVersion = "3.8"
+pythonPlatform = "All"
+enableTypeIgnoreComments = true
+
+# This is required as the CI pre-commit does not download the module (i.e. numpy, pygame, box2d)
+#   Therefore, we have to ignore missing imports
+reportMissingImports = "none"
+# Some modules are missing type stubs, which is an issue when running pyright locally
+reportMissingTypeStubs = false
+# For warning and error, will raise an error when
+reportInvalidTypeVarUse = "none"
+
+reportGeneralTypeIssues = "none"  # -> commented out raises 489 errors
+# reportUntypedFunctionDecorator = "none"  # -> pytest.mark.parameterize issues
+
+reportPrivateUsage = "warning"
+reportUnboundVariable = "warning"
 
 [tool.pytest.ini_options]
 filterwarnings = [

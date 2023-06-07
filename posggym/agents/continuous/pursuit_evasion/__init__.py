@@ -11,8 +11,8 @@ agent_model_dir = osp.join(AGENT_MODEL_DIR, "continuous", "pursuit")
 policy_specs = {}
 
 for policy_file_name in [
-    "sp_seed0_i0.pkl",
-    "sp_seed0_i1.pkl",
+    "sp_seed1_i0.pkl",
+    "sp_seed1_i1.pkl",
 ]:
     spec = PPOPolicy.get_spec_from_path(
         env_id=ENV_ID,
@@ -38,8 +38,8 @@ for policy_file_name in [
 
 
 for policy_file_name in [
-    "sp_seed0_i0.pkl",
-    "sp_seed0_i1.pkl",
+    "sp_seed1_i0.pkl",
+    "sp_seed1_i1.pkl",
 ]:
     spec = PPOPolicy.get_spec_from_path(
         env_id=ENV_ID,

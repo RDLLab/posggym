@@ -8,7 +8,7 @@ import sys
 import warnings
 from typing import Optional, Type
 
-from gymnasium.utils import colorize
+from gymnasium.utils.colorize import colorize
 
 
 DEBUG = 10

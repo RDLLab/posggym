@@ -10,7 +10,7 @@ from posggym.core import (
     RewardWrapper,
     Wrapper,
 )
-from posggym import envs, error, logger, utils, wrappers
+from posggym import envs, error, logger, utils, vector, wrappers
 from posggym.envs import make, pprint_registry, register, registry, spec
 
 
@@ -33,6 +33,7 @@ __all__ = [
     # module folders
     "envs",
     "utils",
+    "vector",
     "wrappers",
     "error",
     "logger",

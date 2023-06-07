@@ -117,7 +117,7 @@ class DrivingGenEnv(DrivingEnv):
                 grids = self._gen.generate_n(self._n_grids)
                 self._cycler = GridCycler(grids, self._shuffle_grid_order, seed=seed)
 
-        grid = self._cycler.next() if self._n_grids else self._gen.generate()
+        grid = self._cycler.next() if self._cycler is not None else self._gen.generate()
 
         self.model.grid = grid  # type: ignore
 

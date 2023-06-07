@@ -104,20 +104,24 @@ def test_make_generic():
     env = posggym.make(env_id, disable_env_checker=True)
 
     policy = pga.make("Random-v0", env.model, env.agents[0])
-    assert policy.spec.id == "Random-v0"
-    assert policy.spec.policy_name == "Random"
-    assert policy.spec.version == 0
-    assert policy.spec.env_id is None
-    assert policy.spec.env_args is None
-    assert policy.spec.env_args_id is None
+    spec = policy.spec
+    assert spec is not None
+    assert spec.id == "Random-v0"
+    assert spec.policy_name == "Random"
+    assert spec.version == 0
+    assert spec.env_id is None
+    assert spec.env_args is None
+    assert spec.env_args_id is None
 
     policy = pga.make(f"{env_id}/Random-v0", env.model, env.agents[0])
-    assert policy.spec.id == "Random-v0"
-    assert policy.spec.policy_name == "Random"
-    assert policy.spec.version == 0
-    assert policy.spec.env_id is None
-    assert policy.spec.env_args is None
-    assert policy.spec.env_args_id is None
+    spec = policy.spec
+    assert spec is not None
+    assert spec.id == "Random-v0"
+    assert spec.policy_name == "Random"
+    assert spec.version == 0
+    assert spec.env_id is None
+    assert spec.env_args is None
+    assert spec.env_args_id is None
 
     env.close()
 
@@ -126,12 +130,14 @@ def test_make_env_specific(register_make_testing_policies):
     env = posggym.make(TEST_ENV_ID, disable_env_checker=True)
     policy_id = f"{TEST_ENV_ID}/EnvTestPolicy-v5"
     policy = pga.make(policy_id, env.model, env.agents[0])
-    assert policy.spec.id == policy_id
-    assert policy.spec.policy_name == "EnvTestPolicy"
-    assert policy.spec.version == 5
-    assert policy.spec.env_id == TEST_ENV_ID
-    assert policy.spec.env_args is None
-    assert policy.spec.env_args_id is None
+    spec = policy.spec
+    assert spec is not None
+    assert spec.id == policy_id
+    assert spec.policy_name == "EnvTestPolicy"
+    assert spec.version == 5
+    assert spec.env_id == TEST_ENV_ID
+    assert spec.env_args is None
+    assert spec.env_args_id is None
     env.close()
 
 
@@ -139,12 +145,14 @@ def test_make_env_and_env_args_specific(register_make_testing_policies):
     env = posggym.make(TEST_ENV_ID, disable_env_checker=True, **TEST_ENV_ARGS)
     policy_id = f"{TEST_ENV_ID}/{TEST_ENV_ARGS_ID}/EnvTestPolicy-v0"
     policy = pga.make(policy_id, env.model, env.agents[0])
-    assert policy.spec.id == policy_id
-    assert policy.spec.policy_name == "EnvTestPolicy"
-    assert policy.spec.version == 0
-    assert policy.spec.env_id == TEST_ENV_ID
-    assert_equals(policy.spec.env_args, TEST_ENV_ARGS, "env_args: ")
-    assert policy.spec.env_args_id == TEST_ENV_ARGS_ID
+    spec = policy.spec
+    assert spec is not None
+    assert spec.id == policy_id
+    assert spec.policy_name == "EnvTestPolicy"
+    assert spec.version == 0
+    assert spec.env_id == TEST_ENV_ID
+    assert_equals(spec.env_args, TEST_ENV_ARGS, "env_args: ")
+    assert spec.env_args_id == TEST_ENV_ARGS_ID
 
 
 def test_make_policy_with_kwargs(register_make_testing_policies):

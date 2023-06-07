@@ -426,7 +426,7 @@ class DefaultEnv(Env[StateType, ObsType, ActType]):
         self._last_actions = None
         self._last_rewards = None
         self._step_num = 0
-        return self._last_obs, {}
+        return self._last_obs, {i: {} for i in self._last_obs}
 
     @property
     def state(self) -> StateType:
