@@ -24,7 +24,7 @@ for policy_file_name in [
         },
         policy_file_path=osp.join(agent_model_dir, "pursuit_8x8", policy_file_name),
         version=0,
-        valid_agent_ids=["0" if policy_file_name.endswith("i0") else "1"],
+        valid_agent_ids=["0" if "_i0" in policy_file_name else "1"],
         # policy is deterministic given random seed
         nondeterministic=False,
         # actions sampled, rather always taking most probable action
@@ -51,7 +51,7 @@ for policy_file_name in [
         },
         policy_file_path=osp.join(agent_model_dir, "pursuit_16x16", policy_file_name),
         version=0,
-        valid_agent_ids=["0" if policy_file_name.endswith("i0") else "1"],
+        valid_agent_ids=["0" if "_i0" in policy_file_name else "1"],
         # policy is deterministic given random seed
         nondeterministic=False,
         # actions sampled, rather always taking most probable action
@@ -78,7 +78,7 @@ for policy_file_name in [
         },
         policy_file_path=osp.join(agent_model_dir, "pursuit_32x32", policy_file_name),
         version=0,
-        valid_agent_ids=["0" if policy_file_name.endswith("i0") else "1"],
+        valid_agent_ids=["0" if "_i0" in policy_file_name else "1"],
         # policy is deterministic given random seed
         nondeterministic=False,
         # actions sampled, rather always taking most probable action

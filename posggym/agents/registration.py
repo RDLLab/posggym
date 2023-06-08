@@ -643,6 +643,7 @@ def spec(id: str) -> PolicySpec:
 def pprint_registry(
     _registry: dict = registry,
     num_cols: int = 3,
+    include_env_ids: List[str] | None = None,
     exclude_env_ids: List[str] | None = None,
     disable_print: bool = False,
 ) -> str | None:
@@ -652,6 +653,8 @@ def pprint_registry(
     ---------
     _registry: Policy registry to be printed.
     num_cols: Number of columns to arrange policies in, for display.
+    include_env_ids: Print only policies for environments with these IDs. If None then
+        all environments are included.
     exclude_env_ids: Exclude any policies for environments with thee IDs from being
         printed.
     disable_print: Whether to return a string of all the policy IDs instead of printing
@@ -664,30 +667,36 @@ def pprint_registry(
 
     """
     # Defaultdict to store policy names according to env_id.
-    env_policies = defaultdict(lambda: [])
+    env_policies = defaultdict(lambda: defaultdict(lambda: []))
     max_justify = 0
     for spec in _registry.values():
         env_id = "Generic" if spec.env_id is None else spec.env_id
-        if spec.env_args_id is not None:
-            env_id += "/" + spec.env_args_id
-        env_policies[env_id].append(f"{spec.policy_name}-v{spec.version}")
+        env_policies[env_id][spec.env_args_id].append(
+            f"{spec.policy_name}-v{spec.version}"
+        )
         max_justify = max(max_justify, len(f"{spec.policy_name}-v{spec.version}"))
 
     # Iterate through each environment and print policies alphabetically.
     return_str = ""
-    for env_id, policies in env_policies.items():
-        # Ignore namespaces to exclude.
+    for env_id in env_policies:
         if exclude_env_ids is not None and env_id in exclude_env_ids:
             continue
+        if include_env_ids is not None and env_id not in include_env_ids:
+            continue
+
         return_str += f"{'=' * 5} {env_id} {'=' * 5}\n"
-        # Reference: https://stackoverflow.com/a/33464001
-        for count, item in enumerate(sorted(policies), 1):
-            return_str += (
-                item.ljust(max_justify) + " "
-            )  # Print column with justification.
-            # Once all rows printed, switch to new column.
-            if count % num_cols == 0 or count == len(policies):
-                return_str = return_str.rstrip(" ") + "\n"
+        for env_args_id, policies in env_policies[env_id].items():
+            if env_args_id is not None:
+                return_str += f"{'-' * 5} {env_id}/{env_args_id} {'-' * 5}\n"
+            # Reference: https://stackoverflow.com/a/33464001
+            for count, item in enumerate(sorted(policies), 1):
+                return_str += (
+                    item.ljust(max_justify) + " "
+                )  # Print column with justification.
+                # Once all rows printed, switch to new column.
+                if count % num_cols == 0 or count == len(policies):
+                    return_str = return_str.rstrip(" ") + "\n"
+            return_str += "\n"
         return_str += "\n"
 
     if disable_print:
