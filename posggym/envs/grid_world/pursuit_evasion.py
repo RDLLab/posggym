@@ -680,7 +680,7 @@ class PEGrid(Grid):
         self._goal_coords_map = goal_coords_map
         self.evader_start_coords = evader_start_coords
         self.pursuer_start_coords = pursuer_start_coords
-        self.shortest_paths = self.get_all_shortest_paths(set(evader_start_coords))
+        self.shortest_paths = self.get_all_shortest_paths(self.all_goal_coords)
 
     @property
     def all_goal_coords(self) -> List[Coord]:

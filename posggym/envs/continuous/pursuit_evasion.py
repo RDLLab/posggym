@@ -230,9 +230,9 @@ class PursuitEvasionContinuousEnv(DefaultEnv):
     def __init__(
         self,
         world: Union[str, "PEWorld"] = "16x16",
-        max_obs_distance: float = 12.0,
+        max_obs_distance: float = 8.0,
         fov: float = np.pi / 2,
-        n_sensors: int = 8,
+        n_sensors: int = 16,
         normalize_reward: bool = True,
         use_progress_reward: bool = True,
         render_mode: Optional[str] = None,
@@ -666,7 +666,7 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
         obs = np.full((self.obs_dim,), self.max_obs_distance, dtype=np.float32)
         # Can bucket NONE type colisions with block/border/wall collisions, since these
         # will have dist of obs_dist and hence not affect final obs
-        obs_type_idx = np.where(ray_col_type == CollisionType.AGENT.value, 0, 1)
+        obs_type_idx = np.where(ray_col_type == CollisionType.AGENT.value, 1, 0)
         flat_obs_idx = np.ravel_multi_index(
             (obs_type_idx, np.arange(self.n_sensors)), dims=(2, self.n_sensors)
         )
@@ -761,7 +761,7 @@ class PEWorld(SquareContinuousWorld):
         self._goal_coords_map = goal_coords_map
         self.evader_start_coords = evader_start_coords
         self.pursuer_start_coords = pursuer_start_coords
-        self.shortest_paths = self.get_all_shortest_paths(evader_start_coords)
+        self.shortest_paths = self.get_all_shortest_paths(self.all_goal_coords)
 
     def copy(self) -> "PEWorld":
         world = PEWorld(

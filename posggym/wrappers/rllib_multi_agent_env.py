@@ -88,7 +88,8 @@ class RllibMultiAgentEnv(MultiAgentEnv):
         The returns are dicts mapping from agent_id strings to values. The
         number of agents in the env can vary over time.
 
-        Returns:
+        Returns
+        -------
         observations: new observations for each ready agent
         rewards: reward values for each ready agent. If the episode is just started, the
             value will be None.
