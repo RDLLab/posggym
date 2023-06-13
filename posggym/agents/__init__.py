@@ -14,6 +14,7 @@ from posggym.agents.continuous import (
     drone_team_capture,
     driving as DrivingContinuous,
     pursuit_evasion as PEContinuous,
+    predator_prey as PPCContinuous,
 )
 from posggym.agents.grid_world import driving, lbf, predator_prey, pursuit_evasion
 
@@ -65,6 +66,9 @@ for policy_spec in DrivingContinuous.policy_specs.values():
     register_spec(policy_spec)
 
 for policy_spec in PEContinuous.policy_specs.values():
+    register_spec(policy_spec)
+
+for policy_spec in PPCContinuous.policy_specs.values():
     register_spec(policy_spec)
 
 # Grid World

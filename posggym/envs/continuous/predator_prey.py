@@ -108,12 +108,15 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
 
     Prey move according to the following rules (in order of priority):
 
-    1. if a predator is within `obs_dist` distance, moves away from closest predator
-    2. if another prey is within `obs_dist` distance, moves away from closest prey
+    1. if a predator is within `prey_obs_dist` distance then moves away from closest
+        predator
+    2. if another prey is within `prey_obs_dist` distance then moves away from closest
+        prey
     3. else move randomly
 
-    If a prey is caught it is removed from the world (i.e. it's coords become
-    `(-1, -1)`).
+    Where `prey_obs_dist = 0.9 * obs_dist`, meaning predators are able to see slightly
+    further than prey. If a prey is caught it is removed from the world (i.e. it's
+    coords become `(-1, -1)`).
 
     Starting State
     --------------
@@ -213,7 +216,6 @@ class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
         obs_dist: float = 4,
         n_sensors: int = 16,
         render_mode: Optional[str] = None,
-        **kwargs,
     ):
         super().__init__(
             PredatorPreyContinuousModel(
@@ -375,7 +377,6 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
         prey_strength: Optional[int],
         obs_dist: float,
         n_sensors: int,
-        **kwargs,
     ):
         assert 1 < num_predators <= 8
         assert num_prey > 0
@@ -383,7 +384,6 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         if prey_strength is None:
             prey_strength = min(4, num_predators)
-
         assert 0 < prey_strength <= min(4, num_predators)
 
         if isinstance(world, str):
@@ -409,11 +409,14 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
         self.num_predators = num_predators
         self.num_prey = num_prey
         self.obs_dist = obs_dist
+        # prey see 10 % less than predators
+        self.prey_obs_dist = 0.9 * self.obs_dist
         self.cooperative = cooperative
         self.prey_strength = prey_strength
         self.per_prey_reward = self.R_MAX / self.num_prey
         self.n_sensors = n_sensors
-        self.prey_capture_dist = 2.2 * self.world.agent_radius
+        # capture radius large enough so prey in corner can be captured by 3 predators
+        self.prey_capture_dist = 2.75 * self.world.agent_radius
         self.possible_agents = tuple((str(x) for x in range(self.num_predators)))
 
         def _pos_space(n_agents: int):
@@ -607,7 +610,7 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
             pred_states = state.predator_states
             pred_dists = np.linalg.norm(prey_state[:2] - pred_states[:, :2], axis=1)
             min_pred_dist = pred_dists.min()
-            if min_pred_dist <= self.obs_dist:
+            if min_pred_dist <= self.prey_obs_dist:
                 # get any predators within obs distance
                 pred_idx = self.rng.choice(np.where(pred_dists == min_pred_dist)[0])
                 pred_state = state.predator_states[pred_idx]
@@ -630,7 +633,7 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
                 if not state.prey_caught[j] and j != i
             ]
             min_prey_dist = min(prey_dists)
-            if min_prey_dist <= self.obs_dist:
+            if min_prey_dist <= self.prey_obs_dist:
                 other_prey_idx = self.rng.choice(
                     np.where(prey_dists == min_prey_dist)[0]
                 )

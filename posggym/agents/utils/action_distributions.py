@@ -108,3 +108,51 @@ class DeterministicActionDistribution(ActionDistribution):
 
     def pdf(self, action: Any) -> float:
         return 1.0 if np.isclose(action, self.action) else 0.0
+
+
+class ContinousUniformActionDistribution(ActionDistribution):
+    """Action distribution for continuous uniformly distributed actions."""
+
+    def __init__(
+        self,
+        low: Union[float, np.ndarray],
+        high: Union[float, np.ndarray],
+        rng: np.random.Generator | None = None,
+    ):
+        self.low = low
+        self.high = high
+        self._rng = rng
+
+    def sample(self) -> Any:
+        if self._rng is None:
+            return np.random.uniform(low=self.low, high=self.high)
+        return self._rng.uniform(low=self.low, high=self.high)
+
+    def pdf(self, action: Any) -> float:
+        return 1.0 / np.prod(self.high - self.low)
+
+
+class DiscreteUniformActionDistribution(ActionDistribution):
+    """Action distribution for discrete uniformly distributed actions.
+
+    Samples uniformly from the set of integers between low and high, inclusive. Works
+    for both scalar and vector actions.
+    """
+
+    def __init__(
+        self,
+        low: Union[int, np.ndarray],
+        high: Union[int, np.ndarray],
+        rng: np.random.Generator | None = None,
+    ):
+        self.low = low
+        self.high = high
+        self._rng = rng
+
+    def sample(self) -> Any:
+        if self._rng is None:
+            return np.random.randint(low=self.low, high=self.high + 1)
+        return self._rng.integers(low=self.low, high=self.high + 1)
+
+    def pdf(self, action: Any) -> float:
+        return 1.0 / np.prod(self.high - self.low + 1)
