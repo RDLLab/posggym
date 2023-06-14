@@ -3,6 +3,8 @@ import os.path as osp
 
 from posggym.agents.torch_policy import PPOPolicy
 from posggym.config import AGENT_MODEL_DIR
+from posggym.agents.continuous.pursuit_evasion import shortest_path
+from posggym.agents.registration import PolicySpec
 from posggym.agents.utils import processors
 
 
@@ -10,6 +12,18 @@ ENV_ID = "PursuitEvasionContinuous-v0"
 agent_model_dir = osp.join(AGENT_MODEL_DIR, "continuous", "pursuit")
 policy_specs = {}
 
+_sp_spec = PolicySpec(
+    policy_name="shortest_path",
+    entry_point=shortest_path.PECShortestPathPolicy,
+    version=0,
+    env_id=ENV_ID,
+    env_args=None,
+    valid_agent_ids=None,
+    nondeterministic=False,
+)
+policy_specs[_sp_spec.id] = _sp_spec
+
+# 8x8 trained policies
 for policy_file_name in [
     "sp_seed1_i0.pkl",
     "sp_seed1_i1.pkl",
@@ -19,7 +33,7 @@ for policy_file_name in [
         env_args={
             "world": "8x8",
             "fov": 1.57,
-            "max_obs_distance": 12.0,
+            "max_obs_distance": 8.0,
             "n_sensors": 16,
         },
         policy_file_path=osp.join(agent_model_dir, "pursuit_8x8", policy_file_name),
@@ -46,7 +60,7 @@ for policy_file_name in [
         env_args={
             "world": "16x16",
             "fov": 1.57,
-            "max_obs_distance": 12.0,
+            "max_obs_distance": 8.0,
             "n_sensors": 16,
         },
         policy_file_path=osp.join(agent_model_dir, "pursuit_16x16", policy_file_name),
@@ -73,7 +87,7 @@ for policy_file_name in [
         env_args={
             "world": "32x32",
             "fov": 1.57,
-            "max_obs_distance": 12.0,
+            "max_obs_distance": 8.0,
             "n_sensors": 16,
         },
         policy_file_path=osp.join(agent_model_dir, "pursuit_32x32", policy_file_name),

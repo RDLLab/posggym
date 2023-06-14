@@ -39,7 +39,7 @@ class DiscreteActionDistribution(ActionDistribution):
             return self._rng.choices(
                 list(self.probs.keys()), weights=list(self.probs.values())
             )[0]
-        return self._rng.choice(list(self.probs.keys()), p=list(self.probs.values()))[0]
+        return self._rng.choice(list(self.probs.keys()), p=list(self.probs.values()))
 
     def pdf(self, action: Any) -> float:
         return self.probs[action]

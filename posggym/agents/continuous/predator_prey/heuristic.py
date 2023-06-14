@@ -62,7 +62,7 @@ class PPCHeuristicPolicy(Policy[PPAction, PPObs], abc.ABC):
         }
 
     def get_state_from_history(self, history: AgentHistory) -> PolicyState:
-        last_obs, _ = history.get_last_step()
+        _, last_obs = history.get_last_step()
         if last_obs is not None:
             return {
                 "pi": self._get_pi_from_obs(last_obs),

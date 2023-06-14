@@ -444,7 +444,8 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
             )
         )
 
-        self.dyaw_limit = math.pi / 10
+        # can turn up to 45 degrees per step
+        self.dyaw_limit = math.pi / 4
         self.action_spaces = {
             i: spaces.Box(
                 low=np.array([-self.dyaw_limit, 0.0], dtype=np.float32),

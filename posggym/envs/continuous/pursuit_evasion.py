@@ -170,8 +170,7 @@ class PursuitEvasionContinuousEnv(DefaultEnv):
          the supported worlds (see SUPPORTED_WORLDS), or a custom :class:`PEWorld`
          object (default = `"16x16"`).
     - `max_obs_distance` - the maximum distance from the agent that each agent's field
-        of vision extends. If `None` then will be set to be half the size of the world,
-        e.g. for the `"16x16"` world this will be `8.0` (default = `None`).
+        of vision extends (default = `8.0`).
     - `fov` - the field of view of the agent in radians. This will determine the
         angle of the cone in front of the agent which it can see. The FOV will be
         relative to the angle of the agent.
@@ -231,7 +230,7 @@ class PursuitEvasionContinuousEnv(DefaultEnv):
     def __init__(
         self,
         world: Union[str, "PEWorld"] = "16x16",
-        max_obs_distance: Optional[float] = None,
+        max_obs_distance: float = 8.0,
         fov: float = np.pi / 2,
         n_sensors: int = 16,
         normalize_reward: bool = True,
@@ -406,10 +405,8 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
         the world layout to use. This can either be a string specifying one of
         the supported worlds (see SUPPORTED_WORLDS), or a custom :class:`PEWorld`
         object.
-    max_obs_distance : float, optional
+    max_obs_distance : float
         the maximum distance from the agent that each agent's field of vision extends.
-        If `None` then will be set to be half the size of the world, e.g. for the
-        `"16x16"` world this will be `8.0`.
     fov : float
         the field of view of the agent in radians. This will determine the angle of the
         cone in front of the agent which it can see. The FOV will be relative to the
@@ -444,12 +441,16 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
     def __init__(
         self,
         world: Union[str, "PEWorld"],
-        max_obs_distance: Optional[float] = None,
+        max_obs_distance: float = 8.0,
         fov: float = np.pi / 2,
         n_sensors: int = 16,
         normalize_reward: bool = True,
         use_progress_reward: bool = True,
     ):
+        assert max_obs_distance > 0, "max_obs_distance must be positive"
+        assert 0 < fov < 2 * np.pi, "fov must be in (0, 2 * pi)"
+        assert n_sensors > 0, "n_sensors must be positive"
+
         if isinstance(world, str):
             assert world in SUPPORTED_WORLDS, (
                 f"Unsupported world name '{world}'. If world is a string it must be "
@@ -458,9 +459,7 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
             world = SUPPORTED_WORLDS[world]()
 
         self.world = world
-        self.max_obs_distance = (
-            self.world.size / 2 if max_obs_distance is None else max_obs_distance
-        )
+        self.max_obs_distance = max_obs_distance
         self._normalize_reward = normalize_reward
         self._use_progress_reward = use_progress_reward
         self.fov = fov
@@ -490,7 +489,8 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
             )
         )
 
-        self.dyaw_limit = math.pi / 10
+        # can turn by up to 45 degrees per timestep
+        self.dyaw_limit = math.pi / 4
         self.action_spaces = {
             i: spaces.Box(
                 low=np.array([-self.dyaw_limit, 0.0], dtype=np.float32),

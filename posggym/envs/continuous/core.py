@@ -248,6 +248,12 @@ class AbstractContinuousWorld(ABC):
         self.entities[id] = (body, shape)
         return body, shape
 
+    def remove_entity(self, id: str):
+        """Remove entity from the world."""
+        body, shape = self.entities[id]
+        self.space.remove(body, shape)
+        del self.entities[id]
+
     def add_interior_walls_to_space(self, walls: List[Line]):
         """Adds interior walls to the world physics space."""
         self.interior_walls_array = (

@@ -176,6 +176,108 @@ def test_shortest_path():
     assert rewards["0"] == model.R_EVASION + model.R_PROGRESS
 
 
+def test_shortest_path_not_double_reward():
+    """Check agent doesn't receive shortest path rewards multiple times."""
+    size, max_obs_dist, n_sensors = 8, 4.0, 16
+
+    evader_start_coord = (0.5, 0.5)
+    goal_coord = (size - 0.5, 0.5)
+    pursuer_start_coord = (size - 0.5, size - 0.5)
+
+    # Empty world with evader in top left and pursuer in bottom right
+    # And goal top right corner
+    pe_world = PEWorld(
+        size,
+        blocked_coords=set(),
+        goal_coords_map={evader_start_coord: [goal_coord]},
+        evader_start_coords=[evader_start_coord],
+        pursuer_start_coords=[pursuer_start_coord],
+    )
+
+    env = posggym.make(
+        "PursuitEvasionContinuous-v0",
+        world=pe_world,
+        max_obs_distance=max_obs_dist,
+        fov=1.57,
+        n_sensors=n_sensors,
+        normalize_reward=False,  # don't normalize reward for testing
+        use_progress_reward=True,
+        render_mode="human",
+    )
+    env.reset(seed=26)
+
+    model = cast(PursuitEvasionContinuousModel, env.model)
+    state = cast(PEState, env.state)
+
+    # Check state is as expected
+    assert np.allclose(state.evader_state[:3], evader_start_coord + (0,))
+    assert np.allclose(state.pursuer_state[:3], pursuer_start_coord + (0,))
+    assert np.allclose(state.evader_start_coord, evader_start_coord)
+    assert np.allclose(pursuer_start_coord, pursuer_start_coord)
+    assert np.allclose(state.evader_goal_coord, goal_coord)
+    assert state.min_goal_dist == size - 1, state.min_goal_dist
+
+    # agents start facing right (evader is face goal)
+    # pursuer does nothing, evader moves towards goal
+    for _ in range(4):
+        # evader moves towards goal for 4 steps
+        _, rewards, _, _, _, _ = env.step(
+            {"0": np.array([0.0, 1.0]), "1": np.array([0.0, 0.0])}
+        )
+        assert rewards["0"] == model.R_PROGRESS
+
+    while True:
+        # evader turns around away from goal
+        _, rewards, _, _, _, _ = env.step(
+            {"0": np.array([model.dyaw_limit, 0.0]), "1": np.array([0.0, 0.0])}
+        )
+        assert rewards["0"] == 0.0
+        state = cast(PEState, env.state)
+        if state.evader_state[2] >= np.pi:
+            break
+
+    for _ in range(2):
+        # evader moves away from goal for 2 steps
+        _, rewards, _, _, _, _ = env.step(
+            {"0": np.array([0.0, 1.0]), "1": np.array([0.0, 0.0])}
+        )
+        assert rewards["0"] == 0.0
+
+    while True:
+        # evader turns around towards goal
+        _, rewards, _, _, _, _ = env.step(
+            {"0": np.array([model.dyaw_limit, 0.0]), "1": np.array([0.0, 0.0])}
+        )
+        assert rewards["0"] == 0.0
+        state = cast(PEState, env.state)
+        if np.abs(state.evader_state[2]) < 0.01:
+            break
+
+    for _ in range(2):
+        # evader moves towards goal for 2 steps
+        # but should not receive shortest path reward
+        _, rewards, _, _, _, _ = env.step(
+            {"0": np.array([0.0, 1.0]), "1": np.array([0.0, 0.0])}
+        )
+        assert rewards["0"] == 0.0
+
+    for _ in range(2):
+        # evader moves towards goal for another 2 steps
+        # should receive shortest path reward
+        _, rewards, _, _, _, _ = env.step(
+            {"0": np.array([0.0, 1.0]), "1": np.array([0.0, 0.0])}
+        )
+        assert rewards["0"] == model.R_PROGRESS
+
+    # evader reaches goal
+    _, rewards, _, _, all_done, _ = env.step(
+        {"0": np.array([0.0, 1.0]), "1": np.array([0.0, 0.0])}
+    )
+    assert all_done
+    assert rewards["0"] == model.R_EVASION + model.R_PROGRESS
+
+
 if __name__ == "__main__":
     test_obs()
     test_shortest_path()
+    test_shortest_path_not_double_reward()

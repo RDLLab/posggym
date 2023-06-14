@@ -14,6 +14,9 @@ def _run_episodes(env, policies, num_episodes: int = 1, close: bool = True):
     ep_returns = {i: np.zeros(num_episodes) for i in env.possible_agents}
     for ep_num in range(num_episodes):
         obs, _ = env.reset()
+        for i in env.possible_agents:
+            policies[i].reset(seed=42)
+
         done = False
         while not done:
             actions = {}
