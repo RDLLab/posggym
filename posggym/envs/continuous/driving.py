@@ -75,7 +75,7 @@ class DrivingContinuousEnv(DefaultEnv[DState, DObs, DAction]):
     ------------
     Each agent has 2 actions, which are the angular velocity and linear acceleration.
     Each agent's actions is made up of two parts. The first action component specifies
-    the angular velocity in `[-pi/10, pi/10]`, and the second component specifies the
+    the angular velocity in `[-pi/4, pi/4]`, and the second component specifies the
     linear acceleration in `[-0.25, 0.25]`.
 
     Observation Space
@@ -126,7 +126,7 @@ class DrivingContinuousEnv(DefaultEnv[DState, DObs, DAction]):
     while reversing.
 
     Max and min velocity are `1.0` and `-1.0`, and max linear acceleration is `0.25`,
-    while max angular velocity is `π / 10`.
+    while max angular velocity is `π / 4`.
 
     Starting State
     --------------
@@ -430,7 +430,7 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
             )
         )
 
-        self.dyaw_limit = math.pi / 10
+        self.dyaw_limit = math.pi / 4
         self.dvel_limit = 0.25
         self.vel_limit_norm = 1.0
         # dyaw, dvel
