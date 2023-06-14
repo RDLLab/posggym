@@ -151,7 +151,7 @@ class DrivingContinuousEnv(DefaultEnv[DState, DObs, DAction]):
          (default = `"14x14RoundAbout"`).
     - `num_agents` - the number of agents in the environment (default = `2`).
     - `obs_dist` - the sensor observation distance, specifying the distance away from
-         itself which an agent can observe along each sensor (default = `3`).
+         itself which an agent can observe along each sensor (default = `5.0`).
     - `n_sensors` - the number of sensor lines eminating from the agent. The agent will
          observe at `n_sensors` equidistance intervals over `[0, 2*pi]`
          (default = `16`).
@@ -204,7 +204,7 @@ class DrivingContinuousEnv(DefaultEnv[DState, DObs, DAction]):
         self,
         world: Union[str, "DrivingWorld"] = "14x14RoundAbout",
         num_agents: int = 2,
-        obs_dist: float = 3.0,
+        obs_dist: float = 5.0,
         n_sensors: int = 16,
         render_mode: Optional[str] = None,
     ):

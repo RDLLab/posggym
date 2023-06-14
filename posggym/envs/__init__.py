@@ -30,11 +30,11 @@ register(
 register(
     id="DrivingContinuous-v0",
     entry_point="posggym.envs.continuous.driving:DrivingContinuousEnv",
-    max_episode_steps=200,
+    max_episode_steps=100,
     kwargs={
         "world": "14x14RoundAbout",
         "num_agents": 2,
-        "obs_dist": 4.0,
+        "obs_dist": 5.0,
         "n_sensors": 16,
     },
 )
