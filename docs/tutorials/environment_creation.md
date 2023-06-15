@@ -4,7 +4,7 @@ title: Environment Creation
 firstpage:
 ---
 
-# Creating your own custom environment
+# Creating Custom Environments
 
 This documentation overviews creating new environments and the relevant wrappers, utilities, and tests included in POSGGym that can be useful in the creation of new environments.
 

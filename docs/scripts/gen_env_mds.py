@@ -12,15 +12,12 @@ import re
 from functools import reduce
 from typing import List, Dict
 
-# import numpy as np
 from tqdm import tqdm
 
 import posggym
 from posggym.envs.registration import EnvSpec
 from utils import kill_strs, trim
 
-
-LAYOUT = "env"
 
 pattern = re.compile(r"(?<!^)(?=[A-Z])")
 
@@ -34,7 +31,7 @@ for env_spec in tqdm(all_envs):
     if any(x in str(env_spec.id) for x in kill_strs):
         continue
 
-    # gymnasium.envs.env_type.env.EnvClass
+    # posggym.envs.env_type.env.EnvClass
     split = env_spec.entry_point.split(".")
     # ignore posggym.envs.env_type:Env
     env_module = split[0]

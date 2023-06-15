@@ -1,10 +1,10 @@
 ---
 layout: "contents"
-title: Getting Started with POSGGym Agents
+title: POSGGym Agents Getting Started
 firstpage:
 ---
 
-# Getting Started with POSGGym Agents
+# POSGGym Agents Getting Started
 
 POSGGym Agents provides a collection of policies for various POSGGym environments. This includes handcrafted policies based on heuristics, as well as policies represented as neural networks and trained using reinforcement learning. The main goal of POSGGym Agents is to save users time and effort by providing a set of policies that can be used for repeatable evaluation as well as for use within algorithms.
 

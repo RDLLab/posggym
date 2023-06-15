@@ -77,17 +77,6 @@ intro/installation
 
 ```{toctree}
 :hidden:
-:caption: API
-
-api/env
-api/model
-api/wrappers
-api/agents
-
-```
-
-```{toctree}
-:hidden:
 :caption: Environments
 
 environments/classic
@@ -101,6 +90,9 @@ environments/grid_world
 
 agents/getting_started.md
 agents/agent_creation.md
+agents/continuous.md
+agents/generic.md
+agents/grid_world.md
 ```
 
 ```{toctree}
@@ -109,6 +101,17 @@ agents/agent_creation.md
 
 tutorials/environment_creation.md
 tutorials/api_comparison.md
+```
+
+```{toctree}
+:hidden:
+:caption: API
+
+api/env
+api/model
+api/wrappers
+api/agents
+
 ```
 
 ```{toctree}
