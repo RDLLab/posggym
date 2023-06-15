@@ -29,7 +29,7 @@ register(
 # -------------------------------------------
 register(
     id="DrivingContinuous-v0",
-    entry_point="posggym.envs.continuous.driving:DrivingContinuousEnv",
+    entry_point="posggym.envs.continuous.driving_continuous:DrivingContinuousEnv",
     max_episode_steps=100,
     kwargs={
         "world": "14x14RoundAbout",
@@ -55,7 +55,7 @@ register(
 
 register(
     id="PredatorPreyContinuous-v0",
-    entry_point="posggym.envs.continuous.predator_prey:PredatorPreyContinuous",
+    entry_point="posggym.envs.continuous.predator_prey_continuous:PredatorPreyContinuousEnv",
     max_episode_steps=100,
     kwargs={
         "world": "10x10",
@@ -70,7 +70,7 @@ register(
 
 register(
     id="PursuitEvasionContinuous-v0",
-    entry_point="posggym.envs.continuous.pursuit_evasion:PursuitEvasionContinuousEnv",
+    entry_point="posggym.envs.continuous.pursuit_evasion_continuous:PursuitEvasionContinuousEnv",
     max_episode_steps=200,
     kwargs={
         "world": "16x16",
@@ -120,7 +120,7 @@ register(
 # Based on github.com/semitable/lb-foraging/
 register(
     id="LevelBasedForaging-v2",
-    entry_point="posggym.envs.grid_world.lbf:LBFEnv",
+    entry_point="posggym.envs.grid_world.level_based_foraging:LevelBasedForagingEnv",
     max_episode_steps=50,
     kwargs={
         "num_agents": 2,
@@ -140,7 +140,7 @@ register(
 # Predator-Prey
 register(
     id="PredatorPrey-v0",
-    entry_point="posggym.envs.grid_world.predator_prey:PPEnv",
+    entry_point="posggym.envs.grid_world.predator_prey:PredatorPreyEnv",
     max_episode_steps=50,
     kwargs={
         "grid": "10x10",

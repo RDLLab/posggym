@@ -31,7 +31,7 @@ PPObs = np.ndarray
 PPAction = np.ndarray
 
 
-class PredatorPreyContinuous(DefaultEnv[PPState, PPObs, PPAction]):
+class PredatorPreyContinuousEnv(DefaultEnv[PPState, PPObs, PPAction]):
     """The Continuous Predator-Prey Environment.
 
     A co-operative 2D continuous world problem involving multiple predator agents

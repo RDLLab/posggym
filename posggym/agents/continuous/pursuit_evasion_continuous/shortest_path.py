@@ -9,7 +9,7 @@ import numpy as np
 
 from posggym.agents.policy import Policy, PolicyID, PolicyState
 from posggym.envs.continuous.core import PMBodyState
-from posggym.envs.continuous.pursuit_evasion import (
+from posggym.envs.continuous.pursuit_evasion_continuous import (
     PursuitEvasionContinuousModel,
     PEAction,
     PEObs,
@@ -35,6 +35,7 @@ class PECShortestPathPolicy(Policy[PEAction, PEObs]):
         self.sensor_obs_dim = self.model.sensor_obs_dim
         self.is_evader = self.agent_id == str(self.model.EVADER_IDX)
         self.action_space = self.model.action_spaces[self.agent_id]
+        self.action_dtype = self.action_space.dtype
 
         # world without other agent for simulating next agent position
         self._world = self.model.world.copy()
@@ -105,6 +106,52 @@ class PECShortestPathPolicy(Policy[PEAction, PEObs]):
             "target_coord": target_coord,
         }
         return next_state
+
+    def get_state_from_history(self, history: AgentHistory) -> PolicyState:
+        _, last_obs = history.get_last_step()
+        if last_obs is None:
+            return self.get_initial_state()
+
+        state = self.get_initial_state()
+        obs = history[0][1]
+        if self.is_evader:
+            next_coord = obs[self.sensor_obs_dim + 1 : self.sensor_obs_dim + 3]
+            target_coord = obs[self.sensor_obs_dim + 5 : self.sensor_obs_dim + 7]
+        else:
+            next_coord = obs[self.sensor_obs_dim + 3 : self.sensor_obs_dim + 5]
+            target_coord = obs[self.sensor_obs_dim + 1 : self.sensor_obs_dim + 3]
+        state["last_obs"] = obs
+        state["update_num"] = 1
+        state["body_state"] = PMBodyState(next_coord[0], next_coord[1], 0, 0, 0, 0)
+        state["target_coord"] = target_coord
+
+        for a, o in history[1:]:
+            state["last_obs"] = o
+            state["update_num"] += 1
+            state["body_state"] = self._get_next_body_state(state["body_state"], a)
+
+        # need to get next action given final observation
+        _, pi = self._get_shortest_path_action(state["body_state"], target_coord)
+
+        state["action"] = np.array(pi.sample(), dtype=self.action_dtype)
+        state["pi"] = pi
+        return state
+
+    def sample_action(self, state: PolicyState) -> PEAction:
+        if state["pi"] is None:
+            raise ValueError(
+                "Policy state does not contain a valid action distribution. Make sure"
+                "to call `step` or `get_next_state` before calling `sample_action`"
+            )
+        return np.array(state["pi"].sample(), dtype=self.action_dtype)
+
+    def get_pi(self, state: PolicyState) -> action_distributions.ActionDistribution:
+        return state["pi"]
+
+    def get_value(self, state: PolicyState) -> float:
+        raise NotImplementedError(
+            f"`get_value()` no implemented by {self.__class__.__name__} policy"
+        )
 
     def _get_next_body_state(
         self, body_state: PMBodyState, action: PEAction
@@ -209,49 +256,3 @@ class PECShortestPathPolicy(Policy[PEAction, PEObs]):
             self._rng,
         )
         return sp_actions, pi
-
-    def get_state_from_history(self, history: AgentHistory) -> PolicyState:
-        _, last_obs = history.get_last_step()
-        if last_obs is None:
-            return self.get_initial_state()
-
-        state = self.get_initial_state()
-        obs = history[0][1]
-        if self.is_evader:
-            next_coord = obs[self.sensor_obs_dim + 1 : self.sensor_obs_dim + 3]
-            target_coord = obs[self.sensor_obs_dim + 5 : self.sensor_obs_dim + 7]
-        else:
-            next_coord = obs[self.sensor_obs_dim + 3 : self.sensor_obs_dim + 5]
-            target_coord = obs[self.sensor_obs_dim + 1 : self.sensor_obs_dim + 3]
-        state["last_obs"] = obs
-        state["update_num"] = 1
-        state["body_state"] = PMBodyState(next_coord[0], next_coord[1], 0, 0, 0, 0)
-        state["target_coord"] = target_coord
-
-        for a, o in history[1:]:
-            state["last_obs"] = o
-            state["update_num"] += 1
-            state["body_state"] = self._get_next_body_state(state["body_state"], a)
-
-        # need to get next action given final observation
-        _, pi = self._get_shortest_path_action(state["body_state"], target_coord)
-
-        state["action"] = pi.sample()
-        state["pi"] = pi
-        return state
-
-    def sample_action(self, state: PolicyState) -> PEAction:
-        if state["pi"] is None:
-            raise ValueError(
-                "Policy state does not contain a valid action distribution. Make sure"
-                "to call `step` or `get_next_state` before calling `sample_action`"
-            )
-        return state["pi"].sample()
-
-    def get_pi(self, state: PolicyState) -> action_distributions.ActionDistribution:
-        return state["pi"]
-
-    def get_value(self, state: PolicyState) -> float:
-        raise NotImplementedError(
-            f"`get_value()` no implemented by {self.__class__.__name__} policy"
-        )

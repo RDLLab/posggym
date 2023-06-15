@@ -2,6 +2,7 @@
 import abc
 from typing import Any
 
+import numpy as np
 from gymnasium import spaces
 
 
@@ -65,23 +66,32 @@ class RescaleProcessor(Processor):
         input_space: spaces.Space,
         min_val: float = -1.0,
         max_val: float = 1.0,
+        clip: bool = True,
     ):
         assert isinstance(input_space, spaces.Box)
         super().__init__(input_space)
         self.min_val = min_val
         self.max_val = max_val
+        self.clip = clip
         self.rescale_factor = (self.max_val - self.min_val) / (
             self.input_space.high - self.input_space.low
         )
 
     def __call__(self, input: Any) -> Any:
+        if self.clip:
+            input = np.clip(input, self.input_space.low, self.input_space.high)
         low = self.input_space.low
         return (input - low) * self.rescale_factor + self.min_val
 
     def unprocess(self, processed_input: Any) -> Any:
-        return (
+        unprocessed_input = (
             processed_input - self.min_val
         ) / self.rescale_factor + self.input_space.low
+        if self.clip:
+            unprocessed_input = np.clip(
+                unprocessed_input, self.input_space.low, self.input_space.high
+            )
+        return np.array(unprocessed_input, dtype=self.input_space.dtype)
 
     def get_processed_space(self) -> spaces.Space:
         return spaces.Box(

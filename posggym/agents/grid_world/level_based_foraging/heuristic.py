@@ -10,7 +10,11 @@ import random
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, cast
 
 from posggym.agents.policy import Policy, PolicyID, PolicyState
-from posggym.envs.grid_world.lbf import LBFAction, LBFModel, LBFObs
+from posggym.envs.grid_world.level_based_foraging import (
+    LBFAction,
+    LevelBasedForagingModel,
+    LBFObs,
+)
 from posggym.agents.utils import action_distributions
 
 
@@ -26,7 +30,9 @@ class LBFHeuristicPolicy(Policy[LBFAction, LBFObs]):
     Concrete implementations must implement the get_action_from_obs method.
     """
 
-    def __init__(self, model: LBFModel, agent_id: AgentID, policy_id: PolicyID):
+    def __init__(
+        self, model: LevelBasedForagingModel, agent_id: AgentID, policy_id: PolicyID
+    ):
         super().__init__(model, agent_id, policy_id)
         assert model.observation_mode in ("vector", "tuple")
         self._rng = random.Random()
@@ -170,7 +176,7 @@ class LBFHeuristicPolicy(Policy[LBFAction, LBFObs]):
     def _parse_obs(
         self, obs: LBFObs
     ) -> Tuple[List[Tuple[int, int, int]], List[Tuple[int, int, int]]]:
-        model = cast(LBFModel, self.model)
+        model = cast(LevelBasedForagingModel, self.model)
         return model.parse_obs(obs)
 
 

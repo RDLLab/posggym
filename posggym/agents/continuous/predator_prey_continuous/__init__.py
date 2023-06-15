@@ -1,7 +1,7 @@
 """Policies for the PredatorPreyContinuous-v0 environment."""
 
 from posggym.agents.registration import PolicySpec
-from posggym.agents.continuous.predator_prey import heuristic
+from posggym.agents.continuous.predator_prey_continuous import heuristic
 
 ENV_ID = "PursuitEvasion-v0"
 policy_specs = {}

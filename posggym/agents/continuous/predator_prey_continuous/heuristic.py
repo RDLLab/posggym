@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, cast, Tuple
 import numpy as np
 
 from posggym.agents.policy import Policy, PolicyID, PolicyState
-from posggym.envs.continuous.predator_prey import (
+from posggym.envs.continuous.predator_prey_continuous import (
     PredatorPreyContinuousModel,
     PPAction,
     PPObs,
@@ -31,6 +31,7 @@ class PPCHeuristicPolicy(Policy[PPAction, PPObs], abc.ABC):
         self._rng, _ = seeding.np_random()
 
         self.action_space = self.model.action_spaces[self.agent_id]
+        self.action_dtype = self.action_space.dtype
         self.obs_dist = self.model.obs_dist
         self.n_sensors = self.model.n_sensors
         self.sensor_angle = 2 * math.pi / self.n_sensors
@@ -76,7 +77,7 @@ class PPCHeuristicPolicy(Policy[PPAction, PPObs], abc.ABC):
                 "Policy state does not contain a valid action distribution. Make sure"
                 "to call `step` or `get_next_state` before calling `sample_action`"
             )
-        return state["pi"].sample()
+        return np.array(state["pi"].sample(), dtype=self.action_dtype)
 
     def get_pi(self, state: PolicyState) -> action_distributions.ActionDistribution:
         return state["pi"]

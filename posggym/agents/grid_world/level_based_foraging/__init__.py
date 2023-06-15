@@ -1,5 +1,5 @@
 """Policies for the LevelBasedForaging-v2 environment."""
-import posggym.agents.grid_world.lbf.heuristic as heuristic_agent
+import posggym.agents.grid_world.level_based_foraging.heuristic as heuristic_agent
 from posggym.agents.registration import PolicySpec
 from posggym.envs.registration import registry
 

@@ -78,7 +78,7 @@ class LBFEntityObs(NamedTuple):
     is_self: bool
 
 
-class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
+class LevelBasedForagingEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
     """The Level-Based Foraging Environment.
 
     This implementation is based on the original implementation of Level-Based Foraging
@@ -250,7 +250,7 @@ class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
         **kwargs,
     ):
         super().__init__(
-            LBFModel(
+            LevelBasedForagingModel(
                 num_agents,
                 max_agent_level,
                 field_size=field_size,
@@ -282,7 +282,7 @@ class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
 
         import posggym.envs.grid_world.render as render_lib
 
-        model: LBFModel = self.model  # type: ignore
+        model: LevelBasedForagingModel = self.model  # type: ignore
         if self.renderer is None:
             self.renderer = render_lib.GWRenderer(
                 self.render_mode,
@@ -354,7 +354,7 @@ class LBFEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
             self.renderer = None
 
 
-class LBFModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
+class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
     """Level-Based Foraging model.
 
     Parameters

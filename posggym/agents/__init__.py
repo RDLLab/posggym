@@ -12,11 +12,16 @@ from posggym.agents.policy import Policy
 from posggym.agents import random_policies
 from posggym.agents.continuous import (
     drone_team_capture,
-    driving as DrivingContinuous,
-    pursuit_evasion as PEContinuous,
-    predator_prey as PPCContinuous,
+    driving_continuous as DrivingContinuous,
+    pursuit_evasion_continuous as PEContinuous,
+    predator_prey_continuous as PPCContinuous,
 )
-from posggym.agents.grid_world import driving, lbf, predator_prey, pursuit_evasion
+from posggym.agents.grid_world import (
+    driving,
+    level_based_foraging,
+    predator_prey,
+    pursuit_evasion,
+)
 
 
 __all__ = [
@@ -80,7 +85,7 @@ for policy_spec in driving.policy_specs.values():
 
 
 # Level Based Foraging
-for policy_spec in lbf.policy_specs.values():
+for policy_spec in level_based_foraging.policy_specs.values():
     register_spec(policy_spec)
 
 

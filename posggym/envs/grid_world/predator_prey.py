@@ -44,7 +44,7 @@ CELL_OBS = [EMPTY, WALL, PREDATOR, PREY]
 CELL_OBS_STR = ["0", "#", "P", "p"]
 
 
-class PPEnv(DefaultEnv[PPState, PPObs, PPAction]):
+class PredatorPreyEnv(DefaultEnv[PPState, PPObs, PPAction]):
     """The Predator-Prey Grid World Environment.
 
     A co-operative 2D grid world problem involving multiple predator agents
@@ -125,7 +125,8 @@ class PPEnv(DefaultEnv[PPState, PPObs, PPAction]):
     ---------
 
     - `grid` - the grid layout to use. This can either be a string specifying one of
-         the supported grids, or a custom :class:`PPGrid` object (default = `"10x10"`).
+         the supported grids, or a custom :class:`PredatorPreyGrid` object
+         (default = `"10x10"`).
     - `num_predators` - the number of predator (and thus controlled agents)
         (default = `2`).
     - `num_prey` - the number of prey (default = `3`)
@@ -194,7 +195,7 @@ class PPEnv(DefaultEnv[PPState, PPObs, PPAction]):
 
     def __init__(
         self,
-        grid: Union[str, "PPGrid"] = "10x10",
+        grid: Union[str, "PredatorPreyGrid"] = "10x10",
         num_predators: int = 2,
         num_prey: int = 3,
         cooperative: bool = True,
@@ -203,7 +204,7 @@ class PPEnv(DefaultEnv[PPState, PPObs, PPAction]):
         render_mode: Optional[str] = None,
     ):
         super().__init__(
-            PPModel(
+            PredatorPreyModel(
                 grid,
                 num_predators,
                 num_prey,
@@ -232,7 +233,7 @@ class PPEnv(DefaultEnv[PPState, PPObs, PPAction]):
         return self._render_img()
 
     def _render_ansi(self):
-        model: PPModel = self.model  # type: ignore
+        model: PredatorPreyModel = self.model  # type: ignore
         grid = model.grid
         uncaught_prey_coords = [
             self._state.prey_coords[i]
@@ -256,7 +257,7 @@ class PPEnv(DefaultEnv[PPState, PPObs, PPAction]):
         return "\n".join(output) + "\n"
 
     def _render_img(self):
-        model: PPModel = self.model  # type: ignore
+        model: PredatorPreyModel = self.model  # type: ignore
 
         import posggym.envs.grid_world.render as render_lib
 
@@ -317,7 +318,7 @@ class PPEnv(DefaultEnv[PPState, PPObs, PPAction]):
             self.renderer = None
 
 
-class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
+class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
     """Predator-Prey Problem Model.
 
     Parameters
@@ -345,7 +346,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
 
     def __init__(
         self,
-        grid: Union[str, "PPGrid"],
+        grid: Union[str, "PredatorPreyGrid"],
         num_predators: int,
         num_prey: int,
         cooperative: bool,
@@ -767,7 +768,7 @@ class PPModel(M.POSGModel[PPState, PPObs, PPAction]):
         return rewards  # type: ignore
 
 
-class PPGrid(Grid):
+class PredatorPreyGrid(Grid):
     """A grid for the Predator-Prey Problem."""
 
     def __init__(
@@ -849,7 +850,7 @@ class PPGrid(Grid):
         )
 
 
-def parse_grid_str(grid_str: str) -> PPGrid:
+def parse_grid_str(grid_str: str) -> PredatorPreyGrid:
     """Parse a str representation of a grid into a grid object.
 
     Notes on grid str representation:
@@ -915,7 +916,7 @@ def parse_grid_str(grid_str: str) -> PPGrid:
         else:
             assert char == "."
 
-    return PPGrid(
+    return PredatorPreyGrid(
         grid_size,
         block_coords,
         None if len(predator_coords) == 0 else list(predator_coords),
@@ -923,23 +924,23 @@ def parse_grid_str(grid_str: str) -> PPGrid:
     )
 
 
-def get_5x5_grid() -> PPGrid:
+def get_5x5_grid() -> PredatorPreyGrid:
     """Generate 5x5 grid layout."""
-    return PPGrid(grid_size=5, block_coords=None)
+    return PredatorPreyGrid(grid_size=5, block_coords=None)
 
 
-def get_5x5_blocks_grid() -> PPGrid:
+def get_5x5_blocks_grid() -> PredatorPreyGrid:
     """Generate 5x5 Blocks grid layout."""
     grid_str = ".....\n" ".#.#.\n" ".....\n" ".#.#.\n" ".....\n"
     return parse_grid_str(grid_str)
 
 
-def get_10x10_grid() -> PPGrid:
+def get_10x10_grid() -> PredatorPreyGrid:
     """Generate 10x10 grid layout."""
-    return PPGrid(grid_size=10, block_coords=None)
+    return PredatorPreyGrid(grid_size=10, block_coords=None)
 
 
-def get_10x10_blocks_grid() -> PPGrid:
+def get_10x10_blocks_grid() -> PredatorPreyGrid:
     """Generate 10x10 Blocks grid layout."""
     grid_str = (
         "..........\n"
@@ -956,12 +957,12 @@ def get_10x10_blocks_grid() -> PPGrid:
     return parse_grid_str(grid_str)
 
 
-def get_15x15_grid() -> PPGrid:
+def get_15x15_grid() -> PredatorPreyGrid:
     """Generate 15x15 grid layout."""
-    return PPGrid(grid_size=15, block_coords=None)
+    return PredatorPreyGrid(grid_size=15, block_coords=None)
 
 
-def get_15x15_blocks_grid() -> PPGrid:
+def get_15x15_blocks_grid() -> PredatorPreyGrid:
     """Generate 10x10 Blocks grid layout."""
     grid_str = (
         "...............\n"
@@ -983,12 +984,12 @@ def get_15x15_blocks_grid() -> PPGrid:
     return parse_grid_str(grid_str)
 
 
-def get_20x20_grid() -> PPGrid:
+def get_20x20_grid() -> PredatorPreyGrid:
     """Generate 20x20 grid layout."""
-    return PPGrid(grid_size=20, block_coords=None)
+    return PredatorPreyGrid(grid_size=20, block_coords=None)
 
 
-def get_20x20_blocks_grid() -> PPGrid:
+def get_20x20_blocks_grid() -> PredatorPreyGrid:
     """Generate 20x20 Blocks grid layout."""
     grid_str = (
         "....................\n"
@@ -1028,7 +1029,7 @@ SUPPORTED_GRIDS = {
 }
 
 
-def load_grid(grid_name: str) -> PPGrid:
+def load_grid(grid_name: str) -> PredatorPreyGrid:
     """Load grid with given name."""
     grid_name = grid_name
     assert grid_name in SUPPORTED_GRIDS, (

@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 import posggym
-from posggym.envs.continuous.predator_prey import (
+from posggym.envs.continuous.predator_prey_continuous import (
     SUPPORTED_WORLDS,
     PPState,
     PredatorPreyContinuousModel,

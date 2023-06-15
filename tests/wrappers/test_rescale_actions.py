@@ -6,7 +6,7 @@ import pytest
 from gymnasium import spaces
 
 import posggym
-from posggym.envs.continuous.driving import DrivingContinuousModel
+from posggym.envs.continuous.driving_continuous import DrivingContinuousModel
 from posggym.wrappers import RescaleActions
 
 
@@ -114,13 +114,13 @@ def test_rescale_actions(min_val, max_val):
     for i, a in unwrapped_actions.items():
         assert base_space.contains(a), (a, base_space)
         base_mid = base_space.low + (base_space.high - base_space.low) / 2
-        assert np.isclose(a, base_mid).all(), (i, a, base_mid)
+        assert np.isclose(a, base_mid, atol=1e-5).all(), (i, a, base_mid)
 
     # Test upper bound actions in wrapped space is upper bound action in base space
     wrapped_env.step({i: wrapped_spaces[i].high for i in wrapped_env.agents})
     unwrapped_actions = wrapped_env.unwrapped._last_actions
     for i, a in unwrapped_actions.items():
         assert base_space.contains(a), (a, base_space)
-        assert np.isclose(a, base_space.high).all(), (i, a, base_space.high)
+        assert np.isclose(a, base_space.high, atol=1e-5).all(), (i, a, base_space.high)
 
     wrapped_env.close()

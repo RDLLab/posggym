@@ -4,7 +4,7 @@ from typing import cast
 import numpy as np
 
 import posggym
-from posggym.envs.continuous.pursuit_evasion import (
+from posggym.envs.continuous.pursuit_evasion_continuous import (
     PEState,
     PEWorld,
     PursuitEvasionContinuousModel,
@@ -228,12 +228,13 @@ def test_shortest_path_not_double_reward():
 
     while True:
         # evader turns around away from goal
+        dyaw = min(model.dyaw_limit, abs(state.evader_state[2] - np.pi))
         _, rewards, _, _, _, _ = env.step(
-            {"0": np.array([model.dyaw_limit, 0.0]), "1": np.array([0.0, 0.0])}
+            {"0": np.array([dyaw, 0.0]), "1": np.array([0.0, 0.0])}
         )
         assert rewards["0"] == 0.0
         state = cast(PEState, env.state)
-        if state.evader_state[2] >= np.pi:
+        if np.isclose(state.evader_state[2], np.pi, rtol=0.0, atol=0.01).all():
             break
 
     for _ in range(2):
@@ -245,12 +246,13 @@ def test_shortest_path_not_double_reward():
 
     while True:
         # evader turns around towards goal
+        dyaw = min(model.dyaw_limit, abs(state.evader_state[2]))
         _, rewards, _, _, _, _ = env.step(
-            {"0": np.array([model.dyaw_limit, 0.0]), "1": np.array([0.0, 0.0])}
+            {"0": np.array([dyaw, 0.0]), "1": np.array([0.0, 0.0])}
         )
         assert rewards["0"] == 0.0
         state = cast(PEState, env.state)
-        if np.abs(state.evader_state[2]) < 0.01:
+        if np.isclose(state.evader_state[2], 0.0, rtol=0.0, atol=0.01).all():
             break
 
     for _ in range(2):

@@ -44,6 +44,11 @@ class DiscreteActionDistribution(ActionDistribution):
     def pdf(self, action: Any) -> float:
         return self.probs[action]
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, DiscreteActionDistribution):
+            return False
+        return self.probs == other.probs
+
 
 class MultiDiscreteActionDistribution(ActionDistribution):
     """Action distribution for multi-discrete actions."""
@@ -69,6 +74,11 @@ class MultiDiscreteActionDistribution(ActionDistribution):
 
     def pdf(self, action: Any) -> float:
         return float(np.prod([p[action[i]] for i, p in enumerate(self.probs)]))
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, MultiDiscreteActionDistribution):
+            return False
+        return self.probs == other.probs
 
 
 class NormalActionDistribution(ActionDistribution):
@@ -96,6 +106,14 @@ class NormalActionDistribution(ActionDistribution):
             self.stddev * np.sqrt(2 * np.pi)
         )
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, NormalActionDistribution):
+            return False
+        return (
+            np.isclose(self.mean, other.mean).all()
+            and np.isclose(self.stddev, other.stddev).all()
+        )
+
 
 class DeterministicActionDistribution(ActionDistribution):
     """Action distribution for deterministic action distribution."""
@@ -108,6 +126,11 @@ class DeterministicActionDistribution(ActionDistribution):
 
     def pdf(self, action: Any) -> float:
         return 1.0 if np.isclose(action, self.action) else 0.0
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, DeterministicActionDistribution):
+            return False
+        return np.isclose(self.action, other.action).all()
 
 
 class ContinousUniformActionDistribution(ActionDistribution):
@@ -130,6 +153,14 @@ class ContinousUniformActionDistribution(ActionDistribution):
 
     def pdf(self, action: Any) -> float:
         return 1.0 / np.prod(self.high - self.low)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ContinousUniformActionDistribution):
+            return False
+        return (
+            np.isclose(self.low, other.low).all()
+            and np.isclose(self.high, other.high).all()
+        )
 
 
 class DiscreteUniformActionDistribution(ActionDistribution):
@@ -156,3 +187,11 @@ class DiscreteUniformActionDistribution(ActionDistribution):
 
     def pdf(self, action: Any) -> float:
         return 1.0 / np.prod(self.high - self.low + 1)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, DiscreteUniformActionDistribution):
+            return False
+        return (
+            np.isclose(self.low, other.low).all()
+            and np.isclose(self.high, other.high).all()
+        )

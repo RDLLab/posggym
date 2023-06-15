@@ -30,11 +30,15 @@ def test_pprint_custom_registry():
     correct_out = """===== Generic =====
 Random-v0
 
+
 ===== LevelBasedForaging-v2 =====
 Heuristic1-v0
 
-===== Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False =====
+
+===== Driving-v0 =====
+----- Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False -----
 klr_k0_seed0-v0
+
 
 """
     assert out == correct_out

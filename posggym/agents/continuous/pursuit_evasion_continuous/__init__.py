@@ -1,36 +1,44 @@
-"""Policies for the DrivingContinuous-v0 environment."""
+"""Policies for the PursuitEvasionContinuous-v0 environment."""
 import os.path as osp
 
 from posggym.agents.torch_policy import PPOPolicy
 from posggym.config import AGENT_MODEL_DIR
+from posggym.agents.continuous.pursuit_evasion_continuous import shortest_path
+from posggym.agents.registration import PolicySpec
 from posggym.agents.utils import processors
 
 
-ENV_ID = "DrivingContinuous-v0"
-agent_model_dir = osp.join(AGENT_MODEL_DIR, "continuous", "driving")
+ENV_ID = "PursuitEvasionContinuous-v0"
+agent_model_dir = osp.join(AGENT_MODEL_DIR, "continuous", "pursuit")
 policy_specs = {}
 
-# 14x14RoundAbout-n2-v0
+_sp_spec = PolicySpec(
+    policy_name="shortest_path",
+    entry_point=shortest_path.PECShortestPathPolicy,
+    version=0,
+    env_id=ENV_ID,
+    env_args=None,
+    valid_agent_ids=None,
+    nondeterministic=False,
+)
+policy_specs[_sp_spec.id] = _sp_spec
+
+# 8x8 trained policies
 for policy_file_name in [
-    "sp_seed2.pkl",
-    "sp_seed3.pkl",
-    "sp_seed4.pkl",
-    "sp_seed5.pkl",
-    "sp_seedNone.pkl",
+    "sp_seed1_i0.pkl",
+    "sp_seed1_i1.pkl",
 ]:
     spec = PPOPolicy.get_spec_from_path(
         env_id=ENV_ID,
         env_args={
-            "world": "14x14RoundAbout",
-            "num_agents": 2,
-            "obs_dist": 5.0,
+            "world": "8x8",
+            "fov": 1.57,
+            "max_obs_distance": 8.0,
             "n_sensors": 16,
         },
-        policy_file_path=osp.join(
-            agent_model_dir, "driving_14x14roundabout", policy_file_name
-        ),
+        policy_file_path=osp.join(agent_model_dir, "pursuit_8x8", policy_file_name),
         version=0,
-        valid_agent_ids=None,
+        valid_agent_ids=["0" if "_i0" in policy_file_name else "1"],
         # policy is deterministic given random seed
         nondeterministic=False,
         # actions sampled, rather always taking most probable action
@@ -43,27 +51,21 @@ for policy_file_name in [
     policy_specs[spec.id] = spec
 
 
-# 7x7RoundAbout-n2-v0
 for policy_file_name in [
-    "sp_seed0.pkl",
-    "sp_seed1.pkl",
-    "sp_seed2.pkl",
-    "sp_seed3.pkl",
-    "sp_seed4.pkl",
+    "sp_seed1_i0.pkl",
+    "sp_seed1_i1.pkl",
 ]:
     spec = PPOPolicy.get_spec_from_path(
         env_id=ENV_ID,
         env_args={
-            "world": "7x7RoundAbout",
-            "num_agents": 2,
-            "obs_dist": 5.0,
+            "world": "16x16",
+            "fov": 1.57,
+            "max_obs_distance": 8.0,
             "n_sensors": 16,
         },
-        policy_file_path=osp.join(
-            agent_model_dir, "driving_7x7roundabout", policy_file_name
-        ),
+        policy_file_path=osp.join(agent_model_dir, "pursuit_16x16", policy_file_name),
         version=0,
-        valid_agent_ids=None,
+        valid_agent_ids=["0" if "_i0" in policy_file_name else "1"],
         # policy is deterministic given random seed
         nondeterministic=False,
         # actions sampled, rather always taking most probable action
@@ -76,27 +78,21 @@ for policy_file_name in [
     policy_specs[spec.id] = spec
 
 
-# 6x6Intersection-n2-v0
 for policy_file_name in [
-    "sp_seed0.pkl",
-    "sp_seed1.pkl",
-    "sp_seed2.pkl",
-    "sp_seed3.pkl",
-    "sp_seed4.pkl",
+    "sp_seed0_i0.pkl",
+    "sp_seed0_i1.pkl",
 ]:
     spec = PPOPolicy.get_spec_from_path(
         env_id=ENV_ID,
         env_args={
-            "world": "6x6Intersection",
-            "num_agents": 2,
-            "obs_dist": 5.0,
+            "world": "32x32",
+            "fov": 1.57,
+            "max_obs_distance": 8.0,
             "n_sensors": 16,
         },
-        policy_file_path=osp.join(
-            agent_model_dir, "driving_6x6intersection", policy_file_name
-        ),
+        policy_file_path=osp.join(agent_model_dir, "pursuit_32x32", policy_file_name),
         version=0,
-        valid_agent_ids=None,
+        valid_agent_ids=["0" if "_i0" in policy_file_name else "1"],
         # policy is deterministic given random seed
         nondeterministic=False,
         # actions sampled, rather always taking most probable action

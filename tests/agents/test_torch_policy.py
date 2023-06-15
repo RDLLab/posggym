@@ -5,7 +5,7 @@ import pickle
 import posggym
 import posggym.agents as pga
 import posggym.agents.grid_world.driving as driving_agents
-import posggym.agents.continuous.driving as driving_continuous_agents
+import posggym.agents.continuous.driving_continuous as driving_continuous_agents
 from posggym.agents.utils import download
 from posggym.agents.torch_policy import PPOLSTMModel, PPOPolicy
 from posggym.agents.utils import processors

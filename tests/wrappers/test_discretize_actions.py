@@ -6,7 +6,7 @@ import pytest
 from gymnasium import spaces
 
 import posggym
-from posggym.envs.continuous.driving import DrivingContinuousModel
+from posggym.envs.continuous.driving_continuous import DrivingContinuousModel
 from posggym.wrappers import DiscretizeActions
 
 
