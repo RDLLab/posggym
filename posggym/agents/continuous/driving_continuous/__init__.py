@@ -33,7 +33,7 @@ for policy_file_name in [
         valid_agent_ids=None,
         # policy is deterministic given random seed
         nondeterministic=False,
-        # actions sampled, rather always taking most probable action
+        # actions sampled, rather than always taking most probable action
         deterministic=False,
         obs_processor_cls=processors.RescaleProcessor,
         obs_processor_config={"min_val": -1, "max_val": 1},

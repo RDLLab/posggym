@@ -3,28 +3,32 @@
 Useful for visually inspecting all the different agents.
 """
 import argparse
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict
 
 import posggym
+from posggym.model import AgentID
 import posggym.agents as pga
 from posggym.agents.registration import PolicySpec
 
 
 def try_make_policy(
     spec: PolicySpec, render_mode: Optional[str]
-) -> Tuple[Optional[posggym.Env], Optional[pga.Policy]]:
+) -> Tuple[Optional[posggym.Env], Optional[Dict[AgentID, pga.Policy]]]:
     """Tries to make the policy showing if it is possible."""
     try:
         env_id = "Driving-v0" if spec.env_id is None else spec.env_id
         env_args = {} if spec.env_args is None else spec.env_args
         env = posggym.make(env_id, render_mode=render_mode, **env_args)
 
-        if spec.valid_agent_ids:
-            agent_id = spec.valid_agent_ids[0]
-        else:
-            agent_id = env.possible_agents[0]
+        policies = {}
+        for i in env.possible_agents:
+            if spec.valid_agent_ids is None or i in spec.valid_agent_ids:
+                policies[i] = pga.make(spec, env.model, i)
+            else:
+                print("Using random policy for agent '{i}'")
+                policies[i] = pga.make("Random-v0", env.model, i)
 
-        return env, pga.make(spec, env.model, agent_id)
+        return env, policies
     except (
         ImportError,
         posggym.error.DependencyNotInstalled,
@@ -47,39 +51,37 @@ def run_policy(
     render_mode: Optional[str] = "human",
 ):
     """Run a posggym.policy."""
-    env, test_policy = try_make_policy(spec, render_mode)
+    print(f"Running policy={spec.id}")
+    env, policies = try_make_policy(spec, render_mode)
 
-    if test_policy is None:
+    if policies is None:
         return
     assert env is not None
 
-    print(f"Running policy={spec.id}")
-
     env.reset(seed=seed)
-    test_policy.reset(seed=seed)
+    for pi in policies.values():
+        pi.reset(seed=seed)
 
     for ep_num in range(num_episodes):
         obs, _ = env.reset()
-        test_policy.reset()
+        for pi in policies.values():
+            pi.reset()
         env.render()
 
         all_done = False
         while not all_done:
             joint_action = {}
             for i in env.agents:
-                if i == test_policy.agent_id and test_policy.observes_state:
-                    a = test_policy.step(env.state)
-                elif i == test_policy.agent_id:
-                    a = test_policy.step(obs[i])
-                else:
-                    a = env.action_spaces[i].sample()
+                pi = policies[i]
+                a = pi.step(env.state) if pi.observes_state else pi.step(obs[i])
                 joint_action[i] = a
 
             obs, _, _, _, all_done, _ = env.step(joint_action)
             env.render()
 
     env.close()
-    test_policy.close()
+    for pi in policies.values():
+        pi.close()
 
 
 def run_all_agents(
