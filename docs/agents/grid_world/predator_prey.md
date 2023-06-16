@@ -29,7 +29,6 @@ env = posggym.make(
 | `sp_seed2` | `PredatorPrey-v0/grid=10x10-num_predators=2-num_prey=3-cooperative=True-prey_strength=2-obs_dim=2/sp_seed2-v0` | All |
 | `sp_seed3` | `PredatorPrey-v0/grid=10x10-num_predators=2-num_prey=3-cooperative=True-prey_strength=2-obs_dim=2/sp_seed3-v0` | All |
 | `sp_seed4` | `PredatorPrey-v0/grid=10x10-num_predators=2-num_prey=3-cooperative=True-prey_strength=2-obs_dim=2/sp_seed4-v0` | All |
-
 ## grid=10x10-num_predators=3-num_prey=3-cooperative=True-prey_strength=2-obs_dim=2
 
 ```
@@ -50,7 +49,6 @@ env = posggym.make(
 | `sp_seed0` | `PredatorPrey-v0/grid=10x10-num_predators=3-num_prey=3-cooperative=True-prey_strength=2-obs_dim=2/sp_seed0-v0` | All |
 | `sp_seed1` | `PredatorPrey-v0/grid=10x10-num_predators=3-num_prey=3-cooperative=True-prey_strength=2-obs_dim=2/sp_seed1-v0` | All |
 | `sp_seed2` | `PredatorPrey-v0/grid=10x10-num_predators=3-num_prey=3-cooperative=True-prey_strength=2-obs_dim=2/sp_seed2-v0` | All |
-
 ## grid=10x10-num_predators=4-num_prey=3-cooperative=True-prey_strength=3-obs_dim=2
 
 ```

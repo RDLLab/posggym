@@ -20,7 +20,6 @@ env = posggym.make("PursuitEvasion-v0")
 | Policy | ID | Valid Agent IDs |
 |---|---|---|
 | `shortestpath` | `PursuitEvasion-v0/shortestpath-v0` | All |
-
 ## grid=16x16
 
 ```
@@ -103,7 +102,6 @@ env = posggym.make(
 | `sp_seed2_i1` | `PursuitEvasion-v0/grid=16x16/sp_seed2_i1-v0` | `['1']` |
 | `sp_seed3_i1` | `PursuitEvasion-v0/grid=16x16/sp_seed3_i1-v0` | `['1']` |
 | `sp_seed4_i1` | `PursuitEvasion-v0/grid=16x16/sp_seed4_i1-v0` | `['1']` |
-
 ## grid=8x8
 
 ```

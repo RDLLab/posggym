@@ -6,13 +6,13 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/docs/scripts/gen_mds
 """
 import os
 import re
-from typing import List, Dict
-
-from tqdm import tqdm
+from typing import Dict, List
 
 import posggym
 import posggym.agents as pga
 from posggym.agents.registration import PolicySpec
+from tqdm import tqdm
+
 
 agent_docs_dir = os.path.join(os.path.dirname(__file__), "..", "agents")
 
@@ -164,8 +164,7 @@ title: {title_env_name}
 
             if env_type == "generic":
                 all_text += f"""
-{pi_table}
-"""
+{pi_table}"""
                 continue
 
             if env_args_id is None:
@@ -180,8 +179,7 @@ These policies can be used for any version of this environment.
 
 {env_makes_str}
 
-{pi_table}
-"""
+{pi_table}"""
 
         with open(env_md_path, "w", encoding="utf-8") as fp:
             fp.write(all_text)

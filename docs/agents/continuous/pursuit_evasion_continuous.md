@@ -20,7 +20,6 @@ env = posggym.make("PursuitEvasionContinuous-v0")
 | Policy | ID | Valid Agent IDs |
 |---|---|---|
 | `shortest_path` | `PursuitEvasionContinuous-v0/shortest_path-v0` | All |
-
 ## world=16x16-fov=1.57-max_obs_distance=8.0-n_sensors=16
 
 ```
@@ -38,7 +37,6 @@ env = posggym.make(
 |---|---|---|
 | `sp_seed1_i0` | `PursuitEvasionContinuous-v0/world=16x16-fov=1.57-max_obs_distance=8.0-n_sensors=16/sp_seed1_i0-v0` | `['0']` |
 | `sp_seed1_i1` | `PursuitEvasionContinuous-v0/world=16x16-fov=1.57-max_obs_distance=8.0-n_sensors=16/sp_seed1_i1-v0` | `['1']` |
-
 ## world=32x32-fov=1.57-max_obs_distance=8.0-n_sensors=16
 
 ```
@@ -56,7 +54,6 @@ env = posggym.make(
 |---|---|---|
 | `sp_seed0_i0` | `PursuitEvasionContinuous-v0/world=32x32-fov=1.57-max_obs_distance=8.0-n_sensors=16/sp_seed0_i0-v0` | `['0']` |
 | `sp_seed0_i1` | `PursuitEvasionContinuous-v0/world=32x32-fov=1.57-max_obs_distance=8.0-n_sensors=16/sp_seed0_i1-v0` | `['1']` |
-
 ## world=8x8-fov=1.57-max_obs_distance=8.0-n_sensors=16
 
 ```

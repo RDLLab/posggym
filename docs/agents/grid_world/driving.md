@@ -52,7 +52,6 @@ env = posggym.make(
 | `klrbr_k4_seed2` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klrbr_k4_seed2-v0` | All |
 | `klrbr_k4_seed3` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klrbr_k4_seed3-v0` | All |
 | `klrbr_k4_seed4` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klrbr_k4_seed4-v0` | All |
-
 ## grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False
 
 ```
