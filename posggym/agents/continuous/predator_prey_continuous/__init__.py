@@ -68,3 +68,41 @@ for policy_file_name in [
         action_processor_config={"min_val": -1, "max_val": 1, "clip": True},
     )
     policy_specs[spec.id] = spec
+
+
+# 10x10, 4 predators, 3 prey, prey_strength=3, cooperative=True
+for policy_file_name in [
+    "sp_seed0.pkl",
+    "sp_seed1.pkl",
+    "sp_seed2.pkl",
+    "sp_seed3.pkl",
+    "sp_seed4.pkl",
+]:
+    spec = PPOPolicy.get_spec_from_path(
+        env_id=ENV_ID,
+        env_args={
+            "world": "10x10",
+            "num_predators": 4,
+            "num_prey": 3,
+            "prey_strength": 3,
+            "cooperative": True,
+            "obs_dist": 4.0,
+            "n_sensors": 16,
+        },
+        policy_file_path=osp.join(
+            agent_model_dir,
+            "world=10x10-num_predators=4-num_prey=3-prey_strength=3_cooperative=True-obs_dist=4-n_sensors=16",
+            policy_file_name,
+        ),
+        version=0,
+        valid_agent_ids=None,
+        # policy is deterministic given random seed
+        nondeterministic=False,
+        # actions sampled, rather than always taking most probable action
+        deterministic=False,
+        obs_processor_cls=processors.RescaleProcessor,
+        obs_processor_config={"min_val": -1, "max_val": 1},
+        action_processor_cls=processors.RescaleProcessor,
+        action_processor_config={"min_val": -1, "max_val": 1, "clip": True},
+    )
+    policy_specs[spec.id] = spec
