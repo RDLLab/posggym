@@ -552,7 +552,7 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
                 )
                 / math.pi
             )
-            turn_rate = angle_i - prev_angle_i
+            turn_rate = (angle_i - prev_angle_i) / 2
 
             # Create obs vector
             obs_i = [
