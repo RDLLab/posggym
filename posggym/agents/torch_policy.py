@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import pickle
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Dict,
@@ -12,7 +13,6 @@ from typing import (
     Optional,
     Tuple,
     Type,
-    TYPE_CHECKING,
     Union,
 )
 
@@ -21,15 +21,15 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from gymnasium import spaces
-from torch.distributions import Normal, Categorical
+from torch.distributions import Categorical, Normal
 
 from posggym import logger
-from posggym.utils import seeding
 from posggym.agents.policy import ActType, ObsType, Policy, PolicyID, PolicyState
-from posggym.agents.utils import processors
-from posggym.agents.utils import action_distributions
-from posggym.agents.utils.download import download_from_repo
 from posggym.agents.registration import PolicySpec
+from posggym.agents.utils import action_distributions, processors
+from posggym.agents.utils.download import download_from_repo
+from posggym.utils import seeding
+
 
 if TYPE_CHECKING:
     import posggym.model as M

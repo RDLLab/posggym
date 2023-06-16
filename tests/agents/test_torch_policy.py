@@ -4,11 +4,11 @@ import pickle
 
 import posggym
 import posggym.agents as pga
-import posggym.agents.grid_world.driving as driving_agents
 import posggym.agents.continuous.driving_continuous as driving_continuous_agents
-from posggym.agents.utils import download
+import posggym.agents.grid_world.driving as driving_agents
 from posggym.agents.torch_policy import PPOLSTMModel, PPOPolicy
-from posggym.agents.utils import processors
+from posggym.agents.utils import download, processors
+
 
 # Discrete test policy
 TEST_DISCRETE_ENV_ID = driving_agents.ENV_ID
@@ -23,7 +23,7 @@ TEST_DISCRETE_POLICY_NAME = TEST_DISCRETE_POLICY_FILE_NAME.split(".")[0]
 TEST_DISCRETE_POLICY_VERSION = 0
 TEST_DISCRETE_POLICY_FILE = osp.join(
     driving_agents.agent_model_dir,
-    "driving_14x14roundabout_n2_v0",
+    "grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False",
     TEST_DISCRETE_POLICY_FILE_NAME,
 )
 
@@ -40,7 +40,7 @@ TEST_CONTINUOUS_POLICY_NAME = TEST_CONTINUOUS_POLICY_FILE_NAME.split(".")[0]
 TEST_CONTINUOUS_POLICY_VERSION = 0
 TEST_CONTINUOUS_POLICY_FILE = osp.join(
     driving_continuous_agents.agent_model_dir,
-    "driving_14x14roundabout_n2_v0",
+    "world=14x14RoundAbout-num_agents=2-obs_dist=5-n_sensors=16",
     TEST_CONTINUOUS_POLICY_FILE_NAME,
 )
 

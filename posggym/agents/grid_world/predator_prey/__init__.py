@@ -1,9 +1,9 @@
 """Policies for the PredatorPrey-v0 environment."""
 import os.path as osp
 
-from posggym.config import AGENT_MODEL_DIR
 from posggym.agents.torch_policy import PPOPolicy
-
+from posggym.agents.utils import processors
+from posggym.config import AGENT_MODEL_DIR
 
 ENV_ID = "PredatorPrey-v0"
 agent_model_dir = osp.join(AGENT_MODEL_DIR, "grid_world", "predator_prey")
@@ -28,7 +28,9 @@ for policy_file_name in [
             "obs_dim": 2,
         },
         policy_file_path=osp.join(
-            agent_model_dir, "predatorprey_10x10_P2_p3_s2_coop_v0", policy_file_name
+            agent_model_dir,
+            "grid=10x10-num_predators=2-num_prey=3-cooperative=True-prey_strength=2-obs_dim=2",
+            policy_file_name,
         ),
         version=0,
         valid_agent_ids=None,
@@ -36,6 +38,10 @@ for policy_file_name in [
         nondeterministic=False,
         # actions sampled, rather always taking most probable action
         deterministic=False,
+        obs_processor_cls=processors.FlattenProcessor,
+        obs_processor_config=None,
+        action_processor_cls=None,
+        action_processor_config=None,
     )
     policy_specs[spec.id] = spec
 
@@ -57,7 +63,9 @@ for policy_file_name in [
             "obs_dim": 2,
         },
         policy_file_path=osp.join(
-            agent_model_dir, "predatorprey_10x10_P3_p3_s2_coop_v0", policy_file_name
+            agent_model_dir,
+            "grid=10x10-num_predators=3-num_prey=3-cooperative=True-prey_strength=2-obs_dim=2",
+            policy_file_name,
         ),
         version=0,
         valid_agent_ids=None,
@@ -65,6 +73,10 @@ for policy_file_name in [
         nondeterministic=False,
         # actions sampled, rather always taking most probable action
         deterministic=False,
+        obs_processor_cls=processors.FlattenProcessor,
+        obs_processor_config=None,
+        action_processor_cls=None,
+        action_processor_config=None,
     )
     policy_specs[spec.id] = spec
 
@@ -88,7 +100,9 @@ for policy_file_name in [
             "obs_dim": 2,
         },
         policy_file_path=osp.join(
-            agent_model_dir, "predatorprey_10x10_P4_p3_s3_coop_v0", policy_file_name
+            agent_model_dir,
+            "grid=10x10-num_predators=4-num_prey=3-cooperative=True-prey_strength=3-obs_dim=2",
+            policy_file_name,
         ),
         version=0,
         valid_agent_ids=None,
@@ -96,5 +110,9 @@ for policy_file_name in [
         nondeterministic=False,
         # actions sampled, rather always taking most probable action
         deterministic=False,
+        obs_processor_cls=processors.FlattenProcessor,
+        obs_processor_config=None,
+        action_processor_cls=None,
+        action_processor_config=None,
     )
     policy_specs[spec.id] = spec

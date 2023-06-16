@@ -7,10 +7,9 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/test_envs
 import pickle
 import warnings
 
-import pytest
-
 import posggym
 import posggym.agents as pga
+import pytest
 from posggym.agents.policy import Policy
 from posggym.agents.registration import PolicySpec
 from tests.agents.helpers import (

@@ -3,7 +3,6 @@ import posggym.agents.grid_world.level_based_foraging.heuristic as heuristic_age
 from posggym.agents.registration import PolicySpec
 from posggym.envs.registration import registry
 
-
 policy_specs = {}
 for i, policy_class in enumerate(
     [

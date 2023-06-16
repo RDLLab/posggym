@@ -7,10 +7,9 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/utils.py
 from typing import List, Optional
 
 import numpy as np
-import torch
-
 import posggym
 import posggym.agents as pga
+import torch
 from posggym.agents import torch_policy
 from posggym.agents.registration import PolicySpec
 from tests.conftest import env_id_prefix

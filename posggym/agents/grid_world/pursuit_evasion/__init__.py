@@ -4,6 +4,7 @@ import os.path as osp
 from posggym.agents.grid_world.pursuit_evasion.shortest_path import PEShortestPathPolicy
 from posggym.agents.registration import PolicySpec
 from posggym.agents.torch_policy import PPOPolicy
+from posggym.agents.utils import processors
 from posggym.config import AGENT_MODEL_DIR
 
 
@@ -64,15 +65,17 @@ for policy_file_name in [
     spec = PPOPolicy.get_spec_from_path(
         env_id=ENV_ID,
         env_args={"grid": "16x16"},
-        policy_file_path=osp.join(
-            agent_model_dir, "pursuitevasion_16x16_v0", policy_file_name
-        ),
+        policy_file_path=osp.join(agent_model_dir, "grid=16x16", policy_file_name),
         version=0,
         valid_agent_ids=["0"],
         # policy is deterministic given random seed
         nondeterministic=False,
         # actions sampled, rather always taking most probable action
         deterministic=False,
+        obs_processor_cls=processors.FlattenProcessor,
+        obs_processor_config=None,
+        action_processor_cls=None,
+        action_processor_config=None,
     )
     policy_specs[spec.id] = spec
 
@@ -118,15 +121,17 @@ for policy_file_name in [
     spec = PPOPolicy.get_spec_from_path(
         env_id=ENV_ID,
         env_args={"grid": "16x16"},
-        policy_file_path=osp.join(
-            agent_model_dir, "pursuitevasion_16x16_v0", policy_file_name
-        ),
+        policy_file_path=osp.join(agent_model_dir, "grid=16x16", policy_file_name),
         version=0,
         valid_agent_ids=["1"],
         # policy is deterministic given random seed
         nondeterministic=False,
         # actions sampled, rather always taking most probable action
         deterministic=False,
+        obs_processor_cls=processors.FlattenProcessor,
+        obs_processor_config=None,
+        action_processor_cls=None,
+        action_processor_config=None,
     )
     policy_specs[spec.id] = spec
 
@@ -172,15 +177,17 @@ for policy_file_name in [
     spec = PPOPolicy.get_spec_from_path(
         env_id=ENV_ID,
         env_args={"grid": "8x8"},
-        policy_file_path=osp.join(
-            agent_model_dir, "pursuitevasion_8x8_v0", policy_file_name
-        ),
+        policy_file_path=osp.join(agent_model_dir, "grid=8x8", policy_file_name),
         version=0,
         valid_agent_ids=["0"],
         # policy is deterministic given random seed
         nondeterministic=False,
         # actions sampled, rather always taking most probable action
         deterministic=False,
+        obs_processor_cls=processors.FlattenProcessor,
+        obs_processor_config=None,
+        action_processor_cls=None,
+        action_processor_config=None,
     )
     policy_specs[spec.id] = spec
 
@@ -226,14 +233,16 @@ for policy_file_name in [
     spec = PPOPolicy.get_spec_from_path(
         env_id=ENV_ID,
         env_args={"grid": "8x8"},
-        policy_file_path=osp.join(
-            agent_model_dir, "pursuitevasion_8x8_v0", policy_file_name
-        ),
+        policy_file_path=osp.join(agent_model_dir, "grid=8x8", policy_file_name),
         version=0,
         valid_agent_ids=["1"],
         # policy is deterministic given random seed
         nondeterministic=False,
         # actions sampled, rather always taking most probable action
         deterministic=False,
+        obs_processor_cls=processors.FlattenProcessor,
+        obs_processor_config=None,
+        action_processor_cls=None,
+        action_processor_config=None,
     )
     policy_specs[spec.id] = spec

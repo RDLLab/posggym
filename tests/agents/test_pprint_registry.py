@@ -5,7 +5,6 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/test_ppri
 """
 import posggym.agents as pga
 
-
 # To ignore the trailing whitespaces, will need flake to ignore this file.
 # flake8: noqa
 

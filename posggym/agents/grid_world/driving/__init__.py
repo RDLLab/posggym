@@ -2,8 +2,8 @@
 import os.path as osp
 
 from posggym.agents.torch_policy import PPOPolicy
+from posggym.agents.utils import processors
 from posggym.config import AGENT_MODEL_DIR
-
 
 ENV_ID = "Driving-v0"
 agent_model_dir = osp.join(AGENT_MODEL_DIR, "grid_world", "driving")
@@ -51,7 +51,9 @@ for policy_file_name in [
             "obstacle_collisions": False,
         },
         policy_file_path=osp.join(
-            agent_model_dir, "driving_7x7roundabout_n2_v0", policy_file_name
+            agent_model_dir,
+            "grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False",
+            policy_file_name,
         ),
         version=0,
         valid_agent_ids=None,
@@ -105,7 +107,9 @@ for policy_file_name in [
             "obstacle_collisions": False,
         },
         policy_file_path=osp.join(
-            agent_model_dir, "driving_14x14roundabout_n2_v0", policy_file_name
+            agent_model_dir,
+            "grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False",
+            policy_file_name,
         ),
         version=0,
         valid_agent_ids=None,
@@ -113,5 +117,9 @@ for policy_file_name in [
         nondeterministic=False,
         # actions sampled, rather always taking most probable action
         deterministic=False,
+        obs_processor_cls=processors.FlattenProcessor,
+        obs_processor_config=None,
+        action_processor_cls=None,
+        action_processor_config=None,
     )
     policy_specs[spec.id] = spec

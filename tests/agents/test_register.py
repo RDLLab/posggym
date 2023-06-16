@@ -5,12 +5,11 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/test_regi
 
 """
 import re
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
-import pytest
-
-from posggym import error
 import posggym.agents as pga
+import pytest
+from posggym import error
 from posggym.agents.registration import get_env_args_id
 
 

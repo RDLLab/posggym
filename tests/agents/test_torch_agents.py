@@ -2,10 +2,9 @@
 import pickle
 import warnings
 
-import pytest
-
 import posggym
 import posggym.agents as pga
+import pytest
 from posggym.agents.policy import Policy
 from posggym.agents.registration import PolicySpec
 from tests.agents.helpers import (

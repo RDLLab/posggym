@@ -9,7 +9,7 @@ from posggym.agents.utils import processors
 
 
 ENV_ID = "PursuitEvasionContinuous-v0"
-agent_model_dir = osp.join(AGENT_MODEL_DIR, "continuous", "pursuit")
+agent_model_dir = osp.join(AGENT_MODEL_DIR, "continuous", "pursuit_evasion_continuous")
 policy_specs = {}
 
 _sp_spec = PolicySpec(
@@ -36,7 +36,11 @@ for policy_file_name in [
             "max_obs_distance": 8.0,
             "n_sensors": 16,
         },
-        policy_file_path=osp.join(agent_model_dir, "pursuit_8x8", policy_file_name),
+        policy_file_path=osp.join(
+            agent_model_dir,
+            "world=8x8-fov=1.57-max_obs_distance=8.0-n_sensors=16",
+            policy_file_name,
+        ),
         version=0,
         valid_agent_ids=["0" if "_i0" in policy_file_name else "1"],
         # policy is deterministic given random seed
@@ -63,7 +67,11 @@ for policy_file_name in [
             "max_obs_distance": 8.0,
             "n_sensors": 16,
         },
-        policy_file_path=osp.join(agent_model_dir, "pursuit_16x16", policy_file_name),
+        policy_file_path=osp.join(
+            agent_model_dir,
+            "world=16x16-fov=1.57-max_obs_distance=8.0-n_sensors=16",
+            policy_file_name,
+        ),
         version=0,
         valid_agent_ids=["0" if "_i0" in policy_file_name else "1"],
         # policy is deterministic given random seed
@@ -90,7 +98,11 @@ for policy_file_name in [
             "max_obs_distance": 8.0,
             "n_sensors": 16,
         },
-        policy_file_path=osp.join(agent_model_dir, "pursuit_32x32", policy_file_name),
+        policy_file_path=osp.join(
+            agent_model_dir,
+            "world=32x32-fov=1.57-max_obs_distance=8.0-n_sensors=16",
+            policy_file_name,
+        ),
         version=0,
         valid_agent_ids=["0" if "_i0" in policy_file_name else "1"],
         # policy is deterministic given random seed

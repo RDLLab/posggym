@@ -9,7 +9,6 @@ from clint.textui import progress  # type: ignore
 from posggym import error, logger
 from posggym.config import AGENT_MODEL_REPO_URL
 
-
 # largest policy file is ~ 1.3-4 MB
 LARGEST_FILE_SIZE = int(1.5 * 1024 * 1024)
 

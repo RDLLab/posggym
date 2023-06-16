@@ -10,9 +10,9 @@ from posggym.model import ActType, ObsType
 
 if TYPE_CHECKING:
     from posggym.agents.registration import PolicySpec
+    from posggym.agents.utils.action_distributions import ActionDistribution
     from posggym.model import AgentID, POSGModel
     from posggym.utils.history import AgentHistory
-    from posggym.agents.utils.action_distributions import ActionDistribution
 
 
 # Convenient type definitions

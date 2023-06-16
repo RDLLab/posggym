@@ -14,15 +14,15 @@ from posggym.agents.utils import download
 TEST_POLICY_FILE_NAME = "klr_k0_seed0.pkl"
 TEST_POLICY_FILE = osp.join(
     driving_agents.agent_model_dir,
-    "driving_14x14roundabout_n2_v0",
+    "grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False",
     TEST_POLICY_FILE_NAME,
 )
 TEST_POLICY_FILE_URL = AGENT_MODEL_REPO_URL + (
-    "posggym/agents/grid_world/driving/driving_14x14roundabout_n2_v0/"
+    "posggym/agents/grid_world/driving/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/"
     f"{TEST_POLICY_FILE_NAME}"
 )
 TEST_BAD_POLICY_FILE_URL = AGENT_MODEL_REPO_URL + (
-    "posggym/agents/grid_world/not_agents_dir/driving_14x14roundabout_n2_v0/"
+    "posggym/agents/grid_world/not_agents_dir/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/"
     f"{TEST_POLICY_FILE_NAME}"
 )
 TEST_OUTPUT_DIR = osp.join(osp.dirname(osp.abspath(__file__)), "output")

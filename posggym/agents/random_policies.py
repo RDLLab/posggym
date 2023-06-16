@@ -10,7 +10,6 @@ from posggym.agents.policy import ObsType, Policy, PolicyID, PolicyState
 from posggym.agents.utils import action_distributions
 from posggym.utils import seeding
 
-
 if TYPE_CHECKING:
     import posggym.model as M
 

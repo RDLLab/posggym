@@ -10,12 +10,12 @@ import random
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, cast
 
 from posggym.agents.policy import Policy, PolicyID, PolicyState
+from posggym.agents.utils import action_distributions
 from posggym.envs.grid_world.level_based_foraging import (
     LBFAction,
-    LevelBasedForagingModel,
     LBFObs,
+    LevelBasedForagingModel,
 )
-from posggym.agents.utils import action_distributions
 
 
 if TYPE_CHECKING:

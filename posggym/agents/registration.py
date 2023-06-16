@@ -12,10 +12,11 @@ import importlib
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Protocol, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Protocol, Tuple
 
 import posggym
 from posggym import error, logger
+
 
 if TYPE_CHECKING:
     import posggym.model as M

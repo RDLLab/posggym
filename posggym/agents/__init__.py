@@ -12,9 +12,9 @@ from posggym.agents.policy import Policy
 from posggym.agents import random_policies
 from posggym.agents.continuous import (
     drone_team_capture,
-    driving_continuous as DrivingContinuous,
-    pursuit_evasion_continuous as PEContinuous,
-    predator_prey_continuous as PPCContinuous,
+    driving_continuous,
+    pursuit_evasion_continuous,
+    predator_prey_continuous,
 )
 from posggym.agents.grid_world import (
     driving,
@@ -67,14 +67,15 @@ register(
 for policy_spec in drone_team_capture.policy_specs.values():
     register_spec(policy_spec)
 
-for policy_spec in DrivingContinuous.policy_specs.values():
+for policy_spec in driving_continuous.policy_specs.values():
     register_spec(policy_spec)
 
-for policy_spec in PEContinuous.policy_specs.values():
+for policy_spec in predator_prey_continuous.policy_specs.values():
     register_spec(policy_spec)
 
-for policy_spec in PPCContinuous.policy_specs.values():
+for policy_spec in pursuit_evasion_continuous.policy_specs.values():
     register_spec(policy_spec)
+
 
 # Grid World
 # ----------

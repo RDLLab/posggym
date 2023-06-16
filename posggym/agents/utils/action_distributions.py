@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import abc
 import random
-from typing import Any, Dict, List, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Union
 
 import numpy as np
+
 
 if TYPE_CHECKING:
     from posggym.utils import seeding

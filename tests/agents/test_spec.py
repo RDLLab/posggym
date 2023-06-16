@@ -5,13 +5,12 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/test_spec
 """
 import re
 
-import pytest
-
 import posggym
-from posggym import error
 import posggym.agents as pga
-from posggym.agents.registration import get_env_args_id
+import pytest
+from posggym import error
 from posggym.agents.random_policies import DiscreteFixedDistributionPolicy, RandomPolicy
+from posggym.agents.registration import get_env_args_id
 
 
 TEST_ENV_ID = "MultiAccessBroadcastChannel-v0"
