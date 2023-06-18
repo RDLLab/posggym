@@ -90,7 +90,7 @@ class PursuitEvasionContinuousEnv(DefaultEnv):
     Action Space
     ------------
     Each agent's actions is made up of two parts. The first action component specifies
-    the angular velocity in `[-pi/10, pi/10]`, and the second component specifies the
+    the angular velocity in `[-pi/4, pi/4]`, and the second component specifies the
     linear velocity in `[0, 1]`.
 
     Observation Space
@@ -170,10 +170,11 @@ class PursuitEvasionContinuousEnv(DefaultEnv):
          the supported worlds (see SUPPORTED_WORLDS), or a custom :class:`PEWorld`
          object (default = `"16x16"`).
     - `max_obs_distance` - the maximum distance from the agent that each agent's field
-        of vision extends (default = `8.0`).
+        of vision extends. If `None` then sets this to 1/3 of world size
+        (default = `None`).
     - `fov` - the field of view of the agent in radians. This will determine the
         angle of the cone in front of the agent which it can see. The FOV will be
-        relative to the angle of the agent.
+        relative to the angle of the agent (default = `pi / 3`).
     - `n_sensors` - the number of sensor lines eminating from the agent within their
         FOV. The agent will observe at `n_sensors` equidistance intervals over
         `[-fov / 2, fov / 2]` (default = `16`).
@@ -230,8 +231,8 @@ class PursuitEvasionContinuousEnv(DefaultEnv):
     def __init__(
         self,
         world: Union[str, "PEWorld"] = "16x16",
-        max_obs_distance: float = 8.0,
-        fov: float = np.pi / 2,
+        max_obs_distance: Optional[float] = None,
+        fov: float = np.pi / 3,
         n_sensors: int = 16,
         normalize_reward: bool = True,
         use_progress_reward: bool = True,
@@ -405,8 +406,9 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
         the world layout to use. This can either be a string specifying one of
         the supported worlds (see SUPPORTED_WORLDS), or a custom :class:`PEWorld`
         object.
-    max_obs_distance : float
+    max_obs_distance : float, optional
         the maximum distance from the agent that each agent's field of vision extends.
+        If `None` the distance will be set to 1/3 of the world's size.
     fov : float
         the field of view of the agent in radians. This will determine the angle of the
         cone in front of the agent which it can see. The FOV will be relative to the
@@ -441,13 +443,12 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
     def __init__(
         self,
         world: Union[str, "PEWorld"],
-        max_obs_distance: float = 8.0,
-        fov: float = np.pi / 2,
+        max_obs_distance: Optional[float] = None,
+        fov: float = np.pi / 3,
         n_sensors: int = 16,
         normalize_reward: bool = True,
         use_progress_reward: bool = True,
     ):
-        assert max_obs_distance > 0, "max_obs_distance must be positive"
         assert 0 < fov < 2 * np.pi, "fov must be in (0, 2 * pi)"
         assert n_sensors > 0, "n_sensors must be positive"
 
@@ -459,6 +460,10 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
             world = SUPPORTED_WORLDS[world]()
 
         self.world = world
+
+        if max_obs_distance is None:
+            max_obs_distance = self.world.size / 3
+        assert max_obs_distance > 0, "max_obs_distance must be positive"
         self.max_obs_distance = max_obs_distance
         self._normalize_reward = normalize_reward
         self._use_progress_reward = use_progress_reward
@@ -742,7 +747,22 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
 
 
 class PEWorld(SquareContinuousWorld):
-    """A world for the Pursuit Evasion Problem."""
+    """A world for the Pursuit Evasion Problem.
+
+    Arguments
+    ---------
+    size : int
+        height and width of the world.
+    blocked_coords : Set[Coord]
+        coordinates of blocked cell, i.e. 1x1 areas that contain walls.
+    goal_coords_map : Dict[FloatCoord, List[FloatCoord]]
+        map from evader start coordinates to a list of possible evader goal coordinates.
+    evader_start_coords : List[FloatCoord]
+        list of possible evader start coordinates.
+    pursuer_start_coords : List[FloatCoord]
+        list of possible pursuer start coordinates.
+
+    """
 
     def __init__(
         self,
@@ -820,14 +840,14 @@ class PEWorld(SquareContinuousWorld):
 def get_8x8_world() -> PEWorld:
     """Generate the 8-by-8 PE world layout."""
     ascii_map = (
-        "  9 #8 #\n"
-        "# #    #\n"
-        "# ## # 7\n"
+        "# 9 # 8#\n"
+        "  #    #\n"
+        " ### # 7\n"
         "  6   # \n"
-        "# #5# # \n"
+        " ##5# # \n"
         "   #    \n"
         "#    #2 \n"
-        "0 #1### \n"
+        " 0#1### \n"
     )
     return convert_map_to_world(ascii_map, 8, 8)
 
@@ -837,20 +857,20 @@ def get_16x16_world() -> PEWorld:
     ascii_map = (
         "  ## ####### ###\n"
         "    9##    8 ###\n"
-        "##       # # ###\n"
+        "##       ### ###\n"
         "## ## ##      ##\n"
         "## ## ##   ## ##\n"
-        "#  #  ##   ## 7#\n"
-        "# ## ###   #   #\n"
+        "#  #  ##   #  7#\n"
+        "# ## ###   # # #\n"
         "  #  6       # #\n"
         "#   ## ##  ##  #\n"
-        "##   #5##  #   #\n"
-        "## #   #     # #\n"
-        "   # #   ##    #\n"
-        " # # ##  ##   ##\n"
-        "0#       #     #\n"
-        "   ### #   ##2  \n"
-        "###    1 #####  \n"
+        "  #  #5##  #   #\n"
+        " ###   #     # #\n"
+        "     #   ###   #\n"
+        " # # ### ##   ##\n"
+        "0# #     #     #\n"
+        "   ## ##   ##2  \n"
+        "##     1 #####  \n"
     )
     return convert_map_to_world(ascii_map, 16, 16)
 
@@ -858,11 +878,11 @@ def get_16x16_world() -> PEWorld:
 def get_32x32_world() -> PEWorld:
     """Generate the 32-by-32 PE world layout."""
     ascii_map = (
-        "       #  ########### #         \n"
-        "   #####  ########### #  #######\n"
-        "      #   ######      8  #######\n"
-        " #       9#               ######\n"
-        " ##              #### ##  ######\n"
+        "          #############  #######\n"
+        "   #####           ####  #######\n"
+        "      ##  #######     8  #######\n"
+        " ###     9#               ######\n"
+        " ###             #### ##  ######\n"
         " ##   #####  ##  #### ##   #####\n"
         " ##   #####  ##  ##        #####\n"
         "      ##### ####      ###  #####\n"
@@ -870,25 +890,25 @@ def get_32x32_world() -> PEWorld:
         " ### #####  ####      ####  ####\n"
         " ##  ##### #####      ##### 7###\n"
         " ##  ####  #####       ####  ###\n"
-        " #  #####  #####       ####  ###\n"
-        " #  ##### ######       #     ###\n"
-        " #       6               ##  ###\n"
-        "    #       #   ##      ####  ##\n"
+        " #  #####  #####       #     ###\n"
+        " #  ##### ######       # ##  ###\n"
+        " #       6             # ##  ###\n"
+        "    #       #   ##       ###  ##\n"
         "     #   ####  ###     ####   ##\n"
         "#### #   ####  ###    ####    ##\n"
         "#### #   ### 5####   ####     ##\n"
         "####  #      ####     ##  #   ##\n"
         "##### #      ####        ##   ##\n"
-        "#                          ##  #\n"
-        "         ###        ##    2 #  #\n"
-        "  ###### ###      #### ## #    #\n"
-        "########  ##      ####    #  #  \n"
-        "########  ##       ####     ####\n"
-        "###          ##   1##        ###\n"
-        "          #  ####       #       \n"
-        "   0  ###### ######   ####      \n"
-        "  ########## #        #####     \n"
-        "##########      ############    \n"
+        "#                        #  #  #\n"
+        "        ####        ##      #  #\n"
+        "  #####  ####     #### ## #    #\n"
+        "#   ####  ###     ####    # 2#  \n"
+        "### ####  ##       ####     ####\n"
+        "###       #  ##   1##        ###\n"
+        "      #      ####       #       \n"
+        " 0    ###### ######   ####      \n"
+        "  ### ###### #        #####     \n"
+        "# ### ####      ############    \n"
         "#                               \n"
     )
     return convert_map_to_world(ascii_map, 32, 32)

@@ -12,7 +12,6 @@ from gymnasium import spaces
 import posggym
 import posggym.model as M
 
-
 grid_world_key_action_map = {
     "Driving-v0": {
         None: 0,
@@ -84,10 +83,127 @@ def display_vector_obs(obs: np.ndarray, width: int):
                 print(obs[end:])
 
 
+def run_discrete_env_manual_keyboard_agent(
+    env: posggym.Env, keyboard_agent_id: List[M.AgentID], pause_each_step: bool = False
+) -> Tuple[Dict[str, float], int]:
+    """Run manual keyboard agent in discrete environment.
+
+    Assumes environment actions are discrete. So user will be prompted to input an
+    integer action for each controlled agent.
+    """
+    assert env.spec is not None
+    env.metadata["render_fps"] = 4
+
+    env.reset()
+    env.render()
+
+    t = 0
+    done = False
+    rewards = {i: 0.0 for i in env.possible_agents}
+    while not done:
+        actions = {}
+        for i in env.agents:
+            if i in keyboard_agent_id:
+                n_actions = env.action_spaces[i].n
+                action_entered = False
+                while not action_entered:
+                    action_str = input(
+                        f"Enter action for agent '{i}' [0, {n_actions-1}] (q to quit): "
+                    )
+                    if action_str == "q":
+                        env.close()
+                        sys.exit()
+                    try:
+                        action_i = int(action_str)
+                        if 0 <= action_i < n_actions:
+                            action_entered = True
+                        else:
+                            print("Invalid action.")
+                    except ValueError:
+                        print("Invalid action.")
+
+                actions[i] = action_i
+            else:
+                actions[i] = env.action_spaces[i].sample()
+
+        _, r, _, _, done, _ = env.step(actions)
+        t += 1
+
+        for i, r_i in r.items():
+            rewards[i] += r_i  # type: ignore
+
+        env.render()
+
+    return rewards, t
+
+
+def run_continuous_env_manual_keyboard_agent(
+    env: posggym.Env, keyboard_agent_id: M.AgentID, pause_each_step: bool = False
+) -> Tuple[Dict[str, float], int]:
+    """Run manual keyboard agent in continuous environment.
+
+    Assumes environment actions are continuous (i.e. space.Box). So user will be
+    prompted to input an floating point actions for each controlled agent (possibly
+    multiple space separate value if action space is multi-dimensional).
+    """
+    assert env.spec is not None
+
+    env.reset()
+    env.render()
+
+    t = 0
+    done = False
+    rewards = {i: 0.0 for i in env.possible_agents}
+    while not done:
+        actions = {}
+        for i in env.agents:
+            if i in keyboard_agent_id:
+                with np.printoptions(precision=4, suppress=True):
+                    low_str = str(env.action_spaces[i].low)
+                    high_str = str(env.action_spaces[i].high)
+
+                action_entered = False
+                while not action_entered:
+                    action_str = input(
+                        f"Enter action for agent '{i}' low={low_str}, high={high_str} "
+                        "(q to quit): "
+                    )
+                    print(action_str)
+                    if action_str == "q":
+                        env.close()
+                        sys.exit()
+                    try:
+                        action_i = np.array(
+                            [float(x) for x in action_str.split()],
+                            dtype=env.action_spaces[i].dtype,
+                        )
+                        print(action_str, action_str.split(), action_i)
+                        if env.action_spaces[i].contains(action_i):
+                            action_entered = True
+                        else:
+                            print("Invalid action.")
+                    except ValueError:
+                        print("Invalid action.")
+
+                actions[i] = action_i
+            else:
+                actions[i] = env.action_spaces[i].sample()
+
+        _, r, _, _, done, _ = env.step(actions)
+        t += 1
+
+        for i, r_i in r.items():
+            rewards[i] += r_i  # type: ignore
+
+        env.render()
+
+    return rewards, t
+
+
 def run_grid_world_env_keyboard_agent(
     env: posggym.Env, keyboard_agent_id: M.AgentID, pause_each_step: bool = False
 ) -> Tuple[Dict[str, float], int]:
-    """Run keyboard agent in continuous environment.
+    """Run keyboard agent in grid-world environment.
 
     Assumes environment actions are angular and linear velocity.
     """
@@ -95,7 +211,7 @@ def run_grid_world_env_keyboard_agent(
     key_action_map = grid_world_key_action_map[env.spec.id]
     env.metadata["render_fps"] = 4
 
-    o, _ = env.reset()
+    env.reset()
     env.render()
 
     t = 0
@@ -147,7 +263,7 @@ def run_continuous_env_keyboard_agent(
 
     use_linear_acc = env.spec is not None and env.spec.id in ("DrivingContinuous-v0",)
 
-    angle_inc = math.pi / 10
+    angle_inc = math.pi / 4
     vel_inc = 0.1
 
     o, _ = env.reset()
@@ -213,6 +329,7 @@ def run_keyboard_agent(
     render_mode: Optional[str] = None,
     pause_each_step: bool = False,
     record_env: bool = False,
+    manual_input: bool = False,
 ):
     """Run keyboard agents."""
     if max_episode_steps is not None:
@@ -228,7 +345,15 @@ def run_keyboard_agent(
 
     action_spaces = env.action_spaces
 
-    if env_id in grid_world_key_action_map:
+    if manual_input and isinstance(
+        env.action_spaces[keyboard_agent_ids[0]], spaces.Discrete
+    ):
+        run_env_episode_fn = run_discrete_env_manual_keyboard_agent
+    elif manual_input and isinstance(
+        env.action_spaces[keyboard_agent_ids[0]], spaces.Box
+    ):
+        run_env_episode_fn = run_continuous_env_manual_keyboard_agent
+    elif env_id in grid_world_key_action_map:
         key_action_map = grid_world_key_action_map[env_id]
         display_key_action_map(key_action_map)
         run_env_episode_fn = run_grid_world_env_keyboard_agent
@@ -248,11 +373,18 @@ def run_keyboard_agent(
     episode_steps = []
     episode_rewards: Dict[M.AgentID, List[float]] = {i: [] for i in env.possible_agents}
     for ep_num in range(num_episodes):
-        rewards, steps = run_env_episode_fn(
-            env,
-            keyboard_agent_id=keyboard_agent_ids[0],
-            pause_each_step=pause_each_step,
-        )
+        if manual_input:
+            rewards, steps = run_env_episode_fn(
+                env,
+                keyboard_agent_id=keyboard_agent_ids,
+                pause_each_step=pause_each_step,
+            )
+        else:
+            rewards, steps = run_env_episode_fn(
+                env,
+                keyboard_agent_id=keyboard_agent_ids[0],
+                pause_each_step=pause_each_step,
+            )
         episode_steps.append(steps)
 
         for j in env.possible_agents:
@@ -274,7 +406,10 @@ if __name__ == "__main__":
         "keyboard_agent_ids",
         type=str,
         nargs="+",
-        help="IDs of agents to run as keyboard agents.",
+        help=(
+            "IDs of agents to run as keyboard agents. Controlling multiple agents only "
+            "supported when running with `--manual_input`"
+        ),
     )
     parser.add_argument(
         "--num_episodes",
@@ -302,6 +437,15 @@ if __name__ == "__main__":
         "--record_env",
         action="store_true",
         help="Record video of environment saved to ~/posggym_videos.",
+    )
+    parser.add_argument(
+        "--manual_input",
+        action="store_true",
+        help=(
+            "Manually input action values rather than using keyboard arrows (useful "
+            "for executing very specific sequences of actions for testing). Supports "
+            "controliing multiple keyboard agents."
+        ),
     )
     args = parser.parse_args()
     run_keyboard_agent(**vars(args))

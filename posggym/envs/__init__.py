@@ -8,7 +8,6 @@ import math
 
 from posggym.envs.registration import make, pprint_registry, register, registry, spec
 
-
 # Classic
 # -------------------------------------------
 
@@ -74,8 +73,8 @@ register(
     max_episode_steps=200,
     kwargs={
         "world": "16x16",
-        "max_obs_distance": 8.0,
-        "fov": math.pi / 2,
+        "max_obs_distance": None,
+        "fov": math.pi / 3,
         "n_sensors": 16,
         "normalize_reward": True,
         "use_progress_reward": True,
