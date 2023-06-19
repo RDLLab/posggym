@@ -137,7 +137,7 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
         agent can receive information from (default = `2`)
     - `velocity_control` - If the agents have control of their linear velocity
         (default = `False`)
-    - `arena_size` - Size of the arena (default = `430`)
+    - `arena_size` - Size of the arena, in terms of it's radius (default = `430`)
     - `observation_limit` - The limit of which agents can see other agents
         (default = `430`)
     - `capture_radius` - Distance from target pursuer needs to be within to capture
