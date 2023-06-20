@@ -63,24 +63,33 @@ for policy_file_name in [
     )
     policy_specs[spec.id] = spec
 
-
+# 16x16 self-play trained policies with default env args
 for policy_file_name in [
+    "sp_seed0_i0.pkl",
+    "sp_seed0_i1.pkl",
     "sp_seed1_i0.pkl",
     "sp_seed1_i1.pkl",
+    "sp_seed2_i0.pkl",
+    "sp_seed2_i1.pkl",
+    "sp_seed3_i0.pkl",
+    "sp_seed3_i1.pkl",
+    "sp_seed4_i0.pkl",
+    "sp_seed4_i1.pkl",
 ]:
     spec = PPOPolicy.get_spec_from_path(
+        policy_file_path=osp.join(
+            agent_model_dir,
+            "world=16x16",
+            policy_file_name,
+        ),
         env_id=ENV_ID,
         env_args={
             "world": "16x16",
-            "fov": 1.57,
-            "max_obs_distance": 8.0,
+            "fov": math.pi / 3,
+            "max_obs_distance": 16.0 / 3,
             "n_sensors": 16,
         },
-        policy_file_path=osp.join(
-            agent_model_dir,
-            "world=16x16-fov=1.57-max_obs_distance=8.0-n_sensors=16",
-            policy_file_name,
-        ),
+        env_args_id="world=16x16",
         version=0,
         valid_agent_ids=["0" if "_i0" in policy_file_name else "1"],
         # policy is deterministic given random seed
