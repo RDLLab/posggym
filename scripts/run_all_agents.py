@@ -3,12 +3,12 @@
 Useful for visually inspecting all the different agents.
 """
 import argparse
-from typing import Optional, Tuple, Dict
+from typing import Dict, Optional, Tuple
 
 import posggym
-from posggym.model import AgentID
 import posggym.agents as pga
 from posggym.agents.registration import PolicySpec
+from posggym.model import AgentID
 
 
 def try_make_policy(
@@ -25,7 +25,7 @@ def try_make_policy(
             if spec.valid_agent_ids is None or i in spec.valid_agent_ids:
                 policies[i] = pga.make(spec, env.model, i)
             else:
-                print("Using random policy for agent '{i}'")
+                print(f"Using random policy for agent '{i}'")
                 policies[i] = pga.make("Random-v0", env.model, i)
 
         return env, policies

@@ -30,7 +30,6 @@ from posggym.agents.utils import action_distributions, processors
 from posggym.agents.utils.download import download_from_repo
 from posggym.utils import seeding
 
-
 if TYPE_CHECKING:
     import posggym.model as M
 
@@ -622,9 +621,10 @@ class PPOPolicy(Policy[ActType, ObsType]):
 
     @staticmethod
     def get_spec_from_path(
+        policy_file_path: str,
         env_id: str,
         env_args: Dict[str, Any] | None,
-        policy_file_path: str,
+        env_args_id: str | None = None,
         version: int = 0,
         valid_agent_ids: List[M.AgentID] | None = None,
         nondeterministic: bool = False,
@@ -634,11 +634,13 @@ class PPOPolicy(Policy[ActType, ObsType]):
 
         Arguments
         ---------
+        policy_file_path: path to the policy file.
         env_id: ID of the posggym environment that the policy is for.
         env_args: Optional keywords arguments for the environment that the policy is
             for (if it is a environment specific policy). If None then assumes policy
             can be used for the environment with any arguments.
-        policy_file_path: path to the policy file.
+        env_args_id: Optional ID for the environment arguments. If None then an ID will
+            be generated automatically from the env_args.
         version: the policy version
         valid_agent_ids: Optional AgentIDs for agents in environment that policy is
             compatible with. If None then assumes policy can be used for any agent in
@@ -661,6 +663,7 @@ class PPOPolicy(Policy[ActType, ObsType]):
             version=version,
             env_id=env_id,
             env_args=env_args,
+            env_args_id=env_args_id,
             valid_agent_ids=valid_agent_ids,
             nondeterministic=nondeterministic,
             kwargs=kwargs,

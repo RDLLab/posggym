@@ -1,12 +1,12 @@
 """Policies for the PursuitEvasionContinuous-v0 environment."""
+import math
 import os.path as osp
 
-from posggym.agents.torch_policy import PPOPolicy
-from posggym.config import AGENT_MODEL_DIR
 from posggym.agents.continuous.pursuit_evasion_continuous import shortest_path
 from posggym.agents.registration import PolicySpec
+from posggym.agents.torch_policy import PPOPolicy
 from posggym.agents.utils import processors
-
+from posggym.config import AGENT_MODEL_DIR
 
 ENV_ID = "PursuitEvasionContinuous-v0"
 agent_model_dir = osp.join(AGENT_MODEL_DIR, "continuous", "pursuit_evasion_continuous")
@@ -23,24 +23,33 @@ _sp_spec = PolicySpec(
 )
 policy_specs[_sp_spec.id] = _sp_spec
 
-# 8x8 trained policies
+# 8x8 self-play trained policies with default env args
 for policy_file_name in [
+    "sp_seed0_i0.pkl",
+    "sp_seed0_i1.pkl",
     "sp_seed1_i0.pkl",
     "sp_seed1_i1.pkl",
+    "sp_seed2_i0.pkl",
+    "sp_seed2_i1.pkl",
+    "sp_seed3_i0.pkl",
+    "sp_seed3_i1.pkl",
+    "sp_seed4_i0.pkl",
+    "sp_seed4_i1.pkl",
 ]:
     spec = PPOPolicy.get_spec_from_path(
+        policy_file_path=osp.join(
+            agent_model_dir,
+            "world=8x8",
+            policy_file_name,
+        ),
         env_id=ENV_ID,
         env_args={
             "world": "8x8",
-            "fov": 1.57,
-            "max_obs_distance": 8.0,
+            "fov": math.pi / 3,
+            "max_obs_distance": 8.0 / 3,
             "n_sensors": 16,
         },
-        policy_file_path=osp.join(
-            agent_model_dir,
-            "world=8x8-fov=1.57-max_obs_distance=8.0-n_sensors=16",
-            policy_file_name,
-        ),
+        env_args_id="world=8x8",
         version=0,
         valid_agent_ids=["0" if "_i0" in policy_file_name else "1"],
         # policy is deterministic given random seed

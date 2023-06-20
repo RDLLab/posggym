@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Protocol, Tuple
 import posggym
 from posggym import error, logger
 
-
 if TYPE_CHECKING:
     import posggym.model as M
     from posggym.agents.policy import Policy
@@ -180,6 +179,8 @@ class PolicySpec:
     env_args: Optional keywords arguments for the environment that the policy is for (if
         it is a environment specific policy). If None then assumes policy can be used
         for the environment with any arguments.
+    env_args_id: Optional string representation of the environment keyword arguments. If
+        None then will generate an ID from the env_args.
     valid_agent_ids: Optional AgentIDs in environment that policy is compatible with. If
         None then assumes policy can be used for any agent in the environment.
     nondeterministic: Whether this policy is non-deterministic even after seeding.
@@ -209,7 +210,7 @@ class PolicySpec:
     kwargs: Dict = field(default_factory=dict)
 
     # post-init attributes
-    env_args_id: str | None = field(init=False)
+    env_args_id: str | None = field(default=None)
     # the unique identifier for the policy spec
     id: str = field(init=False)
 
@@ -218,10 +219,8 @@ class PolicySpec:
 
         Is called after spec is created.
         """
-        if self.env_args is not None:
+        if self.env_args is not None and self.env_args_id is None:
             self.env_args_id = get_env_args_id(self.env_args)
-        else:
-            self.env_args_id = None
 
         # the unique ID for the policy spec
         self.id = get_policy_id(
