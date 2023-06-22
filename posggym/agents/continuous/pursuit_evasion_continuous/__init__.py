@@ -102,34 +102,3 @@ for policy_file_name in [
         action_processor_config={"min_val": -1, "max_val": 1},
     )
     policy_specs[spec.id] = spec
-
-
-for policy_file_name in [
-    "sp_seed0_i0.pkl",
-    "sp_seed0_i1.pkl",
-]:
-    spec = PPOPolicy.get_spec_from_path(
-        env_id=ENV_ID,
-        env_args={
-            "world": "32x32",
-            "fov": 1.57,
-            "max_obs_distance": 8.0,
-            "n_sensors": 16,
-        },
-        policy_file_path=osp.join(
-            agent_model_dir,
-            "world=32x32-fov=1.57-max_obs_distance=8.0-n_sensors=16",
-            policy_file_name,
-        ),
-        version=0,
-        valid_agent_ids=["0" if "_i0" in policy_file_name else "1"],
-        # policy is deterministic given random seed
-        nondeterministic=False,
-        # actions sampled, rather always taking most probable action
-        deterministic=False,
-        obs_processor_cls=processors.RescaleProcessor,
-        obs_processor_config={"min_val": -1, "max_val": 1},
-        action_processor_cls=processors.RescaleProcessor,
-        action_processor_config={"min_val": -1, "max_val": 1},
-    )
-    policy_specs[spec.id] = spec
