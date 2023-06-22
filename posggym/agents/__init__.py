@@ -7,6 +7,9 @@ from posggym.agents.registration import (
     register_spec,
     registry,
     spec,
+    get_all_envs,
+    get_all_env_policies,
+    get_env_agent_policies,
 )
 from posggym.agents.policy import Policy
 from posggym.agents import random_policies
@@ -34,6 +37,9 @@ __all__ = [
     "register_spec",
     "registry",
     "spec",
+    "get_all_envs",
+    "get_all_env_policies",
+    "get_env_agent_policies",
 ]
 
 

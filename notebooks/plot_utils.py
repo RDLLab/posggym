@@ -285,6 +285,8 @@ def plot_pairwise_comparison(
         )
         fig.tight_layout()
 
+    return fig, axs
+
 
 def plot_pairwise_population_comparison(
     plot_df,

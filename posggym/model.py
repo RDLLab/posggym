@@ -5,24 +5,16 @@ import abc
 import dataclasses
 import enum
 import random
-from typing import (
-    TYPE_CHECKING,
-    Dict,
-    Generic,
-    List,
-    Optional,
-    Tuple,
-    TypeVar,
-)
+from typing import TYPE_CHECKING, Dict, Generic, List, Optional, Tuple, TypeVar
 
 import numpy as np
 
 from posggym import error
 from posggym.utils import seeding
 
-
 if TYPE_CHECKING:
     from gymnasium import spaces
+
     from posggym.envs.registration import EnvSpec
 
 
@@ -201,8 +193,8 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
 
         For custom environments that have win/loss or success/fail conditions, you are
         encouraged to include this information in the `info` property of the returned
-        value. We suggest using the the "outcomes" key with an instance of the
-        ``Outcome`` class for values.
+        value. We suggest using the "outcome" key with an instance of the ``Outcome``
+        class for values.
 
         Arguments
         ---------
@@ -433,4 +425,5 @@ class Outcome(enum.Enum):
     NA = None
 
     def __str__(self):
+        return self.name
         return self.name

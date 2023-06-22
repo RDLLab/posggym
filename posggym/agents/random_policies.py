@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import random
-from typing import TYPE_CHECKING, Dict, List
+from typing import TYPE_CHECKING
 
+import numpy as np
 from gymnasium import spaces
 
 from posggym.agents.policy import ObsType, Policy, PolicyID, PolicyState
@@ -27,30 +28,46 @@ class DiscreteFixedDistributionPolicy(Policy[int, ObsType]):
         model: M.POSGModel,
         agent_id: M.AgentID,
         policy_id: PolicyID,
-        dist: Dict[int, float] | None = None,
+        dist: action_distributions.ActionDistribution | None = None,
     ):
         super().__init__(model, agent_id, policy_id)
+        self._dist = dist
+        self._rng, _ = seeding.np_random()
+        self._action_space = self.model.action_spaces[self.agent_id]
+        self.pi = self._get_pi(dist, self._rng)
 
-        action_space = self.model.action_spaces[self.agent_id]
-        assert isinstance(action_space, spaces.Discrete)
-
-        self._action_space = list(range(action_space.n))
-        if dist is None:
-            # use uniform dist
-            dist = {a: float(1.0 / action_space.n) for a in self._action_space}
-
-        self.dist = dist
-        self._cum_weights: List[float] = []
-        for i, a in enumerate(self._action_space):
-            prob_sum = 0.0 if i == 0 else self._cum_weights[-1]
-            self._cum_weights.append(self.dist[a] + prob_sum)
-
-        self._rng, _ = seeding.std_random()
+    def _get_pi(
+        self, dist: action_distributions.ActionDistribution | None, rng: seeding.RNG
+    ) -> action_distributions.ActionDistribution:
+        pi = None
+        if isinstance(dist, action_distributions.ActionDistribution):
+            pi = dist
+        elif isinstance(self._action_space, spaces.Discrete):
+            pi = action_distributions.DiscreteUniformActionDistribution(
+                low=0, high=self._action_space.n, rng=rng
+            )
+        elif isinstance(self._action_space, spaces.MultiDiscrete):
+            pi = action_distributions.DiscreteUniformActionDistribution(
+                low=np.zeros_like(self._action_space.nvec),
+                high=self._action_space.nvec,
+                rng=rng,
+            )
+        elif isinstance(self._action_space, spaces.Box):
+            pi = action_distributions.ContinousUniformActionDistribution(
+                low=self._action_space.low, high=self._action_space.high, rng=rng
+            )
+        else:
+            raise ValueError(
+                f"Invalid distribution type {type(dist)} for "
+                f"{type(self._action_space)} action space"
+            )
+        return pi
 
     def reset(self, *, seed: int | None = None):
         super().reset(seed=seed)
         if seed is not None:
-            self._rng, _ = seeding.std_random(seed=seed)
+            self._rng, _ = seeding.np_random(seed=seed)
+            self.pi = self._get_pi(self._dist, self._rng)
 
     def get_next_state(
         self,
@@ -60,12 +77,10 @@ class DiscreteFixedDistributionPolicy(Policy[int, ObsType]):
         return {}
 
     def sample_action(self, state: PolicyState) -> int:
-        return self._rng.choices(
-            self._action_space, cum_weights=self._cum_weights, k=1
-        )[0]
+        return self.pi.sample()
 
     def get_pi(self, state: PolicyState) -> action_distributions.ActionDistribution:
-        return action_distributions.DiscreteActionDistribution(self.dist, self._rng)
+        return self.pi
 
     def get_value(self, state: PolicyState) -> float:
         raise NotImplementedError(

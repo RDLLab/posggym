@@ -772,7 +772,10 @@ def get_env_agent_policies(
 
     policies: Dict[M.AgentID, List[PolicySpec]] = {i: [] for i in env.possible_agents}
     for spec in get_all_env_policies(
-        env_id, env_args, include_generic_policies=include_generic_policies
+        env_id,
+        env_args,
+        _registry=_registry,
+        include_generic_policies=include_generic_policies,
     ):
         for i in env.possible_agents:
             if spec.valid_agent_ids is None or i in spec.valid_agent_ids:
@@ -796,7 +799,7 @@ def get_all_envs(
 
     """
     envs: Dict[str, Dict[str | None, Dict[str, Any] | None]] = {}
-    for spec in registry.values():
+    for spec in _registry.values():
         if spec.env_id is not None:
             envs.setdefault(spec.env_id, {})
             envs[spec.env_id][spec.env_args_id] = spec.env_args
