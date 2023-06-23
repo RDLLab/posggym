@@ -6,13 +6,13 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/test_envs
 import warnings
 
 import pytest
+from tests.envs.test_envs import CHECK_ENV_IGNORE_WARNINGS
+from tests.envs.utils import all_testing_env_specs, assert_equals
 
 import posggym
 import posggym.model as M
 from posggym.envs.registration import EnvSpec
 from posggym.utils.model_checker import check_model
-from tests.envs.test_envs import CHECK_ENV_IGNORE_WARNINGS
-from tests.envs.utils import all_testing_env_specs, assert_equals
 
 
 @pytest.mark.parametrize(
@@ -157,6 +157,9 @@ def test_model_determinism_rollout(env_spec: EnvSpec):
             assert all(i in result_1.observations for i in model_1.get_agents(state))
 
             assert_equals(result_1.rewards, result_2.rewards, f"[{t}][Rewards] ")
+            for i, r_i in result_1.rewards.items():
+                reward_range = model_1.reward_ranges[i]
+                assert reward_range[0] <= r_i <= reward_range[1]
             assert_equals(
                 result_1.terminations, result_2.terminations, f"[{t}][Terminations] "
             )

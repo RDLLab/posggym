@@ -7,17 +7,16 @@ import pickle
 import warnings
 
 import pytest
-
-import posggym
-from posggym.envs.registration import EnvSpec
-from posggym.utils.env_checker import check_env
-from posggym.utils.passive_env_checker import data_equivalence
 from tests.envs.utils import (
     all_testing_env_specs,
     all_testing_initialised_envs,
     assert_equals,
 )
 
+import posggym
+from posggym.envs.registration import EnvSpec
+from posggym.utils.env_checker import check_env
+from posggym.utils.passive_env_checker import data_equivalence
 
 PASSIVE_CHECK_IGNORE_WARNING = [
     f"\x1b[33mWARN: {message}"
@@ -121,6 +120,9 @@ def test_env_determinism_rollout(env_spec: EnvSpec):
             assert env_1.observation_spaces[i].contains(o_i)
 
         assert_equals(rew_1, rew_2, f"[{time_step}][Rewards] ")
+        for i, r_i in rew_1.items():
+            reward_range = env_1.reward_ranges[i]
+            assert reward_range[0] <= r_i <= reward_range[1]
         assert_equals(term_1, term_2, f"[{time_step}][Terminated] ")
         assert_equals(trunc_1, trunc_2, f"[{time_step}][Truncated] ")
         assert done_1 == done_2, f"[{time_step}] done 1={done_1}, done 2={done_2}"

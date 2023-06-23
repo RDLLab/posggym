@@ -10,7 +10,6 @@ from posggym import logger
 from posggym.core import DefaultEnv
 from posggym.utils import seeding
 
-
 MATState = int
 TLEFT = 0
 TRIGHT = 1
@@ -234,7 +233,7 @@ class MultiAgentTigerModel(M.POSGFullModel[MATState, MATObs, MATAction]):
 
     @property
     def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
-        return {i: (self.OPEN_BAD_R, self.OPEN_BAD_R) for i in self.possible_agents}
+        return {i: (self.OPEN_BAD_R, self.OPEN_GOOD_R) for i in self.possible_agents}
 
     @property
     def rng(self) -> seeding.RNG:

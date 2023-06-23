@@ -62,7 +62,7 @@ def run_policy(
     for pi in policies.values():
         pi.reset(seed=seed)
 
-    for ep_num in range(num_episodes):
+    for _ in range(num_episodes):
         obs, _ = env.reset()
         for pi in policies.values():
             pi.reset()

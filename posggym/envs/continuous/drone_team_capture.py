@@ -60,7 +60,6 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
     - velocity in x and y directions
     - angular velocity (in radians)
 
-
     Action Space
     ------------
     Each agent has either 1 or 2 actions. If 'velocity_control=False' then the agent
@@ -190,7 +189,6 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
         velocity_control: bool = False,
         capture_radius: float = 30,
         render_mode: Optional[str] = None,
-        **kwargs,
     ):
         super().__init__(
             DroneTeamCaptureModel(
@@ -200,7 +198,6 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
                 arena_size=arena_size,
                 observation_limit=observation_limit,
                 capture_radius=capture_radius,
-                **kwargs,
             ),
             render_mode=render_mode,
         )
@@ -313,7 +310,15 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
 
     """
 
-    R_MAX = 130
+    # reward received by all pursuers if target is captured
+    R_CAPTURE_TEAM = 100
+    # additional reward received by any capturing pursuer (30% more than the others)
+    R_CAPTURE = 30
+    # Coefficient for q-formation reward in reward function
+    R_Q_COEFF = -0.1
+    # Coefficient for distance to target in reward function
+    R_TARGET_DIST_COEFF = -0.002
+
     PURSUER_COLOR = (55, 155, 205, 255)  # blueish
     EVADER_COLOR = (110, 55, 155, 255)  # purpleish
 
@@ -331,8 +336,8 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
         self.n_com_pursuers = n_communicating_pursuers
         self.velocity_control = velocity_control
         self.r_arena = arena_size
-        self.capture_radius = capture_radius
         self.observation_limit = observation_limit
+        self.capture_radius = capture_radius
 
         # Fixed model params
         # Linear Velocity of pursuer
@@ -394,12 +399,28 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
 
     @property
     def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
-        return {i: (0.0, self.R_MAX) for i in self.possible_agents}
+        q_reward_range = (
+            self.R_Q_COEFF * 3.0 * (self.n_pursuers - 1) / self.n_pursuers,
+            self.R_Q_COEFF * -1.0 * (self.n_pursuers - 1) / self.n_pursuers,
+        )
+        target_dist_reward_range = (
+            self.R_TARGET_DIST_COEFF * 2 * self.r_arena,
+            0.0,
+        )
+        min_reward = q_reward_range[0] + target_dist_reward_range[0]
+        max_reward = (
+            self.R_CAPTURE_TEAM
+            + self.R_CAPTURE
+            + q_reward_range[1]
+            + target_dist_reward_range[1]
+        )
+
+        return {i: (min_reward, max_reward) for i in self.possible_agents}
 
     @property
     def rng(self) -> seeding.RNG:
         if self._rng is None:
-            self._rng, seed = seeding.std_random()
+            self._rng, _ = seeding.std_random()
         return self._rng
 
     def sample_initial_state(self) -> DTCState:
@@ -572,25 +593,6 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
 
         return observation
 
-    def _get_rewards(self, state: DTCState) -> Tuple[bool, Dict[M.AgentID, float]]:
-        done = False
-        reward: Dict[M.AgentID, float] = {}
-        q_formation = self._q_parameter(state)
-        for i in self.possible_agents:
-            reward[i] = -q_formation * 0.1
-            target_dist = self._target_distance(state, int(i))
-            reward[i] -= 0.002 * target_dist
-            if target_dist < self.capture_radius:
-                done = True
-                reward[i] += 30.0  # 30% more than the others
-
-        if done:
-            # Large possible reward when done!
-            for i in self.possible_agents:
-                reward[i] += 100.0
-
-        return done, reward
-
     def _engagement(
         self, agent_i: np.ndarray, agent_j: np.ndarray, dist_norm_factor: float
     ) -> Tuple[Tuple[float, float], bool]:
@@ -602,7 +604,6 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
 
         Note, if agents are outside of observation distance of each other then returns
         (-1, -1), and False.
-
 
         """
         dist = self.world.euclidean_dist(agent_i, agent_j)
@@ -620,8 +621,34 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
         alpha = self.world.convert_angle_to_negpi_pi_interval(alpha)
         return (alpha / math.pi, dist / dist_norm_factor), True
 
+    def _get_rewards(self, state: DTCState) -> Tuple[bool, Dict[M.AgentID, float]]:
+        done = False
+        reward: Dict[M.AgentID, float] = {}
+        # q_formation reward:
+        # Max = 3 * (n-1) / n
+        # Min = -1 * (n-1) / n
+        q_formation = self._q_parameter(state)
+        for i in self.possible_agents:
+            reward[i] = self.R_Q_COEFF * q_formation
+            # target_dist range = (0.0, 2*r_arena) = (0.0, 860) for default size
+            target_dist = self._target_distance(state, int(i))
+            # target_dist reward = (-1.72, 0.0) for default size
+            reward[i] += self.R_TARGET_DIST_COEFF * target_dist
+            if target_dist < self.capture_radius:
+                done = True
+                reward[i] += self.R_CAPTURE
+
+        if done:
+            # Large possible reward when done!
+            for i in self.possible_agents:
+                reward[i] += self.R_CAPTURE_TEAM
+
+        return done, reward
+
     def _q_parameter(self, state: DTCState) -> float:
         """Calculate Q-formation value."""
+        # max = 3 * (n-1) / n
+        # min = -1 * (n-1) / n
         closest = self._get_closest_pursuer(state)
         unit = self._get_unit_vectors(state)
         Qk = 0.0
@@ -646,9 +673,10 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
     def _get_unit_vectors(self, state: DTCState) -> List[List[float]]:
         """Get unit vectors between target and each pursuer."""
         unit = []
+        q = state.target_state[:2]
         for p in state.pursuer_states:
             dist = self.world.euclidean_dist(p, state.target_state)
-            unit.append([p[0] / dist, p[1] / dist])
+            unit.append([(q[0] - p[0]) / dist, (q[1] - p[1]) / dist])
         return unit
 
     def _get_target_move_repulsive(self, state: DTCState) -> Tuple[float, float]:

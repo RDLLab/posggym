@@ -10,7 +10,6 @@ from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import Coord, Direction, Grid
 from posggym.utils import seeding
 
-
 # State = (e_coord, e_dir, p_coord, p_dir, e_0_coord, p_0_coord, e_goal_coord)
 INITIAL_DIR = Direction.NORTH
 
@@ -439,7 +438,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
 
     @property
     def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
-        max_reward = self.R_CAPTURE
+        max_reward = self.R_EVASION
         if self._use_progress_reward:
             max_reward += self.R_PROGRESS
         if self._normalize_reward:

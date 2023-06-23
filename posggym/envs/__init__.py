@@ -41,7 +41,7 @@ register(
 register(
     id="DroneTeamCapture-v0",
     entry_point="posggym.envs.continuous.drone_team_capture:DroneTeamCaptureEnv",
-    max_episode_steps=100,
+    max_episode_steps=500,
     kwargs={
         "num_agents": 3,
         "n_communicating_pursuers": 2,
@@ -70,7 +70,7 @@ register(
 register(
     id="PursuitEvasionContinuous-v0",
     entry_point="posggym.envs.continuous.pursuit_evasion_continuous:PursuitEvasionContinuousEnv",
-    max_episode_steps=200,
+    max_episode_steps=100,
     kwargs={
         "world": "16x16",
         "max_obs_distance": None,

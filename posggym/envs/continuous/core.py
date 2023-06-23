@@ -14,7 +14,6 @@ from gymnasium import spaces
 
 from posggym.error import DependencyNotInstalled
 
-
 if TYPE_CHECKING:
     import posggym.model as M
 
@@ -366,7 +365,7 @@ class AbstractContinuousWorld(ABC):
     @staticmethod
     def euclidean_dist(loc1: Location, loc2: Location) -> float:
         """Get Euclidean distance between two positions on the grid."""
-        return math.sqrt(AbstractContinuousWorld.squared_euclidean_dist(loc1, loc2))
+        return math.sqrt((loc1[0] - loc2[0]) ** 2 + (loc1[1] - loc2[1]) ** 2)
 
     @staticmethod
     def squared_euclidean_dist(loc1: Location, loc2: Location) -> float:
