@@ -7,14 +7,15 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/test_make
 import re
 import warnings
 
+import pytest
+from tests.agents.helpers import assert_equals
+
 import posggym
 import posggym.agents as pga
-import pytest
 from posggym import error
 from posggym.agents.random_policies import DiscreteFixedDistributionPolicy, RandomPolicy
 from posggym.agents.registration import get_env_args_id
-from tests.agents.helpers import assert_equals
-
+from posggym.agents.utils.action_distributions import DiscreteActionDistribution
 
 TEST_ENV_ID = "MultiAccessBroadcastChannel-v0"
 TEST_ENV_ID_UNV = "MultiAccessBroadcastChannel"
@@ -156,7 +157,7 @@ def test_make_env_and_env_args_specific(register_make_testing_policies):
 
 def test_make_policy_with_kwargs(register_make_testing_policies):
     env = posggym.make(TEST_ENV_ID, disable_env_checker=True)
-    dist = {0: 0.3, 1: 0.7}
+    dist = DiscreteActionDistribution({0: 0.3, 1: 0.7})
     policy = pga.make(
         "GenericArgumentTestPolicy-v0",
         env.model,

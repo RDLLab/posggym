@@ -31,7 +31,7 @@ class DiscreteFixedDistributionPolicy(Policy[int, ObsType]):
         dist: action_distributions.ActionDistribution | None = None,
     ):
         super().__init__(model, agent_id, policy_id)
-        self._dist = dist
+        self.dist = dist
         self._rng, _ = seeding.np_random()
         self._action_space = self.model.action_spaces[self.agent_id]
         self.pi = self._get_pi(dist, self._rng)
@@ -44,12 +44,12 @@ class DiscreteFixedDistributionPolicy(Policy[int, ObsType]):
             pi = dist
         elif isinstance(self._action_space, spaces.Discrete):
             pi = action_distributions.DiscreteUniformActionDistribution(
-                low=0, high=self._action_space.n, rng=rng
+                low=0, high=self._action_space.n - 1, rng=rng
             )
         elif isinstance(self._action_space, spaces.MultiDiscrete):
             pi = action_distributions.DiscreteUniformActionDistribution(
                 low=np.zeros_like(self._action_space.nvec),
-                high=self._action_space.nvec,
+                high=self._action_space.nvec - 1,
                 rng=rng,
             )
         elif isinstance(self._action_space, spaces.Box):
@@ -67,7 +67,7 @@ class DiscreteFixedDistributionPolicy(Policy[int, ObsType]):
         super().reset(seed=seed)
         if seed is not None:
             self._rng, _ = seeding.np_random(seed=seed)
-            self.pi = self._get_pi(self._dist, self._rng)
+            self.pi = self._get_pi(self.dist, self._rng)
 
     def get_next_state(
         self,
