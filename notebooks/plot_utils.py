@@ -14,6 +14,149 @@ except ImportError as e:
     ) from e
 
 
+try:
+    import pandas as pd
+except ImportError as e:
+    raise ImportError(
+        "Missing dependency for plotting functionality. Run `pip install pandas` "
+        "to install required dependency."
+    ) from e
+
+
+def add_95CI(df: pd.DataFrame) -> pd.DataFrame:
+    """Add 95% CI columns to dataframe."""
+
+    def conf_int(row, prefix):
+        std = row[f"{prefix}_std"]
+        n = row["num_episodes"]
+        return 1.96 * (std / np.sqrt(n))
+
+    prefix = ""
+    for col in df.columns:
+        if not col.endswith("_std"):
+            continue
+        prefix = col.replace("_std", "")
+        df[f"{prefix}_CI"] = df.apply(lambda row: conf_int(row, prefix), axis=1)
+    return df
+
+
+def add_outcome_proportions(df: pd.DataFrame) -> pd.DataFrame:
+    """Add proportion columns to dataframe."""
+
+    def prop(row, col_name):
+        n = row["num_episodes"]
+        total = row[col_name]
+        return total / n
+
+    columns = ["num_LOSS", "num_DRAW", "num_WIN", "num_NA"]
+    new_column_names = ["prop_LOSS", "prop_DRAW", "prop_WIN", "prop_NA"]
+    for col_name, new_name in zip(columns, new_column_names):
+        if col_name in df.columns:
+            df[new_name] = df.apply(lambda row: prop(row, col_name), axis=1)
+    return df
+
+
+def get_policy_type_and_seed(policy_name: str) -> Tuple[str, str]:
+    """Get policy type and seed from policy name."""
+    if "seed" not in policy_name:
+        return policy_name, "None"
+
+    # policy_name = "policy_type_seed[seed]"
+    tokens = policy_name.split("_")
+    policy_type = []
+    seed_token = None
+    for t in tokens:
+        if t.startswith("seed"):
+            seed_token = t
+            break
+        policy_type.append(t)
+
+    policy_type = "_".join(policy_type)
+    seed = seed_token.replace("seed", "")
+    return policy_type, seed
+
+
+def add_policy_type_and_seed(df: pd.DataFrame) -> pd.DataFrame:
+    """Add policy type and seed columns to dataframe."""
+    df["policy_type"] = df.apply(
+        lambda row: get_policy_type_and_seed(row["policy_name"])[0], axis=1
+    )
+    df["policy_seed"] = df.apply(
+        lambda row: get_policy_type_and_seed(row["policy_name"])[1], axis=1
+    )
+    return df
+
+
+def add_co_team_name(df: pd.DataFrame) -> pd.DataFrame:
+    """Add co team name to dataframe.
+
+    Also removes unwanted rows.
+    """
+    # For each policy we want to group rows where that policy is paired with equivalent
+    # co-player policies.
+    env_symmetric = df["symmetric"].unique().tolist()[0]
+    if env_symmetric:
+        # For symmetric environments we group rows where the policy is paired with the
+        # same co-player policies, independent of the ordering
+        same_co_team_ids = set()
+        for team_id in df["co_team_id"].unique().tolist():
+            # ignore ( and ) and start and end
+            pi_names = team_id[1:-1].split(",")
+            if all(name == pi_names[0] for name in pi_names):
+                same_co_team_ids.add(team_id)
+
+        df = df[df["co_team_id"].isin(same_co_team_ids)]
+
+        def get_team_name(row):
+            team_id = row["co_team_id"]
+            return team_id[1:-1].split(",")[0]
+
+        df["co_team_name"] = df.apply(get_team_name, axis=1)
+    else:
+        # for asymmetric environments ordering matters so can't reduce team IDs
+        def get_team_name_asymmetric(row):
+            team_id = row["co_team_id"]
+            return team_id[1:-1]
+
+        df["co_team_name"] = df.apply(get_team_name_asymmetric, axis=1)
+
+    def get_team_type(row):
+        pi_names = row["co_team_name"].split(",")
+        pi_types = [get_policy_type_and_seed(pi_name)[0] for pi_name in pi_names]
+        if all(pi_type == pi_types[0] for pi_type in pi_types):
+            return pi_types[0]
+        return ",".join(pi_types)
+
+    def get_team_seed(row):
+        pi_names = row["co_team_name"].split(",")
+        pi_seeds = [get_policy_type_and_seed(pi_name)[1] for pi_name in pi_names]
+        if all(pi_seed == pi_seeds[0] for pi_seed in pi_seeds):
+            return pi_seeds[0]
+        return ",".join(pi_seeds)
+
+    df["co_team_type"] = df.apply(get_team_type, axis=1)
+    df["co_team_seed"] = df.apply(get_team_seed, axis=1)
+    return df
+
+
+def import_results(
+    result_file: str,
+) -> pd.DataFrame:
+    """Import experiment results."""
+    # disable annoying warning
+    pd.options.mode.chained_assignment = None
+    df = pd.read_csv(result_file)
+
+    df = add_95CI(df)
+    df = add_outcome_proportions(df)
+    df = add_policy_type_and_seed(df)
+    df = add_co_team_name(df)
+
+    # enable annoyin warning
+    pd.options.mode.chained_assignment = "warn"
+    return df
+
+
 def heatmap(
     data,
     row_labels,
@@ -246,7 +389,11 @@ def plot_pairwise_comparison(
 
     ncols = 2 if y_err_key else 1
     fig, axs = plt.subplots(
-        nrows=1, ncols=ncols, figsize=figsize, squeeze=False, sharey=True
+        nrows=1,
+        ncols=ncols,
+        # figsize=figsize,
+        squeeze=False,
+        sharey=True,
     )
 
     pw_values, (row_policies, col_policies) = get_pairwise_values(
@@ -458,4 +605,5 @@ def plot_mean_pairwise_comparison(
 
     fig.suptitle(y_key)
     fig.tight_layout()
+    return fig, axs
     return fig, axs
