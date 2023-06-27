@@ -615,7 +615,7 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
         rot = np.array(
             [[math.cos(yaw), math.sin(yaw)], [-math.sin(yaw), math.cos(yaw)]]
         )
-        rel_xy = np.array([agent_i[0] - agent_j[0], agent_i[1] - agent_j[1]])
+        rel_xy = agent_i[:2] - agent_j[:2]
         rel_xy = rot.dot(rel_xy)
         alpha = math.atan2(rel_xy[1], rel_xy[0])
         alpha = self.world.convert_angle_to_negpi_pi_interval(alpha)

@@ -170,12 +170,21 @@ class AbstractContinuousWorld(ABC):
         pass
 
     @abstractmethod
+    def clip_position(self, position: Vec2d) -> Vec2d:
+        """Clip the position of an agent to be inside the border"""
+        pass
+
+    @abstractmethod
     def copy(self) -> "AbstractContinuousWorld":
         """Get a deep copy of this world."""
         pass
 
     def simulate(
-        self, dt: float = 1.0 / 10, t: int = 10, normalize_angles: bool = True
+        self,
+        dt: float = 1.0 / 10,
+        t: int = 10,
+        normalize_angles: bool = True,
+        clip_positions=True,
     ):
         """Simulate the world, updating all entities.
 
@@ -206,6 +215,10 @@ class AbstractContinuousWorld(ABC):
                 body.angular_velocity = self.convert_angle_to_0_2pi_interval(
                     body.angular_velocity
                 )
+
+        if clip_positions:
+            for body, _ in self.entities.values():
+                body.position = self.clip_position(body.position)
 
     def add_entity(
         self,
@@ -414,7 +427,11 @@ class AbstractContinuousWorld(ABC):
         x: float, x_min: float, x_max: float, new_min: float, new_max: float
     ) -> float:
         """Convert variable from [x_min, x_max] to [new_min, new_max] interval."""
-        return (x - x_min) / (x_max - x_min) * (new_max - new_min) + new_min
+        return np.clip(
+            (x - x_min) / (x_max - x_min) * (new_max - new_min) + new_min,
+            new_min,
+            new_max,
+        )
 
     def agents_collide(self, loc1: Location, loc2: Location) -> bool:
         """Get whether two agents have collided or not.
@@ -839,6 +856,9 @@ class SquareContinuousWorld(AbstractContinuousWorld):
             wall.color = self.WALL_COLOR
             self.space.add(wall)
 
+    def clip_position(self, position: Vec2d) -> Vec2d:
+        return np.clip([position[0], position[1]], [0, 0], [self.size, self.size])
+
     def check_border_collisions(
         self, ray_start_coords: np.ndarray, ray_end_coords: np.ndarray
     ) -> np.ndarray:
@@ -904,6 +924,17 @@ class CircularContinuousWorld(AbstractContinuousWorld):
         return self.check_circle_line_intersection(
             center, np.array([self.size]), ray_start_coords, ray_end_coords
         )
+
+    def clip_position(self, position: Vec2d) -> Vec2d:
+        x, y = position.x, position.y
+        r_max = self.size / 2
+        radius = np.linalg.norm([x - r_max, y - r_max])
+        gamma = math.atan2(y, x)
+        if radius > r_max:
+            x = r_max * (1 + math.cos(gamma))
+            y = r_max * (1 + math.sin(gamma))
+
+        return Vec2d(x, y)
 
 
 def generate_interior_walls(
