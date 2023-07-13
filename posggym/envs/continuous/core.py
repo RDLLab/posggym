@@ -857,7 +857,9 @@ class SquareContinuousWorld(AbstractContinuousWorld):
             self.space.add(wall)
 
     def clip_position(self, position: Vec2d) -> Vec2d:
-        return np.clip([position[0], position[1]], [0, 0], [self.size, self.size])
+        return Vec2d(
+            *np.clip([position[0], position[1]], [0, 0], [self.size, self.size])
+        )
 
     def check_border_collisions(
         self, ray_start_coords: np.ndarray, ray_end_coords: np.ndarray
