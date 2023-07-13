@@ -184,7 +184,6 @@ class AbstractContinuousWorld(ABC):
         dt: float = 1.0 / 10,
         t: int = 10,
         normalize_angles: bool = True,
-        clip_positions=True,
     ):
         """Simulate the world, updating all entities.
 
@@ -215,10 +214,6 @@ class AbstractContinuousWorld(ABC):
                 body.angular_velocity = self.convert_angle_to_0_2pi_interval(
                     body.angular_velocity
                 )
-
-        if clip_positions:
-            for body, _ in self.entities.values():
-                body.position = self.clip_position(body.position)
 
     def add_entity(
         self,
@@ -424,14 +419,18 @@ class AbstractContinuousWorld(ABC):
 
     @staticmethod
     def convert_into_interval(
-        x: float, x_min: float, x_max: float, new_min: float, new_max: float
+        x: float,
+        x_min: float,
+        x_max: float,
+        new_min: float,
+        new_max: float,
+        clip: bool = False,
     ) -> float:
         """Convert variable from [x_min, x_max] to [new_min, new_max] interval."""
-        return np.clip(
-            (x - x_min) / (x_max - x_min) * (new_max - new_min) + new_min,
-            new_min,
-            new_max,
-        )
+        new_x = (x - x_min) / (x_max - x_min) * (new_max - new_min) + new_min
+        if clip:
+            return np.clip(new_x, new_min, new_max)
+        return new_x
 
     def agents_collide(self, loc1: Location, loc2: Location) -> bool:
         """Get whether two agents have collided or not.

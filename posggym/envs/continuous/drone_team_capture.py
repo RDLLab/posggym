@@ -332,6 +332,7 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
         capture_radius: float = 30,
     ):
         assert 1 < num_agents <= 8
+        assert 0 < n_communicating_pursuers <= num_agents
         self.n_pursuers = num_agents
         self.n_com_pursuers = n_communicating_pursuers
         self.velocity_control = velocity_control
@@ -432,9 +433,15 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
             x = 50.0 * (-math.floor(self.n_pursuers / 2) + i) + self.r_arena
             pursuer_states[i][:3] = (x, self.r_arena, 0.0)
 
-        bounds = self.r_arena * 0.7
-        x = self.rng.random() * (bounds * 2) - bounds + self.r_arena
-        y = self.rng.random() * (bounds * 2) - bounds + self.r_arena
+        # Target is placed randomly in sphere,
+        # excluding area near center where pursuers start
+        # ref: https://stackoverflow.com/questions/5837572/generate-a-random-point-within-a-circle-uniformly
+        min_r = 4 * self.world.agent_radius
+        max_r = self.r_arena - self.world.agent_radius
+        r = math.sqrt(self.rng.random()) * (max_r - min_r) + min_r
+        theta = self.rng.random() * 2 * math.pi
+        x = self.r_arena + r * math.cos(theta)
+        y = self.r_arena + r * math.sin(theta)
 
         # The velocity of the target varies
         min_rvel, max_rvel = self.target_rel_vel_bounds
@@ -462,8 +469,8 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
     ) -> M.JointTimestep[DTCState, DTCObs]:
         clipped_actions = clip_actions(actions, self.action_spaces)
         next_state = self._get_next_state(state, clipped_actions)
-        obs = self._get_obs(state)
-        all_done, rewards = self._get_rewards(state)
+        obs = self._get_obs(next_state)
+        all_done, rewards = self._get_rewards(next_state)
         terminations = {i: all_done for i in self.possible_agents}
         truncations = {i: False for i in self.possible_agents}
         infos: Dict[M.AgentID, Dict] = {i: {} for i in self.possible_agents}
@@ -687,8 +694,8 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
             return 50000 / (abs(z) + 200) ** 2
 
         final_vector = [0.0, 0.0]
-        for i, s in enumerate(state.pursuer_states):
-            vector = np.array(s[:2]) - xy_pos
+        for s in state.pursuer_states:
+            vector = s[:2] - xy_pos
             final_vector = self._scale_vector(vector, scale_fn, final_vector)
 
         # Find closest point on border then put it in to the vectorial sum
@@ -698,7 +705,7 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
         gamma = -math.atan2(y - self.r_arena, x - self.r_arena)
         virtual_wall = [
             self.r_arena + self.r_arena * math.cos(gamma),
-            self.r_arena + -self.r_arena * math.sin(gamma),
+            self.r_arena - self.r_arena * math.sin(gamma),
         ]
         vector = virtual_wall - xy_pos
         final_vector = self._scale_vector(

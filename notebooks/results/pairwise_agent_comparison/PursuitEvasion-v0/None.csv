@@ -1,0 +1,9 @@
+env_id,env_args_id,symmetric,seed,num_agents,num_episodes,policy_id,policy_name,policy_version,agent_id,co_team_id,episode_reward_mean,episode_reward_std,num_LOSS,num_DRAW,num_WIN,num_NA
+PursuitEvasion-v0,,False,0,2,1000,Random-v0,Random,0,0,(Random),-0.20110483870967744,0.37921041034599284,313,0,0,0
+PursuitEvasion-v0,,False,0,2,1000,Random-v0,Random,0,1,(Random),0.20110483870967744,0.37921041034599284,0,0,313,0
+PursuitEvasion-v0,,False,0,2,1000,Random-v0,Random,0,0,(shortestpath),-0.7356854838709678,0.21313501174985494,934,0,0,0
+PursuitEvasion-v0,,False,0,2,1000,PursuitEvasion-v0/shortestpath-v0,shortestpath,0,1,(Random),0.7356854838709678,0.21313501174985494,0,0,934,0
+PursuitEvasion-v0,,False,0,2,1000,PursuitEvasion-v0/shortestpath-v0,shortestpath,0,0,(Random),-0.0692258064516129,0.23016119763996595,90,0,0,0
+PursuitEvasion-v0,,False,0,2,1000,Random-v0,Random,0,1,(shortestpath),0.0692258064516129,0.23016119763996595,0,0,90,0
+PursuitEvasion-v0,,False,0,2,1000,PursuitEvasion-v0/shortestpath-v0,shortestpath,0,0,(shortestpath),-0.6534435483870968,0.3148982656810421,813,0,0,0
+PursuitEvasion-v0,,False,0,2,1000,PursuitEvasion-v0/shortestpath-v0,shortestpath,0,1,(shortestpath),0.6534435483870968,0.3148982656810421,0,0,813,0
