@@ -92,16 +92,13 @@ class DTCHeuristicPolicy(Policy[DTCAction, DTCState], abc.ABC):
         omega = np.clip(omega, -self.omega_max, self.omega_max)
         return omega
 
-    def alignment(self, pursuers: np.ndarray, pursuers_prev: np.ndarray) -> List[float]:
+    def alignment(self, pursuers: np.ndarray, pursuers_prev: np.ndarray) -> np.ndarray:
         pursuers_diff = pursuers[:, :2] - pursuers_prev[:, :2]
-        dx, dy = np.sum(pursuers_diff, axis=0)
-        dx, dy = self.normalise(dx, dy)
-        return [dx, dy]
+        return self.normalise(*np.sum(pursuers_diff, axis=0))
 
-    def attraction(self, pursuer_i: np.ndarray, target: np.ndarray) -> List[float]:
+    def attraction(self, pursuer_i: np.ndarray, target: np.ndarray) -> np.ndarray:
         r_iT = target[:2] - pursuer_i[:2]
-        dx, dy = self.normalise(r_iT[0], r_iT[1])
-        return [dx, dy]
+        return self.normalise(*r_iT)
 
     def normalise(self, dx: float, dy: float) -> np.ndarray:
         d = math.sqrt(dx**2 + dy**2)
@@ -251,36 +248,35 @@ class DTCAngelaniHeuristicPolicy(DTCHeuristicPolicy):
         rep = self.repulsion(state.pursuer_states, agent_idx)
         align = self.alignment(state.pursuer_states, state.prev_pursuer_states)
         atrac = self.attraction(state.pursuer_states[agent_idx], state.target_state)
-
-        vx = rep[0] + align[0] + atrac[0]
-        vy = rep[1] + align[1] + atrac[1]
+        vel = rep + align + atrac
 
         R = self.rot(state.pursuer_states[agent_idx][2])
-        direction = R.dot([vx, vy])
+        direction = R.dot(vel)
         alpha = math.atan2(direction[1], direction[0])
         omega_i = self.pp(alpha)
         return np.array([omega_i], dtype=np.float32)
 
-    def repulsion(self, pursuer: np.ndarray, idx: int) -> List[float]:
+    def repulsion(self, pursuer: np.ndarray, idx: int):
         r = 300
-        Dx, Dy = 0.0, 0.0
-        for j in range(len(pursuer)):
-            if j != idx:
-                r_iT = (pursuer[j] - pursuer[idx])[:2]
-                dist = float(np.linalg.norm(r_iT))
-                if dist < r:
-                    dx, dy = self.rep_force(r_iT, dist)
-                    Dx += dx
-                    Dy += dy
-        dx, dy = self.normalise(Dx, Dy)
-        return [dx, dy]
+        r_iT = pursuer - pursuer[idx]  # Vectorized calculation of relative positions
+        dist = np.linalg.norm(
+            r_iT[:, :2], axis=1
+        )  # Compute the distance for all pursuers
+        mask = (dist < r) & (
+            np.arange(len(pursuer)) != idx
+        )  # Mask out the current agent
+        repulsive_agents = r_iT[mask, :2]
 
-    def rep_force(self, r_ij: np.ndarray, dist: float) -> Tuple[float, float]:
+        dxy = self.rep_force(repulsive_agents, dist[mask])
+
+        return self.normalise(*dxy)
+
+    def rep_force(self, r_ij: np.ndarray, dist: np.ndarray) -> np.ndarray:
         sigma = 3
-        u = -r_ij / dist
-        den = 1 + math.exp((dist - 20) / sigma)
+        u = -r_ij / dist[:, None]
+        den = 1 + np.exp((dist - 20) / sigma)[:, None]
         rep = u / den
-        return rep[0], rep[1]
+        return rep.sum(axis=0)
 
 
 class DTCDPPHeuristicPolicy(DTCHeuristicPolicy):
