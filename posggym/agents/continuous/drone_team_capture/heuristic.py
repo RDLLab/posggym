@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import abc
 import math
-from typing import TYPE_CHECKING, List, Tuple
+from typing import TYPE_CHECKING, List, Tuple, cast
 
 import numpy as np
 
@@ -86,13 +86,10 @@ class DTCHeuristicPolicy(Policy[DTCAction, DTCState], abc.ABC):
         )
         return R
 
-    def sat(self, val: float, min: float, max: float) -> float:
-        return np.clip(val, min, max)
-
     def pp(self, alpha: float) -> float:
         Kpp = 100
         omega = Kpp * alpha
-        omega = self.sat(omega, -self.omega_max, self.omega_max)
+        omega = np.clip(omega, -self.omega_max, self.omega_max)
         return omega
 
     def alignment(self, pursuers: np.ndarray, pursuers_prev: np.ndarray) -> List[float]:
@@ -106,10 +103,15 @@ class DTCHeuristicPolicy(Policy[DTCAction, DTCState], abc.ABC):
         dx, dy = self.normalise(r_iT[0], r_iT[1])
         return [dx, dy]
 
-    def normalise(self, dx: float, dy: float) -> Tuple[float, float]:
+    def normalise(self, dx: float, dy: float) -> np.ndarray:
         d = math.sqrt(dx**2 + dy**2)
-        d = self.sat(d, 0.000001, 10000000)
-        return dx / d, dy / d
+        d = np.clip(d, 0.000001, 10000000)
+        return np.array([dx, dy]) / d
+
+    def normalise_safe(self, arr: np.ndarray) -> np.ndarray:
+        d = np.linalg.norm(arr, axis=1)
+        d = np.clip(d, 0.000001, 10000000)
+        return (arr.T / d).T
 
     def get_value(self, state: PolicyState) -> float:
         raise NotImplementedError(
@@ -139,8 +141,7 @@ class DTCJanosovHeuristicPolicy(DTCHeuristicPolicy):
 
     def _get_action(self, state: DTCState) -> DTCAction:
         agent_idx = int(self.agent_id)
-        arena = self.arena()
-        coll = [0, 0]
+
         chase = self.attraction2(
             state.pursuer_states[agent_idx],
             state.prev_pursuer_states[agent_idx],
@@ -151,17 +152,21 @@ class DTCJanosovHeuristicPolicy(DTCHeuristicPolicy):
         inter = self.alignment2(
             state.pursuer_states, state.prev_pursuer_states, agent_idx
         )
-        vx = arena[0] + coll[0] + chase[0] + inter[0]
-        vy = arena[1] + coll[1] + chase[1] + inter[1]
 
+        # Sum up the contributions to the desired velocity
+        desired_velocity = chase + inter
+
+        # Rotate the desired velocity according to the agent's heading angle
         R = self.rot(state.pursuer_states[agent_idx][2])
-        Direction = R.dot([vx, vy])
-        alpha = math.atan2(Direction[1], Direction[0])
-        omega = self.pp(alpha)
-        return np.array([omega], dtype=np.float32)
+        direction = R.dot(desired_velocity)
 
-    def arena(self) -> List[float]:
-        return [0.0, 0.0]
+        # Calculate the angle between the desired direction and the current heading
+        alpha = cast(float, np.arctan2(direction[1], direction[0]))
+
+        # Calculate the angular velocity (omega) using the pp method
+        omega = self.pp(alpha)
+
+        return np.array([omega], dtype=np.float32)
 
     def attraction2(
         self,
@@ -169,7 +174,7 @@ class DTCJanosovHeuristicPolicy(DTCHeuristicPolicy):
         pursuer_i_prev: np.ndarray,
         target: np.ndarray,
         target_prev: np.ndarray,
-    ):
+    ) -> np.ndarray:
         # Friction term
         dist = self.euclidean_dist(target, pursuer_i)
         vel_p = (np.array(pursuer_i) - np.array(pursuer_i_prev))[:2]
@@ -183,58 +188,43 @@ class DTCJanosovHeuristicPolicy(DTCHeuristicPolicy):
         chase = atrac + 1.5 * visc
         chase = self.normalise(chase[0], chase[1])
 
-        chase_x = chase[0] * self.vel_pur
-        chase_y = chase[1] * self.vel_pur
-
-        return [chase_x, chase_y]
+        return chase * self.vel_pur
 
     def alignment2(self, pursuer: np.ndarray, pursuer_prev: np.ndarray, i: int):
-        inte_x = 0.0
-        inte_y = 0.0
         rad_inter = 250
         C_inter = 0.5
         C_f = 0.5
-        for j in range(len(pursuer)):
-            if j != i:
-                d_ij = (np.array(pursuer[i]) - np.array(pursuer[j]))[:2]
-                d = float(np.linalg.norm(d_ij))
 
-                d_ij = self.normalise(d_ij[0], d_ij[1])
+        mask = np.arange(len(pursuer)) != i
 
-                vel_i = np.array(pursuer[i]) - np.array(pursuer_prev[i])
-                vel_j = np.array(pursuer[j]) - np.array(pursuer_prev[j])
+        d_ij = pursuer[i, :2] - pursuer[mask, :2]
+        d = np.linalg.norm(d_ij, axis=1)
+        d_ij = self.normalise_safe(d_ij)
 
-                rep_x = d_ij[0] * self.sat((d - rad_inter), -10000, 0) / d
-                rep_y = d_ij[1] * self.sat((d - rad_inter), -10000, 0) / d
+        vel_i = pursuer[i, :2] - pursuer_prev[i, :2]
+        vel_j = pursuer[mask, :2] - pursuer_prev[mask, :2]
 
-                fric_x = (vel_i[0] - vel_j[0]) / d**2
-                fric_y = (vel_i[1] - vel_j[1]) / d**2
+        rep = ((d_ij.T * np.clip(d - rad_inter, -10000, 0)) / d).T
+        fric = ((vel_i - vel_j).T / d**2).T
 
-                inte_x += -rep_x + C_f * fric_x
-                inte_y += -rep_y + C_f * fric_y
+        inte = self.normalise(*(-rep + C_f * fric).sum(axis=0))
 
-        inte_x, inte_y = self.normalise(inte_x, inte_y)
+        return C_inter * inte * self.vel_pur
 
-        dx = C_inter * inte_x * self.vel_pur
-        dy = C_inter * inte_y * self.vel_pur
-
-        return [dx, dy]
-
-    def prediction(self, pursuer_i: np.ndarray, target: np.ndarray, vel_t: List[float]):
+    def prediction(
+        self, pursuer_i: np.ndarray, target: np.ndarray, vel_t: List[float]
+    ) -> np.ndarray:
         dist = self.euclidean_dist(target, pursuer_i)
 
         tau = 20
         time_pred = dist / self.vel_tar
-        time_pred = self.sat(time_pred, 0, tau)
+        time_pred = np.clip(time_pred, 0, tau)
 
-        vel_t = self.normalise(vel_t[0], vel_t[1])  # type: ignore
-        vel_x = vel_t[0] * self.vel_tar
-        vel_y = vel_t[1] * self.vel_tar
+        vel_t = self.normalise(vel_t[0], vel_t[1]) * self.vel_tar  # type: ignore
 
-        pos_pred_x = target[0] + vel_x * time_pred
-        pos_pred_y = target[1] + vel_y * time_pred
+        pos_pred = target[:2] + vel_t * time_pred
 
-        return [pos_pred_x, pos_pred_y]
+        return pos_pred
 
 
 class DTCAngelaniHeuristicPolicy(DTCHeuristicPolicy):
@@ -317,7 +307,7 @@ class DTCDPPHeuristicPolicy(DTCHeuristicPolicy):
 
         alphaiT, _ = self.engagmment(pursuer_i, state.target_state)
         omega_i = 0.6 * (alphaiT - sense * offset)
-        omega_i = self.sat(omega_i, -self.omega_max, self.omega_max)
+        omega_i = np.clip(omega_i, -self.omega_max, self.omega_max)
         return np.array([omega_i], dtype=np.float32)
 
     def delta(self, pos_i: np.ndarray, pos_j: np.ndarray, target: np.ndarray) -> float:
