@@ -274,7 +274,7 @@ class DTCAngelaniHeuristicPolicy(DTCHeuristicPolicy):
     def rep_force(self, r_ij: np.ndarray, dist: np.ndarray) -> np.ndarray:
         sigma = 3
         u = -r_ij / dist[:, None]
-        den = 1 + np.exp((dist - 20) / sigma)[:, None]
+        den = 1 + np.exp((dist - 20) / sigma)[:, None]  # type: ignore
         rep = u / den
         return rep.sum(axis=0)
 
@@ -295,11 +295,11 @@ class DTCDPPHeuristicPolicy(DTCHeuristicPolicy):
         sense = 0.0
         n_pursuers = len(state.pursuer_states)
         pursuer_i = state.pursuer_states[self.agent_idx]
-        for j in range(n_pursuers):
-            if j != self.agent_idx:
-                sense += self.delta(
-                    pursuer_i, state.pursuer_states[j], state.target_state
-                )
+
+        mask = np.arange(n_pursuers) != self.agent_idx
+        sense = np.sum(
+            self.delta(pursuer_i, state.pursuer_states[mask], state.target_state)
+        )
 
         alphaiT, _ = self.engagmment(pursuer_i, state.target_state)
         omega_i = 0.6 * (alphaiT - sense * offset)
@@ -307,7 +307,6 @@ class DTCDPPHeuristicPolicy(DTCHeuristicPolicy):
         return np.array([omega_i], dtype=np.float32)
 
     def delta(self, pos_i: np.ndarray, pos_j: np.ndarray, target: np.ndarray) -> float:
-        sense = 0
         _, Los_angle = self.engagmment(pos_i, target)
         R = np.array(
             [
@@ -315,11 +314,12 @@ class DTCDPPHeuristicPolicy(DTCHeuristicPolicy):
                 [-math.sin(Los_angle), math.cos(Los_angle)],
             ]
         )
-        i_j = pos_j[:2] - pos_i[:2]
-        i_j = R.dot(i_j)
-        if abs(i_j[1]) != 0:
-            sense = i_j[1] / abs(i_j[1])  # for do not divide by zero
-        return sense
+        i_j = pos_j[:, :2] - pos_i[:2]
+        i_j = np.dot(i_j, R.T)
+
+        # Avoid dividing by zero
+        sense = np.where(np.abs(i_j[:, 1]) != 0, i_j[:, 1] / np.abs(i_j[:, 1]), 0)
+        return np.sum(sense)
 
     def engagmment(self, pos_i: np.ndarray, pos_j: np.ndarray) -> Tuple[float, float]:
         yaw = pos_i[2]
