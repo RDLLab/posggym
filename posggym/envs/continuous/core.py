@@ -419,13 +419,13 @@ class AbstractContinuousWorld(ABC):
 
     @staticmethod
     def convert_into_interval(
-        x: float,
-        x_min: float,
-        x_max: float,
-        new_min: float,
-        new_max: float,
+        x: float | np.ndarray,
+        x_min: float | np.ndarray,
+        x_max: float | np.ndarray,
+        new_min: float | np.ndarray,
+        new_max: float | np.ndarray,
         clip: bool = False,
-    ) -> float:
+    ) -> float | np.ndarray:
         """Convert variable from [x_min, x_max] to [new_min, new_max] interval."""
         new_x = (x - x_min) / (x_max - x_min) * (new_max - new_min) + new_min
         if clip:

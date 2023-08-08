@@ -36,8 +36,17 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
     A co-operative 2D continuous world problem involving multiple pursuer drone agents
     working together to catch a target agent in the environment.
 
-    This is an adaption of the original code base to allow for partially observable
-    environments.
+    This is an adaption of the original code base to add partially observability.
+    Namely, pursuers do not observe their own, the target's nor the other pursuers'
+    velocities or the max velocity of the target. Furthermore, it is possible to limit
+    the observation range of the pursuers (see `observation_limit` argument) and also
+    how many other pursuers each pursuer can observe at a time, i.e.how many in range
+    pursuers each pursuer can communicate with (see `n_communicating_pursuers`
+    argument).
+
+    By default, all pursuers can observe their own position and angle/yaw
+    plus the position of the target and all other pursuers, making the environment
+    essentially fully observable given the latest two observations.
 
     Possible Agents
     ---------------
@@ -69,15 +78,15 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
     Observation Space
     -----------------
     Each agent receives a 1D vector observation containing information about their
-    current state as well as some information about the other pursuers and the target.
+    current state (position, yaw) as well as information about the positions of the
+    other pursuers and the target if they are within observation range.
 
-    - *Self obs* - observe angle that pursuer is facing and current angular velocity.
-    - *Target obs* - observe the angle and distance to the target (if target is within
-        `observation_limit`), as well as rate of change of angle and distance to the
-        target.
-    - *Other pursuer obs* - observes the angle and distance to the
-        `n_communicating_pursuers` closest pursuer agents (if they are within
-        `observation_limit` distance).
+    - *Self obs* - observe (x, y) position as well as the angle/yaw of the ego agent
+    - *Target obs* - observes the (x, y) position of the target (if target is within
+        `observation_limit`)
+    - *Other pursuer obs* - observes the (x, y) position of the
+        `n_communicating_pursuers` closest pursuer agents that are are within
+        `observation_limit` distance.
 
     All observation features have values normalized into [-1, 1] interval. Observation
     feature values are `-1` for any pursuers or the target if they are out of range
@@ -87,21 +96,21 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
 
     | Index: start          | Description                          |  Values   |
     | :-------------------: | :----------------------------------: | :-------: |
-    | 0                     | Agent angle                          | [-1, 1[   |
-    | 1                     | Agent angular velocity               | [-1, 1]   |
-    | 2                     | Angle to target                      | [-1, 1]   |
-    | 3                     | Distance to target                   | [-1, 1]   |
-    | 4                     | Angular velocity of angle to target  | [-1, 1]   |
-    | 5                     | Velocity of distance to target       | [-1, 1]   |
-    | 6 to (6 + 2 * n)      | Other pursuer angle and distance     | [-1, 1]   |
+    | 0                     | Agent (x, y) position                | [-1, 1[   |
+    | 2                     | Agent angle/yaw                      | [-1, 1]   |
+    | 3                     | Target (x, y) position               | [-1, 1]   |
+    | 5 to (5 + 2 * n)      | Other pursuers' (x, y) positions     | [-1, 1]   |
 
     Where `n = n_communicating_pursuers`.
 
     Rewards
     -------
-    Each pursuer will receive a reward based on the Q parameter and the distance from
+    Each pursuer will receive a capture reward and a reward based on their distance from
     the target. On successful capture, the capturing pursuer will receive a reward of
     `+130`, while other agents will receive `100`.
+
+    Optionally, the pursuers receive a reward based on the `Q` parameter which measures
+    the spread of the pursuers and incentivizes them to spread out around the target.
 
     Dynamics
     --------
@@ -133,23 +142,26 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
     - `num_agents` - The number of agents which exist in the environment
         Must be between 1 and 8 (default = `3`)
     - `n_communicating_pursuers - The maximum number of agents which an
-        agent can receive information from (default = `2`)
+        agent can receive information from. If `None` then this will be set to equal
+        `num_agents - 1` (default = `None`)
+    - `arena_radius` - Size of the arena, in terms of it's radius (default = `430`)
+    - `observation_limit` - The limit of which agents can see other agents, if `None`
+        then there is no observation limit (default = `None`)
     - `velocity_control` - If the agents have control of their linear velocity
         (default = `False`)
-    - `arena_size` - Size of the arena, in terms of it's radius (default = `430`)
-    - `observation_limit` - The limit of which agents can see other agents
-        (default = `430`)
     - `capture_radius` - Distance from target pursuer needs to be within to capture
         target. As per original paper, the user can adjust this to set a learning
         curriculum (larger values are easier) (default = `30`, which is the radius of
         the target).
+    - `use_q_reward` - Whether the pursuers should also receive the reward based on the
+        `Q` parameter (default = `False`)
 
 
     Available variants
     ------------------
     For example to use the Drone Team Capture environment with 8 pursuer drones, with
     communication between max 4 closest drones and episode step limit of 100, and the
-    default values for the other parameters (`velocity_control`, `arena_size`,
+    default values for the other parameters (`velocity_control`, `arena_radius`,
     `observation_limit`, `capture_radius`) you would use:
 
     ```python
@@ -183,21 +195,23 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
     def __init__(
         self,
         num_agents: int = 3,
-        n_communicating_pursuers: int = 2,
-        arena_size: float = 430,
-        observation_limit: float = 430,
+        n_communicating_pursuers: Optional[int] = None,
+        arena_radius: float = 430,
+        observation_limit: Optional[float] = None,
         velocity_control: bool = False,
         capture_radius: float = 30,
+        use_q_reward: bool = False,
         render_mode: Optional[str] = None,
     ):
         super().__init__(
             DroneTeamCaptureModel(
                 num_agents,
-                n_communicating_pursuers,
-                velocity_control,
-                arena_size=arena_size,
+                n_communicating_pursuers=n_communicating_pursuers,
+                arena_radius=arena_radius,
                 observation_limit=observation_limit,
+                velocity_control=velocity_control,
                 capture_radius=capture_radius,
+                use_q_reward=use_q_reward,
             ),
             render_mode=render_mode,
         )
@@ -295,18 +309,22 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
     ----------
     num_agents: int
         The number of agents which exist in the environment. Must be between 1 and 8
-    n_communicating_pursuers: int
-        The maximum number of agents which an agent can receive information from
+    n_communicating_pursuers: int, optional
+        The maximum number of agents which an agent can receive information from. If
+        None, then all agents can communicate with each other.
+    arena_radius : float
+        Size of the arena, in terms of its radius
+    observation_limit : float, optional
+        The limit of which agents can see other agents. If None, then there is no
+        observation limit.
     velocity_control: bool
         If the agents have control of their linear velocity
-    arena_size : float
-        Size of the arena, in terms of its radius
-    observation_limit : float
-        The limit of which agents can see other agents
     capture_radius : float
         Distance from target pursuer needs to be within to capture target. As per
         original paper, the user can adjust this to set a learning curriculum (larger
         values are easier).
+    use_q_reward : bool
+        Whether to include the q-formation reward in the reward function
 
     """
 
@@ -325,20 +343,27 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
     def __init__(
         self,
         num_agents: int,
-        n_communicating_pursuers: int,
+        n_communicating_pursuers: Optional[int] = None,
+        arena_radius: float = 430,
+        observation_limit: Optional[float] = None,
         velocity_control: bool = False,
-        arena_size: float = 430,
-        observation_limit: float = 430,
         capture_radius: float = 30,
+        use_q_reward: bool = False,
     ):
         assert 1 < num_agents <= 8
-        assert 0 < n_communicating_pursuers <= num_agents
+        assert (
+            n_communicating_pursuers is None
+            or 0 < n_communicating_pursuers < num_agents
+        )
         self.n_pursuers = num_agents
-        self.n_com_pursuers = n_communicating_pursuers
+        self.n_com_pursuers = (
+            n_communicating_pursuers if n_communicating_pursuers else num_agents - 1
+        )
         self.velocity_control = velocity_control
-        self.r_arena = arena_size
+        self.r_arena = arena_radius
         self.observation_limit = observation_limit
         self.capture_radius = capture_radius
+        self.use_q_reward = use_q_reward
 
         # Fixed model params
         # Linear Velocity of pursuer
@@ -374,11 +399,20 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
                 for i in self.possible_agents
             }
 
-        # Agent can see more detailed info about target + self (6 features)
-        # Agent can see distance + angle to other pursuers (2 features per pursuer)
-        obs_dim = 6 + self.n_com_pursuers * 2
+        # Agent can see it's own (x, y, yaw) and the (x, y) of the target and up to
+        # n_com_pursuers
+        self.obs_dim = 5 + self.n_com_pursuers * 2
+
+        # range of values for raw observations (before normalization to [-1, 1])
+        self.raw_obs_range = (
+            np.full((self.obs_dim,), 0.0, dtype=np.float32),
+            np.full((self.obs_dim,), 2 * self.r_arena, dtype=np.float32),
+        )
+        self.raw_obs_range[0][2] = 0
+        self.raw_obs_range[1][2] = 2 * math.pi
+
         self.observation_spaces = {
-            i: spaces.Box(low=-1.0, high=1.0, shape=(obs_dim,), dtype=np.float32)
+            i: spaces.Box(low=-1.0, high=1.0, shape=(self.obs_dim,), dtype=np.float32)
             for i in self.possible_agents
         }
 
@@ -400,21 +434,12 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
 
     @property
     def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
-        q_reward_range = (
-            self.R_Q_COEFF * 3.0 * (self.n_pursuers - 1) / self.n_pursuers,
-            self.R_Q_COEFF * -1.0 * (self.n_pursuers - 1) / self.n_pursuers,
-        )
-        target_dist_reward_range = (
-            self.R_TARGET_DIST_COEFF * 2 * self.r_arena,
-            0.0,
-        )
-        min_reward = q_reward_range[0] + target_dist_reward_range[0]
-        max_reward = (
-            self.R_CAPTURE_TEAM
-            + self.R_CAPTURE
-            + q_reward_range[1]
-            + target_dist_reward_range[1]
-        )
+        min_reward = self.R_TARGET_DIST_COEFF * 2 * self.r_arena
+        max_reward = self.R_CAPTURE_TEAM + self.R_CAPTURE
+        if self.use_q_reward:
+            n = self.n_pursuers
+            min_reward += self.R_Q_COEFF * 3.0 * (n - 1) / n
+            max_reward += self.R_Q_COEFF * -1.0 * (n - 1) / n
 
         return {i: (min_reward, max_reward) for i in self.possible_agents}
 
@@ -498,7 +523,7 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
         self.world.set_entity_state("evader", state.target_state)
         self.world.update_entity_state("evader", vel=evader_vel_xy)
 
-        self.world.simulate(1.0 / 10, 10)
+        self.world.simulate(1.0 / 10, 10, normalize_angles=True)
 
         next_pursuer_states = np.array(
             [
@@ -517,124 +542,62 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
 
     def _get_obs(self, state: DTCState) -> Dict[M.AgentID, DTCObs]:
         observation = {}
+        xy_target = state.target_state[:2]
         for i in range(self.n_pursuers):
-            # getting the target engagement
-            (alpha_t, dist_t), target_visible = self._engagement(
-                state.pursuer_states[i],
-                state.target_state,
-                dist_norm_factor=2 * self.r_arena,
-            )
-            (alpha_t_prev, dist_t_prev), target_prev_visible = self._engagement(
-                state.prev_pursuer_states[i],
-                state.prev_target_state,
-                dist_norm_factor=2 * self.r_arena,
-            )
-            # change in alpha
-            if not target_visible or not target_prev_visible:
-                alpha_rate = -1.0
-                dist_rate = -1.0
+            obs_i = np.copy(self.raw_obs_range[0])
+
+            # Self obs (x, y , yaw)
+            xy_i = state.pursuer_states[i][:2]
+            obs_i[0:3] = state.pursuer_states[i][:3]
+
+            # Target obs (x, y)
+            d_target = self.world.euclidean_dist(xy_i, xy_target)
+            if self.observation_limit is None or d_target <= self.observation_limit:
+                obs_i[3:5] = xy_target
+
+            # Other pursuer obs (x, y) * n_com_pursuers
+            if (
+                self.observation_limit is None
+                and self.n_com_pursuers >= self.n_pursuers - 1
+            ):
+                # can observe all pursuers
+                mask = np.arange(self.n_pursuers) != i
+                obs_i[5:] = state.pursuer_states[mask][:, :2].flatten()
             else:
-                # alpha_t and alpha_t_prev are both normalized into [-1, 1] range
-                # so have to do some shenanigans to ensure alpha rate is correctly
-                # normalized into [-1, 1]
-                alpha_rate = (
-                    self.world.convert_angle_to_negpi_pi_interval(
-                        (alpha_t - alpha_t_prev) * math.pi
-                    )
-                    / math.pi
-                )
-                max_rate = self.norm_max_rel_dist_change
-                dist_rate = self.world.convert_into_interval(
-                    dist_t - dist_t_prev, -max_rate, max_rate, -1.0, 1.0
-                )
+                # observe n_com_pursuers closest pursuers within observation_limit
+                d_pursuers = []
+                for j in range(self.n_pursuers):
+                    if j == i:
+                        continue
+                    d = self.world.euclidean_dist(xy_i, state.pursuer_states[j][:2])
+                    if self.observation_limit is None or d <= self.observation_limit:
+                        d_pursuers.append((d, j))
 
-            # getting the relative engagement
-            # alpha and distance to each pursuer
-            engagement = []
-            for j in range(self.n_pursuers):
-                if j == i:
-                    eng = (-1.0, -1.0)
-                else:
-                    eng, _ = self._engagement(
-                        state.pursuer_states[i],
-                        state.pursuer_states[j],
-                        dist_norm_factor=2 * self.r_arena,
-                    )
-                engagement.append(eng)
+                d_pursuers = sorted(d_pursuers, key=lambda t: t[0])[
+                    : self.n_com_pursuers
+                ]
+                for obs_idx, (_, j) in enumerate(d_pursuers):
+                    xy_j = state.pursuer_states[j][:2]
+                    obs_i[5 + obs_idx * 2 : 7 + obs_idx * 2] = xy_j
 
-            # Put any invalid (-1) to the end
-            engagement = sorted(
-                engagement, key=lambda t: float("inf") if t[1] == -1.0 else t[1]
+            obs_i_norm = self.world.convert_into_interval(
+                obs_i,
+                self.raw_obs_range[0],
+                self.raw_obs_range[1],
+                self.observation_spaces[str(i)].low,
+                self.observation_spaces[str(i)].high,
+                # this shouldn't be necessary, so we want it to throw an error if it is
+                clip=False,
             )
-            alphas, dists = list(zip(*engagement))
-
-            angle_i = (
-                self.world.convert_angle_to_negpi_pi_interval(
-                    state.pursuer_states[i][2]
-                )
-                / math.pi
-            )
-            prev_angle_i = (
-                self.world.convert_angle_to_negpi_pi_interval(
-                    state.prev_pursuer_states[i][2]
-                )
-                / math.pi
-            )
-            turn_rate = (angle_i - prev_angle_i) / 2
-
-            # Create obs vector
-            obs_i = [
-                angle_i,
-                turn_rate,
-                alpha_t,
-                dist_t,
-                alpha_rate,
-                dist_rate,
-            ]
-
-            for idx in range(self.n_com_pursuers):
-                obs_i.append(alphas[idx])
-                obs_i.append(dists[idx])
-
-            observation[str(i)] = np.array(obs_i, dtype=np.float32)
+            observation[str(i)] = obs_i_norm
 
         return observation
-
-    def _engagement(
-        self, agent_i: np.ndarray, agent_j: np.ndarray, dist_norm_factor: float
-    ) -> Tuple[Tuple[float, float], bool]:
-        """Get engagement between two agents.
-
-        Engagement here is the angle (in radians) from agent_i's current position and
-        angle to agent_j's position, as well as the distance between the two agents
-        positions. Both angle and distance are normalized to [-1, 1] range.
-
-        Note, if agents are outside of observation distance of each other then returns
-        (-1, -1), and False.
-
-        """
-        dist = self.world.euclidean_dist(agent_i, agent_j)
-        if dist > self.observation_limit:
-            return (-1.0, -1.0), False
-
-        # Rotation matrix of yaw
-        yaw = agent_i[2]
-        rot = np.array(
-            [[math.cos(yaw), math.sin(yaw)], [-math.sin(yaw), math.cos(yaw)]]
-        )
-        rel_xy = agent_i[:2] - agent_j[:2]
-        rel_xy = rot.dot(rel_xy)
-        alpha = math.atan2(rel_xy[1], rel_xy[0])
-        alpha = self.world.convert_angle_to_negpi_pi_interval(alpha)
-        return (alpha / math.pi, dist / dist_norm_factor), True
 
     def _get_rewards(self, state: DTCState) -> Tuple[bool, Dict[M.AgentID, float]]:
         done = False
         reward: Dict[M.AgentID, float] = {}
-        # q_formation reward:
-        # Max = 3 * (n-1) / n
-        # Min = -1 * (n-1) / n
-        q_formation = self._q_parameter(state)
+        # q_formation reward: [-1 * (n-1) / n, 3 * (n-1) / n]
+        q_formation = self._q_parameter(state) if self.use_q_reward else 0.0
         for i in self.possible_agents:
             reward[i] = self.R_Q_COEFF * q_formation
             # target_dist range = (0.0, 2*r_arena) = (0.0, 860) for default size
@@ -654,8 +617,7 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
 
     def _q_parameter(self, state: DTCState) -> float:
         """Calculate Q-formation value."""
-        # max = 3 * (n-1) / n
-        # min = -1 * (n-1) / n
+        # min = -1 * (n-1) / n, max = 3 * (n-1) / n
         closest = self._get_closest_pursuer(state)
         unit = self._get_unit_vectors(state)
         Qk = 0.0

@@ -8,6 +8,7 @@ import math
 
 from posggym.envs.registration import make, pprint_registry, register, registry, spec
 
+
 # Classic
 # -------------------------------------------
 
@@ -44,11 +45,12 @@ register(
     max_episode_steps=500,
     kwargs={
         "num_agents": 3,
-        "n_communicating_pursuers": 2,
-        "arena_size": 430,
-        "observation_limit": 430,
+        "n_communicating_pursuers": None,
+        "arena_radius": 430,
+        "observation_limit": None,
         "velocity_control": False,
         "capture_radius": 30,
+        "use_q_reward": False,
     },
 )
 

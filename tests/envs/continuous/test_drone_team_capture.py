@@ -11,11 +11,12 @@ def test_init_steps(num_pursuers: int):
     env = posggym.make(
         "DroneTeamCapture-v0",
         num_agents=num_pursuers,
-        n_communicating_pursuers=min(num_pursuers, 3),
+        n_communicating_pursuers=None,
+        arena_radius=430,
+        observation_limit=None,
         velocity_control=False,
-        arena_size=430,
-        observation_limit=430,
         capture_radius=30,
+        use_q_reward=False,
         max_episode_steps=2,
     )
     env.reset(seed=35)
