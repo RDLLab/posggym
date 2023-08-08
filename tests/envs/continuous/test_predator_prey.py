@@ -2,9 +2,8 @@
 from typing import cast
 
 import numpy as np
-import pytest
-
 import posggym
+import pytest
 from posggym.envs.continuous.predator_prey_continuous import (
     SUPPORTED_WORLDS,
     PPState,
@@ -33,7 +32,7 @@ def test_obs():
     state.predator_states[1][:3] = (2, 1, 0)
     state.prey_states[0][:3] = (1, 2, 0)
 
-    obs = model._get_local_obs("0", state)
+    obs = model._get_local_obs("0", state)  # pylint: disable=protected-access
 
     # each predator has four sensors going right, up, left, down
     expected_obstacle_obs = [obs_dist, obs_dist, 1.0, 1.0]

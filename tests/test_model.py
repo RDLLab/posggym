@@ -1,9 +1,8 @@
 """Checks that the core posggym model API is implemented as expected."""
 from typing import Dict, List
 
-from gymnasium import spaces
-
 import posggym.model as M
+from gymnasium import spaces
 from posggym.utils import seeding
 
 
@@ -54,4 +53,4 @@ def test_posggym_model():
         i: (-float("inf"), float("inf")) for i in model.possible_agents
     }
     assert model.spec is None
-    assert model._rng is None
+    assert model._rng is None  # pylint: disable=protected-access

@@ -346,6 +346,8 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
                 else:
                     dist.append(dist[-1] + p)
             return list(valid_fug_coords), dist
+
+        true_coords = []
         if obs == OBSNORTH:
             p = (1.0 - self.FUG_OBS_ACC) / (len(house_adj_coords) - 1)
             true_coords = [house_adj_coords[Direction.SOUTH]]
