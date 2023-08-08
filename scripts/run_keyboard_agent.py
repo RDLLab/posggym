@@ -1,8 +1,8 @@
 """Run a keyboard agent on an environment."""
+import argparse
 import math
 import os.path as osp
 import sys
-from argparse import ArgumentParser
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -400,7 +400,10 @@ def run_keyboard_agent(
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser(conflict_handler="resolve")
+    parser = argparse.ArgumentParser(
+        conflict_handler="resolve",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     parser.add_argument("env_id", type=str, help="Name of environment to run")
     parser.add_argument(
         "keyboard_agent_ids",
@@ -415,19 +418,19 @@ if __name__ == "__main__":
         "--num_episodes",
         type=int,
         default=1,
-        help="The number of episodes to run (default=1)",
+        help="The number of episodes to run.",
     )
     parser.add_argument(
         "--max_episode_steps",
         type=int,
         default=None,
-        help="Max number of steps to run each episode for (default=None)",
+        help="Max number of steps to run each episode for.",
     )
     parser.add_argument("--seed", type=int, default=None, help="Random Seed.")
     parser.add_argument(
         "--render_mode",
         type=str,
-        default=None,
+        default="human",
         help="Mode to use for rendering.",
     )
     parser.add_argument(
