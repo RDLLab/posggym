@@ -231,7 +231,7 @@ class PursuitEvasionEnv(DefaultEnv):
         )
         super().__init__(model, render_mode=render_mode)
 
-        self._max_obs_distance = max_obs_distance
+        self.max_obs_distance = max_obs_distance
         fov_width = model.grid.get_max_fov_width(
             model.FOV_EXPANSION_INCR, max_obs_distance
         )
@@ -317,7 +317,7 @@ class PursuitEvasionEnv(DefaultEnv):
                     self._state[2 * i],
                     self._state[2 * i + 1],
                     self.model.FOV_EXPANSION_INCR,
-                    self._max_obs_distance,
+                    self.max_obs_distance,
                 )
             )
 
@@ -382,14 +382,14 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             action_probs = (action_probs, action_probs)
 
         self._grid = grid
-        self._action_probs = action_probs
-        self._max_obs_distance = max_obs_distance
-        self._normalize_reward = normalize_reward
-        self._use_progress_reward = use_progress_reward
+        self.action_probs = action_probs
+        self.max_obs_distance = max_obs_distance
+        self.normalize_reward = normalize_reward
+        self.use_progress_reward = use_progress_reward
 
         self._max_sp_distance = self._grid.get_max_shortest_path_distance()
         self._max_raw_return = self.R_EVASION
-        if self._use_progress_reward:
+        if self.use_progress_reward:
             self._max_raw_return += (self._max_sp_distance + 1) * self.R_PROGRESS
         self._min_raw_return = -self._max_raw_return
 
@@ -439,9 +439,9 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
     @property
     def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
         max_reward = self.R_EVASION
-        if self._use_progress_reward:
+        if self.use_progress_reward:
             max_reward += self.R_PROGRESS
-        if self._normalize_reward:
+        if self.normalize_reward:
             max_reward = self._get_normalized_reward(max_reward)
         return {i: (-max_reward, max_reward) for i in self.possible_agents}
 
@@ -517,15 +517,15 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         pursuer_a = actions[str(self.PURSUER_IDX)]
 
         if (
-            self._action_probs[self.EVADER_IDX] < 1.0
-            and self.rng.random() > self._action_probs[self.EVADER_IDX]
+            self.action_probs[self.EVADER_IDX] < 1.0
+            and self.rng.random() > self.action_probs[self.EVADER_IDX]
         ):
             other_as = [a for a in range(len(Direction)) if a != evader_a]
             evader_a = self.rng.choice(other_as)
 
         if (
-            self._action_probs[self.PURSUER_IDX]
-            and self.rng.random() > self._action_probs[self.PURSUER_IDX]
+            self.action_probs[self.PURSUER_IDX]
+            and self.rng.random() > self.action_probs[self.PURSUER_IDX]
         ):
             other_as = [a for a in range(len(Direction)) if a != pursuer_a]
             pursuer_a = self.rng.choice(other_as)
@@ -605,7 +605,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         self, ego_coord: Coord, ego_dir: Direction, opp_coord: Coord
     ) -> bool:
         fov = self.grid.get_fov(
-            ego_coord, ego_dir, self.FOV_EXPANSION_INCR, self._max_obs_distance
+            ego_coord, ego_dir, self.FOV_EXPANSION_INCR, self.max_obs_distance
         )
         return opp_coord in fov
 
@@ -617,7 +617,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         evader_goal_coord = next_state.evader_goal_coord
 
         evader_reward = 0.0
-        if self._use_progress_reward and next_state.min_goal_dist < state.min_goal_dist:
+        if self.use_progress_reward and next_state.min_goal_dist < state.min_goal_dist:
             evader_reward += self.R_PROGRESS
 
         if evader_coord == pursuer_coord or evader_seen:
@@ -625,7 +625,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         elif evader_coord == evader_goal_coord:
             evader_reward += self.R_EVASION
 
-        if self._normalize_reward:
+        if self.normalize_reward:
             evader_reward = self._get_normalized_reward(evader_reward)
 
         return {

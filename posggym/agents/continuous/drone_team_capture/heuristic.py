@@ -16,6 +16,7 @@ from posggym.envs.continuous.drone_team_capture import (
     DTCObs,
 )
 
+
 if TYPE_CHECKING:
     from posggym.model import AgentID
 
@@ -47,12 +48,11 @@ class DTCHeuristicPolicy(Policy[DTCAction, DTCObs], abc.ABC):
                 f"`n_pursuers = {model.n_pursuers}`, and "
                 f"`observation_limit = {model.observation_limit}`."
             )
-        super().__init__(model, agent_id, policy_id)
-        self.agent_idx = int(self.agent_id)
         self.obs_dim = model.obs_dim
         self.omega_max = model.dyaw_limit
         self.pursuer_vel = model.max_pursuer_vel
         self.pred_target_vel = model.max_pursuer_vel
+        super().__init__(model, agent_id, policy_id)
 
     @abc.abstractmethod
     def _get_action(self, state: PolicyState) -> DTCAction:

@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Dict, List, cast
 
 from posggym.agents.policy import Policy, PolicyID, PolicyState
+from posggym.agents.utils import action_distributions
 from posggym.envs.grid_world.pursuit_evasion import (
     ACTION_TO_DIR,
     INITIAL_DIR,
@@ -11,7 +12,6 @@ from posggym.envs.grid_world.pursuit_evasion import (
     PEObs,
     PursuitEvasionModel,
 )
-from posggym.agents.utils import action_distributions
 from posggym.utils import seeding
 
 
@@ -34,7 +34,7 @@ class PEShortestPathPolicy(Policy[PEAction, PEObs]):
     ):
         super().__init__(model, agent_id, policy_id)
         self.model = cast(PursuitEvasionModel, model)
-        assert all(p == 1.0 for p in self.model._action_probs), (
+        assert all(p == 1.0 for p in self.model.action_probs), (
             f"{self.__class__.__name__} only supported for deterministic versions of "
             "the PursuitEvasion environment."
         )
