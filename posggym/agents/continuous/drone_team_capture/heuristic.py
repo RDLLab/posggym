@@ -16,6 +16,7 @@ from posggym.envs.continuous.drone_team_capture import (
     DTCObs,
 )
 
+
 if TYPE_CHECKING:
     from posggym.model import AgentID
 
@@ -402,3 +403,24 @@ class DTCDPPHeuristicPolicy(DTCHeuristicPolicy):
         T_p = R.dot(target_xy - xy_i)
         alpha = math.atan2(T_p[1], T_p[0])
         return alpha
+
+
+class DTCGreedyHeuristicPolicy(DTCHeuristicPolicy):
+    """Drone Team Capture Greedy Heuristic policy.
+
+    Simple policy which selects the action which minimize the distance to the target
+    at each step, ignoring the other pursuers.
+
+    """
+
+    def _get_action(self, state: PolicyState) -> DTCAction:
+        target_xy = state["target_xy"]
+        xy_i = state["xy"]
+        yaw_i = state["yaw"]
+
+        R = self.rot(yaw_i)
+
+        T_p = R.dot(target_xy - xy_i)
+        alpha = math.atan2(T_p[1], T_p[0])
+        omega_i = self.pp(alpha)
+        return np.array([omega_i], dtype=np.float32)
