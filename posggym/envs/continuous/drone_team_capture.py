@@ -37,16 +37,15 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
     working together to catch a target agent in the environment.
 
     This is an adaption of the original code base to add partially observability.
-    Namely, pursuers do not observe their own, the target's nor the other pursuers'
-    velocities or the max velocity of the target. Furthermore, it is possible to limit
-    the observation range of the pursuers (see `observation_limit` argument) and also
-    how many other pursuers each pursuer can observe at a time, i.e.how many in range
-    pursuers each pursuer can communicate with (see `n_communicating_pursuers`
-    argument).
+    Specifically, it is possible to limit the observation range of the pursuers
+    (see `observation_limit` argument) and also how many other pursuers each pursuer
+    can observe at a time, i.e.how many in range pursuers each pursuer can communicate
+    with (see `n_communicating_pursuers` argument). Furthermore we extent the
+    observation space of each agent compared to the original code by making it so each
+    pursuer also observes their own (x, y) position.
 
-    By default, all pursuers can observe their own position and angle/yaw
-    plus the position of the target and all other pursuers, making the environment
-    essentially fully observable given the latest two observations.
+    By default, all pursuers can observe their own angle/yaw and angular velocity,
+    as well as the relative position of the target and all other pursuers.
 
     Possible Agents
     ---------------
@@ -78,15 +77,16 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
     Observation Space
     -----------------
     Each agent receives a 1D vector observation containing information about their
-    current state (position, yaw) as well as information about the positions of the
-    other pursuers and the target if they are within observation range.
+    current state as well as some information about the other pursuers and the target.
 
-    - *Self obs* - observe (x, y) position as well as the angle/yaw of the ego agent
-    - *Target obs* - observes the (x, y) position of the target (if target is within
-        `observation_limit`)
-    - *Other pursuer obs* - observes the (x, y) position of the
-        `n_communicating_pursuers` closest pursuer agents that are are within
-        `observation_limit` distance.
+    - *Self obs* - observe angle that pursuer is facing, current angular velocity, and
+        current (x, y) position.
+    - *Target obs* - observe the angle and distance to the target (if target is within
+        `observation_limit`), as well as rate of change of angle and distance to the
+        target.
+    - *Other pursuer obs* - observes the angle and distance to the
+        `n_communicating_pursuers` closest pursuer agents (if they are within
+        `observation_limit` distance).
 
     All observation features have values normalized into [-1, 1] interval. Observation
     feature values are `-1` for any pursuers or the target if they are out of range
@@ -96,10 +96,14 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
 
     | Index: start          | Description                          |  Values   |
     | :-------------------: | :----------------------------------: | :-------: |
-    | 0                     | Agent (x, y) position                | [-1, 1[   |
-    | 2                     | Agent angle/yaw                      | [-1, 1]   |
-    | 3                     | Target (x, y) position               | [-1, 1]   |
-    | 5 to (5 + 2 * n)      | Other pursuers' (x, y) positions     | [-1, 1]   |
+    | 0                     | Agent angle                          | [-1, 1[   |
+    | 1                     | Agent angular velocity               | [-1, 1]   |
+    | 2                     | Agent (x, y) position                | [-1, 1]   |
+    | 4                     | Angle to target                      | [-1, 1]   |
+    | 5                     | Distance to target                   | [-1, 1]   |
+    | 6                     | Angular velocity of angle to target  | [-1, 1]   |
+    | 7                     | Velocity of distance to target       | [-1, 1]   |
+    | 8 to (8 + 2 * n)      | Other pursuer angle and distance     | [-1, 1]   |
 
     Where `n = n_communicating_pursuers`.
 
@@ -399,18 +403,45 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
                 for i in self.possible_agents
             }
 
-        # Agent can see it's own (x, y, yaw) and the (x, y) of the target and up to
-        # n_com_pursuers
-        self.obs_dim = 5 + self.n_com_pursuers * 2
-
-        # range of values for raw observations (before normalization to [-1, 1])
+        self.obs_dim = 8 + self.n_com_pursuers * 2
+        # standard range for raw observation values (before normalization to [-1, 1])
         self.raw_obs_range = (
-            np.full((self.obs_dim,), 0.0, dtype=np.float32),
+            np.array(
+                [
+                    -math.pi,
+                    -self.dyaw_limit,
+                    0.0,
+                    0.0,
+                    -math.pi,
+                    0,
+                    -self.dyaw_limit,
+                    -self.max_rel_dist_change,
+                ]
+                + [
+                    -math.pi if i % 2 == 0 else 0
+                    for i in range(self.n_com_pursuers * 2)
+                ],
+                dtype=np.float32,
+            ),
+            np.array(
+                [
+                    math.pi,
+                    self.dyaw_limit,
+                    2 * self.r_arena,
+                    2 * self.r_arena,
+                    math.pi,
+                    2 * self.r_arena,
+                    self.dyaw_limit,
+                    self.max_rel_dist_change,
+                ]
+                + [
+                    math.pi if i % 2 == 0 else 2 * self.r_arena
+                    for i in range(self.n_com_pursuers * 2)
+                ],
+                dtype=np.float32,
+            ),
             np.full((self.obs_dim,), 2 * self.r_arena, dtype=np.float32),
         )
-        self.raw_obs_range[0][2] = 0
-        self.raw_obs_range[1][2] = 2 * math.pi
-
         self.observation_spaces = {
             i: spaces.Box(low=-1.0, high=1.0, shape=(self.obs_dim,), dtype=np.float32)
             for i in self.possible_agents
@@ -542,56 +573,121 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
 
     def _get_obs(self, state: DTCState) -> Dict[M.AgentID, DTCObs]:
         observation = {}
-        xy_target = state.target_state[:2]
         for i in range(self.n_pursuers):
-            obs_i = np.copy(self.raw_obs_range[0])
-
-            # Self obs (x, y , yaw)
-            xy_i = state.pursuer_states[i][:2]
-            obs_i[0:3] = state.pursuer_states[i][:3]
-
-            # Target obs (x, y)
-            d_target = self.world.euclidean_dist(xy_i, xy_target)
-            if self.observation_limit is None or d_target <= self.observation_limit:
-                obs_i[3:5] = xy_target
-
-            # Other pursuer obs (x, y) * n_com_pursuers
-            if (
-                self.observation_limit is None
-                and self.n_com_pursuers >= self.n_pursuers - 1
-            ):
-                # can observe all pursuers
-                mask = np.arange(self.n_pursuers) != i
-                obs_i[5:] = state.pursuer_states[mask][:, :2].flatten()
-            else:
-                # observe n_com_pursuers closest pursuers within observation_limit
-                d_pursuers = []
-                for j in range(self.n_pursuers):
-                    if j == i:
-                        continue
-                    d = self.world.euclidean_dist(xy_i, state.pursuer_states[j][:2])
-                    if self.observation_limit is None or d <= self.observation_limit:
-                        d_pursuers.append((d, j))
-
-                d_pursuers = sorted(d_pursuers, key=lambda t: t[0])[
-                    : self.n_com_pursuers
-                ]
-                for obs_idx, (_, j) in enumerate(d_pursuers):
-                    xy_j = state.pursuer_states[j][:2]
-                    obs_i[5 + obs_idx * 2 : 7 + obs_idx * 2] = xy_j
-
-            obs_i_norm = self.world.convert_into_interval(
-                obs_i,
-                self.raw_obs_range[0],
-                self.raw_obs_range[1],
-                self.observation_spaces[str(i)].low,
-                self.observation_spaces[str(i)].high,
-                # this shouldn't be necessary, so we want it to throw an error if it is
-                clip=False,
+            # getting the target engagement
+            (alpha_t, dist_t), target_visible = self._engagement(
+                state.pursuer_states[i],
+                state.target_state,
+                dist_norm_factor=2 * self.r_arena,
             )
-            observation[str(i)] = obs_i_norm
+            (alpha_t_prev, dist_t_prev), target_prev_visible = self._engagement(
+                state.prev_pursuer_states[i],
+                state.prev_target_state,
+                dist_norm_factor=2 * self.r_arena,
+            )
+            # change in alpha
+            if not target_visible or not target_prev_visible:
+                alpha_rate = -1.0
+                dist_rate = -1.0
+            else:
+                # alpha_t and alpha_t_prev are both normalized into [-1, 1] range
+                # so have to do some shenanigans to ensure alpha rate is correctly
+                # normalized into [-1, 1]
+                alpha_rate = (
+                    self.world.convert_angle_to_negpi_pi_interval(
+                        (alpha_t - alpha_t_prev) * math.pi
+                    )
+                    / math.pi
+                )
+                max_rate = self.norm_max_rel_dist_change
+                dist_rate = self.world.convert_into_interval(
+                    dist_t - dist_t_prev, -max_rate, max_rate, -1.0, 1.0
+                )
+
+            # getting the relative engagement
+            # alpha and distance to each pursuer
+            engagement = []
+            for j in range(self.n_pursuers):
+                if j == i:
+                    eng = (-1.0, -1.0)
+                else:
+                    eng, _ = self._engagement(
+                        state.pursuer_states[i],
+                        state.pursuer_states[j],
+                        dist_norm_factor=2 * self.r_arena,
+                    )
+                engagement.append(eng)
+
+            # Put any invalid (-1) to the end
+            engagement = sorted(
+                engagement, key=lambda t: float("inf") if t[1] == -1.0 else t[1]
+            )
+            alphas, dists = list(zip(*engagement))
+
+            angle_i = (
+                self.world.convert_angle_to_negpi_pi_interval(
+                    state.pursuer_states[i][2]
+                )
+                / math.pi
+            )
+            prev_angle_i = (
+                self.world.convert_angle_to_negpi_pi_interval(
+                    state.prev_pursuer_states[i][2]
+                )
+                / math.pi
+            )
+            turn_rate = (angle_i - prev_angle_i) / 2
+            xy_i = self.world.convert_into_interval(
+                state.pursuer_states[i][:2], 0.0, 2 * self.r_arena, -1.0, 1.0
+            )
+
+            # Create obs vector
+            obs_i = [
+                angle_i,
+                turn_rate,
+                xy_i[0],
+                xy_i[1],
+                alpha_t,
+                dist_t,
+                alpha_rate,
+                dist_rate,
+            ]
+
+            for idx in range(self.n_com_pursuers):
+                obs_i.append(alphas[idx])
+                obs_i.append(dists[idx])
+
+            observation[str(i)] = np.array(obs_i, dtype=np.float32)
 
         return observation
+
+    def _engagement(
+        self, agent_i: np.ndarray, agent_j: np.ndarray, dist_norm_factor: float
+    ) -> Tuple[Tuple[float, float], bool]:
+        """Get engagement between two agents.
+
+        Engagement here is the angle (in radians) from agent_i's current position and
+        angle to agent_j's position, as well as the distance between the two agents
+        positions. Both angle and distance are normalized to [-1, 1] range.
+
+        Note, if agents are outside of observation distance of each other then returns
+        (-1, -1), and False.
+
+        """
+        dist = self.world.euclidean_dist(agent_i, agent_j)
+        if self.observation_limit is not None and dist > self.observation_limit:
+            return (-1.0, -1.0), False
+
+        # Rotation matrix of yaw
+        yaw = agent_i[2]
+        rot = np.array(
+            [[math.cos(yaw), math.sin(yaw)], [-math.sin(yaw), math.cos(yaw)]]
+        )
+        rel_xy = agent_j[:2] - agent_i[:2]
+        rel_xy = rot.dot(rel_xy)
+        alpha = math.atan2(rel_xy[1], rel_xy[0])
+        alpha = self.world.convert_angle_to_negpi_pi_interval(alpha)
+        return (alpha / math.pi, dist / dist_norm_factor), True
 
     def _get_rewards(self, state: DTCState) -> Tuple[bool, Dict[M.AgentID, float]]:
         done = False

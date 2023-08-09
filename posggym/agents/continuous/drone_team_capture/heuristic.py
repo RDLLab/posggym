@@ -16,7 +16,6 @@ from posggym.envs.continuous.drone_team_capture import (
     DTCObs,
 )
 
-
 if TYPE_CHECKING:
     from posggym.model import AgentID
 
@@ -64,11 +63,11 @@ class DTCHeuristicPolicy(Policy[DTCAction, DTCObs], abc.ABC):
 
     def get_initial_state(self) -> PolicyState:
         state = super().get_initial_state()
-        n = (self.obs_dim - 5) // 2
-        state["prev_xy"] = np.zeros((2,), dtype=np.float32)
-        state["xy"] = np.zeros((2,), dtype=np.float32)
+        n = (self.obs_dim - 8) // 2
         state["prev_yaw"] = 0.0
         state["yaw"] = 0.0
+        state["prev_xy"] = np.zeros((2,), dtype=np.float32)
+        state["xy"] = np.zeros((2,), dtype=np.float32)
         state["prev_target_xy"] = np.zeros((2,), dtype=np.float32)
         state["target_xy"] = np.zeros((2,), dtype=np.float32)
         state["prev_other_xy"] = np.zeros((n, 2), dtype=np.float32)
@@ -81,26 +80,53 @@ class DTCHeuristicPolicy(Policy[DTCAction, DTCObs], abc.ABC):
         state: PolicyState,
     ) -> PolicyState:
         # Unnormalize obs
+        min_obs = self.model.observation_spaces[self.agent_id].low
+        # need to change this to be the actual min distance
+        # instead of -1.0 used in obs space to handle out-of-limit agents
+        min_obs[5] = 0.0
+        for i in range(9, len(min_obs), 2):
+            min_obs[i] = 0.0
+
         obs = self.model.world.convert_into_interval(
             obs,
-            self.model.observation_spaces[self.agent_id].low,
+            min_obs,
             self.model.observation_spaces[self.agent_id].high,
             self.model.raw_obs_range[0],
             self.model.raw_obs_range[1],
             clip=False,
         )
-        # Reshape Other Pursuer obs to (n_com_pursuers, 2)
-        other_obs = obs[5:].reshape(-1, 2)
+        xy = obs[2:4]
+        yaw = obs[0]
+
+        target_xy = xy + np.array(
+            [
+                obs[5] * np.cos(obs[4] + yaw),
+                obs[5] * np.sin(obs[4] + yaw),
+            ],
+            dtype=np.float32,
+        )
+
+        other_xy = (
+            xy
+            + np.array(
+                [
+                    obs[9::2] * np.cos(obs[8::2] + yaw),
+                    obs[9::2] * np.sin(obs[8::2] + yaw),
+                ],
+                dtype=np.float32,
+            ).T
+        )
+
         return {
             "action": None,
-            "prev_xy": state["xy"],
-            "xy": obs[:2],
             "prev_yaw": state["yaw"],
-            "yaw": obs[2],
+            "yaw": yaw,
+            "prev_xy": state["xy"],
+            "xy": xy,
             "prev_target_xy": state["target_xy"],
-            "target_xy": obs[3:5],
+            "target_xy": target_xy,
             "prev_other_xy": state["other_xy"],
-            "other_xy": other_obs,
+            "other_xy": other_xy,
         }
 
     def sample_action(self, state: PolicyState) -> DTCAction:
@@ -305,6 +331,14 @@ class DTCAngelaniHeuristicPolicy(DTCHeuristicPolicy):
 
         return self.normalise(*dxy)
 
+    def rep_force(self, r_ij: np.ndarray, dist: np.ndarray) -> np.ndarray:
+        sigma = 3
+        u = -r_ij / dist[:, None]
+        # Need to use float64 for the exponential to avoid overflow
+        den = 1 + np.exp((dist - 20) / sigma, dtype=np.float64)[:, None]
+        rep = u / den
+        return rep.sum(axis=0, dtype=np.float32)
+
     def alignment(
         self, pursuers_xy: np.ndarray, prev_pursuers_xy: np.ndarray
     ) -> np.ndarray:
@@ -314,14 +348,6 @@ class DTCAngelaniHeuristicPolicy(DTCHeuristicPolicy):
     def attraction(self, xy_i: np.ndarray, target_xy: np.ndarray) -> np.ndarray:
         r_iT = target_xy - xy_i
         return self.normalise(*r_iT)
-
-    def rep_force(self, r_ij: np.ndarray, dist: np.ndarray) -> np.ndarray:
-        sigma = 3
-        u = -r_ij / dist[:, None]
-        # Need to use float64 for the exponential to avoid overflow
-        den = 1 + np.exp((dist - 20) / sigma, dtype=np.float64)[:, None]
-        rep = u / den
-        return rep.sum(axis=0, dtype=np.float32)
 
 
 class DTCDPPHeuristicPolicy(DTCHeuristicPolicy):
