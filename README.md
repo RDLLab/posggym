@@ -30,9 +30,9 @@ The latest release version of POSGGym can be installed using `pip`` by running:
 pip install posggym
 ```
 
-This will install the base dependencies for running the main environments, but may not include all dependencies for all environments or for rendering some environments, and will not include dependencies for running many posggym agents.
+This will install the base dependencies for running the main environments and download the agent models (so may take a few minutes), but may not include all dependencies for all environments or for rendering some environments, and will not include dependencies for running many posggym agents.
 
-You can install all dependencies for a family of environments like `pip install posggym[grid-world]` or dependencies for all environments using `pip install posggym[envs-all]`.
+You can install all dependencies for a family of environments like `pip install posggym[grid-world]` and `pip install posggym[continuous]` or dependencies for all environments using `pip install posggym[envs-all]`.
 
 You can install dependencies for POSGGym agents using `pip install posggym[agents]` or to install dependencies for all environments and agents use `pip install posggym[all]`.
 
@@ -45,23 +45,11 @@ cd posggym
 pip install -e .
 ```
 
-This will install the base dependencies. You can optionally install extras as described above. E.g. to install all dependencies for all environments and agents use:
+This will install the base dependencies and download the agent models (so may take a few minutes). You can optionally install extras as described above. E.g. to install all dependencies for all environments and agents use:
 
 ```bash
 pip install -e .[all]
 ```
-
-### Downloading agent models
-
-Many of the implemented agents use neural network based models which will not be downloaded when you first install POSGGym. These will be downloaded as needed, when the specific model is first initialized. Doing this means only the agent models requested will be downloaded, as opposed to downloading all models which is fairly large (>200 MB).
-
-If you want to download all models at once you can use the provided download script:
-
-```
-./download_agents.sh
-```
-
-**Note** this only works for Linux/macOS.
 
 ## Environments
 

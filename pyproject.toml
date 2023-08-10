@@ -9,25 +9,27 @@ name = "posggym"
 description = "A standard API and diverse set of reference environments for reinforcement learning and planning in Partially Observable Stochastic Games (POSGs)."
 readme = "README.md"
 requires-python = ">= 3.8"
-authors = [{ name = "Jonathon Schwartz", email = "jonathon.schwartz@anu.edu.au" }]
+authors = [
+	{ name = "Jonathon Schwartz", email = "jonathon.schwartz@anu.edu.au" },
+]
 license = { text = "MIT License" }
 keywords = ["Reinforcement Learning", "Planning", "Game", "RL", "AI", "POSG"]
 classifiers = [
 	# change to `5 - Production/Stable` maybe one day
-    "Development Status :: 4 - Beta",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    'Intended Audience :: Science/Research',
-    'Topic :: Scientific/Engineering :: Artificial Intelligence',
+	"Development Status :: 4 - Beta",
+	"License :: OSI Approved :: MIT License",
+	"Programming Language :: Python :: 3",
+	"Programming Language :: Python :: 3.8",
+	"Programming Language :: Python :: 3.9",
+	"Programming Language :: Python :: 3.10",
+	"Programming Language :: Python :: 3.11",
+	'Intended Audience :: Science/Research',
+	'Topic :: Scientific/Engineering :: Artificial Intelligence',
 ]
 dependencies = [
 	"gymnasium >=0.26",
-    "numpy >=1.21.0",
-    "typing-extensions >=4.3.0",
+	"numpy >=1.21.0",
+	"typing-extensions >=4.3.0",
 	"importlib-metadata >=4.8.0; python_version < '3.10'",
 ]
 dynamic = ["version"]
@@ -43,9 +45,11 @@ envs-all = [
 	"pygame >=2.0",
 	# continuous
 	"pygame >=2.0",
-    "pymunk >=6.0.0",
+	"pymunk >=6.0.0",
 ]
 agents = [
+	"pygame >=2.0",
+	"pymunk >=6.0.0",
 	"types-requests >=2.28",
 	"requests >= 2.28",
 	"clint >= 0.5.1",
@@ -53,14 +57,12 @@ agents = [
 	"pandas >=1.0",
 	"prettytable >=3.6.0",
 ]
-other = [
-	"moviepy >=1.0.0",
-]
+other = ["moviepy >=1.0.0"]
 all = [
 	# Dependencieis for all envs and agents
 	# envs
 	"pygame >=2.0",
-    "pymunk>=6.0.0",
+	"pymunk>=6.0.0",
 	# agents
 	"types-requests >=2.28",
 	"requests >= 2.28",
@@ -86,10 +88,7 @@ include-package-data = true
 include = ["posggym", "posggym.*"]
 
 [tool.setuptools.package-data]
-posggym = [
-	"envs/grid_world/img/*.png",
-    "py.typed",
-]
+posggym = ["envs/grid_world/img/*.png", "py.typed"]
 
 # Linters and Test tools #######################################################
 [tool.ruff]
@@ -136,7 +135,7 @@ reportMissingTypeStubs = false
 # For warning and error, will raise an error when
 reportInvalidTypeVarUse = "none"
 
-reportGeneralTypeIssues = "none"  # -> commented out raises 489 errors
+reportGeneralTypeIssues = "none" # -> commented out raises 489 errors
 # reportUntypedFunctionDecorator = "none"  # -> pytest.mark.parameterize issues
 
 reportPrivateUsage = "warning"
@@ -144,10 +143,10 @@ reportUnboundVariable = "warning"
 
 [tool.pytest.ini_options]
 filterwarnings = [
-    # Tensorboard warnings
-    "ignore::DeprecationWarning:tensorboard",
-    # Gymnasium warnings
-    "ignore::UserWarning:gymnasium",
+	# Tensorboard warnings
+	"ignore::DeprecationWarning:tensorboard",
+	# Gymnasium warnings
+	"ignore::UserWarning:gymnasium",
 	# PettingZoo warnings
-	"ignore::UserWarning:pettingzoo"
+	"ignore::UserWarning:pettingzoo",
 ]
