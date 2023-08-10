@@ -1,5 +1,6 @@
 # Custom additions
 tests/wrappers/videos/
+docs/_build~/
 
 # ignore model files, these are stored in posggym-agent-models repo
 *.pkl

@@ -18,7 +18,7 @@ lastpage:
 
 While there are a number of amazing open-source implementations for POSG environments, very few have support for dynamic models that can be used for planning. The aim of this library is to fill this gap. Another aim it to provide open-source implementations for many of the environments commonly used in the Partially-Observable multi-agent planning literature. While some open-source implementations exist for some of the common environments, we hope to provide a central repository, with easy to understand and use implementations in order to make reproducibility easier and to aid in faster research.
 
-POSGGym is directly inspired by and adapted from the [Gymnasium (formerly Open AI Gym)](https://gymnasium.farama.org/), [PettingZoo](https://pettingzoo.farama.org/), and [Minigrid](https://minigrid.farama.org/) libraries for reinforcement learning. The key addition in POSGGym is the support for environment models which can be used for planning. POSGGym's API aims to stay as close to the Gymnasium API as possible while incorporating multiple-agents into the mix.
+POSGGym is directly inspired by and adapted from the [Gymnasium](https://gymnasium.farama.org/), [PettingZoo](https://pettingzoo.farama.org/), and [Minigrid](https://minigrid.farama.org/) libraries for reinforcement learning. The key addition in POSGGym is the support for environment models which can be used for planning. POSGGym's API aims to stay as close to the Gymnasium and PettingZoo Parallel APIs as possible while incorporating models into the mix.
 
 
 ## Environment API

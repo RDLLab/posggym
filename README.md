@@ -1,42 +1,59 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
+
 
 # POSGGym
 
-POSGGym is an open source Python library providing implementations of Partially Observable Stochastic Game (POSG) environments coupled with dynamic models of each environment, all under a unified API. While there are a number of amazing open-source implementations for POSG environments, very few have support for dynamic models that can be used for planning. The aim of this library is to fill this gap. Another aim it to provide open-source implementations for many of the environments commonly used in the Partially-Observable multi-agent planning literature. While some open-source implementations exist for some of the common environments, we hope to provide a central repository, with easy to understand and use implementations in order to make reproducibility easier and to aid in faster research.
+POSGGym is an open source Python library providing implementations of Partially Observable Stochastic Game (POSG) environments coupled with dynamic models of each environment, all under a unified API. While there are a number of amazing open-source implementations for POSG environments, very few have support for dynamic models that can be used for planning, especially for continuous domains. The aim of this library is to fill this gap.
 
-POSGGym is directly inspired by and adapted from the [Gymnasium (formerly Open AI Gym)](https://gymnasium.farama.org/) and [PettingZoo](https://pettingzoo.farama.org/) libraries for reinforcement learning. The key addition in POSGGym is the support for environment models. POSGGym's API aims to mimic the Gymnasium API as much as possible while incorporating multiple-agents.
+Another aim it to provide open-source implementations for many of the environments commonly used in the Partially-Observable multi-agent planning literature. While some open-source implementations exist for some of the common environments, we hope to provide a central repository, with easy to understand and use implementations in order to make reproducibility easier and to aid in faster research.
 
-POSGGym also contains a collection of agent policies under the `posggym.agents` sub-module.
+Lastly, another key component of multi-agent research are reference agents that can be used to benchmark new algorithms. POSGGym aims to provide a number of reference agents for each environment, including both hand-coded agents and agents trained using reinforcement learning.
+
+POSGGym is directly inspired by and adapted from the [Gymnasium](https://gymnasium.farama.org/) and [PettingZoo](https://pettingzoo.farama.org/) libraries for reinforcement learning. The key addition in POSGGym is the support for environment models. POSGGym's API aims to stick as close as possible to Gymnasium and PettingZoo Parallel APIs while incorporating models.
 
 
 ## Documentation
 
 The documentation for the project is available at [posggym.readthedocs.io/](https://posggym.readthedocs.io/).
 
-
 ## Installation
 
-The latest version of POSGGym can be installed by running:
+We support and test for Python>=3.8.
+
+### Using pip
+
+The latest release version of POSGGym can be installed using `pip`` by running:
 
 ```
 pip install posggym
 ```
 
-This will install the base dependencies for running the main environments, but may not include all dependencies for all environments or for rendering some environments, and will not include dependencies for running any in-built posggym agents. You can install all dependencies for a family of environments like `pip install posggym[grid-world]` or dependencies for all environments using `pip install posggym[envs-all]`.
+This will install the base dependencies for running the main environments, but may not include all dependencies for all environments or for rendering some environments, and will not include dependencies for running many posggym agents.
 
-We support and test for Python>=3.8.
+You can install all dependencies for a family of environments like `pip install posggym[grid-world]` or dependencies for all environments using `pip install posggym[envs-all]`.
 
-### Installing POSGGym Agents
+You can install dependencies for POSGGym agents using `pip install posggym[agents]` or to install dependencies for all environments and agents use `pip install posggym[all]`.
 
-To install dependencies for the agents that come with posggym run:
+### Installing from source
 
+To install POSGGym from source, first clone the repository then run:
+
+```bash
+cd posggym
+pip install -e .
 ```
-pip install posggym[agents]
+
+This will install the base dependencies. You can optionally install extras as described above. E.g. to install all dependencies for all environments and agents use:
+
+```bash
+pip install -e .[all]
 ```
 
-This will install all dependencies needed to run all the agents.
+### Downloading agent models
 
-**Note** this will not download all agent models. These will be downloaded as needed, when the specific model is first initialized. Doing this means only the models used will be downloaded, as opposed to downloading all models which is fairly large (>200 MB).
+Many of the implemented agents use neural network based models which will not be downloaded when you first install POSGGym. These will be downloaded as needed, when the specific model is first initialized. Doing this means only the agent models requested will be downloaded, as opposed to downloading all models which is fairly large (>200 MB).
 
 If you want to download all models at once you can use the provided download script:
 
@@ -46,29 +63,13 @@ If you want to download all models at once you can use the provided download scr
 
 **Note** this only works for Linux/macOS.
 
-### Installing everything
-
-To install dependencies for all implemented environments and posggym agents:
-
-```
-pip install posggym[all]
-```
-
-
 ## Environments
 
-POSGGym includes the following families of environments. The code for implemented environments are located in the `posggym/envs/` subdirectory.
+POSGGym includes the following families of environments (for a full list of environments and their descriptsion see the [documentation](https://posggym.readthedocs.io/)).
 
-- *Classic* - These are classic POSG problems from the literature.
-- *Grid-World* - These environments are all based in a 2D Gridworld.
-- *Continuous* - Continuous state and action adaptation of some grid-world environments.
-
-You can see a list of all environments by running:
-
-```python
-import posggym
-posggym.pprint_registry()
-```
+- [Classic](https://posggym.readthedocs.io/en/latest/environments/classic.html) - These are classic POSG problems from the literature.
+- [Grid-World](https://posggym.readthedocs.io/en/latest/environments/grid_world.html) - These environments are all based in a 2D Gridworld.
+- [Continuous](https://posggym.readthedocs.io/en/latest/environments/continuous.html) - 2D environments with continuous state, actions, and observations.
 
 
 ## Environment API
@@ -161,43 +162,17 @@ for policy in policies.values():
     policy.close()
 ```
 
-In the above code we initialize two of the implemented policies for the `PursuitEvasion-v0` environment by calling the `posggym.agents.make` function and passing in the full policy ID of each policy, the `posggym.Env` environmnent model and the agent ID of the agent the policy will be used for in the environment (this ensures it uses the correct environment properties such as action and observation space).
+For a full explanation of the agent API please see the [POSGGym Agents Getting Started documentation](https://posggym.readthedocs.io/en/latest/agents/getting_started.html). A full list of implemented agents is also available in the documentation.
 
-The policy ID is made up of four parts:
+## Citation
 
-1. `env_id` - the ID of the environment the policy is for: `PursuitEvasion-v0`
-2. `env_args_id` - a string representation of the environment arguments used in the version of the environment the policy is for: `grid=16x16`
-3. `policy_name` - the name of the policy: `klr_k1_seed0_i0` and `klr_k1_seed0_i1`
-4. `version` - the version of the policy: `v0`
+You can cite POSGGym as:
 
-The `env_id` and `env_args_id` may be omitted depending on the policy. If the policy is environment agnostic (e.g. the `Random-v0` policy works for any environment) then both the `env_id` and `env_args_id` can be omitted. While if the policy is environment specific, but works for all variations of the environment or the environment has only a single variation (it doesn't have any parameters) then the `env_args_id` can be omitted (e.g. `PursuitEvasion-v0/shortestpath-v0`).
-
-## List of Agents
-
-The project currently has agents implemented for the following POSGGym environments:
-
-- Grid World
-  - Driving
-  - Level Based Foraging
-  - Predator Prey
-  - Pursuit Evasion
-- Continuous
-  - Drone Team Capture
-
-The full list of policies can be obtained using the following code:
-
-```python
-import posggym.agents as pga
-pga.pprint_registry()
-# will display all policies organized by `env_id/env_args_id/`
+```bibtex
+@misc{schwartzPOSGGym2023,
+    title = {POSGGym},
+    urldate = {2023-08-08},
+    author = {Schwartz, Jonathon and Newbury, Rhys and Kurniawati, Hanna},
+    year = {2023},
+}
 ```
-
-## Authors
-
-**Jonathon Schwartz** - Jonathon.schwartz@anu.edu.au
-
-**Rhys Newbury** - Rhys.newbury@anu.edu.au
-
-## License
-
-`MIT` © 2022, Jonathon Schwartz

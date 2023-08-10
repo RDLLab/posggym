@@ -27,6 +27,8 @@ env.close()
 
 ## Gymnasium
 
+[Gymnasium API](https://gymnasium.farama.org/)
+
 ```python
 import gymnasium as gym
 env = gym.make("LunarLander-v2", render_mode="human")
@@ -44,10 +46,12 @@ env.close()
 
 ## PettingZoo (Parallel API)
 
+[PettingZoo Parallel API](https://pettingzoo.farama.org/api/parallel/)
+
 ```python
 from pettingzoo.butterfly import pistonball_v6
 env = pistonball_v6.parallel_env(render_mode="human")
-observations = env.reset(seed=42)
+observations, info = env.reset(seed=42)
 
 for _ in range(1000):
 	actions = {i: policies[i](observations[i]) for i in env.agents}
