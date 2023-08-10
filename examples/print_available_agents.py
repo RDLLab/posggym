@@ -1,4 +1,15 @@
-"""Script for printing available agents of posggym.agents."""
+"""Print IDs pf available agents of posggym.agents.
+
+Example, print all available agents for PursuitEvasion-v0 environment:
+
+    python print_available_agents.py --env_id PursuitEvasion-v0
+
+
+Example, print all available agents for all environments:
+
+    python print_available_agents.py
+
+"""
 import argparse
 
 import posggym.agents as pga

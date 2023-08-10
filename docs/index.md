@@ -97,6 +97,17 @@ agents/grid_world.md
 
 ```{toctree}
 :hidden:
+:caption: API
+
+api/env
+api/model
+api/wrappers
+api/agents
+
+```
+
+```{toctree}
+:hidden:
 :caption: Tutorials
 
 tutorials/environment_creation.md
@@ -105,13 +116,9 @@ tutorials/api_comparison.md
 
 ```{toctree}
 :hidden:
-:caption: API
+:caption: Examples
 
-api/env
-api/model
-api/wrappers
-api/agents
-
+examples/index.md
 ```
 
 ```{toctree}

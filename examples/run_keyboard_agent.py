@@ -1,7 +1,22 @@
-"""Run a keyboard agent on an environment."""
+"""Run a keyboard agent in an environment.
+
+Able to run keyboard agents for both grid-world and continuous environments.
+
+To see all available arguments, run:
+
+    python run_keyboard_agent.py --help
+
+Example, to run a keyboard agent in the `Driving-v0` environment while controlling
+agent '0' for 10 episodes, run:
+
+    python run_keyboard_agent.py \
+        --env_id Driving-v0 \
+        --keyboard_agent_ids 0 \
+        --num_episodes 10
+
+"""
 import argparse
 import math
-import os.path as osp
 import sys
 from typing import Dict, List, Optional, Tuple
 
@@ -15,6 +30,7 @@ import posggym.model as M
 grid_world_key_action_map = {
     "Driving-v0": {
         None: 0,
+        pygame.K_SPACE: 0,
         pygame.K_UP: 1,
         pygame.K_DOWN: 2,
         pygame.K_RIGHT: 3,
@@ -22,6 +38,7 @@ grid_world_key_action_map = {
     },
     "LevelBasedForaging-v2": {
         None: 0,
+        pygame.K_SPACE: 0,
         pygame.K_UP: 1,
         pygame.K_DOWN: 2,
         pygame.K_LEFT: 3,
@@ -30,6 +47,7 @@ grid_world_key_action_map = {
     },
     "PredatorPrey-v0": {
         None: 0,
+        pygame.K_SPACE: 0,
         pygame.K_UP: 1,
         pygame.K_DOWN: 2,
         pygame.K_LEFT: 3,
@@ -37,6 +55,7 @@ grid_world_key_action_map = {
     },
     "PursuitEvasion-v0": {
         None: 0,
+        pygame.K_SPACE: 0,
         pygame.K_UP: 0,
         pygame.K_DOWN: 1,
         pygame.K_LEFT: 2,
@@ -44,6 +63,7 @@ grid_world_key_action_map = {
     },
     "TwoPaths-v0": {
         None: 1,
+        pygame.K_SPACE: 0,
         pygame.K_UP: 1,
         pygame.K_DOWN: 2,
         pygame.K_LEFT: 3,
@@ -51,6 +71,7 @@ grid_world_key_action_map = {
     },
     "UAV-v0": {
         None: 1,
+        pygame.K_SPACE: 0,
         pygame.K_UP: 1,
         pygame.K_DOWN: 2,
         pygame.K_LEFT: 3,
@@ -218,14 +239,13 @@ def run_grid_world_env_keyboard_agent(
     done = False
     rewards = {i: 0.0 for i in env.possible_agents}
     while not done:
-        action_i = key_action_map[None]
         action_entered = False
-        while pause_each_step and not action_entered:
+        while not action_entered:
             for event in pygame.event.get():
                 if event.type == pygame.KEYDOWN:
                     if event.key in key_action_map:
-                        action_i = key_action_map[event.key]
                         action_entered = True
+                        action_i = key_action_map[event.key]
                     elif (
                         event.key == pygame.K_c
                         and pygame.key.get_mods() & pygame.KMOD_CTRL
@@ -326,18 +346,16 @@ def run_keyboard_agent(
     num_episodes: int,
     max_episode_steps: Optional[int] = None,
     seed: Optional[int] = None,
-    render_mode: Optional[str] = None,
     pause_each_step: bool = False,
-    record_env: bool = False,
     manual_input: bool = False,
 ):
     """Run keyboard agents."""
     if max_episode_steps is not None:
         env = posggym.make(
-            env_id, render_mode=render_mode, max_episode_steps=max_episode_steps
+            env_id, render_mode="human", max_episode_steps=max_episode_steps
         )
     else:
-        env = posggym.make(env_id, render_mode=render_mode)
+        env = posggym.make(env_id, render_mode="human")
 
     # get agent ID's in correct format
     if isinstance(env.possible_agents[0], int):
@@ -362,17 +380,11 @@ def run_keyboard_agent(
     else:
         raise AssertionError
 
-    if record_env:
-        video_save_dir = osp.join(osp.expanduser("~"), "posggym_video")
-        print(f"Saving video to {video_save_dir}")
-        name_prefix = f"keyboard-{env_id}"
-        env = posggym.wrappers.RecordVideo(env, video_save_dir, name_prefix=name_prefix)
-
     env.reset(seed=seed)
 
     episode_steps = []
     episode_rewards: Dict[M.AgentID, List[float]] = {i: [] for i in env.possible_agents}
-    for ep_num in range(num_episodes):
+    for _ in range(num_episodes):
         if manual_input:
             rewards, steps = run_env_episode_fn(
                 env,
@@ -404,10 +416,12 @@ if __name__ == "__main__":
         conflict_handler="resolve",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("env_id", type=str, help="Name of environment to run")
+    parser.add_argument("--env_id", type=str, help="Name of environment to run")
     parser.add_argument(
-        "keyboard_agent_ids",
+        "-kids",
+        "--keyboard_agent_ids",
         type=str,
+        default=["0"],
         nargs="+",
         help=(
             "IDs of agents to run as keyboard agents. Controlling multiple agents only "
@@ -428,18 +442,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--seed", type=int, default=None, help="Random Seed.")
     parser.add_argument(
-        "--render_mode",
-        type=str,
-        default="human",
-        help="Mode to use for rendering.",
-    )
-    parser.add_argument(
         "--pause_each_step", action="store_true", help="Pause execution after each step"
-    )
-    parser.add_argument(
-        "--record_env",
-        action="store_true",
-        help="Record video of environment saved to ~/posggym_videos.",
     )
     parser.add_argument(
         "--manual_input",

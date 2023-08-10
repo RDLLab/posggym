@@ -1,7 +1,23 @@
-"""Run a random agent on an environment."""
+"""Record a video of an environment.
+
+This script runs an environment using random agents and records a video of the
+interaction. Videos will be saved into the `~/posggym_video` directory. The video
+recording is done using the `RecordVideo` wrapper.
+
+The script takes a number of arguments (number of episodes, environment id, seed, etc.).
+To see all available arguments, run:
+
+    python record_video.py --help
+
+Example, to record 10 episodes of the `Driving-v0` environment run,
+
+    python run_random_agents.py \
+        --env_id Driving-v0 \
+        --num_episodes 10
+"""
 import argparse
 import os.path as osp
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 import posggym
 
@@ -9,31 +25,26 @@ if TYPE_CHECKING:
     import posggym.model as M
 
 
-def run_random_agent(
-    env: Union[str, posggym.Env],
+def record_env(
+    env_id: str,
     num_episodes: int,
     max_episode_steps: Optional[int] = None,
     seed: Optional[int] = None,
-    render_mode: Optional[str] = None,
-    pause_each_step: bool = False,
-    record_env: bool = False,
 ):
     """Run random agents."""
-    if isinstance(env, str):
-        if max_episode_steps is not None:
-            env = posggym.make(
-                env, render_mode=render_mode, max_episode_steps=max_episode_steps
-            )
-        else:
-            env = posggym.make(env, render_mode=render_mode)
+    if max_episode_steps is not None:
+        env = posggym.make(
+            env_id, render_mode="rgb_array", max_episode_steps=max_episode_steps
+        )
+    else:
+        env = posggym.make(env_id, render_mode="rgb_array")
 
     env_id = env.spec.id if env.spec is not None else str(env)
 
-    if record_env:
-        video_save_dir = osp.join(osp.expanduser("~"), "posggym_video")
-        print(f"Saving video to {video_save_dir}")
-        name_prefix = f"random-{env_id}"
-        env = posggym.wrappers.RecordVideo(env, video_save_dir, name_prefix=name_prefix)
+    video_save_dir = osp.join(osp.expanduser("~"), "posggym_video")
+    print(f"Saving video to {video_save_dir}")
+    name_prefix = f"{env_id}"
+    env = posggym.wrappers.RecordVideo(env, video_save_dir, name_prefix=name_prefix)
 
     env.reset(seed=seed)
 
@@ -41,12 +52,6 @@ def run_random_agent(
     episode_steps = []
     episode_rewards: Dict[M.AgentID, List[float]] = {i: [] for i in env.possible_agents}
     for ep_num in range(num_episodes):
-        if render_mode:
-            env.render()
-
-        if pause_each_step:
-            input("Press any key")
-
         t = 0
         done = False
         rewards = {i: 0.0 for i in env.possible_agents}
@@ -54,12 +59,6 @@ def run_random_agent(
             a = {i: env.action_spaces[i].sample() for i in env.agents}
             _, r, _, _, done, _ = env.step(a)
             t += 1
-
-            if render_mode:
-                env.render()
-
-            if pause_each_step:
-                input("Press any key")
 
             if done:
                 print(f"End episode {ep_num}")
@@ -91,7 +90,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("env", type=str, help="ID of environment to run")
+    parser.add_argument("--env_id", type=str, help="ID of environment to run")
     parser.add_argument(
         "--num_episodes",
         type=int,
@@ -105,19 +104,5 @@ if __name__ == "__main__":
         help="Max number of steps to run each episode for.",
     )
     parser.add_argument("--seed", type=int, default=None, help="Random Seed.")
-    parser.add_argument(
-        "--render_mode",
-        type=str,
-        default=None,
-        help="Mode to use for rendering.",
-    )
-    parser.add_argument(
-        "--pause_each_step", action="store_true", help="Pause execution after each step"
-    )
-    parser.add_argument(
-        "--record_env",
-        action="store_true",
-        help="Record video of environment saved to ~/posggym_videos.",
-    )
     args = parser.parse_args()
-    run_random_agent(**vars(args))
+    record_env(**vars(args))

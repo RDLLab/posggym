@@ -1,6 +1,37 @@
-"""Script for running each available agent in posggym.agents.
+"""Script for running each available agent for different environments.
 
 Useful for visually inspecting all the different agents.
+
+To see available arguments, run:
+
+    python run_all_agents.py --help
+
+
+Example 1. To run 10 episodes of every agent for every environment:
+
+    python run_all_agents.py --num_episodes 10
+
+
+Example 2. To run 10 episodes of every agent that is compatible with the `Driving-v0`
+environment:
+
+    python run_all_agents.py --env_id_prefix Driving-v0 --num_episodes 10
+
+
+Example 3. To run 10 episodes of every agent that is compatible with the
+`PursuitEvasion-v0` environment with specific argument, e.g. grid="8x8" run:
+
+    python run_all_agents.py \
+        --env_id_prefix PursuitEvasion-v0/grid=8x8 \
+        --num_episodes 10
+
+    # Note: the argument `env_id_prefix` is a prefix of the environment id, so the
+    # following would also work to show all agents for the 8x8 version of
+    # the PursuitEvasion-v0 environment
+    python run_all_agents.py \
+        --env_id_prefix PursuitEvasion-v0/grid=8 \
+        --num_episodes 10
+
 """
 import argparse
 from typing import Dict, Optional, Tuple
@@ -104,7 +135,11 @@ if __name__ == "__main__":
         "--env_id_prefix",
         type=str,
         default=None,
-        help="Prefix of environment ID to run agents for. If None runs all agents.",
+        help=(
+            "Prefix of environment ID to run agents for. If 'None' runs all agents "
+            "for all environments. Otherwise only runs agents whose ID starts with "
+            "this prefix."
+        ),
     )
     parser.add_argument(
         "--num_episodes",
@@ -114,7 +149,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--seed", type=int, default=None, help="Environment seed.")
     parser.add_argument(
-        "--render_mode", type=str, default=None, help="The render mode to use."
+        "--render_mode", type=str, default="human", help="The render mode to use."
     )
     args = parser.parse_args()
     run_all_agents(**vars(args))
