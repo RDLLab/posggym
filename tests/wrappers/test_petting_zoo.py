@@ -1,9 +1,9 @@
 """Tests for the PettingZoo wrapper."""
 import copy
 
+import posggym
 import pytest
 
-import posggym
 from tests.envs.utils import all_testing_env_specs
 
 
@@ -13,11 +13,11 @@ from tests.envs.utils import all_testing_env_specs
 def test_make_petting_zoo(spec):
     """Checks that posggym -> pettingzoo env conversion works correctly."""
     try:
-        from posggym.wrappers.petting_zoo import PettingZoo
-        from pettingzoo.utils.conversions import parallel_to_aec_wrapper  # type: ignore
-        from pettingzoo.utils import agent_selector  # type: ignore
         from pettingzoo.test.api_test import api_test  # type: ignore
-    except ImportError as e:
+        from pettingzoo.utils import agent_selector  # type: ignore
+        from pettingzoo.utils.conversions import parallel_to_aec_wrapper  # type: ignore
+        from posggym.wrappers.petting_zoo import PettingZoo
+    except (ImportError, posggym.error.DependencyNotInstalled) as e:
         pytest.skip(f"pettingzoo not installed.: {str(e)}")
 
     class custom_parallel_to_aec_wrapper(parallel_to_aec_wrapper):
