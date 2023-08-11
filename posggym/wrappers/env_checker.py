@@ -48,7 +48,7 @@ class PassiveEnvChecker(posggym.Wrapper):
         self.checked_step = False
         self.checked_render = False
 
-    def step(self, actions: Dict[M.AgentID, M.ActType]):
+    def step(self, actions: Dict[str, M.ActType]):
         """Steps through the environment.
 
         On the first call will run the `passive_env_step_check`.

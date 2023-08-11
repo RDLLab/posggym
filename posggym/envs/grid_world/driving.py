@@ -464,7 +464,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         self.is_symmetric = True
 
     @property
-    def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
+    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
         return {
             i: (self.R_CRASH_VEHICLE, self.R_DESTINATION_REACHED)
             for i in self.possible_agents
@@ -476,7 +476,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             self._rng, seed = seeding.std_random()
         return self._rng
 
-    def get_agents(self, state: DState) -> List[M.AgentID]:
+    def get_agents(self, state: DState) -> List[str]:
         return list(self.possible_agents)
 
     @property
@@ -520,7 +520,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             state.append(state_i)
         return tuple(state)
 
-    def sample_agent_initial_state(self, agent_id: M.AgentID, obs: DObs) -> DState:
+    def sample_agent_initial_state(self, agent_id: str, obs: DObs) -> DState:
         agent_idx = int(agent_id)
         possible_agent_start_coords = set()
         agent_dest_coords = obs[2]
@@ -580,11 +580,11 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             state.append(state_i)
         return tuple(state)
 
-    def sample_initial_obs(self, state: DState) -> Dict[M.AgentID, DObs]:
+    def sample_initial_obs(self, state: DState) -> Dict[str, DObs]:
         return self._get_obs(state)
 
     def step(
-        self, state: DState, actions: Dict[M.AgentID, DAction]
+        self, state: DState, actions: Dict[str, DAction]
     ) -> M.JointTimestep[DState, DObs]:
         assert all(a_i in ACTIONS for a_i in actions.values())
         next_state, collision_types = self._get_next_state(state, actions)
@@ -597,7 +597,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         truncated = {i: False for i in self.possible_agents}
         all_done = all(terminated.values())
 
-        info: Dict[M.AgentID, Dict] = {i: {} for i in self.possible_agents}
+        info: Dict[str, Dict] = {i: {} for i in self.possible_agents}
         for idx in range(len(self.possible_agents)):
             if next_state[idx].dest_reached:
                 outcome_i = M.Outcome.WIN
@@ -612,7 +612,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         )
 
     def _get_next_state(
-        self, state: DState, actions: Dict[M.AgentID, DAction]
+        self, state: DState, actions: Dict[str, DAction]
     ) -> Tuple[DState, List[CollisionType]]:
         exec_order = list(range(len(self.possible_agents)))
         self.rng.shuffle(exec_order)
@@ -774,8 +774,8 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
         return (next_coord, collision, hit_vehicle_coord)
 
-    def _get_obs(self, state: DState) -> Dict[M.AgentID, DObs]:
-        obs: Dict[M.AgentID, DObs] = {}
+    def _get_obs(self, state: DState) -> Dict[str, DObs]:
+        obs: Dict[str, DObs] = {}
         for i in self.possible_agents:
             idx = int(i)
             local_cell_obs = self._get_local_cell__obs(
@@ -852,8 +852,8 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
     def _get_rewards(
         self, state: DState, next_state: DState, collision_types: List[CollisionType]
-    ) -> Dict[M.AgentID, float]:
-        rewards: Dict[M.AgentID, float] = {}
+    ) -> Dict[str, float]:
+        rewards: Dict[str, float] = {}
         for i in self.possible_agents:
             idx = int(i)
             if state[idx].crashed or state[idx].dest_reached:

@@ -5,7 +5,6 @@ import numpy as np
 from gymnasium import spaces
 
 import posggym
-from posggym.model import AgentID
 
 
 class RescaleActions(posggym.ActionWrapper):
@@ -42,10 +41,10 @@ class RescaleActions(posggym.ActionWrapper):
         self,
         env: posggym.Env,
         min_action: Union[
-            float, int, np.ndarray, Dict[AgentID, Union[float, int, np.ndarray]]
+            float, int, np.ndarray, Dict[str, Union[float, int, np.ndarray]]
         ],
         max_action: Union[
-            float, int, np.ndarray, Dict[AgentID, Union[float, int, np.ndarray]]
+            float, int, np.ndarray, Dict[str, Union[float, int, np.ndarray]]
         ],
     ):
         self.min_action = {}

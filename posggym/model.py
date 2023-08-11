@@ -5,12 +5,13 @@ import abc
 import dataclasses
 import enum
 import random
-from typing import TYPE_CHECKING, Dict, Generic, List, Optional, Tuple, TypeVar
+from typing import TYPE_CHECKING, Dict, Generic, List, Tuple, TypeVar
 
 import numpy as np
 
 from posggym import error
 from posggym.utils import seeding
+
 
 if TYPE_CHECKING:
     from gymnasium import spaces
@@ -18,7 +19,6 @@ if TYPE_CHECKING:
     from posggym.envs.registration import EnvSpec
 
 
-AgentID = str
 StateType = TypeVar("StateType")
 ActType = TypeVar("ActType")
 ObsType = TypeVar("ObsType")
@@ -36,12 +36,12 @@ class JointTimestep(Generic[StateType, ObsType]):
     """
 
     state: StateType
-    observations: Dict[AgentID, ObsType]
-    rewards: Dict[AgentID, float]
-    terminations: Dict[AgentID, bool]
-    truncations: Dict[AgentID, bool]
+    observations: Dict[str, ObsType]
+    rewards: Dict[str, float]
+    terminations: Dict[str, bool]
+    truncations: Dict[str, bool]
     all_done: bool
-    infos: Dict[AgentID, Dict]
+    infos: Dict[str, Dict]
 
     def __iter__(self):
         for field in dataclasses.fields(self):
@@ -49,7 +49,7 @@ class JointTimestep(Generic[StateType, ObsType]):
 
 
 class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
-    r"""A Partially Observable Stochastic Game model.
+    r"""A Partially Observable Stochastic Game (POSG) model.
 
     This class defines functions and attributes necessary for a generative POSG
     model for use in simulation-based planners (e.g. MCTS), and for reinforcement
@@ -57,16 +57,11 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
 
     The main API methods that users of this class need to know are:
 
-    - :meth:`get_agents` - Returns the IDs of agents currently active for a given state
-    - :meth:`sample_initial_state` - Returns an a sampled initial state of the
-      environment.
-    - :meth:`sample_initial_obs` - Returns a sampled observation given an initial state.
-    - :meth:`step` - The generative step function which given a state and agent actions,
-      returns the next state, agent observations, agent rewards, whether the environment
-      has terminated or truncated for each agent, whether the environment has reached
-      a terminal state for all agents, and information from the environment about the
-      step
-    - :meth:`seed` - Sets the seed for the models random number generator.
+    - :meth:`get_agents`
+    - :meth:`sample_initial_state`
+    - :meth:`sample_initial_obs`
+    - :meth:`step`
+    - :meth:`seed`
 
     Additionally, the main API attributes are:
 
@@ -76,10 +71,10 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
       state space definition is not needed by many simulation-based algorithms
       (including RL and MCTS) and can be hard to define so implementing this property
       should be seen as optional. In cases where it is not implemented it should be
-      None.
+      ``None``.
     - :attr:`action_spaces` - The action space for each agent
     - :attr:`observations_spaces` - The observation space for each agent
-    - :attr:`reward_ranges` - The minimum and maximum possible rewards over an episode
+    - :attr:`reward_ranges` - The minimum and maximum possible rewards per step
       for each agent. The default reward range is set to :math:`(-\infty,+\infty)`.
     - :attr:`is_symmetric` - Whether the environment is symmetric or asymmetric. That is
       whether all agents are identical irrespective of their ID (i.e. same actions,
@@ -88,12 +83,12 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
       initialize the environment from :meth:`posggym.make`
     - :attr:`rng` - the model's internal random number generator (RNG).
 
-    Custom environments should inherit from this class and implement the
+    Custom models should inherit from this class and implement the
     :meth:`get_agents`, :meth:`sample_initial_state`, :meth:`sample_initial_obs`,
     :meth:`step` methods and the :attr:`possible_agents`, :attr:`action_spaces`,
     :attr:`observations_spaces`, :attr:`is_symmetric`, :attr:`rng` attributes.
 
-    Custom environments may optionally provide implementations for the
+    Custom models may optionally provide implementations for the
     :meth:`sample_agent_initial_state` method and :attr:`state_space` attribute.
 
     Note
@@ -112,38 +107,23 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
 
     # EnvSpec used to instantiate env instance this model is for
     # This is set when env is made using posggym.make function
-    spec: Optional["EnvSpec"] = None
+    spec: "EnvSpec" | None = None
 
     # All agents that may appear in the environment
-    possible_agents: Tuple[AgentID, ...]
+    possible_agents: Tuple[str, ...]
     # State space
     state_space: spaces.Space | None = None
     # Action space for each agent
-    action_spaces: Dict[AgentID, spaces.Space]
+    action_spaces: Dict[str, spaces.Space]
     # Observation space for each agent
-    observation_spaces: Dict[AgentID, spaces.Space]
+    observation_spaces: Dict[str, spaces.Space]
     # Whether the environment is symmetric or not (is asymmetric)
     is_symmetric: bool
     # Random number generator, created as needed by `rng` method.
     _rng: seeding.RNG | None = None
 
-    @property
-    def reward_ranges(self) -> Dict[AgentID, Tuple[float, float]]:
-        r"""A mapping from Agent ID to min and max possible rewards for that agent.
-
-        Each reward tuple corresponding to the minimum and maximum possible rewards for
-        a given agent over an episode. The default reward range for each agent is set to
-        :math:`(-\infty,+\infty)`.
-
-        Returns
-        -------
-        Dict[AgentID, Tuple[float, float]]
-
-        """
-        return {i: (-float("inf"), float("inf")) for i in self.possible_agents}
-
     @abc.abstractmethod
-    def get_agents(self, state: StateType) -> List[AgentID]:
+    def get_agents(self, state: StateType) -> List[str]:
         """Get list of IDs for all agents that are active in given state.
 
         These list of active agents may change depending on state.
@@ -153,7 +133,7 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
 
         Returns
         -------
-        List[AgentID]
+        List[str]
           List of IDs for all agents that active in given state,
 
         """
@@ -170,7 +150,7 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
         """
 
     @abc.abstractmethod
-    def sample_initial_obs(self, state: StateType) -> Dict[AgentID, ObsType]:
+    def sample_initial_obs(self, state: StateType) -> Dict[str, ObsType]:
         """Sample initial agent observations given an initial state.
 
         Arguments
@@ -180,16 +160,22 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
 
         Returns
         -------
-        Dict[AgentID, ObsType]
-          A mapping from AgentID to initial observation.
+        Dict[str, ObsType]
+          A mapping from str to initial observation.
 
         """
 
     @abc.abstractmethod
     def step(
-        self, state: StateType, actions: Dict[AgentID, ActType]
+        self, state: StateType, actions: Dict[str, ActType]
     ) -> JointTimestep[StateType, ObsType]:
         """Perform generative step.
+
+        The generative step function which given a state and agent actions, returns the
+        next state, agent observations, agent rewards, whether the environment has
+        terminated or truncated for each agent, whether the environment has reached
+        a terminal state for all agents, and information from the environment about the
+        step.
 
         For custom environments that have win/loss or success/fail conditions, you are
         encouraged to include this information in the `info` property of the returned
@@ -200,7 +186,7 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
         ---------
         state : StateType
           The state.
-        actions : Dict[AgentID, ActType]
+        actions : Dict[str, ActType]
           a joint action containing one action per active agent in the environment.
 
         Returns
@@ -211,31 +197,8 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
 
         """
 
-    @property
-    @abc.abstractmethod
-    def rng(self) -> seeding.RNG:
-        """Return the model's internal random number generator (RNG).
-
-        Initializes RNG with a random seed if not yet initialized.
-
-        `posggym` models and environments support the use of both the python built-in
-        random library and the numpy library, unlike `gymnasium` which only explicitly
-        supports the numpy library. Support for the built-in library is included as it
-        can be 2-3X faster than the numpy library when drawing single samples, providing
-        a significant speed-up for many environments.
-
-        There's also nothing stopping users from using other RNG libraries so long as
-        they implement the model API. However, explicit support in the form of tests
-        and type hints is only provided for the random and numpy libraries.
-
-        Returns
-        -------
-        rng : model's internal random number generator.
-
-        """
-
-    def seed(self, seed: Optional[int] = None):
-        """Set the seed for the model RNG.
+    def seed(self, seed: int | None = None):
+        """Set the seed for the model random number generator.
 
         Also handles seeding for the action, observation, and (if it exists) state
         spaces.
@@ -265,7 +228,7 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
         if self.state_space is not None:
             self.state_space.seed(seed)
 
-    def sample_agent_initial_state(self, agent_id: AgentID, obs: ObsType) -> StateType:
+    def sample_agent_initial_state(self, agent_id: str, obs: ObsType) -> StateType:
         """Sample an initial state for an agent given it's initial observation.
 
         It is optional to implement this method but can helpful in environments that are
@@ -290,6 +253,44 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
 
         """
         raise NotImplementedError
+
+    @property
+    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
+        r"""A mapping from Agent ID to min and max possible rewards for that agent.
+
+        Each reward tuple corresponding to the minimum and maximum possible rewards for
+        a given agent over an episode. The default reward range for each agent is set to
+        :math:`(-\infty,+\infty)`.
+
+        Returns
+        -------
+        Dict[str, Tuple[float, float]]
+
+        """
+        return {i: (-float("inf"), float("inf")) for i in self.possible_agents}
+
+    @property
+    @abc.abstractmethod
+    def rng(self) -> seeding.RNG:
+        """Return the model's internal random number generator (RNG).
+
+        Initializes RNG with a random seed if not yet initialized.
+
+        `posggym` models and environments support the use of both the python built-in
+        random library and the numpy library, unlike `gymnasium` which only explicitly
+        supports the numpy library. Support for the built-in library is included as it
+        can be 2-3X faster than the numpy library when drawing single samples, providing
+        a significant speed-up for many environments.
+
+        There's also nothing stopping users from using other RNG libraries so long as
+        they implement the model API. However, explicit support in the form of tests
+        and type hints is only provided for the random and numpy libraries.
+
+        Returns
+        -------
+        rng : model's internal random number generator.
+
+        """
 
 
 class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
@@ -334,7 +335,7 @@ class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
 
     @abc.abstractmethod
     def transition_fn(
-        self, state: StateType, actions: Dict[AgentID, ActType], next_state: StateType
+        self, state: StateType, actions: Dict[str, ActType], next_state: StateType
     ) -> float:
         """Transition function :math:`T(s', a, s)`.
 
@@ -342,7 +343,7 @@ class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
         ---------
         state : StateType
           the state the environment was in
-        actions : Dict[AgentID, ActType]
+        actions : Dict[str, ActType]
           the joint action performed
         next_state : StateType
           the state of the environment after actions were performed
@@ -358,17 +359,17 @@ class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
     @abc.abstractmethod
     def observation_fn(
         self,
-        obs: Dict[AgentID, ObsType],
+        obs: Dict[str, ObsType],
         next_state: StateType,
-        actions: Dict[AgentID, ActType],
+        actions: Dict[str, ActType],
     ) -> float:
         """Observation function :math:`Z(o, s', a)`.
 
         Arguments
         ---------
-        obs : Dict[AgentID, ObsType]
+        obs : Dict[str, ObsType]
           the observation received
-        actions : Dict[AgentID, ActType]
+        actions : Dict[str, ActType]
           the joint action performed
         next_state : StateType
           the state of the environment after actions were performed
@@ -383,20 +384,20 @@ class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
 
     @abc.abstractmethod
     def reward_fn(
-        self, state: StateType, actions: Dict[AgentID, ActType]
-    ) -> Dict[AgentID, float]:
+        self, state: StateType, actions: Dict[str, ActType]
+    ) -> Dict[str, float]:
         """The reward Function :math:`R(s, a)`.
 
         Arguments
         ---------
         state : StateType
           the state the environment was in
-        actions : Dict[AgentID, ActType]
+        actions : Dict[str, ActType]
           the joint action performed
 
         Returns
         -------
-        Dict[AgentID, float]
+        Dict[str, float]
           The reward each agent receives given joint action `a` was performed in state
           `s`.
 

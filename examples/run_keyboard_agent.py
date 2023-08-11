@@ -21,11 +21,10 @@ import sys
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+import posggym
 import pygame
 from gymnasium import spaces
 
-import posggym
-import posggym.model as M
 
 grid_world_key_action_map = {
     "Driving-v0": {
@@ -105,7 +104,7 @@ def display_vector_obs(obs: np.ndarray, width: int):
 
 
 def run_discrete_env_manual_keyboard_agent(
-    env: posggym.Env, keyboard_agent_id: List[M.AgentID], pause_each_step: bool = False
+    env: posggym.Env, keyboard_agent_id: List[str], pause_each_step: bool = False
 ) -> Tuple[Dict[str, float], int]:
     """Run manual keyboard agent in discrete environment.
 
@@ -159,7 +158,7 @@ def run_discrete_env_manual_keyboard_agent(
 
 
 def run_continuous_env_manual_keyboard_agent(
-    env: posggym.Env, keyboard_agent_id: M.AgentID, pause_each_step: bool = False
+    env: posggym.Env, keyboard_agent_id: str, pause_each_step: bool = False
 ) -> Tuple[Dict[str, float], int]:
     """Run manual keyboard agent in continuous environment.
 
@@ -222,7 +221,7 @@ def run_continuous_env_manual_keyboard_agent(
 
 
 def run_grid_world_env_keyboard_agent(
-    env: posggym.Env, keyboard_agent_id: M.AgentID, pause_each_step: bool = False
+    env: posggym.Env, keyboard_agent_id: str, pause_each_step: bool = False
 ) -> Tuple[Dict[str, float], int]:
     """Run keyboard agent in grid-world environment.
 
@@ -273,7 +272,7 @@ def run_grid_world_env_keyboard_agent(
 
 
 def run_continuous_env_keyboard_agent(
-    env: posggym.Env, keyboard_agent_id: M.AgentID, pause_each_step: bool = False
+    env: posggym.Env, keyboard_agent_id: str, pause_each_step: bool = False
 ) -> Tuple[Dict[str, float], int]:
     """Run keyboard agent in continuous environment.
 
@@ -342,7 +341,7 @@ def run_continuous_env_keyboard_agent(
 
 def run_keyboard_agent(
     env_id: str,
-    keyboard_agent_ids: List[M.AgentID],
+    keyboard_agent_ids: List[str],
     num_episodes: int,
     max_episode_steps: Optional[int] = None,
     seed: Optional[int] = None,
@@ -383,7 +382,7 @@ def run_keyboard_agent(
     env.reset(seed=seed)
 
     episode_steps = []
-    episode_rewards: Dict[M.AgentID, List[float]] = {i: [] for i in env.possible_agents}
+    episode_rewards: Dict[str, List[float]] = {i: [] for i in env.possible_agents}
     for _ in range(num_episodes):
         if manual_input:
             rewards, steps = run_env_episode_fn(

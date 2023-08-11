@@ -412,7 +412,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
         self.is_symmetric = True
 
     @property
-    def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
+    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
         return {i: (0.0, self.R_MAX) for i in self.possible_agents}
 
     @property
@@ -421,7 +421,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
             self._rng, seed = seeding.std_random()
         return self._rng
 
-    def get_agents(self, state: PPState) -> List[M.AgentID]:
+    def get_agents(self, state: PPState) -> List[str]:
         return list(self.possible_agents)
 
     def sample_initial_state(self) -> PPState:
@@ -441,11 +441,11 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         return PPState(tuple(predator_coords), tuple(prey_coords_list), prey_caught)
 
-    def sample_initial_obs(self, state: PPState) -> Dict[M.AgentID, PPObs]:
+    def sample_initial_obs(self, state: PPState) -> Dict[str, PPObs]:
         return self._get_obs(state, state)
 
     def step(
-        self, state: PPState, actions: Dict[M.AgentID, PPAction]
+        self, state: PPState, actions: Dict[str, PPAction]
     ) -> M.JointTimestep[PPState, PPObs]:
         next_state = self._get_next_state(state, actions)
         obs = self._get_obs(state, next_state)
@@ -455,7 +455,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
         truncated = {i: False for i in self.possible_agents}
         terminated = {i: all_done for i in self.possible_agents}
 
-        info: Dict[M.AgentID, Dict] = {i: {} for i in self.possible_agents}
+        info: Dict[str, Dict] = {i: {} for i in self.possible_agents}
         if all_done:
             for i in self.possible_agents:
                 info[i]["outcome"] = M.Outcome.WIN
@@ -464,9 +464,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
             next_state, obs, rewards, terminated, truncated, all_done, info
         )
 
-    def _get_next_state(
-        self, state: PPState, actions: Dict[M.AgentID, PPAction]
-    ) -> PPState:
+    def _get_next_state(self, state: PPState, actions: Dict[str, PPAction]) -> PPState:
         # prey move first
         prey_coords = self._get_next_prey_state(state)
         predator_coords = self._get_next_predator_state(state, actions, prey_coords)
@@ -627,7 +625,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
     def _get_next_predator_state(
         self,
         state: PPState,
-        actions: Dict[M.AgentID, PPAction],
+        actions: Dict[str, PPAction],
         next_prey_coords: Tuple[Coord, ...],
     ) -> Tuple[Coord, ...]:
         potential_next_coords = []
@@ -680,7 +678,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
                 prey_caught.append(int(num_adj_predators >= self.prey_strength))
         return tuple(prey_caught)
 
-    def _get_obs(self, state: PPState, next_state: PPState) -> Dict[M.AgentID, PPObs]:
+    def _get_obs(self, state: PPState, next_state: PPState) -> Dict[str, PPObs]:
         return {
             i: self._get_local_cell__obs(int(i), state, next_state)
             for i in self.possible_agents
@@ -734,9 +732,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
                 obs_coords.append(obs_grid_coord)
         return obs_coords
 
-    def _get_rewards(
-        self, state: PPState, next_state: PPState
-    ) -> Dict[M.AgentID, float]:
+    def _get_rewards(self, state: PPState, next_state: PPState) -> Dict[str, float]:
         new_caught_prey = []
         for i in range(self.num_prey):
             if not state.prey_caught[i] and next_state.prey_caught[i]:

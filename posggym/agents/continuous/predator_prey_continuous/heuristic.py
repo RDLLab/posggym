@@ -3,29 +3,29 @@ from __future__ import annotations
 
 import abc
 import math
-from typing import TYPE_CHECKING, cast, Tuple
+from typing import TYPE_CHECKING, Tuple, cast
 
 import numpy as np
 
 from posggym.agents.policy import Policy, PolicyID, PolicyState
+from posggym.agents.utils import action_distributions
 from posggym.envs.continuous.predator_prey_continuous import (
-    PredatorPreyContinuousModel,
     PPAction,
     PPObs,
+    PredatorPreyContinuousModel,
 )
-from posggym.agents.utils import action_distributions
-
 from posggym.utils import seeding
 
+
 if TYPE_CHECKING:
-    from posggym.posggym.model import AgentID, POSGModel
+    from posggym.posggym.model import POSGModel
     from posggym.utils.history import AgentHistory
 
 
 class PPCHeuristicPolicy(Policy[PPAction, PPObs], abc.ABC):
     """Base class for heuristic policies for Predator-Prey continuous environment."""
 
-    def __init__(self, model: POSGModel, agent_id: AgentID, policy_id: PolicyID):
+    def __init__(self, model: POSGModel, agent_id: str, policy_id: PolicyID):
         super().__init__(model, agent_id, policy_id)
         self.model = cast(PredatorPreyContinuousModel, model)
         self._rng, _ = seeding.np_random()

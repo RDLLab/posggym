@@ -11,7 +11,6 @@ from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import Coord, Direction, Grid
 from posggym.utils import seeding
 
-
 TPState = Tuple[Coord, Coord]
 TPAction = int
 # Obs = adj_obs
@@ -293,7 +292,7 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
         self.is_symmetric = False
 
     @property
-    def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
+    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
         return {i: (self.R_CAPTURE, self.R_SAFE) for i in self.possible_agents}
 
     @property
@@ -302,13 +301,13 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
             self._rng, seed = seeding.std_random()
         return self._rng
 
-    def get_agents(self, state: TPState) -> List[M.AgentID]:
+    def get_agents(self, state: TPState) -> List[str]:
         return list(self.possible_agents)
 
     def sample_initial_state(self) -> TPState:
         return (self.grid.init_runner_coord, self.grid.init_chaser_coord)
 
-    def sample_agent_initial_state(self, agent_id: M.AgentID, obs: TPObs) -> TPState:
+    def sample_agent_initial_state(self, agent_id: str, obs: TPObs) -> TPState:
         return self.sample_initial_state()
 
     def get_initial_belief_dist(self) -> Dict[TPState, float]:
@@ -318,18 +317,18 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
             for s in itertools.product(self.grid.all_coords, repeat=2)
         }
 
-    def sample_initial_obs(self, state: TPState) -> Dict[M.AgentID, TPObs]:
+    def sample_initial_obs(self, state: TPState) -> Dict[str, TPObs]:
         return self._get_obs(state)
 
     def step(
-        self, state: TPState, actions: Dict[M.AgentID, TPAction]
+        self, state: TPState, actions: Dict[str, TPAction]
     ) -> M.JointTimestep[TPState, TPObs]:
         assert all(0 <= a_i < len(Direction) for a_i in actions.values())
         next_state = self._get_next_state(state, actions)
         rewards = self._get_rewards(next_state)
         all_done = self._state_is_terminal(next_state)
 
-        info: Dict[M.AgentID, Dict] = {i: {} for i in self.possible_agents}
+        info: Dict[str, Dict] = {i: {} for i in self.possible_agents}
         if all_done:
             for i, outcome in self._get_outcome(next_state).items():
                 info[i]["outcome"] = outcome
@@ -342,9 +341,7 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
             next_state, obs, rewards, terminated, truncated, all_done, info
         )
 
-    def _get_next_state(
-        self, state: TPState, actions: Dict[M.AgentID, TPAction]
-    ) -> TPState:
+    def _get_next_state(self, state: TPState, actions: Dict[str, TPAction]) -> TPState:
         runner_coord = state[self.RUNNER_IDX]
         chaser_coord = state[self.CHASER_IDX]
         runner_a = actions[str(self.RUNNER_IDX)]
@@ -370,7 +367,7 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
 
         return (runner_next_coord, chaser_next_coord)
 
-    def _get_obs(self, state: TPState) -> Dict[M.AgentID, TPObs]:
+    def _get_obs(self, state: TPState) -> Dict[str, TPObs]:
         runner_coord = state[self.RUNNER_IDX]
         chaser_coord = state[self.CHASER_IDX]
         return {
@@ -392,7 +389,7 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
                 adj_obs.append(EMPTY)
         return tuple(adj_obs)  # type: ignore
 
-    def _get_rewards(self, state: TPState) -> Dict[M.AgentID, float]:
+    def _get_rewards(self, state: TPState) -> Dict[str, float]:
         runner_coord = state[self.RUNNER_IDX]
         chaser_coord = state[self.CHASER_IDX]
         r_runner, r_chaser = (self.R_ACTION, self.R_ACTION)
@@ -404,7 +401,7 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
             r_runner, r_chaser = (self.R_CAPTURE, -self.R_CAPTURE)
         return {str(self.RUNNER_IDX): r_runner, str(self.CHASER_IDX): r_chaser}
 
-    def _get_outcome(self, state: TPState) -> Dict[M.AgentID, M.Outcome]:
+    def _get_outcome(self, state: TPState) -> Dict[str, M.Outcome]:
         # Assuming state is terminal
         runner_coord = state[self.RUNNER_IDX]
         chaser_coord = state[self.CHASER_IDX]

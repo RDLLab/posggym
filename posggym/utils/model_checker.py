@@ -20,14 +20,14 @@ from typing import Optional
 import posggym.model as M
 from posggym import logger
 from posggym.utils.passive_env_checker import (
-    check_rng_equality,
-    data_equivalence,
     check_agent_action_spaces,
     check_agent_obs,
     check_agent_observation_spaces,
     check_agent_space_limits,
+    check_rng_equality,
     check_state,
     check_state_space,
+    data_equivalence,
     model_step_passive_checker,
 )
 
@@ -210,8 +210,8 @@ def check_model(model: M.POSGModel):
         "Model `possible_agents` should be tuple (so it's immutable). "
         f"Actual type: {type(model.possible_agents)}."
     )
-    assert all(isinstance(i, M.AgentID) for i in model.possible_agents), (
-        f"Model agent IDs in `possible_agents` must be have type {M.AgentID}. "
+    assert all(isinstance(i, str) for i in model.possible_agents), (
+        f"Model agent IDs in `possible_agents` must be have type {str}. "
         f"Actual types: {[type(i) for i in model.possible_agents]}."
     )
 

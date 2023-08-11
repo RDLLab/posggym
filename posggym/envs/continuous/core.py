@@ -7,15 +7,12 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from itertools import product
 from queue import PriorityQueue
-from typing import TYPE_CHECKING, Dict, Iterable, List, NamedTuple, Set, Tuple, Union
+from typing import Dict, Iterable, List, NamedTuple, Set, Tuple, Union
 
 import numpy as np
 from gymnasium import spaces
 
 from posggym.error import DependencyNotInstalled
-
-if TYPE_CHECKING:
-    import posggym.model as M
 
 try:
     import pymunk
@@ -97,8 +94,8 @@ def ignore_collisions(arbiter, space, data):
 
 
 def clip_actions(
-    actions: Dict[M.AgentID, np.ndarray], action_spaces: Dict[M.AgentID, spaces.Space]
-) -> Dict[M.AgentID, np.ndarray]:
+    actions: Dict[str, np.ndarray], action_spaces: Dict[str, spaces.Space]
+) -> Dict[str, np.ndarray]:
     """Clip continuous actions so they are within the agents action space dims."""
     clipped_actions = {}
     for i, a in actions.items():

@@ -5,7 +5,6 @@ import numpy as np
 from gymnasium import spaces
 
 from posggym import Env, ObservationWrapper
-from posggym.model import AgentID
 
 
 class RescaleObservations(ObservationWrapper):
@@ -38,10 +37,10 @@ class RescaleObservations(ObservationWrapper):
         self,
         env: Env,
         min_obs: Union[
-            float, int, np.ndarray, Dict[AgentID, Union[float, int, np.ndarray]]
+            float, int, np.ndarray, Dict[str, Union[float, int, np.ndarray]]
         ],
         max_obs: Union[
-            float, int, np.ndarray, Dict[AgentID, Union[float, int, np.ndarray]]
+            float, int, np.ndarray, Dict[str, Union[float, int, np.ndarray]]
         ],
     ):
         self.min_obs = {}

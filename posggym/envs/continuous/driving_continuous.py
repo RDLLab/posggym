@@ -472,7 +472,7 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
         self.is_symmetric = True
 
     @property
-    def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
+    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
         return {
             i: (self.R_CRASH_VEHICLE, self.R_DESTINATION_REACHED)
             for i in self.possible_agents
@@ -484,7 +484,7 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
             self._rng, seed = seeding.std_random()
         return self._rng
 
-    def get_agents(self, state: DState) -> List[M.AgentID]:
+    def get_agents(self, state: DState) -> List[str]:
         return list(self.possible_agents)
 
     def sample_initial_state(self) -> DState:
@@ -521,11 +521,11 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
 
         return tuple(state)
 
-    def sample_initial_obs(self, state: DState) -> Dict[M.AgentID, DObs]:
+    def sample_initial_obs(self, state: DState) -> Dict[str, DObs]:
         return self._get_obs(state)
 
     def step(
-        self, state: DState, actions: Dict[M.AgentID, DAction]
+        self, state: DState, actions: Dict[str, DAction]
     ) -> M.JointTimestep[DState, DObs]:
         clipped_actions = clip_actions(actions, self.action_spaces)
 
@@ -536,7 +536,7 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
         truncated = {i: False for i in self.possible_agents}
         all_done = all(terminated.values())
 
-        info: Dict[M.AgentID, Dict] = {i: {} for i in self.possible_agents}
+        info: Dict[str, Dict] = {i: {} for i in self.possible_agents}
         for idx in range(len(self.possible_agents)):
             if next_state[idx].status[0]:
                 outcome_i = M.Outcome.WIN
@@ -551,7 +551,7 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
         )
 
     def _get_next_state(
-        self, state: DState, actions: Dict[M.AgentID, DAction]
+        self, state: DState, actions: Dict[str, DAction]
     ) -> Tuple[DState, List[CollisionType]]:
         for i in range(len(self.possible_agents)):
             state_i = state[i]
@@ -633,10 +633,10 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
 
         return tuple(final_state), collision_types
 
-    def _get_obs(self, state: DState) -> Dict[M.AgentID, DObs]:
+    def _get_obs(self, state: DState) -> Dict[str, DObs]:
         return {i: self._get_agent_obs(i, state) for i in self.possible_agents}
 
-    def _get_agent_obs(self, agent_id: M.AgentID, state: DState) -> np.ndarray:
+    def _get_agent_obs(self, agent_id: str, state: DState) -> np.ndarray:
         state_i = state[int(agent_id)]
         if state_i.status[0] or state_i.status[1]:
             return np.zeros((self.obs_dim,), dtype=np.float32)
@@ -676,8 +676,8 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
 
     def _get_rewards(
         self, state: DState, next_state: DState, collision_types: List[CollisionType]
-    ) -> Dict[M.AgentID, float]:
-        rewards: Dict[M.AgentID, float] = {}
+    ) -> Dict[str, float]:
+        rewards: Dict[str, float] = {}
         for i in self.possible_agents:
             idx = int(i)
             if any(state[idx].status):

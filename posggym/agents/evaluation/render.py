@@ -16,8 +16,8 @@ class Renderer(abc.ABC):
         episode_t: int,
         env: posggym.Env,
         timestep: M.JointTimestep,
-        action: Dict[M.AgentID, M.ActType],
-        policies: Dict[M.AgentID, Policy],
+        action: Dict[str, M.ActType],
+        policies: Dict[str, Policy],
         episode_end: bool,
     ) -> None:
         """Render a single environment step."""
@@ -38,8 +38,8 @@ class EpisodeRenderer(Renderer):
         episode_t: int,
         env: posggym.Env,
         timestep: M.JointTimestep,
-        action: Dict[M.AgentID, M.ActType],
-        policies: Dict[M.AgentID, Policy],
+        action: Dict[str, M.ActType],
+        policies: Dict[str, Policy],
         episode_end: bool,
     ) -> None:
         if self._episode_count % self._render_frequency != 0:
@@ -64,8 +64,8 @@ class PauseRenderer(Renderer):
         episode_t: int,
         env: posggym.Env,
         timestep: M.JointTimestep,
-        action: Dict[M.AgentID, M.ActType],
-        policies: Dict[M.AgentID, Policy],
+        action: Dict[str, M.ActType],
+        policies: Dict[str, Policy],
         episode_end: bool,
     ) -> None:
         input("Press ENTER to continue.")
@@ -76,8 +76,8 @@ def generate_renders(
     episode_t: int,
     env: posggym.Env,
     timestep: M.JointTimestep,
-    action: Dict[M.AgentID, M.ActType],
-    policies: Dict[M.AgentID, Policy],
+    action: Dict[str, M.ActType],
+    policies: Dict[str, Policy],
     episode_end: bool,
 ) -> None:
     """Handle the generation of environment step renderings."""

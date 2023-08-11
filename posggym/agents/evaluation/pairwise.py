@@ -5,7 +5,6 @@ from pprint import pprint
 from typing import Any, Dict, List, Optional
 
 import posggym
-import posggym.model as M
 from posggym import logger
 from posggym.agents.evaluation.exp import ExpParams, run_experiments
 from posggym.agents.evaluation.render import EpisodeRenderer, Renderer
@@ -74,7 +73,7 @@ def get_pairwise_exp_params(
 def run_pairwise_experiments(
     env_id: str,
     env_args: Optional[Dict[str, Any]],
-    policy_ids: Optional[Dict[M.AgentID, List[PolicyID]]] = None,
+    policy_ids: Optional[Dict[str, List[PolicyID]]] = None,
     init_seed: int = 0,
     num_seeds: int = 1,
     num_episodes: int = 1000,

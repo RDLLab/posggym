@@ -497,14 +497,14 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         )
 
     @property
-    def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
+    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
         if self._normalize_reward:
             reward_range = (self._penalty, 1.0)
         else:
             reward_range = (self._penalty, self._max_agent_level)
         return {i: reward_range for i in self.possible_agents}
 
-    def get_agents(self, state: LBFState) -> List[M.AgentID]:
+    def get_agents(self, state: LBFState) -> List[str]:
         return list(self.possible_agents)
 
     @property
@@ -654,11 +654,11 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
             food.append(Food((x, y), level))
         return tuple(food)
 
-    def sample_initial_obs(self, state: LBFState) -> Dict[M.AgentID, LBFObs]:
+    def sample_initial_obs(self, state: LBFState) -> Dict[str, LBFObs]:
         return self._get_obs(state)
 
     def step(
-        self, state: LBFState, actions: Dict[M.AgentID, LBFAction]
+        self, state: LBFState, actions: Dict[str, LBFAction]
     ) -> M.JointTimestep[LBFState, LBFObs]:
         assert all(0 <= a < len(LBFAction) for a in actions.values())
         next_state, rewards = self._get_next_state(state, actions)
@@ -666,14 +666,14 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         all_done = len(next_state.food) == 0
         terminated = {i: all_done for i in self.possible_agents}
         truncated = {i: False for i in self.possible_agents}
-        info: Dict[M.AgentID, Dict] = {i: {} for i in self.possible_agents}
+        info: Dict[str, Dict] = {i: {} for i in self.possible_agents}
         return M.JointTimestep(
             next_state, obs, rewards, terminated, truncated, all_done, info
         )
 
     def _get_next_state(
-        self, state: LBFState, actions: Dict[M.AgentID, LBFAction]
-    ) -> Tuple[LBFState, Dict[M.AgentID, float]]:
+        self, state: LBFState, actions: Dict[str, LBFAction]
+    ) -> Tuple[LBFState, Dict[str, float]]:
         next_food = {f.coord: f for f in state.food}
 
         # try move agents
@@ -704,7 +704,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
             next_players[player.idx] = Player(player.idx, coord, player.level)
 
         # process the loadings and calculate rewards as necessary
-        rewards: Dict[M.AgentID, float] = {i: 0.0 for i in self.possible_agents}
+        rewards: Dict[str, float] = {i: 0.0 for i in self.possible_agents}
         for player in loading_players:
             adj_coords = self.grid.get_neighbours(player.coord)
             for adj_coord in adj_coords:
@@ -735,8 +735,8 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         )
         return next_state, rewards  # type: ignore
 
-    def _get_obs(self, state: LBFState) -> Dict[M.AgentID, LBFObs]:
-        obs: Dict[M.AgentID, LBFObs] = {}
+    def _get_obs(self, state: LBFState) -> Dict[str, LBFObs]:
+        obs: Dict[str, LBFObs] = {}
         for i in self.possible_agents:
             player_obs, food_obs = self._get_local_obs(state, int(i))
             if self.observation_mode == "tuple":

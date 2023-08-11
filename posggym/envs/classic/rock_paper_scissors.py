@@ -10,7 +10,6 @@ from posggym import logger
 from posggym.core import DefaultEnv
 from posggym.utils import seeding
 
-
 RPSState = int
 STATE0 = 0
 STATES = [STATE0]
@@ -151,7 +150,7 @@ class RockPaperScissorsModel(M.POSGFullModel[RPSState, RPSObs, RPSAction]):
         self._obs_map = self._construct_obs_func()
 
     @property
-    def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
+    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
         return {i: (-1.0, 1.0) for i in self.possible_agents}
 
     @property
@@ -160,32 +159,30 @@ class RockPaperScissorsModel(M.POSGFullModel[RPSState, RPSObs, RPSAction]):
             self._rng, seed = seeding.std_random()
         return self._rng
 
-    def get_agents(self, state: RPSState) -> List[M.AgentID]:
+    def get_agents(self, state: RPSState) -> List[str]:
         return list(self.possible_agents)
 
     def sample_initial_state(self) -> RPSState:
         return STATE0
 
-    def sample_initial_obs(self, state: RPSState) -> Dict[M.AgentID, RPSObs]:
+    def sample_initial_obs(self, state: RPSState) -> Dict[str, RPSObs]:
         return {i: ROCK for i in self.possible_agents}
 
     def step(
-        self, state: RPSState, actions: Dict[M.AgentID, RPSAction]
+        self, state: RPSState, actions: Dict[str, RPSAction]
     ) -> M.JointTimestep[RPSState, RPSObs]:
         assert all(a_i in ACTIONS for a_i in actions.values())
-        obs: Dict[M.AgentID, RPSObs] = {"0": actions["1"], "1": actions["0"]}
+        obs: Dict[str, RPSObs] = {"0": actions["1"], "1": actions["0"]}
         rewards = self._get_reward(actions)
         terminated = {i: False for i in self.possible_agents}
         truncated = {i: False for i in self.possible_agents}
         all_done = False
-        info: Dict[M.AgentID, Dict] = {i: {} for i in self.possible_agents}
+        info: Dict[str, Dict] = {i: {} for i in self.possible_agents}
         return M.JointTimestep(
             STATE0, obs, rewards, terminated, truncated, all_done, info
         )
 
-    def _get_reward(
-        self, actions: Dict[M.AgentID, RPSAction]
-    ) -> Dict[M.AgentID, float]:
+    def _get_reward(self, actions: Dict[str, RPSAction]) -> Dict[str, float]:
         return {
             "0": self.R_MATRIX[actions["0"]][actions["1"]],
             "1": self.R_MATRIX[actions["1"]][actions["0"]],
@@ -195,7 +192,7 @@ class RockPaperScissorsModel(M.POSGFullModel[RPSState, RPSObs, RPSAction]):
         return {STATE0: 1.0}
 
     def transition_fn(
-        self, state: RPSState, actions: Dict[M.AgentID, RPSAction], next_state: RPSState
+        self, state: RPSState, actions: Dict[str, RPSAction], next_state: RPSState
     ) -> float:
         action_tuple = tuple(actions[i] for i in self.possible_agents)
         return self._trans_map[(state, action_tuple, next_state)]
@@ -208,9 +205,9 @@ class RockPaperScissorsModel(M.POSGFullModel[RPSState, RPSObs, RPSAction]):
 
     def observation_fn(
         self,
-        obs: Dict[M.AgentID, RPSObs],
+        obs: Dict[str, RPSObs],
         next_state: RPSState,
-        actions: Dict[M.AgentID, RPSAction],
+        actions: Dict[str, RPSAction],
     ) -> float:
         obs_tuple = tuple(obs[i] for i in self.possible_agents)
         action_tuple = tuple(actions[i] for i in self.possible_agents)
@@ -223,8 +220,8 @@ class RockPaperScissorsModel(M.POSGFullModel[RPSState, RPSObs, RPSAction]):
         return obs_func
 
     def reward_fn(
-        self, state: RPSState, actions: Dict[M.AgentID, RPSAction]
-    ) -> Dict[M.AgentID, float]:
+        self, state: RPSState, actions: Dict[str, RPSAction]
+    ) -> Dict[str, float]:
         action_tuple = tuple(actions[i] for i in self.possible_agents)
         return self._rew_map[(state, action_tuple)]
 

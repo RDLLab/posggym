@@ -1,8 +1,9 @@
 """Checks that the core posggym model API is implemented as expected."""
 from typing import Dict, List
 
-import posggym.model as M
 from gymnasium import spaces
+
+import posggym.model as M
 from posggym.utils import seeding
 
 
@@ -21,18 +22,16 @@ class ExampleModel(M.POSGModel[int, int, int]):
             self._rng, seed = seeding.std_random()
         return self._rng
 
-    def get_agents(self, state: int) -> List[M.AgentID]:
+    def get_agents(self, state: int) -> List[str]:
         return list(self.possible_agents)
 
     def sample_initial_state(self) -> int:
         return 0
 
-    def sample_initial_obs(self, state: int) -> Dict[M.AgentID, int]:
+    def sample_initial_obs(self, state: int) -> Dict[str, int]:
         return {i: 0 for i in self.possible_agents}
 
-    def step(
-        self, state: int, actions: Dict[M.AgentID, int]
-    ) -> M.JointTimestep[int, int]:
+    def step(self, state: int, actions: Dict[str, int]) -> M.JointTimestep[int, int]:
         return M.JointTimestep(
             0,
             {i: 0 for i in self.possible_agents},

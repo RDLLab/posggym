@@ -1,11 +1,10 @@
 """Wrapper to discretize continuous actions."""
-from typing import Dict, Union, cast, Sequence
+from typing import Dict, Sequence, Union, cast
 
 import numpy as np
 from gymnasium import spaces
 
 from posggym import ActionWrapper, Env
-from posggym.model import AgentID
 
 
 class DiscretizeActions(ActionWrapper):
@@ -39,8 +38,8 @@ class DiscretizeActions(ActionWrapper):
         self.num_actions = num_actions
         self.flatten = flatten
 
-        box_action_spaces = cast(Dict[AgentID, spaces.Box], self.action_spaces)
-        self._unflat_space: Dict[AgentID, spaces.MultiDiscrete] = {}
+        box_action_spaces = cast(Dict[str, spaces.Box], self.action_spaces)
+        self._unflat_space: Dict[str, spaces.MultiDiscrete] = {}
         if self.flatten:
             self._unflat_space = {
                 i: self.discretize_action_space(  # type: ignore

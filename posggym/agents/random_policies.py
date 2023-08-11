@@ -11,6 +11,7 @@ from posggym.agents.policy import ObsType, Policy, PolicyID, PolicyState
 from posggym.agents.utils import action_distributions
 from posggym.utils import seeding
 
+
 if TYPE_CHECKING:
     import posggym.model as M
 
@@ -26,7 +27,7 @@ class DiscreteFixedDistributionPolicy(Policy[int, ObsType]):
     def __init__(
         self,
         model: M.POSGModel,
-        agent_id: M.AgentID,
+        agent_id: str,
         policy_id: PolicyID,
         dist: action_distributions.ActionDistribution | None = None,
     ):
@@ -95,7 +96,7 @@ class RandomPolicy(Policy):
 
     """
 
-    def __init__(self, model: M.POSGModel, agent_id: M.AgentID, policy_id: PolicyID):
+    def __init__(self, model: M.POSGModel, agent_id: str, policy_id: PolicyID):
         super().__init__(model, agent_id, policy_id)
         self._action_space = model.action_spaces[agent_id]
         self._rng = random.Random()

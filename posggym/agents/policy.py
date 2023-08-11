@@ -7,11 +7,10 @@ from typing import TYPE_CHECKING, Any, Dict, Generic
 
 from posggym.model import ActType, ObsType
 
-
 if TYPE_CHECKING:
     from posggym.agents.registration import PolicySpec
     from posggym.agents.utils.action_distributions import ActionDistribution
-    from posggym.model import AgentID, POSGModel
+    from posggym.model import POSGModel
     from posggym.utils.history import AgentHistory
 
 
@@ -30,7 +29,7 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
     # Whether the policy expects the full state as it's observation or not
     observes_state: bool = False
 
-    def __init__(self, model: POSGModel, agent_id: AgentID, policy_id: PolicyID):
+    def __init__(self, model: POSGModel, agent_id: str, policy_id: PolicyID):
         self.model = model
         self.agent_id = agent_id
         self.policy_id = policy_id

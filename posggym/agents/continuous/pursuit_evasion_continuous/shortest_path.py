@@ -3,30 +3,30 @@ from __future__ import annotations
 
 import math
 from itertools import product
-from typing import TYPE_CHECKING, cast, Tuple, List
+from typing import TYPE_CHECKING, List, Tuple, cast
 
 import numpy as np
 
 from posggym.agents.policy import Policy, PolicyID, PolicyState
+from posggym.agents.utils import action_distributions
 from posggym.envs.continuous.core import PMBodyState
 from posggym.envs.continuous.pursuit_evasion_continuous import (
-    PursuitEvasionContinuousModel,
     PEAction,
     PEObs,
+    PursuitEvasionContinuousModel,
 )
-from posggym.agents.utils import action_distributions
-
 from posggym.utils import seeding
 
+
 if TYPE_CHECKING:
-    from posggym.posggym.model import AgentID, POSGModel
+    from posggym.posggym.model import POSGModel
     from posggym.utils.history import AgentHistory
 
 
 class PECShortestPathPolicy(Policy[PEAction, PEObs]):
     """Shortest path policy for pursuit evasion continuous environment."""
 
-    def __init__(self, model: POSGModel, agent_id: AgentID, policy_id: PolicyID):
+    def __init__(self, model: POSGModel, agent_id: str, policy_id: PolicyID):
         super().__init__(model, agent_id, policy_id)
         self.model = cast(PursuitEvasionContinuousModel, model)
         self._rng, _ = seeding.np_random()

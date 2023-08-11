@@ -11,7 +11,6 @@ from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import Coord, Direction, Grid
 from posggym.utils import seeding
 
-
 UAVState = Tuple[Coord, Coord]
 UAVAction = int
 
@@ -266,7 +265,7 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
         self._valid_fug_coords_dist: Tuple[List[Coord], List[float]] = ([], [])
 
     @property
-    def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
+    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
         return {i: (self.R_SAFE, self.R_CAPTURE) for i in self.possible_agents}
 
     @property
@@ -275,7 +274,7 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
             self._rng, seed = seeding.std_random()
         return self._rng
 
-    def get_agents(self, state: UAVState) -> List[M.AgentID]:
+    def get_agents(self, state: UAVState) -> List[str]:
         return list(self.possible_agents)
 
     def sample_initial_state(self) -> UAVState:
@@ -286,7 +285,7 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
         fug_coord = self.rng.choice(fug_start_coords)
         return uav_coord, fug_coord
 
-    def sample_agent_initial_state(self, agent_id: M.AgentID, obs: UAVObs) -> UAVState:
+    def sample_agent_initial_state(self, agent_id: str, obs: UAVObs) -> UAVState:
         if agent_id == self.UAV_ID:
             assert isinstance(obs, tuple)
             return self._sample_uav_obs(obs)  # type: ignore
@@ -370,11 +369,11 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
                 dist.append((1.0 - self.FUG_OBS_ACC) / (num_adj - num_true))
         return house_adj_coords, dist
 
-    def sample_initial_obs(self, state: UAVState) -> Dict[M.AgentID, UAVObs]:
+    def sample_initial_obs(self, state: UAVState) -> Dict[str, UAVObs]:
         return self._sample_obs(state)
 
     def step(
-        self, state: UAVState, actions: Dict[M.AgentID, UAVAction]
+        self, state: UAVState, actions: Dict[str, UAVAction]
     ) -> M.JointTimestep[UAVState, UAVObs]:
         assert all(0 <= a_i < len(Direction) for a_i in actions.values())
         next_state = self._sample_next_state(state, actions)
@@ -390,13 +389,13 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
         terminated = {i: False for i in self.possible_agents}
         truncated = {i: False for i in self.possible_agents}
         all_done = False
-        info: Dict[M.AgentID, Dict] = {i: {} for i in self.possible_agents}
+        info: Dict[str, Dict] = {i: {} for i in self.possible_agents}
         return M.JointTimestep(
             next_state, obs, rewards, terminated, truncated, all_done, info
         )
 
     def _sample_next_state(
-        self, state: UAVState, actions: Dict[M.AgentID, UAVAction]
+        self, state: UAVState, actions: Dict[str, UAVAction]
     ) -> UAVState:
         uav_a, fug_a = actions[self.UAV_ID], actions[self.FUG_ID]
         uav_coord, fug_coord = state
@@ -416,7 +415,7 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
             fug_start_coords.remove(uav_coord)
         return self.rng.choice(fug_start_coords)
 
-    def _sample_obs(self, state: UAVState) -> Dict[M.AgentID, UAVObs]:
+    def _sample_obs(self, state: UAVState) -> Dict[str, UAVObs]:
         return {
             self.UAV_ID: self._sample_uav_obs(state),
             self.FUG_ID: self._sample_fug_obs(state),
@@ -459,7 +458,7 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
             return true_obs
         return self.rng.choice([OBSNORTH, OBSSOUTH, OBSLEVEL])
 
-    def _get_reward(self, next_state: UAVState) -> Dict[M.AgentID, float]:
+    def _get_reward(self, next_state: UAVState) -> Dict[str, float]:
         uav_coord, fug_coord = next_state
         uav_reward, fug_reward = self.R_ACTION, self.R_ACTION
         if fug_coord == self.grid.safe_house_coord:

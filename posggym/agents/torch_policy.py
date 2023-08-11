@@ -30,6 +30,7 @@ from posggym.agents.utils import action_distributions, processors
 from posggym.agents.utils.download import download_from_repo
 from posggym.utils import seeding
 
+
 if TYPE_CHECKING:
     import posggym.model as M
 
@@ -389,7 +390,7 @@ class PPOPolicy(Policy[ActType, ObsType]):
     def __init__(
         self,
         model: M.POSGModel,
-        agent_id: M.AgentID,
+        agent_id: str,
         policy_id: PolicyID,
         policy_model: PPOLSTMModel,
         obs_processor: processors.Processor | None = None,
@@ -548,7 +549,7 @@ class PPOPolicy(Policy[ActType, ObsType]):
     @staticmethod
     def load_from_path(
         model: M.POSGModel,
-        agent_id: M.AgentID,
+        agent_id: str,
         policy_id: str,
         policy_file_path: str,
         deterministic: bool = False,
@@ -626,7 +627,7 @@ class PPOPolicy(Policy[ActType, ObsType]):
         env_args: Dict[str, Any] | None,
         env_args_id: str | None = None,
         version: int = 0,
-        valid_agent_ids: List[M.AgentID] | None = None,
+        valid_agent_ids: List[str] | None = None,
         nondeterministic: bool = False,
         **kwargs,
     ) -> PolicySpec:

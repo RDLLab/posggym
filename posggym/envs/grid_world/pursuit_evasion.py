@@ -10,6 +10,7 @@ from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import Coord, Direction, Grid
 from posggym.utils import seeding
 
+
 # State = (e_coord, e_dir, p_coord, p_dir, e_0_coord, p_0_coord, e_goal_coord)
 INITIAL_DIR = Direction.NORTH
 
@@ -246,7 +247,7 @@ class PursuitEvasionEnv(DefaultEnv):
 
     def reset(
         self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
-    ) -> Tuple[Dict[M.AgentID, M.ObsType], Dict[M.AgentID, Dict]]:
+    ) -> Tuple[Dict[str, M.ObsType], Dict[str, Dict]]:
         # reset renderer since goal location can change between episodes
         self._renderer = None
         return super().reset(seed=seed, options=options)
@@ -437,7 +438,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         return self._grid
 
     @property
-    def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
+    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
         max_reward = self.R_EVASION
         if self.use_progress_reward:
             max_reward += self.R_PROGRESS
@@ -451,13 +452,13 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             self._rng, seed = seeding.std_random()
         return self._rng
 
-    def get_agents(self, state: PEState) -> List[M.AgentID]:
+    def get_agents(self, state: PEState) -> List[str]:
         return list(self.possible_agents)
 
     def sample_initial_state(self) -> PEState:
         return self._sample_initial_state(None, None, None)
 
-    def sample_agent_initial_state(self, agent_id: M.AgentID, obs: PEObs) -> PEState:
+    def sample_agent_initial_state(self, agent_id: str, obs: PEObs) -> PEState:
         if agent_id == self.EVADER_IDX:
             return self._sample_initial_state(
                 evader_coord=obs[1], pursuer_coord=obs[2], goal_coord=obs[3]
@@ -489,11 +490,11 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             self.grid.get_shortest_path_distance(evader_coord, goal_coord),
         )
 
-    def sample_initial_obs(self, state: PEState) -> Dict[M.AgentID, PEObs]:
+    def sample_initial_obs(self, state: PEState) -> Dict[str, PEObs]:
         return self._get_obs(state)[0]
 
     def step(
-        self, state: PEState, actions: Dict[M.AgentID, PEAction]
+        self, state: PEState, actions: Dict[str, PEAction]
     ) -> M.JointTimestep[PEState, PEObs]:
         assert all(0 <= a_i < len(Direction) for a_i in actions.values())
         next_state = self._get_next_state(state, actions)
@@ -502,7 +503,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         all_done = self._is_done(next_state)
         terminated = {i: all_done for i in self.possible_agents}
         truncated = {i: False for i in self.possible_agents}
-        info: Dict[M.AgentID, Dict] = {i: {} for i in self.possible_agents}
+        info: Dict[str, Dict] = {i: {} for i in self.possible_agents}
         if all_done:
             for i, outcome in self._get_outcome(next_state).items():
                 info[i]["outcome"] = outcome
@@ -510,9 +511,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             next_state, obs, rewards, terminated, truncated, all_done, info
         )
 
-    def _get_next_state(
-        self, state: PEState, actions: Dict[M.AgentID, PEAction]
-    ) -> PEState:
+    def _get_next_state(self, state: PEState, actions: Dict[str, PEAction]) -> PEState:
         evader_a = actions[str(self.EVADER_IDX)]
         pursuer_a = actions[str(self.PURSUER_IDX)]
 
@@ -560,7 +559,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             min_sp_distance,
         )
 
-    def _get_obs(self, state: PEState) -> Tuple[Dict[M.AgentID, PEObs], bool]:
+    def _get_obs(self, state: PEState) -> Tuple[Dict[str, PEObs], bool]:
         walls, seen, heard = self._get_agent_obs(
             state.evader_coord, state.evader_dir, state.pursuer_coord
         )
@@ -611,7 +610,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
 
     def _get_reward(
         self, state: PEState, next_state: PEState, evader_seen: bool
-    ) -> Dict[M.AgentID, float]:
+    ) -> Dict[str, float]:
         evader_coord = next_state.evader_coord
         pursuer_coord = next_state.pursuer_coord
         evader_goal_coord = next_state.evader_goal_coord
@@ -642,7 +641,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             or self._get_opponent_seen(pursuer_coord, pursuer_dir, evader_coord)
         )
 
-    def _get_outcome(self, state: PEState) -> Dict[M.AgentID, M.Outcome]:
+    def _get_outcome(self, state: PEState) -> Dict[str, M.Outcome]:
         # Assuming this method is called on final timestep
         evader_coord, pursuer_coord = state.evader_coord, state.pursuer_coord
         evader_goal_coord = state.evader_goal_coord

@@ -259,7 +259,7 @@ class PursuitEvasionContinuousEnv(DefaultEnv):
 
     def reset(
         self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
-    ) -> Tuple[Dict[M.AgentID, M.ObsType], Dict[M.AgentID, Dict]]:
+    ) -> Tuple[Dict[str, M.ObsType], Dict[str, Dict]]:
         # reset renderer since goal location can change between episodes
         self._renderer = None
         return super().reset(seed=seed, options=options)
@@ -529,7 +529,7 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
         self.world.add_entity("evader", None, color=self.EVADER_COLOR)
 
     @property
-    def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
+    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
         max_reward = self.R_EVASION
         if self._use_progress_reward:
             max_reward += self.R_PROGRESS
@@ -543,7 +543,7 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
             self._rng, seed = seeding.std_random()
         return self._rng
 
-    def get_agents(self, state: PEState) -> List[M.AgentID]:
+    def get_agents(self, state: PEState) -> List[str]:
         return list(self.possible_agents)
 
     def sample_initial_state(self) -> PEState:
@@ -565,11 +565,11 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
             self.world.get_shortest_path_distance(evader_coord, goal_coord),
         )
 
-    def sample_initial_obs(self, state: PEState) -> Dict[M.AgentID, PEObs]:
+    def sample_initial_obs(self, state: PEState) -> Dict[str, PEObs]:
         return self._get_obs(state)[0]
 
     def step(
-        self, state: PEState, actions: Dict[M.AgentID, PEAction]
+        self, state: PEState, actions: Dict[str, PEAction]
     ) -> M.JointTimestep[PEState, PEObs]:
         clipped_actions = clip_actions(actions, self.action_spaces)
         next_state = self._get_next_state(state, clipped_actions)
@@ -579,7 +579,7 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
         all_done = self._is_done(next_state, evader_seen)
         terminated = {i: all_done for i in self.possible_agents}
         truncated = {i: False for i in self.possible_agents}
-        info: Dict[M.AgentID, Dict] = {i: {} for i in self.possible_agents}
+        info: Dict[str, Dict] = {i: {} for i in self.possible_agents}
         if all_done:
             for i, outcome in self._get_outcome(next_state, evader_seen).items():
                 info[i]["outcome"] = outcome
@@ -588,9 +588,7 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
             next_state, obs, rewards, terminated, truncated, all_done, info
         )
 
-    def _get_next_state(
-        self, state: PEState, actions: Dict[M.AgentID, PEAction]
-    ) -> PEState:
+    def _get_next_state(self, state: PEState, actions: Dict[str, PEAction]) -> PEState:
         evader_a = actions[str(self.EVADER_IDX)]
         pursuer_a = actions[str(self.PURSUER_IDX)]
 
@@ -632,7 +630,7 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
             min_sp_distance,
         )
 
-    def _get_obs(self, state: PEState) -> Tuple[Dict[M.AgentID, PEObs], bool]:
+    def _get_obs(self, state: PEState) -> Tuple[Dict[str, PEObs], bool]:
         evader_obs, _ = self._get_agent_obs(state, evader=True)
         pursuer_obs, evader_seen = self._get_agent_obs(state, evader=False)
 
@@ -698,7 +696,7 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
 
     def _get_reward(
         self, state: PEState, next_state: PEState, evader_seen: bool
-    ) -> Dict[M.AgentID, float]:
+    ) -> Dict[str, float]:
         evader_reward = 0.0
         if self._use_progress_reward and next_state.min_goal_dist < state.min_goal_dist:
             evader_reward += self.R_PROGRESS
@@ -728,9 +726,7 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
             or self.world.agents_collide(state.evader_state, state.evader_goal_coord)
         )
 
-    def _get_outcome(
-        self, state: PEState, evader_seen: bool
-    ) -> Dict[M.AgentID, M.Outcome]:
+    def _get_outcome(self, state: PEState, evader_seen: bool) -> Dict[str, M.Outcome]:
         evader_id, pursuer_id = str(self.EVADER_IDX), str(self.PURSUER_IDX)
         if evader_seen or self.world.agents_collide(
             state.evader_state, state.pursuer_state

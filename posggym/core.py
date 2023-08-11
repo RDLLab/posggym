@@ -11,23 +11,15 @@ from __future__ import annotations
 
 import abc
 import copy
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Dict,
-    Generic,
-    List,
-    Optional,
-    Tuple,
-    TypeVar,
-)
+from typing import TYPE_CHECKING, Any, Dict, Generic, List, Optional, Tuple, TypeVar
 
-from posggym.model import ActType, AgentID, ObsType, POSGModel, StateType
+from posggym.model import ActType, ObsType, POSGModel, StateType
 
 
 if TYPE_CHECKING:
     import numpy as np
     from gymnasium import spaces
+
     from posggym.envs.registration import EnvSpec
 
 
@@ -37,11 +29,12 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
     The class encapsulates an environment and a POSG model. The environment maintains an
     internal state and can be interacted with by  multiple agents in parallel through
     the :meth:`step` and :meth:`reset` functions. The POSG model can be accessed via the
-    :attr:`model` attribute and exposes model of the environment which can be used for
-    planning or for anything else (see :py:class:`posggym.POSGModel` class for details).
+    :attr:`model` attribute and exposes the model of the environment which can be used
+    for planning or for anything else (see :py:class:`posggym.POSGModel` class for
+    details).
 
-    The implementation is heavily inspired by the Farama Foundation Gymnasium (Open AI
-    Gym) (https://github.com/Farama-Foundation/Gymnasium) and PettingZoo
+    The implementation is heavily inspired by the Farama Foundation Gymnasium
+    (https://github.com/Farama-Foundation/Gymnasium) and PettingZoo
     (https://github.com/Farama-Foundation/PettingZoo) APIs. It aims to be consistent
     with these APIs and easily compatible with the PettingZoo API.
 
@@ -60,12 +53,14 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
     - :attr:`agents` - The agents currently active in the environment
     - :attr:`action_spaces` - The action space for each agent
     - :attr:`observation_spaces` - The observation space for each agent
-    - :attr:`reward_ranges` - The minimum and maximum possible rewards over an episode
-      for each agent. The default reward range is set to :math:`(-\infty,+\infty)`.
+    - :attr:`reward_ranges` - The minimum and maximum possible rewards each agent may
+      receive for single step in the environment. The default reward range is set to
+      :math:`(-\infty,+\infty)`.
     - :attr:`is_symmetric` - Whether the environment is symmetric or asymmetric
     - :attr:`spec` - An environment spec that contains the information used to
       initialize the environment from :meth:`posggym.make`
     - :attr:`metadata` - The metadata of the environment, i.e. render modes, render fps
+    - :attr:`render_mode` - The current render mode of the environment
 
     Environments have additional methods and attributes that provide more environment
     information and access:
@@ -89,14 +84,14 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
 
     @abc.abstractmethod
     def step(
-        self, actions: Dict[AgentID, ActType]
+        self, actions: Dict[str, ActType]
     ) -> Tuple[
-        Dict[AgentID, ObsType],
-        Dict[AgentID, float],
-        Dict[AgentID, bool],
-        Dict[AgentID, bool],
+        Dict[str, ObsType],
+        Dict[str, float],
+        Dict[str, bool],
+        Dict[str, bool],
         bool,
-        Dict[AgentID, Dict[str, Any]],
+        Dict[str, Dict[str, Any]],
     ]:
         """Run one timestep in the environment using the agents' actions.
 
@@ -105,21 +100,21 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
 
         Arguments
         ---------
-        actions : Dict[AgentID, ActType]
+        actions : Dict[str, ActType]
           a joint action containing one action per active agent in the environment.
 
         Returns
         -------
-        observations : Dict[AgentID, ObsType]
+        observations : Dict[str, ObsType]
           the joint observation containing one observation per agent.
-        rewards : Dict[AgentID, float]
+        rewards : Dict[str, float]
           the joint rewards containing one reward per agent.
-        terminations : Dict[AgentID, bool]
+        terminations : Dict[str, bool]
           whether each agent has reached a terminal state in the environment.
           Contains one value for each agent in the environment. It's possible,
           depending on the environment, for only some of the agents to be in a
           terminal during a given step.
-        truncations : Dict[AgentID, bool]
+        truncations : Dict[str, bool]
           whether the episode has been truncated for each agent in the
           environment. Contains one value for each agent in the environment. Truncation
           for an agent signifies that the episode was ended for that agent (e.g. due to
@@ -130,7 +125,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
           environments where the active agents remains constant during each episode,
           this is equivalent to checking if all agents are either in a terminated or
           truncated state. If true, the user needs to call :py:func:`reset()`.
-        infos : Dict[AgentID, Dict[str, Any]]
+        infos : Dict[str, Dict[str, Any]]
           contains auxiliary diagnostic information (helpful for debugging, learning,
           and logging) for each agent.
 
@@ -138,15 +133,14 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
 
     def reset(
         self, *, seed: int | None = None, options: Dict[str, Any] | None = None
-    ) -> Tuple[Dict[AgentID, ObsType], Dict[AgentID, Dict]]:
+    ) -> Tuple[Dict[str, ObsType], Dict[str, Dict]]:
         """Resets the environment and returns an initial observations and info.
 
         This method generates a new starting state often with some randomness. This
-        randomness can be controlled with the ``seed`` parameter otherwise if the
-        environment already has a random number generator and :meth:`reset` is called
-        with ``seed=None``, the RNG is not reset. Note, that the RNG is handled by the
-        environment :attr:`model`, rather than the environment class itself, which
-        simply calls the model.
+        randomness can be controlled with the ``seed`` parameter. If the
+        environment already has a random number generator (RNG) and :meth:`reset` is
+        called with ``seed=None``, the RNG is not reset. Note, that the RNG is handled
+        by the environment :attr:`model`, rather than the environment class itself.
 
         Therefore, :meth:`reset` should (in the typical use case) be called with a seed
         right after initialization and then never again.
@@ -157,24 +151,20 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
         Arguments
         ---------
         seed : int,  optional
-          The seed that is used to initialize the environment's PRNG. If the
-          ``seed=None`` is passed, the PRNG will *not* be reset. If you pass an
-          integer, the PRNG will be reset even if it already exists. Usually, you want
+          The seed that is used to initialize the environment's RNG. If the
+          ``seed=None`` is passed, the RNG will *not* be reset. If you pass an
+          integer, the RNG will be reset even if it already exists. Usually, you want
           to pass an integer *right after the environment has been initialized and
           then never again*.
         options: dict, optional
           Additional information to specify how the environment is reset (optional,
           depending on the specific environment)
 
-
         Returns
         -------
-        observations : JointObservation, optional
+        observations : Dict[str, ObsType], optional
           The joint observation containing one observation per agent in the environment.
-          Note in environments that are not observation first (i.e. they expect an
-          action before the first observation) this function should reset the state and
-          return ``None``.
-        infos : Dict[AgentID, Dict]
+        infos : Dict[str, Dict]
           Auxiliary information for each agent. It should be analogous to the ``info``
           returned by :meth:`step()` and can be empty.
 
@@ -186,7 +176,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
 
     def render(
         self,
-    ) -> None | np.ndarray | str | Dict[AgentID, np.ndarray] | Dict[AgentID, str]:
+    ) -> None | np.ndarray | str | Dict[str, np.ndarray] | Dict[str, str]:
         """Render the environment as specified by environment :attr:`render_mode`.
 
         The render mode attribute :attr:`render_mode` is set during the initialization
@@ -196,20 +186,20 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
         The set of supported modes varies per environment (some environments do not
         support rendering at all). By convention, if :attr:`render_mode` is:
 
-        - None (default): no render is computed.
-        - "human": Environment is rendered to the current display or terminal usually
-          for human consumption. Returns ``None``.
-        - "rgb_array": Return an ``np.ndarray`` with shape ``(x, y, 3)``  representing
-          RGB values for an x-by-y pixel image of the entire environment, suitable for
-          turning into a video.
-        - "ansi": Return a string (``str``) or ``StringIO.StringIO`` containing a
+        - ``None`` (default): no render is computed.
+        - ``"human"``: Environment is rendered to the current display or terminal
+          usually for human consumption. Returns ``None``.
+        - ``"rgb_array"``: Return an ``np.ndarray`` with shape ``(x, y, 3)``
+          representing RGB values for an x-by-y pixel image of the entire environment,
+          suitable for turning into a video.
+        - ``"ansi"``: Return a string (``str``) or ``StringIO.StringIO`` containing a
           terminal-style text representation for each timestep. The text can include
           newlines and ANSI escape sequences (e.g. for colors).
-        - "rgb_array_dict" and "ansi_dict": Return ``dict`` mapping ``AgentID`` to
-          render frame (RGB or ANSI depending on render mode). Each render frame is
+        - ``"rgb_array_dict"`` and ``"ansi_dict"``: Return ``dict`` mapping agent ID
+          to render frame (RGB or ANSI depending on render mode). Each render frame is
           represents the agent-centric view for the given agent. May also return a
-          render for the entire environment (like "rgb_array" and "ansi" options) which
-          should be mapped to the "env" key in the dictionary by default.
+          render for the entire environment (like `"rgb_array"` and `"ansi"` render
+          modes) which should be mapped to the `"env"` key in the dictionary by default.
 
         Note
         ----
@@ -240,18 +230,18 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
         """
 
     @property
-    def possible_agents(self) -> Tuple[AgentID, ...]:
+    def possible_agents(self) -> Tuple[str, ...]:
         """The list of all possible agents that may appear in the environment.
 
         Returns
         -------
-        Tuple[AgentID, ...]
+        Tuple[str, ...]
 
         """
         return self.model.possible_agents
 
     @property
-    def agents(self) -> List[AgentID]:
+    def agents(self) -> List[str]:
         """The list of agents active in the environment for current state.
 
         This will be :attr:`possible_agents`, independent of state, for any environment
@@ -259,51 +249,51 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
 
         Returns
         -------
-        List[AgentID]
+        List[str]
 
         """
         return self.model.get_agents(self.state)
 
     @property
-    def action_spaces(self) -> Dict[AgentID, spaces.Space]:
+    def action_spaces(self) -> Dict[str, spaces.Space]:
         """A mapping from Agent ID to the space of valid actions for that agent.
 
         Returns
         -------
-        Dict[AgentID, spaces.Space]
+        Dict[str, spaces.Space]
 
         """
         return self.model.action_spaces
 
     @property
-    def observation_spaces(self) -> Dict[AgentID, spaces.Space]:
+    def observation_spaces(self) -> Dict[str, spaces.Space]:
         """A mapping from Agent ID to the space of valid observations for that agent.
 
         Returns
         -------
-        Dict[AgentID, spaces.Space]
+        Dict[str, spaces.Space]
 
         """
         return self.model.observation_spaces
 
     @property
-    def reward_ranges(self) -> Dict[AgentID, Tuple[float, float]]:
-        r"""A mapping from Agent ID to min and max possible rewards for that agent.
+    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
+        r"""A mapping from Agent ID to the min and max possible rewards for that agent.
 
         Each reward tuple corresponding to the minimum and maximum possible rewards for
-        a given agent over an episode. The default reward range for each agent is set
+        a given agent for a single step. The default reward range for each agent is set
         to :math:`(-\infty,+\infty)`.
 
         Returns
         -------
-        Dict[AgentID, Tuple[float, float]]
+        Dict[str, Tuple[float, float]]
 
         """
         return self.model.reward_ranges
 
     @property
     def is_symmetric(self) -> bool:
-        """Get whether environment is symmetric.
+        """Whether the environment is symmetric.
 
         An environment is "symmetric" if the ID of an agent in the environment does not
         affect the agent in anyway (i.e. all agents have the same action and observation
@@ -389,18 +379,18 @@ class DefaultEnv(Env[StateType, ObsType, ActType]):
         self._state = self.model.sample_initial_state()
         self._last_obs = self.model.sample_initial_obs(self._state)
         self._step_num = 0
-        self._last_actions: Dict[AgentID, ActType] | None = None
-        self._last_rewards: Dict[AgentID, float] | None = None
+        self._last_actions: Dict[str, ActType] | None = None
+        self._last_rewards: Dict[str, float] | None = None
 
     def step(
-        self, actions: Dict[AgentID, ActType]
+        self, actions: Dict[str, ActType]
     ) -> Tuple[
-        Dict[AgentID, ObsType],
-        Dict[AgentID, float],
-        Dict[AgentID, bool],
-        Dict[AgentID, bool],
+        Dict[str, ObsType],
+        Dict[str, float],
+        Dict[str, bool],
+        Dict[str, bool],
         bool,
-        Dict[AgentID, Dict],
+        Dict[str, Dict],
     ]:
         step = self.model.step(self._state, actions)
         self._step_num += 1
@@ -419,7 +409,7 @@ class DefaultEnv(Env[StateType, ObsType, ActType]):
 
     def reset(
         self, *, seed: int | None = None, options: Dict[str, Any] | None = None
-    ) -> Tuple[Dict[AgentID, ObsType], Dict[AgentID, Dict]]:
+    ) -> Tuple[Dict[str, ObsType], Dict[str, Dict]]:
         super().reset(seed=seed)
         self._state = self.model.sample_initial_state()
         self._last_obs = self.model.sample_initial_obs(self._state)
@@ -460,9 +450,9 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
 
     def __init__(self, env: Env[StateType, ObsType, ActType]):
         self.env = env
-        self._action_spaces: Dict[AgentID, spaces.Space] | None = None
-        self._observation_spaces: Dict[AgentID, spaces.Space] | None = None
-        self._reward_ranges: Dict[AgentID, Tuple[float, float]] | None = None
+        self._action_spaces: Dict[str, spaces.Space] | None = None
+        self._observation_spaces: Dict[str, spaces.Space] | None = None
+        self._reward_ranges: Dict[str, Tuple[float, float]] | None = None
         self._metadata: Dict[str, Any] | None = None
 
     def __getattr__(self, name):
@@ -491,17 +481,17 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         return self.env.state  # type: ignore
 
     @property
-    def possible_agents(self) -> Tuple[AgentID, ...]:
+    def possible_agents(self) -> Tuple[str, ...]:
         """Returns the :attr:`Env` :attr:`possible_agents`."""
         return self.env.possible_agents
 
     @property
-    def agents(self) -> List[AgentID]:
+    def agents(self) -> List[str]:
         """Returns the :attr:`Env` :attr:`agents`."""
         return self.env.agents
 
     @property
-    def action_spaces(self) -> Dict[AgentID, spaces.Space]:
+    def action_spaces(self) -> Dict[str, spaces.Space]:
         """Return the :attr:`Env` :attr:`action_spaces`.
 
         This is the :attr:`Env` :attr:`action_spaces` unless it's overwritten then the
@@ -512,11 +502,11 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         return self._action_spaces
 
     @action_spaces.setter
-    def action_spaces(self, action_spaces: Dict[AgentID, spaces.Space]):
+    def action_spaces(self, action_spaces: Dict[str, spaces.Space]):
         self._action_spaces = action_spaces
 
     @property
-    def observation_spaces(self) -> Dict[AgentID, spaces.Space]:
+    def observation_spaces(self) -> Dict[str, spaces.Space]:
         """Return the :attr:`Env` :attr:`observation_spaces`.
 
         This is the :attr:`Env` :attr:`observation_spaces` unless it's overwritten then
@@ -527,11 +517,11 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         return self._observation_spaces
 
     @observation_spaces.setter
-    def observation_spaces(self, observation_spaces: Dict[AgentID, spaces.Space]):
+    def observation_spaces(self, observation_spaces: Dict[str, spaces.Space]):
         self._observation_spaces = observation_spaces
 
     @property
-    def reward_ranges(self) -> Dict[AgentID, Tuple[float, float]]:
+    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
         """Return the :attr:`Env` :attr:`reward_ranges`.
 
         This is the :attr:`Env` :attr:`reward_ranges`, unless it's overwritten, then
@@ -542,7 +532,7 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         return self._reward_ranges
 
     @reward_ranges.setter
-    def reward_ranges(self, reward_ranges: Dict[AgentID, Tuple[float, float]]):
+    def reward_ranges(self, reward_ranges: Dict[str, Tuple[float, float]]):
         self._reward_ranges = reward_ranges
 
     @property
@@ -575,14 +565,14 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         self.env.render_mode = render_mode
 
     def step(
-        self, actions: Dict[AgentID, WrapperActType]
+        self, actions: Dict[str, WrapperActType]
     ) -> Tuple[
-        Dict[AgentID, WrapperObsType],
-        Dict[AgentID, float],
-        Dict[AgentID, bool],
-        Dict[AgentID, bool],
+        Dict[str, WrapperObsType],
+        Dict[str, float],
+        Dict[str, bool],
+        Dict[str, bool],
         bool,
-        Dict[AgentID, Dict],
+        Dict[str, Dict],
     ]:
         """Uses the :meth:`step` of the :attr:`env`.
 
@@ -592,7 +582,7 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
 
     def reset(
         self, *, seed: int | None = None, options: Dict[str, Any] | None = None
-    ) -> Tuple[Dict[AgentID, WrapperObsType], Dict[AgentID, Dict]]:
+    ) -> Tuple[Dict[str, WrapperObsType], Dict[str, Dict]]:
         """Uses the :meth:`reset` of the :attr:`env`.
 
         Can be overwritten to change the returned data.
@@ -601,7 +591,7 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
 
     def render(
         self,
-    ) -> None | np.ndarray | str | Dict[AgentID, np.ndarray] | Dict[AgentID, str]:
+    ) -> None | np.ndarray | str | Dict[str, np.ndarray] | Dict[str, str]:
         """Uses the :meth:`render` of the :attr:`env`.
 
         Can be overwritten to change the returned data.
@@ -641,28 +631,26 @@ class ObservationWrapper(Wrapper[StateType, WrapperObsType, ActType]):
 
     def reset(
         self, *, seed: int | None = None, options: Dict[str, Any] | None = None
-    ) -> Tuple[Dict[AgentID, WrapperObsType], Dict[AgentID, Dict]]:
+    ) -> Tuple[Dict[str, WrapperObsType], Dict[str, Dict]]:
         obs, info = self.env.reset(seed=seed, options=options)
         if obs is None:
             return obs, info
         return self.observations(obs), info
 
     def step(
-        self, actions: Dict[AgentID, ActType]
+        self, actions: Dict[str, ActType]
     ) -> Tuple[
-        Dict[AgentID, WrapperObsType],
-        Dict[AgentID, float],
-        Dict[AgentID, bool],
-        Dict[AgentID, bool],
+        Dict[str, WrapperObsType],
+        Dict[str, float],
+        Dict[str, bool],
+        Dict[str, bool],
         bool,
-        Dict[AgentID, Dict],
+        Dict[str, Dict],
     ]:
         obs, reward, term, trunc, done, infos = self.env.step(actions)  # type: ignore
         return self.observations(obs), reward, term, trunc, done, infos
 
-    def observations(
-        self, obs: Dict[AgentID, ObsType]
-    ) -> Dict[AgentID, WrapperObsType]:
+    def observations(self, obs: Dict[str, ObsType]) -> Dict[str, WrapperObsType]:
         """Transforms observations received from wrapped environment."""
         raise NotImplementedError
 
@@ -677,19 +665,19 @@ class RewardWrapper(Wrapper[StateType, ObsType, ActType]):
         super().__init__(env)
 
     def step(
-        self, actions: Dict[AgentID, ActType]
+        self, actions: Dict[str, ActType]
     ) -> Tuple[
-        Dict[AgentID, ObsType],
-        Dict[AgentID, float],
-        Dict[AgentID, bool],
-        Dict[AgentID, bool],
+        Dict[str, ObsType],
+        Dict[str, float],
+        Dict[str, bool],
+        Dict[str, bool],
         bool,
-        Dict[AgentID, Dict],
+        Dict[str, Dict],
     ]:
         obs, reward, term, trunc, done, info = self.env.step(actions)  # type: ignore
         return obs, self.rewards(reward), term, trunc, done, info  # type: ignore
 
-    def rewards(self, rewards: Dict[AgentID, float]) -> Dict[AgentID, float]:
+    def rewards(self, rewards: Dict[str, float]) -> Dict[str, float]:
         """Transforms rewards received from wrapped environment."""
         raise NotImplementedError
 
@@ -704,17 +692,17 @@ class ActionWrapper(Wrapper[StateType, ObsType, WrapperActType]):
         super().__init__(env)
 
     def step(
-        self, actions: Dict[AgentID, ActType]
+        self, actions: Dict[str, ActType]
     ) -> Tuple[
-        Dict[AgentID, ObsType],
-        Dict[AgentID, float],
-        Dict[AgentID, bool],
-        Dict[AgentID, bool],
+        Dict[str, ObsType],
+        Dict[str, float],
+        Dict[str, bool],
+        Dict[str, bool],
         bool,
-        Dict[AgentID, Dict],
+        Dict[str, Dict],
     ]:
         return self.env.step(self.actions(actions))  # type: ignore
 
-    def actions(self, actions: Dict[AgentID, ActType]) -> Dict[AgentID, WrapperActType]:
+    def actions(self, actions: Dict[str, ActType]) -> Dict[str, WrapperActType]:
         """Transform actions for wrapped environment."""
         raise NotImplementedError

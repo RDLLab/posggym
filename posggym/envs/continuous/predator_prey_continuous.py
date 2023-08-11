@@ -473,7 +473,7 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
             self.world.add_entity(f"prey_{i}", None, color=self.PREY_COLOR)
 
     @property
-    def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
+    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
         return {i: (0.0, self.R_MAX) for i in self.possible_agents}
 
     @property
@@ -482,7 +482,7 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
             self._rng, seed = seeding.std_random()
         return self._rng
 
-    def get_agents(self, state: PPState) -> List[M.AgentID]:
+    def get_agents(self, state: PPState) -> List[str]:
         return list(self.possible_agents)
 
     def sample_initial_state(self) -> PPState:
@@ -508,11 +508,11 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
             np.zeros(self.num_prey, dtype=np.int8),
         )
 
-    def sample_initial_obs(self, state: PPState) -> Dict[M.AgentID, PPObs]:
+    def sample_initial_obs(self, state: PPState) -> Dict[str, PPObs]:
         return self.get_obs(state)
 
     def step(
-        self, state: PPState, actions: Dict[M.AgentID, PPAction]
+        self, state: PPState, actions: Dict[str, PPAction]
     ) -> M.JointTimestep[PPState, PPObs]:
         clipped_actions = clip_actions(actions, self.action_spaces)
 
@@ -524,7 +524,7 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
         truncated = {i: False for i in self.possible_agents}
         terminated = {i: all_done for i in self.possible_agents}
 
-        info: Dict[M.AgentID, Dict] = {i: {} for i in self.possible_agents}
+        info: Dict[str, Dict] = {i: {} for i in self.possible_agents}
         if all_done:
             for i in self.possible_agents:
                 info[i]["outcome"] = M.Outcome.WIN
@@ -533,9 +533,7 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
             next_state, obs, rewards, terminated, truncated, all_done, info
         )
 
-    def _get_next_state(
-        self, state: PPState, actions: Dict[M.AgentID, PPAction]
-    ) -> PPState:
+    def _get_next_state(self, state: PPState, actions: Dict[str, PPAction]) -> PPState:
         prey_move_angles = self._get_prey_move_angles(state)
 
         # apply prey actions
@@ -652,10 +650,10 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         return prey_actions
 
-    def get_obs(self, state: PPState) -> Dict[M.AgentID, PPObs]:
+    def get_obs(self, state: PPState) -> Dict[str, PPObs]:
         return {i: self._get_local_obs(i, state) for i in self.possible_agents}
 
-    def _get_local_obs(self, agent_id: M.AgentID, state: PPState) -> np.ndarray:
+    def _get_local_obs(self, agent_id: str, state: PPState) -> np.ndarray:
         state_i = state.predator_states[int(agent_id)]
         pos_i = (state_i[0], state_i[1], state_i[2])
 
@@ -706,9 +704,7 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         return obs
 
-    def _get_rewards(
-        self, state: PPState, next_state: PPState
-    ) -> Dict[M.AgentID, float]:
+    def _get_rewards(self, state: PPState, next_state: PPState) -> Dict[str, float]:
         new_caught_prey = []
         for i in range(self.num_prey):
             if not state.prey_caught[i] and next_state.prey_caught[i]:

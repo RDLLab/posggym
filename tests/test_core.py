@@ -4,12 +4,11 @@ Adapted from:
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/test_core.py
 
 """
-from typing import Optional, Dict, Tuple, Any
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
-from gymnasium.spaces import Box
-
 import posggym.model as M
+from gymnasium.spaces import Box
 from posggym import (
     ActionWrapper,
     DefaultEnv,
@@ -19,6 +18,7 @@ from posggym import (
     Wrapper,
 )
 from posggym.core import WrapperActType, WrapperObsType
+
 from tests.test_model import ExampleModel
 
 
@@ -48,18 +48,18 @@ class ExampleWrapper(Wrapper):
 
     def reset(
         self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
-    ) -> Tuple[Dict[M.AgentID, WrapperObsType], Dict[M.AgentID, Dict]]:
+    ) -> Tuple[Dict[str, WrapperObsType], Dict[str, Dict]]:
         return super().reset(seed=seed, options=options)
 
     def step(
-        self, actions: Dict[M.AgentID, WrapperActType]
+        self, actions: Dict[str, WrapperActType]
     ) -> Tuple[
-        Dict[M.AgentID, WrapperObsType],
-        Dict[M.AgentID, float],
-        Dict[M.AgentID, bool],
-        Dict[M.AgentID, bool],
+        Dict[str, WrapperObsType],
+        Dict[str, float],
+        Dict[str, bool],
+        Dict[str, bool],
         bool,
-        Dict[M.AgentID, Dict],
+        Dict[str, Dict],
     ]:
         obs, reward, term, trunc, done, info = self.env.step(actions)  # type: ignore
         reward = {i: self.new_reward for i in reward}
@@ -96,25 +96,21 @@ def test_posggym_wrapper():
 class ExampleRewardWrapper(RewardWrapper):
     """Example reward wrapper for testing."""
 
-    def rewards(self, rewards: Dict[M.AgentID, float]) -> Dict[M.AgentID, float]:
+    def rewards(self, rewards: Dict[str, float]) -> Dict[str, float]:
         return {i: 1 for i in rewards}
 
 
 class ExampleObservationWrapper(ObservationWrapper):
     """Example observation wrapper for testing."""
 
-    def observations(
-        self, obs: Dict[M.AgentID, M.ObsType]
-    ) -> Dict[M.AgentID, WrapperObsType]:
+    def observations(self, obs: Dict[str, M.ObsType]) -> Dict[str, WrapperObsType]:
         return {i: np.array([1]) for i in obs}  # type: ignore
 
 
 class ExampleActionWrapper(ActionWrapper):
     """Example action wrapper for testing."""
 
-    def actions(
-        self, actions: Dict[M.AgentID, M.ActType]
-    ) -> Dict[M.AgentID, WrapperActType]:
+    def actions(self, actions: Dict[str, M.ActType]) -> Dict[str, WrapperActType]:
         return {i: np.array([1]) for i in actions}  # type: ignore
 
 
@@ -128,14 +124,14 @@ class ActionWrapperTestEnv(DefaultEnv[int, int, int]):
         super().__init__(ExampleModel())
 
     def step(
-        self, actions: Dict[M.AgentID, int]
+        self, actions: Dict[str, int]
     ) -> Tuple[
-        Dict[M.AgentID, int],
-        Dict[M.AgentID, float],
-        Dict[M.AgentID, bool],
-        Dict[M.AgentID, bool],
+        Dict[str, int],
+        Dict[str, float],
+        Dict[str, bool],
+        Dict[str, bool],
         bool,
-        Dict[M.AgentID, Dict],
+        Dict[str, Dict],
     ]:
         step = self.model.step(self._state, actions)
         self._step_num += 1

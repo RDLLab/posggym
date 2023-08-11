@@ -17,10 +17,8 @@ from posggym.envs.grid_world.level_based_foraging import (
     LevelBasedForagingModel,
 )
 
-
 if TYPE_CHECKING:
     from posggym.envs.grid_world.core import Coord
-    from posggym.model import AgentID
 
 
 class LBFHeuristicPolicy(Policy[LBFAction, LBFObs]):
@@ -31,7 +29,7 @@ class LBFHeuristicPolicy(Policy[LBFAction, LBFObs]):
     """
 
     def __init__(
-        self, model: LevelBasedForagingModel, agent_id: AgentID, policy_id: PolicyID
+        self, model: LevelBasedForagingModel, agent_id: str, policy_id: PolicyID
     ):
         super().__init__(model, agent_id, policy_id)
         assert model.observation_mode in ("vector", "tuple")

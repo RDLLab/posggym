@@ -15,13 +15,9 @@ Example, to run 10 episodes of the `Driving-v0` environment with `human` renderi
         --render_mode human
 """
 import argparse
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import Dict, List, Optional
 
 import posggym
-
-
-if TYPE_CHECKING:
-    import posggym.model as M
 
 
 def run_random_agent(
@@ -43,7 +39,7 @@ def run_random_agent(
 
     dones = 0
     episode_steps = []
-    episode_rewards: Dict[M.AgentID, List[float]] = {i: [] for i in env.possible_agents}
+    episode_rewards: Dict[str, List[float]] = {i: [] for i in env.possible_agents}
     for ep_num in range(num_episodes):
         env.render()
 

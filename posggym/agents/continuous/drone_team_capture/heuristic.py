@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import abc
 import math
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
 import numpy as np
 
@@ -17,10 +17,6 @@ from posggym.envs.continuous.drone_team_capture import (
 )
 
 
-if TYPE_CHECKING:
-    from posggym.model import AgentID
-
-
 class DTCHeuristicPolicy(Policy[DTCAction, DTCObs], abc.ABC):
     """Heuristic Policies for the Drone Team Capture continuous environment.
 
@@ -32,7 +28,7 @@ class DTCHeuristicPolicy(Policy[DTCAction, DTCObs], abc.ABC):
     def __init__(
         self,
         model: DroneTeamCaptureModel,
-        agent_id: AgentID,
+        agent_id: str,
         policy_id: PolicyID,
     ):
         if model.n_com_pursuers < model.n_pursuers - 1 or (

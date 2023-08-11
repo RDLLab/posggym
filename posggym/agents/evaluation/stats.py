@@ -10,8 +10,7 @@ import posggym
 import posggym.model as M
 from posggym.agents.policy import Policy
 
-
-AgentStatisticsMap = Dict[M.AgentID, Dict[str, Any]]
+AgentStatisticsMap = Dict[str, Dict[str, Any]]
 
 
 def generate_episode_statistics(trackers: Iterable["Tracker"]) -> AgentStatisticsMap:
@@ -51,8 +50,8 @@ class Tracker(abc.ABC):
         episode_t: int,
         env: posggym.Env,
         timestep: M.JointTimestep,
-        action: Dict[M.AgentID, M.ActType],
-        policies: Dict[M.AgentID, Policy],
+        action: Dict[str, M.ActType],
+        policies: Dict[str, Policy],
         episode_end: bool,
     ):
         """Accumulates statistics for a single step."""
@@ -100,8 +99,8 @@ class EpisodeTracker(Tracker):
         episode_t: int,
         env: posggym.Env,
         timestep: M.JointTimestep,
-        action: Dict[M.AgentID, M.ActType],
-        policies: Dict[M.AgentID, Policy],
+        action: Dict[str, M.ActType],
+        policies: Dict[str, Policy],
         episode_end: bool,
     ):
         if self._agents is None:

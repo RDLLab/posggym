@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Protocol, Tuple
 import posggym
 from posggym import error, logger
 
+
 if TYPE_CHECKING:
     import posggym.model as M
     from posggym.agents.policy import Policy
@@ -34,7 +35,7 @@ class PolicyEntryPoint(Protocol):
     """Entry point function for instantiating a new policy instance."""
 
     def __call__(
-        self, model: M.POSGModel, agent_id: M.AgentID, policy_id: str, **kwargs
+        self, model: M.POSGModel, agent_id: str, policy_id: str, **kwargs
     ) -> Policy:
         ...
 
@@ -203,7 +204,7 @@ class PolicySpec:
     env_args: Dict[str, Any] | None = field(default=None)
 
     # Policy attributes
-    valid_agent_ids: List[M.AgentID] | None = field(default=None)
+    valid_agent_ids: List[str] | None = field(default=None)
     nondeterministic: bool = field(default=False)
 
     # Policy Arguments
@@ -462,7 +463,7 @@ def register(
     version: int | None = None,
     env_id: str | None = None,
     env_args: Dict[str, Any] | None = None,
-    valid_agent_ids: List[M.AgentID] | None = None,
+    valid_agent_ids: List[str] | None = None,
     nondeterministic: bool = False,
     **kwargs,
 ):
@@ -512,9 +513,7 @@ def register_spec(spec: PolicySpec):
     registry[spec.id] = spec
 
 
-def make(
-    id: str | PolicySpec, model: M.POSGModel, agent_id: M.AgentID, **kwargs
-) -> Policy:
+def make(id: str | PolicySpec, model: M.POSGModel, agent_id: str, **kwargs) -> Policy:
     """Create an policy according to the given ID.
 
     To find all available policies use `posggym_agents.agents.registry.keys()` for
@@ -751,7 +750,7 @@ def get_env_agent_policies(
     env_args: Dict[str, Any] | None = None,
     _registry: Dict = registry,
     include_generic_policies: bool = True,
-) -> Dict[M.AgentID, List[PolicySpec]]:
+) -> Dict[str, List[PolicySpec]]:
     """Get each agent's policy specs associated with given environment.
 
     Arguments
@@ -770,7 +769,7 @@ def get_env_agent_policies(
     """
     env = posggym.make(env_id) if env_args is None else posggym.make(env_id, **env_args)
 
-    policies: Dict[M.AgentID, List[PolicySpec]] = {i: [] for i in env.possible_agents}
+    policies: Dict[str, List[PolicySpec]] = {i: [] for i in env.possible_agents}
     for spec in get_all_env_policies(
         env_id,
         env_args,

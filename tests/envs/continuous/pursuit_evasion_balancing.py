@@ -5,11 +5,10 @@ from itertools import product
 from typing import Dict, List, Optional, Tuple, cast
 
 import numpy as np
-import pygame
-
 import posggym
-import posggym.model as M
+import pygame
 from posggym.envs.continuous.pursuit_evasion_continuous import PEWorld
+
 
 key_action_map = {
     None: 0,
@@ -27,7 +26,7 @@ key_action_map = {
 
 
 def run_keyboard_agent(
-    env: posggym.Env, keyboard_agent_id: List[M.AgentID]
+    env: posggym.Env, keyboard_agent_id: List[str]
 ) -> Optional[Tuple[Dict[str, float], int]]:
     """Run manual keyboard agent in continuous environment.
 

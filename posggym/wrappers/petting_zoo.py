@@ -1,12 +1,13 @@
 """Wrapper for converting a posggym environment into pettingzoo environment."""
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Set, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
 import posggym
 
+
 try:
-    from pettingzoo.utils.env import ActionDict, AgentID, ObsDict, ParallelEnv
+    from pettingzoo.utils.env import ActionDict, ObsDict, ParallelEnv
 except ImportError as e:
     raise posggym.error.DependencyNotInstalled(
         "pettingzoo is not installed, run `pip install pettingzoo` or visit "
@@ -38,26 +39,26 @@ class PettingZoo(ParallelEnv):
 
     def __init__(self, env: posggym.Env):
         self.env = env
-        self._done_agents: Set[AgentID] = set()
+        self._done_agents: Set[str] = set()
 
     @property
     def metadata(self) -> Dict[str, Any]:
         return self.env.metadata
 
     @property
-    def agents(self) -> List[AgentID]:
+    def agents(self) -> List[str]:
         return [i for i in self.env.agents if i not in self._done_agents]
 
     @property
-    def possible_agents(self) -> List[AgentID]:
+    def possible_agents(self) -> List[str]:
         return list(self.env.possible_agents)
 
     @property
-    def action_spaces(self) -> Dict[AgentID, spaces.Space]:
+    def action_spaces(self) -> Dict[str, spaces.Space]:
         return self.env.action_spaces
 
     @property
-    def observation_spaces(self) -> Dict[AgentID, spaces.Space]:
+    def observation_spaces(self) -> Dict[str, spaces.Space]:
         return self.env.observation_spaces
 
     @property
@@ -113,8 +114,8 @@ class PettingZoo(ParallelEnv):
     def state(self):
         return self.env.state
 
-    def observation_space(self, agent: AgentID) -> spaces.Space:
+    def observation_space(self, agent: str) -> spaces.Space:
         return self.observation_spaces[agent]
 
-    def action_space(self, agent: AgentID) -> spaces.Space:
+    def action_space(self, agent: str) -> spaces.Space:
         return self.action_spaces[agent]

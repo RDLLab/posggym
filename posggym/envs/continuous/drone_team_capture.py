@@ -460,11 +460,11 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
             self.world.add_entity(f"pursuer_{i}", None, color=self.PURSUER_COLOR)
         self.world.add_entity("evader", None, color=self.EVADER_COLOR)
 
-    def get_agents(self, state: DTCState) -> List[M.AgentID]:
+    def get_agents(self, state: DTCState) -> List[str]:
         return list(self.possible_agents)
 
     @property
-    def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
+    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
         min_reward = self.R_TARGET_DIST_COEFF * 2 * self.r_arena
         max_reward = self.R_CAPTURE_TEAM + self.R_CAPTURE
         if self.use_q_reward:
@@ -517,11 +517,11 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
             target_vel,
         )
 
-    def sample_initial_obs(self, state: DTCState) -> Dict[M.AgentID, DTCObs]:
+    def sample_initial_obs(self, state: DTCState) -> Dict[str, DTCObs]:
         return self._get_obs(state)
 
     def step(
-        self, state: DTCState, actions: Dict[M.AgentID, DTCAction]
+        self, state: DTCState, actions: Dict[str, DTCAction]
     ) -> M.JointTimestep[DTCState, DTCObs]:
         clipped_actions = clip_actions(actions, self.action_spaces)
         next_state = self._get_next_state(state, clipped_actions)
@@ -529,13 +529,13 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
         all_done, rewards = self._get_rewards(next_state)
         terminations = {i: all_done for i in self.possible_agents}
         truncations = {i: False for i in self.possible_agents}
-        infos: Dict[M.AgentID, Dict] = {i: {} for i in self.possible_agents}
+        infos: Dict[str, Dict] = {i: {} for i in self.possible_agents}
         return M.JointTimestep(
             next_state, obs, rewards, terminations, truncations, all_done, infos
         )
 
     def _get_next_state(
-        self, state: DTCState, actions: Dict[M.AgentID, DTCAction]
+        self, state: DTCState, actions: Dict[str, DTCAction]
     ) -> DTCState:
         for i in range(self.n_pursuers):
             self.world.set_entity_state(f"pursuer_{i}", state.pursuer_states[i])
@@ -571,7 +571,7 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
             state.target_vel,
         )
 
-    def _get_obs(self, state: DTCState) -> Dict[M.AgentID, DTCObs]:
+    def _get_obs(self, state: DTCState) -> Dict[str, DTCObs]:
         observation = {}
         for i in range(self.n_pursuers):
             # getting the target engagement
@@ -689,9 +689,9 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
         alpha = self.world.convert_angle_to_negpi_pi_interval(alpha)
         return (alpha / math.pi, dist / dist_norm_factor), True
 
-    def _get_rewards(self, state: DTCState) -> Tuple[bool, Dict[M.AgentID, float]]:
+    def _get_rewards(self, state: DTCState) -> Tuple[bool, Dict[str, float]]:
         done = False
-        reward: Dict[M.AgentID, float] = {}
+        reward: Dict[str, float] = {}
         # q_formation reward: [-1 * (n-1) / n, 3 * (n-1) / n]
         q_formation = self._q_parameter(state) if self.use_q_reward else 0.0
         for i in self.possible_agents:

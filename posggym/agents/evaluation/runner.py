@@ -4,10 +4,10 @@ import time
 from typing import Any, Dict, Iterable, List, NamedTuple, Optional
 
 import posggym
-import posggym.model as M
 import posggym.agents.evaluation.render as render_lib
 import posggym.agents.evaluation.stats as stats_lib
 import posggym.agents.evaluation.writer as writer_lib
+import posggym.model as M
 from posggym.agents.policy import Policy
 
 
@@ -20,14 +20,14 @@ class EpisodeLoopStep(NamedTuple):
 
     env: posggym.Env
     timestep: M.JointTimestep
-    actions: Dict[M.AgentID, Any]
-    policies: Dict[M.AgentID, Policy]
+    actions: Dict[str, Any]
+    policies: Dict[str, Policy]
     done: bool
 
 
 def run_episode_loop(
     env: posggym.Env,
-    policies: Dict[M.AgentID, Policy],
+    policies: Dict[str, Policy],
 ) -> Iterable[EpisodeLoopStep]:
     """Run policies in environment."""
     assert len(policies) == len(
@@ -74,7 +74,7 @@ def run_episode_loop(
 
 def run_episode(
     env: posggym.Env,
-    policies: Dict[M.AgentID, Policy],
+    policies: Dict[str, Policy],
     num_episodes: int,
     trackers: List[stats_lib.Tracker],
     renderers: List[render_lib.Renderer],

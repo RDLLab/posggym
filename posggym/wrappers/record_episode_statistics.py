@@ -6,15 +6,11 @@ https://github.com/Farama-Foundation/Gymnasium/blob/main/gymnasium/wrappers/reco
 """
 import time
 from collections import deque
-from typing import Dict, TYPE_CHECKING
+from typing import Dict
 
 import numpy as np
 
 import posggym
-
-
-if TYPE_CHECKING:
-    from posggym.model import AgentID
 
 
 class RecordEpisodeStatistics(posggym.Wrapper):
@@ -58,10 +54,10 @@ class RecordEpisodeStatistics(posggym.Wrapper):
         self.num_envs = getattr(env, "num_envs", 1)
         self.episode_count = 0
         self.episode_start_times: np.ndarray = np.zeros(self.num_envs, np.float32)
-        self.episode_returns: Dict[AgentID, np.ndarray] = {
+        self.episode_returns: Dict[str, np.ndarray] = {
             i: np.zeros(self.num_envs, np.float32) for i in self.possible_agents
         }
-        self.episode_lengths: Dict[AgentID, np.ndarray] = {
+        self.episode_lengths: Dict[str, np.ndarray] = {
             i: np.zeros(self.num_envs, np.int32) for i in self.possible_agents
         }
         self.return_queue = deque(maxlen=deque_size)

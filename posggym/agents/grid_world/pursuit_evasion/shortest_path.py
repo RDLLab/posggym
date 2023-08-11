@@ -14,10 +14,9 @@ from posggym.envs.grid_world.pursuit_evasion import (
 )
 from posggym.utils import seeding
 
-
 if TYPE_CHECKING:
     from posggym.envs.grid_world.core import Coord, Direction
-    from posggym.model import AgentID, POSGModel
+    from posggym.model import POSGModel
     from posggym.utils.history import AgentHistory
 
 
@@ -29,9 +28,7 @@ class PEShortestPathPolicy(Policy[PEAction, PEObs]):
 
     """
 
-    def __init__(
-        self, model: POSGModel, agent_id: AgentID, policy_id: PolicyID, **kwargs
-    ):
+    def __init__(self, model: POSGModel, agent_id: str, policy_id: PolicyID, **kwargs):
         super().__init__(model, agent_id, policy_id)
         self.model = cast(PursuitEvasionModel, model)
         assert all(p == 1.0 for p in self.model.action_probs), (

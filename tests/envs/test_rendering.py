@@ -5,10 +5,9 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/test_rend
 """
 import numpy as np
 import pytest
-
 from posggym.envs.registration import EnvSpec
 from posggym.logger import warn
-from posggym.model import AgentID
+
 from tests.envs.utils import all_testing_env_specs
 
 
@@ -17,7 +16,7 @@ def check_rendered(rendered_frame, mode: str):
     if mode == "rgb_array_dict":
         assert isinstance(rendered_frame, dict)
         for i, agent_frame in rendered_frame.items():
-            assert isinstance(i, AgentID)
+            assert isinstance(i, str)
             check_rendered(agent_frame, "rgb_array")
     elif mode == "rgb_array":
         assert isinstance(rendered_frame, np.ndarray)
@@ -27,7 +26,7 @@ def check_rendered(rendered_frame, mode: str):
     elif mode == "ansi_dict":
         assert isinstance(rendered_frame, dict)
         for i, agent_frame in rendered_frame.items():
-            assert isinstance(i, AgentID)
+            assert isinstance(i, str)
             check_rendered(agent_frame, "ansi")
     elif mode == "ansi":
         assert isinstance(rendered_frame, str)

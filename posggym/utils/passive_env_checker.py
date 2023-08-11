@@ -112,7 +112,7 @@ def check_space_limit(space, space_type: str):
             check_space_limit(subspace, space_type)
 
 
-def check_agent_space_limits(agent_spaces: Dict[M.AgentID, Space], space_type: str):
+def check_agent_space_limits(agent_spaces: Dict[str, Space], space_type: str):
     """Check the space limit for any agent Box space."""
     for i, agent_space in agent_spaces.items():
         check_space_limit(agent_space, space_type)
@@ -275,12 +275,12 @@ def check_space(
 
 
 def check_agent_spaces(
-    agent_spaces: Dict[M.AgentID, Space],
+    agent_spaces: Dict[str, Space],
     space_type: str,
     check_box_space_fn: Callable[[spaces.Box], None],
 ):
     """A passive check of environment spaces that should not affect the environment."""
-    assert all(isinstance(i, M.AgentID) for i in agent_spaces)
+    assert all(isinstance(i, str) for i in agent_spaces)
     for i, space_i in agent_spaces.items():
         try:
             check_space(space_i, space_type, check_box_space_fn)
@@ -373,8 +373,8 @@ def check_obs(obs, observation_space: spaces.Space, method_name: str):
 
 
 def check_agent_obs(
-    obs: Dict[M.AgentID, M.ObsType],
-    observation_spaces: Dict[M.AgentID, Space],
+    obs: Dict[str, M.ObsType],
+    observation_spaces: Dict[str, Space],
     method_name: str,
 ):
     """Check that each agent's observation returned by the environment is valid.
@@ -393,7 +393,7 @@ def check_agent_obs(
             raise AssertionError("Invalid observation for agent `{i}`.") from e
 
 
-def check_reset_obs(obs: Dict[M.AgentID, M.ObsType], model: M.POSGModel):
+def check_reset_obs(obs: Dict[str, M.ObsType], model: M.POSGModel):
     """Check agent observations returned by the environment `reset()` method are valid.
 
     Arguments
@@ -469,9 +469,9 @@ def env_reset_passive_checker(env, **kwargs):
 
 def _check_agent_dict(
     agent_dict,
-    possible_agents: Sequence[M.AgentID],
+    possible_agents: Sequence[str],
     dict_type: str,
-    expected_agents: Optional[Sequence[M.AgentID]] = None,
+    expected_agents: Optional[Sequence[str]] = None,
 ):
     assert isinstance(agent_dict, dict), (
         f"Agent {dict_type} dictionary  must be a dictionary mapping agentID to values."
@@ -490,7 +490,7 @@ def _check_agent_dict(
 
 
 def model_step_passive_checker(
-    model: M.POSGModel, state: M.StateType, actions: Dict[M.AgentID, M.ActType]
+    model: M.POSGModel, state: M.StateType, actions: Dict[str, M.ActType]
 ):
     """A passive check for the model step.
 
@@ -562,7 +562,7 @@ def model_step_passive_checker(
     return result
 
 
-def env_step_passive_checker(env: posggym.Env, actions: Dict[M.AgentID, M.ActType]):
+def env_step_passive_checker(env: posggym.Env, actions: Dict[str, M.ActType]):
     """A passive check for the environment step.
 
     Investigating the returning data then returning the data unchanged.

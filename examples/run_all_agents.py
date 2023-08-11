@@ -39,12 +39,11 @@ from typing import Dict, Optional, Tuple
 import posggym
 import posggym.agents as pga
 from posggym.agents.registration import PolicySpec
-from posggym.model import AgentID
 
 
 def try_make_policy(
     spec: PolicySpec, render_mode: Optional[str]
-) -> Tuple[Optional[posggym.Env], Optional[Dict[AgentID, pga.Policy]]]:
+) -> Tuple[Optional[posggym.Env], Optional[Dict[str, pga.Policy]]]:
     """Tries to make the policy showing if it is possible."""
     try:
         env_id = "Driving-v0" if spec.env_id is None else spec.env_id

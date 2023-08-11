@@ -1,7 +1,6 @@
 """The Generated Driving Grid World Environment."""
 from typing import Any, Dict, Optional, Set, Tuple, Union
 
-import posggym.model as M
 from posggym.envs.grid_world.core import Coord, GridCycler, GridGenerator
 from posggym.envs.grid_world.driving import DObs, DrivingEnv, DrivingGrid
 
@@ -108,7 +107,7 @@ class DrivingGenEnv(DrivingEnv):
 
     def reset(
         self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
-    ) -> Tuple[Dict[M.AgentID, DObs], Dict[M.AgentID, Dict]]:
+    ) -> Tuple[Dict[str, DObs], Dict[str, Dict]]:
         if seed is not None:
             self._model_seed = seed
             self._gen = DrivingGridGenerator(seed=seed, **self._generator_params)

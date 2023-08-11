@@ -6,8 +6,6 @@ import numpy as np
 
 from posggym.envs.grid_world.core import Coord, Direction, Grid
 from posggym.error import DependencyNotInstalled
-from posggym.model import AgentID
-
 
 ColorTuple = Union[Tuple[int, int, int], Tuple[int, int, int, int]]
 
@@ -32,7 +30,7 @@ AGENT_COLORS = [
 ]
 
 
-def get_agent_color(agent_id: AgentID) -> Tuple[ColorTuple, ColorTuple]:
+def get_agent_color(agent_id: str) -> Tuple[ColorTuple, ColorTuple]:
     """Get color for agent."""
     return AGENT_COLORS[int(agent_id)]
 
@@ -345,11 +343,11 @@ class GWRenderer:
     def render_agents(
         self,
         objects: List[GWObject],
-        agent_coords_and_dirs: Dict[AgentID, Tuple[Coord, Direction]],
+        agent_coords_and_dirs: Dict[str, Tuple[Coord, Direction]],
         agent_obs_dims: Union[int, Tuple[int, int, int, int]],
         observed_coords: Optional[List[Coord]] = None,
         agent_obs_mask: Optional[List[Coord]] = None,
-    ) -> Dict[AgentID, np.ndarray]:
+    ) -> Dict[str, np.ndarray]:
         """Generate environment and agent-centric grid-world renders."""
         if agent_obs_mask is None:
             agent_obs_mask = []
@@ -365,7 +363,7 @@ class GWRenderer:
 
         env_array = np.array(pygame.surfarray.pixels3d(self.window_surface))
 
-        array_dict: Dict[AgentID, np.ndarray] = {}
+        array_dict: Dict[str, np.ndarray] = {}
         for i, (coord, facing_dir) in agent_coords_and_dirs.items():
             # 1. get agent's view of env
             # (min_col, max_col, min_row, max_row) of coords in grid that agent observed
