@@ -20,11 +20,11 @@ class PassiveEnvChecker(posggym.Wrapper):
 
     Arguments
     ---------
-    env :
+    env : posggym.Env
         The environment to apply the wrapper
 
-    Notes
-    -----
+    Note
+    ----
     This implementation is based on the similar Gymnasium wrapper:
     https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/wrappers/env_checker.py
 

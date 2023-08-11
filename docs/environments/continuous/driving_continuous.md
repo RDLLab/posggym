@@ -16,8 +16,8 @@ This environment is part of the <a href='..'>Continuous environments</a>. Please
 |   |   |
 |---|---|
 | Possible Agents | ('0', '1') |
-| Action Spaces | {'0': Box([-0.31415927 -0.25      ], [0.31415927 0.25      ], (2,), float32), '1': Box([-0.31415927 -0.25      ], [0.31415927 0.25      ], (2,), float32)} |
-| Observation Spaces | {'0': Box([ 0.         0.         0.         0.         0.         0.   0.         0.         0.         0.         0.         0.   0.         0.         0.         0.         0.         0.   0.         0.         0.         0.         0.         0.   0.         0.         0.         0.         0.         0.   0.         0.        -6.2831855 -1.        -1.         0.   0.       ], [ 4.         4.         4.         4.         4.         4.   4.         4.         4.         4.         4.         4.   4.         4.         4.         4.         4.         4.   4.         4.         4.         4.         4.         4.   4.         4.         4.         4.         4.         4.   4.         4.         6.2831855  1.         1.        14.  14.       ], (37,), float32), '1': Box([ 0.         0.         0.         0.         0.         0.   0.         0.         0.         0.         0.         0.   0.         0.         0.         0.         0.         0.   0.         0.         0.         0.         0.         0.   0.         0.         0.         0.         0.         0.   0.         0.        -6.2831855 -1.        -1.         0.   0.       ], [ 4.         4.         4.         4.         4.         4.   4.         4.         4.         4.         4.         4.   4.         4.         4.         4.         4.         4.   4.         4.         4.         4.         4.         4.   4.         4.         4.         4.         4.         4.   4.         4.         6.2831855  1.         1.        14.  14.       ], (37,), float32)} |
+| Action Spaces | {'0': Box([-0.7853982 -0.25     ], [0.7853982 0.25     ], (2,), float32), '1': Box([-0.7853982 -0.25     ], [0.7853982 0.25     ], (2,), float32)} |
+| Observation Spaces | {'0': Box([ 0.         0.         0.         0.         0.         0.   0.         0.         0.         0.         0.         0.   0.         0.         0.         0.         0.         0.   0.         0.         0.         0.         0.         0.   0.         0.         0.         0.         0.         0.   0.         0.        -6.2831855 -1.        -1.         0.   0.       ], [ 5.         5.         5.         5.         5.         5.   5.         5.         5.         5.         5.         5.   5.         5.         5.         5.         5.         5.   5.         5.         5.         5.         5.         5.   5.         5.         5.         5.         5.         5.   5.         5.         6.2831855  1.         1.        14.  14.       ], (37,), float32), '1': Box([ 0.         0.         0.         0.         0.         0.   0.         0.         0.         0.         0.         0.   0.         0.         0.         0.         0.         0.   0.         0.         0.         0.         0.         0.   0.         0.         0.         0.         0.         0.   0.         0.        -6.2831855 -1.        -1.         0.   0.       ], [ 5.         5.         5.         5.         5.         5.   5.         5.         5.         5.         5.         5.   5.         5.         5.         5.         5.         5.   5.         5.         5.         5.         5.         5.   5.         5.         5.         5.         5.         5.   5.         5.         6.2831855  1.         1.        14.  14.       ], (37,), float32)} |
 | Symmetric | True |
 | Import | `posggym.make("DrivingContinuous-v0")` |
 
@@ -56,7 +56,7 @@ Action Space
 ------------
 Each agent has 2 actions, which are the angular velocity and linear acceleration.
 Each agent's actions is made up of two parts. The first action component specifies
-the angular velocity in `[-pi/10, pi/10]`, and the second component specifies the
+the angular velocity in `[-pi/4, pi/4]`, and the second component specifies the
 linear acceleration in `[-0.25, 0.25]`.
 
 Observation Space
@@ -107,7 +107,7 @@ facing and it's speed. Vehicles are able to reverse, but cannot change direction
 while reversing.
 
 Max and min velocity are `1.0` and `-1.0`, and max linear acceleration is `0.25`,
-while max angular velocity is `π / 10`.
+while max angular velocity is `π / 4`.
 
 Starting State
 --------------
@@ -132,7 +132,7 @@ Arguments
      (default = `"14x14RoundAbout"`).
 - `num_agents` - the number of agents in the environment (default = `2`).
 - `obs_dist` - the sensor observation distance, specifying the distance away from
-     itself which an agent can observe along each sensor (default = `3`).
+     itself which an agent can observe along each sensor (default = `5.0`).
 - `n_sensors` - the number of sensor lines eminating from the agent. The agent will
      observe at `n_sensors` equidistance intervals over `[0, 2*pi]`
      (default = `16`).

@@ -142,7 +142,7 @@ passed as an argument to `posggym.make`, to create different grids:
 | Grid name         | Max number of agents | Grid size |
 |-------------------|----------------------|---------- |
 | `3x3`             | 2                    | 3x3       |
-| `6x6`             | 6                    | 6x6       |
+| `6x6Intersection` | 4                    | 6x6       |
 | `7x7Blocks`       | 4                    | 7x7       |
 | `7x7CrissCross`   | 6                    | 7x7       |
 | `7x7RoundAbout`   | 4                    | 7x7       |

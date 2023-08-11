@@ -10,13 +10,13 @@ class OrderEnforcing(posggym.Wrapper):
 
     Arguments
     ---------
-    env :
+    env : posggym.Env
         The environment to apply the wrapper
-    disable_render_order_enforcing :
+    disable_render_order_enforcing : bool
         Whether to disable enforcing of reset before render is called or not.
 
-    Notes
-    -----
+    Note
+    ----
     This implementation is based on the similar Gymnasium wrapper:
     https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/wrappers/order_enforcing.py
 

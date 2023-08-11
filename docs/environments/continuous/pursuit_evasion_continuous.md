@@ -16,8 +16,8 @@ This environment is part of the <a href='..'>Continuous environments</a>. Please
 |   |   |
 |---|---|
 | Possible Agents | ('0', '1') |
-| Action Spaces | {'0': Box([-0.31415927  0.        ], [0.31415927 1.        ], (2,), float32), '1': Box([-0.31415927  0.        ], [0.31415927 1.        ], (2,), float32)} |
-| Observation Spaces | {'0': Box(0.0, [12. 12. 12. 12. 12. 12. 12. 12. 12. 12. 12. 12. 12. 12. 12. 12.  1. 16.  16. 16. 16. 16. 16.], (23,), float32), '1': Box(0.0, [12. 12. 12. 12. 12. 12. 12. 12. 12. 12. 12. 12. 12. 12. 12. 12.  1. 16.  16. 16. 16. 16. 16.], (23,), float32)} |
+| Action Spaces | {'0': Box([-0.7853982  0.       ], [0.7853982 1.       ], (2,), float32), '1': Box([-0.7853982  0.       ], [0.7853982 1.       ], (2,), float32)} |
+| Observation Spaces | {'0': Box(0.0, [ 5.3333335  5.3333335  5.3333335  5.3333335  5.3333335  5.3333335   5.3333335  5.3333335  5.3333335  5.3333335  5.3333335  5.3333335   5.3333335  5.3333335  5.3333335  5.3333335  5.3333335  5.3333335   5.3333335  5.3333335  5.3333335  5.3333335  5.3333335  5.3333335   5.3333335  5.3333335  5.3333335  5.3333335  5.3333335  5.3333335   5.3333335  5.3333335  1.        16.        16.        16.  16.        16.        16.       ], (39,), float32), '1': Box(0.0, [ 5.3333335  5.3333335  5.3333335  5.3333335  5.3333335  5.3333335   5.3333335  5.3333335  5.3333335  5.3333335  5.3333335  5.3333335   5.3333335  5.3333335  5.3333335  5.3333335  5.3333335  5.3333335   5.3333335  5.3333335  5.3333335  5.3333335  5.3333335  5.3333335   5.3333335  5.3333335  5.3333335  5.3333335  5.3333335  5.3333335   5.3333335  5.3333335  1.        16.        16.        16.  16.        16.        16.       ], (39,), float32)} |
 | Symmetric | False |
 | Import | `posggym.make("PursuitEvasionContinuous-v0")` |
 
@@ -64,7 +64,7 @@ Both the evader and pursuer state consist of their:
 Action Space
 ------------
 Each agent's actions is made up of two parts. The first action component specifies
-the angular velocity in `[-pi/10, pi/10]`, and the second component specifies the
+the angular velocity in `[-pi/4, pi/4]`, and the second component specifies the
 linear velocity in `[0, 1]`.
 
 Observation Space
@@ -144,13 +144,14 @@ Arguments
      the supported worlds (see SUPPORTED_WORLDS), or a custom :class:`PEWorld`
      object (default = `"16x16"`).
 - `max_obs_distance` - the maximum distance from the agent that each agent's field
-    of vision extends (default = `12`).
+    of vision extends. If `None` then sets this to 1/3 of world size
+    (default = `None`).
 - `fov` - the field of view of the agent in radians. This will determine the
     angle of the cone in front of the agent which it can see. The FOV will be
-    relative to the angle of the agent.
+    relative to the angle of the agent (default = `pi / 3`).
 - `n_sensors` - the number of sensor lines eminating from the agent within their
     FOV. The agent will observe at `n_sensors` equidistance intervals over
-    `[-fov / 2, fov / 2]` (default = `8`).
+    `[-fov / 2, fov / 2]` (default = `16`).
 - `normalize_reward` - whether to normalize both agents' rewards to be between `-1`
     and `1` (default = 'True`)
 - `use_progress_reward` - whether to reward the evader agent for making progress

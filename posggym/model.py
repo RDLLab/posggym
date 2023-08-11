@@ -26,7 +26,7 @@ ObsType = TypeVar("ObsType")
 
 @dataclasses.dataclass(order=True)
 class JointTimestep(Generic[StateType, ObsType]):
-    """Stores values returned by model after a single step.
+    """The result of a single step in the model.
 
     Supports iteration.
 
@@ -79,9 +79,9 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
     - :attr:`is_symmetric` - Whether the environment is symmetric or asymmetric. That is
       whether all agents are identical irrespective of their ID (i.e. same actions,
       observation, and reward spaces and dynamics)
+    - :attr:`rng` - the model's internal random number generator (RNG).
     - :attr:`spec` - An environment spec that contains the information used to
       initialize the environment from :meth:`posggym.make`
-    - :attr:`rng` - the model's internal random number generator (RNG).
 
     Custom models should inherit from this class and implement the
     :meth:`get_agents`, :meth:`sample_initial_state`, :meth:`sample_initial_obs`,
@@ -126,7 +126,7 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
     def get_agents(self, state: StateType) -> List[str]:
         """Get list of IDs for all agents that are active in given state.
 
-        These list of active agents may change depending on state.
+        The list of active agents may change depending on state.
 
         For any environment where the number of agents remains constant during AND
         across episodes. This will be :attr:`possible_agents`, independent of state.
@@ -161,7 +161,7 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
         Returns
         -------
         Dict[str, ObsType]
-          A mapping from str to initial observation.
+          A mapping from agent ID to their initial observation.
 
         """
 
@@ -175,7 +175,8 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
         next state, agent observations, agent rewards, whether the environment has
         terminated or truncated for each agent, whether the environment has reached
         a terminal state for all agents, and information from the environment about the
-        step.
+        step. See :py:class:`posggym.model.JointTimestep` for more details on return
+        values.
 
         For custom environments that have win/loss or success/fail conditions, you are
         encouraged to include this information in the `info` property of the returned
@@ -191,7 +192,7 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
 
         Returns
         -------
-        JointTimestep
+        JointTimestep :
           joint timestep result of performing actions in given state, including next
           state, observations, rewards, terminations, truncations, all done, infos.
 
@@ -202,6 +203,14 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
 
         Also handles seeding for the action, observation, and (if it exists) state
         spaces.
+
+        Arguments
+        ---------
+        seed : int, optional
+          The seed that is used to initialize the models's RNG. If the
+          ``seed=None`` is passed, the RNG will *not* be reset. If you pass an
+          integer, the RNG will be reset even if it already exists. Usually, you want
+          to pass a seed when you first initialize the model.
 
         """
         if isinstance(self.rng, random.Random):
@@ -231,8 +240,9 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
     def sample_agent_initial_state(self, agent_id: str, obs: ObsType) -> StateType:
         """Sample an initial state for an agent given it's initial observation.
 
-        It is optional to implement this method but can helpful in environments that are
-        used for planning and where there are a huge number of possible initial states.
+        It is optional to implement this method but can be helpful in environments that
+        are used for planning and where there are a huge number of possible initial
+        states.
 
         Arguments
         ---------
@@ -288,41 +298,35 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
 
         Returns
         -------
-        rng : model's internal random number generator.
+        random.Random | numpy.random.Generator :
+            the model's internal RNG.
 
         """
 
 
 class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
-    r"""A Fully defined Partially Observable Stochastic Game model.
+    """A fully defined Partially Observable Stochastic Game (POSG) model.
 
     This class inherits from the :py:class:`POSGModel`, adding implementions for all
     individual components of a POSG. It is designed for use by planners which utilize
     all model components (e.g. dynamic programming and full-width planners).
 
-    The additional methods that need to be implemented are:
+    The methods that need to be implemented (in addition to those in the base
+    ``POSGModel`` class) are:
 
-    - :meth:`get_initial_belief` - the initial belief distribution :math:`b_{0}`,
-      mapping initial states to probabilities.
-    - :meth:`transition_fn` - the transition function
-      :math:`T(s, a, s') \rightarrow [0, 1]` defining :math:`Pr(s'|s, a)`, the
-      probability of getting next state `s'` given the environment was in state `s` and
-      joint action `a` was performed.
-    - :meth:`observation_fn` - the observation function
-      :math:`Z(o, s', a) \rightarrow [0, 1]` defining :math:`Pr(o|s', a)`, the
-      probability of joint observation `o` given the joint action `a` was performed and
-      the environment ended up in state `s'`
-    - :meth:`reward_fn` : the reward function
-      :math:`R(s, a) \rightarrow \mathbf{R}^n` where `n` is the number of agents,
-      defines the reward each agent receives given joint action `a` was performed in
-      state `s`.
-
+    - :meth:`get_initial_belief`
+    - :meth:`transition_fn`
+    - :meth:`observation_fn`
+    - :meth:`reward_fn`
 
     """
 
     @abc.abstractmethod
     def get_initial_belief(self) -> Dict[StateType, float]:
-        """The initial belief distribution: :math:`b_{0}`.
+        r"""The initial belief distribution: :math:`b_{0}`.
+
+        The initial belief distribution :math:`b_{0}` maps initial states to
+        probabilities.
 
         Returns
         -------
@@ -337,7 +341,11 @@ class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
     def transition_fn(
         self, state: StateType, actions: Dict[str, ActType], next_state: StateType
     ) -> float:
-        """Transition function :math:`T(s', a, s)`.
+        r"""Transition function :math:`T(s', a, s)`.
+
+        The transition function :math:`T(s, a, s') \rightarrow [0, 1]` defines
+        :math:`Pr(s'|s, a)`, the probability of getting next state `s'` given the
+        environment was in state `s` and joint action `a` was performed.
 
         Arguments
         ---------
@@ -363,7 +371,11 @@ class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
         next_state: StateType,
         actions: Dict[str, ActType],
     ) -> float:
-        """Observation function :math:`Z(o, s', a)`.
+        r"""Observation function :math:`Z(o, s', a)`.
+
+        The observation function :math:`Z(o, s', a) \rightarrow [0, 1]` defines
+        :math:`Pr(o|s', a)`, the probability of joint observation `o` given the joint
+        action `a` was performed and the environment ended up in state `s'`
 
         Arguments
         ---------
@@ -386,7 +398,11 @@ class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
     def reward_fn(
         self, state: StateType, actions: Dict[str, ActType]
     ) -> Dict[str, float]:
-        """The reward Function :math:`R(s, a)`.
+        r"""The reward Function :math:`R(s, a)`.
+
+        The reward function :math:`R(s, a) \rightarrow \mathbf{R}^n` where `n` is the
+        number of agents, defines the reward each agent receives given joint action
+        `a` was performed in state `s`.
 
         Arguments
         ---------
@@ -407,7 +423,7 @@ class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
 class Outcome(enum.Enum):
     """An enum for final episode Outcome of an agent.
 
-    This is supplied for user convenience. For environments where agents can WIN/LOSE,
+    This is supplied for user convenience. For environments where agents can win/lose,
     this class can be used to supply that information to users in a standard format via
     the ``info`` return value of the :meth:`POSGModel.step()` function.
 

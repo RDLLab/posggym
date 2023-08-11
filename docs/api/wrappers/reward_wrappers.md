@@ -1,6 +1,6 @@
 # Reward Wrappers
 
-## Base Class
+## posggym.RewardWrapper
 
 ```{eval-rst}
 .. autoclass:: posggym.RewardWrapper

@@ -10,8 +10,9 @@ wrappers/misc_wrappers
 wrappers/action_wrappers
 wrappers/observation_wrappers
 wrappers/reward_wrappers
+wrappers/petting_zoo
+wrappers/rllib
 ```
-
 
 POSGGym includes a wrapper API (adopted from [Gymnasium](https://gymnasium.farama.org/api/wrappers/)) as well as a collection of common wrappers that provide a convenient way to modify an existing environment without having to alter the underlying code directly. Wrappers can be applied to any `posggym.Env` environment, and can also be chained to combine their effects.
 

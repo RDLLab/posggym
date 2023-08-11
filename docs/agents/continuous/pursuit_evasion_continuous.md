@@ -45,23 +45,6 @@ env = posggym.make(
 | `sp_seed3_i1` | `PursuitEvasionContinuous-v0/world=16x16/sp_seed3_i1-v0` | `['1']` |
 | `sp_seed4_i0` | `PursuitEvasionContinuous-v0/world=16x16/sp_seed4_i0-v0` | `['0']` |
 | `sp_seed4_i1` | `PursuitEvasionContinuous-v0/world=16x16/sp_seed4_i1-v0` | `['1']` |
-## world=32x32-fov=1.57-max_obs_distance=8.0-n_sensors=16
-
-```
-env = posggym.make(
-    "PursuitEvasionContinuous-v0",
-    world="32x32",
-    fov=1.57,
-    max_obs_distance=8.0,
-    n_sensors=16
-)
-```
-
-
-| Policy | ID | Valid Agent IDs |
-|---|---|---|
-| `sp_seed0_i0` | `PursuitEvasionContinuous-v0/world=32x32-fov=1.57-max_obs_distance=8.0-n_sensors=16/sp_seed0_i0-v0` | `['0']` |
-| `sp_seed0_i1` | `PursuitEvasionContinuous-v0/world=32x32-fov=1.57-max_obs_distance=8.0-n_sensors=16/sp_seed0_i1-v0` | `['1']` |
 ## world=8x8
 
 ```

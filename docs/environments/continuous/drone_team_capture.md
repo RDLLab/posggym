@@ -26,8 +26,16 @@ The Drone Team Capture Environment.
 A co-operative 2D continuous world problem involving multiple pursuer drone agents
 working together to catch a target agent in the environment.
 
-This is an adaption of the original code base to allow for partially observable
-environments.
+This is an adaption of the original code base to add partially observability.
+Specifically, it is possible to limit the observation range of the pursuers
+(see `observation_limit` argument) and also how many other pursuers each pursuer
+can observe at a time, i.e.how many in range pursuers each pursuer can communicate
+with (see `n_communicating_pursuers` argument). Furthermore we extent the
+observation space of each agent compared to the original code by making it so each
+pursuer also observes their own (x, y) position.
+
+By default, all pursuers can observe their own angle/yaw and angular velocity,
+as well as the relative position of the target and all other pursuers.
 
 Possible Agents
 ---------------
@@ -50,7 +58,6 @@ The state of each pursuer and the target are a 1D array containing their:
 - velocity in x and y directions
 - angular velocity (in radians)
 
-
 Action Space
 ------------
 Each agent has either 1 or 2 actions. If 'velocity_control=False' then the agent
@@ -62,7 +69,8 @@ Observation Space
 Each agent receives a 1D vector observation containing information about their
 current state as well as some information about the other pursuers and the target.
 
-- *Self obs* - observe angle that pursuer is facing and current angular velocity.
+- *Self obs* - observe angle that pursuer is facing, current angular velocity, and
+    current (x, y) position.
 - *Target obs* - observe the angle and distance to the target (if target is within
     `observation_limit`), as well as rate of change of angle and distance to the
     target.
@@ -80,19 +88,23 @@ This table enumerates the observation space:
 | :-------------------: | :----------------------------------: | :-------: |
 | 0                     | Agent angle                          | [-1, 1[   |
 | 1                     | Agent angular velocity               | [-1, 1]   |
-| 2                     | Angle to target                      | [-1, 1]   |
-| 3                     | Distance to target                   | [-1, 1]   |
-| 4                     | Angular velocity of angle to target  | [-1, 1]   |
-| 5                     | Velocity of distance to target       | [-1, 1]   |
-| 6 to (6 + 2 * n)      | Other pursuer angle and distance     | [-1, 1]   |
+| 2                     | Agent (x, y) position                | [-1, 1]   |
+| 4                     | Angle to target                      | [-1, 1]   |
+| 5                     | Distance to target                   | [-1, 1]   |
+| 6                     | Angular velocity of angle to target  | [-1, 1]   |
+| 7                     | Velocity of distance to target       | [-1, 1]   |
+| 8 to (8 + 2 * n)      | Other pursuer angle and distance     | [-1, 1]   |
 
 Where `n = n_communicating_pursuers`.
 
 Rewards
 -------
-Each pursuer will receive a reward based on the Q parameter and the distance from
+Each pursuer will receive a capture reward and a reward based on their distance from
 the target. On successful capture, the capturing pursuer will receive a reward of
 `+130`, while other agents will receive `100`.
+
+Optionally, the pursuers receive a reward based on the `Q` parameter which measures
+the spread of the pursuers and incentivizes them to spread out around the target.
 
 Dynamics
 --------
@@ -124,23 +136,26 @@ Arguments
 - `num_agents` - The number of agents which exist in the environment
     Must be between 1 and 8 (default = `3`)
 - `n_communicating_pursuers - The maximum number of agents which an
-    agent can receive information from (default = `3`)
+    agent can receive information from. If `None` then this will be set to equal
+    `num_agents - 1` (default = `None`)
+- `arena_radius` - Size of the arena, in terms of it's radius (default = `430`)
+- `observation_limit` - The limit of which agents can see other agents, if `None`
+    then there is no observation limit (default = `None`)
 - `velocity_control` - If the agents have control of their linear velocity
     (default = `False`)
-- `arena_size` - Size of the arena (default = `430`)
-- `observation_limit` - The limit of which agents can see other agents
-    (default = `430`)
 - `capture_radius` - Distance from target pursuer needs to be within to capture
     target. As per original paper, the user can adjust this to set a learning
     curriculum (larger values are easier) (default = `30`, which is the radius of
     the target).
+- `use_q_reward` - Whether the pursuers should also receive the reward based on the
+    `Q` parameter (default = `False`)
 
 
 Available variants
 ------------------
 For example to use the Drone Team Capture environment with 8 pursuer drones, with
 communication between max 4 closest drones and episode step limit of 100, and the
-default values for the other parameters (`velocity_control`, `arena_size`,
+default values for the other parameters (`velocity_control`, `arena_radius`,
 `observation_limit`, `capture_radius`) you would use:
 
 ```python

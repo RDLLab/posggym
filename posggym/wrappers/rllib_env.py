@@ -6,7 +6,6 @@ from gymnasium import spaces
 
 import posggym
 
-
 try:
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -24,13 +23,12 @@ except ImportError:
 class RllibMultiAgentEnv(MultiAgentEnv):
     """An interface between a POSGGym env and a Rllib MultiAgentEnv.
 
-    This involves:
-    - treating agent IDs as strings (instead of ints)
-    - handling case where an individual agent is done in environment before the episode
-      is over
+    Converts a ``posggym.Env`` into a ``ray.rllib.MultiAgentEnv``.
 
-    Ref:
-    https://github.com/ray-project/ray/blob/ray-2.3.0/rllib/env/multi_agent_env.py
+    References
+    ----------
+
+    - https://github.com/ray-project/ray/blob/ray-2.3.0/rllib/env/multi_agent_env.py
 
     """
 

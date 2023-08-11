@@ -15,7 +15,7 @@ This environment is part of the <a href='..'>Continuous environments</a>. Please
 |   |   |
 |---|---|
 | Possible Agents | ('0', '1') |
-| Action Spaces | {'0': Box([-0.31415927  0.        ], [0.31415927 1.        ], (2,), float32), '1': Box([-0.31415927  0.        ], [0.31415927 1.        ], (2,), float32)} |
+| Action Spaces | {'0': Box([-0.7853982  0.       ], [0.7853982 1.       ], (2,), float32), '1': Box([-0.7853982  0.       ], [0.7853982 1.       ], (2,), float32)} |
 | Observation Spaces | {'0': Box(0.0, 4.0, (48,), float32), '1': Box(0.0, 4.0, (48,), float32)} |
 | Symmetric | True |
 | Import | `posggym.make("PredatorPreyContinuous-v0")` |
@@ -97,12 +97,15 @@ their angle and linear velocity.
 
 Prey move according to the following rules (in order of priority):
 
-1. if a predator is within `obs_dist` distance, moves away from closest predator
-2. if another prey is within `obs_dist` distance, moves away from closest prey
+1. if a predator is within `prey_obs_dist` distance then moves away from closest
+    predator
+2. if another prey is within `prey_obs_dist` distance then moves away from closest
+    prey
 3. else move randomly
 
-If a prey is caught it is removed from the world (i.e. it's coords become
-`(-1, -1)`).
+Where `prey_obs_dist = 0.9 * obs_dist`, meaning predators are able to see slightly
+further than prey. If a prey is caught it is removed from the world (i.e. it's
+coords become `(-1, -1)`).
 
 Starting State
 --------------

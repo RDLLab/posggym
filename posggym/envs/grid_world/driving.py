@@ -192,7 +192,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
     | Grid name         | Max number of agents | Grid size |
     |-------------------|----------------------|---------- |
     | `3x3`             | 2                    | 3x3       |
-    | `6x6`             | 6                    | 6x6       |
+    | `6x6Intersection` | 4                    | 6x6       |
     | `7x7Blocks`       | 4                    | 7x7       |
     | `7x7CrissCross`   | 6                    | 7x7       |
     | `7x7RoundAbout`   | 4                    | 7x7       |
@@ -1048,7 +1048,7 @@ SUPPORTED_GRIDS: Dict[str, Dict[str, Any]] = {
     },
     "6x6Intersection": {
         "grid_str": ("##0b##\n" "##..##\n" "d....3\n" "2....c\n" "##..##\n" "##a1##\n"),
-        "supperted_num_agets": 4,
+        "supported_num_agents": 4,
         "max_episode_steps": 20,
     },
     "7x7Blocks": {

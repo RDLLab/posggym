@@ -32,7 +32,7 @@ title: Model
 
 	The Space object corresponding to all valid states. If implemented, all valid states should be contained within this space.
 
-	Note however, implementing state_space attribute is optional as many simulation-based algorithms (including RL and MCTS) don't need it to function and the state space be cumbersome to define. In cases where it is not implemented it should be None.
+	Implementing the ``state_space`` attribute is optional as many simulation-based algorithms (including RL and MCTS) don't require it to function and the state space can be difficult to define for some environments. In cases where it is not implemented it should be ``None``.
 
 .. autoattribute:: posggym.POSGModel.action_spaces
 
@@ -45,9 +45,9 @@ title: Model
 .. autoattribute:: posggym.POSGModel.reward_ranges
 .. autoattribute:: posggym.POSGModel.is_symmetric
 
-	Whether the environment is symmetric or not (is asymmetric).
+    Whether the environment is symmetric or not (is asymmetric).
 
-	An environment is "symmetric" if the ID of an agent in the environment does not affect the agent in anyway (i.e. all agents have the same action and observation spaces, same reward functions, and there are no differences in initial conditions all things considered). Classic examples include Rock-Paper-Scissors, Chess, Poker. In "symmetric" environments the same "policy" should do equally well independent of the ID of the agent the policy is used for.
+    An environment is "symmetric" if the ID of an agent in the environment does not affect the agent in anyway (i.e. all agents have the same action and observation spaces, same reward functions, and there are no differences in initial conditions all things considered). Classic examples include Rock-Paper-Scissors, Chess and Poker. In "symmetric" environments the same "policy" should do equally well independent of the ID of the agent the policy is used for.
 
     If an environment is not "symmetric" then it is "asymmetric", meaning that there are differences in agent properties based on the agent's ID. In "asymmetric" environments there is no guarantee that the same "policy" will work for different agent IDs. Examples include Pursuit-Evasion games, any environments where action and/or observation space differs by agent ID.
 

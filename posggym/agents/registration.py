@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Protocol, Tuple
 import posggym
 from posggym import error, logger
 
-
 if TYPE_CHECKING:
     import posggym.model as M
     from posggym.agents.policy import Policy
@@ -467,21 +466,32 @@ def register(
     nondeterministic: bool = False,
     **kwargs,
 ):
-    """Register a policy with posggym-agents.
+    """Register a policy with posggym.agents.
+
+    The policy is registered in posggym so it can be used with
+    :py:method:`posggym.agents.make`
 
     Arguments
     ---------
-    policy_name: The name of the policy
-    env_id: Optional ID of the posggym environment that the policy is for.
-    version: the policy version
-    env_args: Optional keywords arguments for the environment that the policy is for (if
-        it is a environment specific policy). If None then assumes policy can be used
-        for the environment with any arguments.
-    entry_point: The entry point for creating the policy
-    valid_agent_ids: Optional AgentIDs in environment that policy is compatible with. If
-        None then assumes policy can be used for any agent in the environment.
-    nondeterministic: Whether this policy is non-deterministic even after seeding.
-    kwargs: Additional kwargs, if any, to pass to the agent initializing
+    policy_name: str
+      The name of the policy
+    entry_point: PolicyEntryPoint | str
+      The entry point for creating the policy
+    env_id: str, optional
+      Optional ID of the posggym environment that the policy is for.
+    version: int, optional
+      the policy version
+    env_args: Dict[str, Any], optional
+      Optional keywords arguments for the environment that the policy is for (if
+      it is a environment specific policy). If None then assumes policy can be used
+      for the environment with any arguments.
+    valid_agent_ids: List[str], optional
+      Optional AgentIDs in environment that policy is compatible with. If
+      None then assumes policy can be used for any agent in the environment.
+    nondeterministic: bool
+      Whether this policy is non-deterministic even after seeding.
+    kwargs:
+      Additional kwargs, if any, to pass to the agent initializing
 
     """
     global registry
@@ -521,18 +531,24 @@ def make(id: str | PolicySpec, model: M.POSGModel, agent_id: str, **kwargs) -> P
 
     Arguments
     ---------
-    id: Unique identifier of the policy or a policy spec.
-    model: The model for the environment the policy will be interacting with.
-    agent_id: The ID of the agent the policy will be used for.
-    kwargs: Additional arguments to pass to the policy constructor.
+    id: str
+      Unique identifier of the policy or a policy spec.
+    model: posggym.POSGModel
+      The model for the environment the policy will be interacting with.
+    agent_id: str
+      The ID of the agent the policy will be used for.
+    kwargs:
+      Additional arguments to pass to the policy constructor.
 
     Returns
     -------
-    policy: An instance of the policy.
+    policy: posgym.agents.Policy
+      An instance of the policy.
 
     Raises
     ------
-    Error: If the ``id`` doesn't exist then an error is raised
+    Error:
+      If the ``id`` doesn't exist then an error is raised
 
     """
     if isinstance(id, PolicySpec):

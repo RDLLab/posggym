@@ -16,6 +16,7 @@ title: Env
 .. autofunction:: posggym.Env.step
 .. autofunction:: posggym.Env.reset
 .. autofunction:: posggym.Env.render
+.. autofunction:: posggym.Env.close
 ```
 
 ### Attributes
@@ -23,7 +24,7 @@ title: Env
 ```{eval-rst}
 .. autoattribute:: posggym.Env.model
 
-    The POSG model of the environment (:py:class:`posggym.POSGModel`)
+    The underlying POSG model of the environment (:py:class:`posggym.POSGModel`)
 
 .. autoattribute:: posggym.Env.state
 .. autoattribute:: posggym.Env.possible_agents
@@ -50,7 +51,6 @@ title: Env
 ### Additional Methods
 
 ```{eval-rst}
-.. autofunction:: posggym.Env.close
 .. autoproperty:: posggym.Env.unwrapped
 ```
 

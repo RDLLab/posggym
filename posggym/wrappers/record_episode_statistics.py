@@ -35,13 +35,13 @@ class RecordEpisodeStatistics(posggym.Wrapper):
 
     Arguments
     ---------
-    env :
+    env : posggym.Env
         The environment to apply the wrapper
-    deque_size :
+    deque_size : int
         The size of the buffer for storing the previous episode statistics.
 
-    Notes
-    -----
+    Note
+    ----
     This implementation is based on the similar Gymnasium wrapper:
     https://github.com/Farama-Foundation/Gymnasium/blob/main/gymnasium/wrappers/record_episode_statistics.py
 

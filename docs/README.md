@@ -6,38 +6,50 @@ This folder contains the documentation for POSGGym.
 
 Assuming you have downloaded/cloned the repo and installed POSGGym. First install the required packages for building the documentation:
 
-```
+```bash
 cd docs
 pip install -r requirements.txt
 ```
 
 Then build the documentation once:
 
-```
+```bash
 cd docs
 make dirhtml
 ```
 
 To rebuild the documentation automatically every time a change is made:
 
-```
+```bash
 cd docs
 sphinx-autobuild -b dirhtml . _build
 ```
 
 ## Adding docs for new environment
 
-Firstly generate a GIF for the environment:
+Firstly ensure the docstrings for the environment are up-to-date and contains all the relevant information. If updating an existing environment make sure to update the version history in the docstring.
 
-```
+Then generate a GIF for the environment:
+
+```bash
 cd docs
-python scripts/gen_gifs.py --env_id YourEnvID-v0
+python scripts/gen_gifs.py --env-id YourEnvID-v0
 ```
 
 Next generate markdown file:
 
-```
-python scripts/gen_mds.py
+```bash
+python scripts/gen_env_mds.py
 ```
 
 Next update the relevant environmtn docs file in `docs/environments`, making sure to add the new environment `.md` file to the `{toctree}` and also adding the gif.
+
+## Adding docs for new agents
+
+
+Generate a markdown file for the agent:
+
+```bash
+cd docs
+python scripts/gen_agent_mds.py
+```

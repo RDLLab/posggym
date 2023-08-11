@@ -18,16 +18,16 @@ class RescaleObservations(ObservationWrapper):
 
     Arguments
     ---------
-    env :
+    env : posggym.Env
         The environment to apply the wrapper
-    min_obs :
+    min_obs : float, int, np.ndarray, Dict[str, Union[float, int, np.ndarray]]
         The minimum value for the scaled observations.
-    max_obs :
+    max_obs : float, int, np.ndarray, Dict[str, Union[float, int, np.ndarray]]
         The maximum value for the scaled observations.
 
 
-    Notes
-    -----
+    Note
+    ----
     Explanation of how to scale number from one interval into new interval:
     https://stats.stackexchange.com/questions/281162/scale-a-number-between-a-range
 

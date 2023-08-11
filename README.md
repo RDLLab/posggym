@@ -2,16 +2,17 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 
-
 # POSGGym
 
 POSGGym is an open source Python library providing implementations of Partially Observable Stochastic Game (POSG) environments coupled with dynamic models of each environment, all under a unified API. While there are a number of amazing open-source implementations for POSG environments, very few have support for dynamic models that can be used for planning, especially for continuous domains. The aim of this library is to fill this gap.
 
-Another aim it to provide open-source implementations for many of the environments commonly used in the Partially-Observable multi-agent planning literature. While some open-source implementations exist for some of the common environments, we hope to provide a central repository, with easy to understand and use implementations in order to make reproducibility easier and to aid in faster research.
+A key goal of POSGGym is to provide easy to use and understand open-source implementations for many of the environments commonly used in the partially observable multi-agent planning literature.
 
-Lastly, another key component of multi-agent research are reference agents that can be used to benchmark new algorithms. POSGGym aims to provide a number of reference agents for each environment, including both hand-coded agents and agents trained using reinforcement learning.
+POSGGym also provides a collection of reference agents for it's various environments and a unified Agents API for using these agents. These agents can be used to evaluate algorithms, and includes both hand-coded bots and agents trained using reinforcement learning.
 
-POSGGym is directly inspired by and adapted from the [Gymnasium](https://gymnasium.farama.org/) and [PettingZoo](https://pettingzoo.farama.org/) libraries for reinforcement learning. The key addition in POSGGym is the support for environment models. POSGGym's API aims to stick as close as possible to Gymnasium and PettingZoo Parallel APIs while incorporating models.
+POSGGym is directly inspired by and adapted from the [Gymnasium](https://gymnasium.farama.org/) and [PettingZoo](https://pettingzoo.farama.org/) libraries for reinforcement learning. The key additions in POSGGym are support for environment models which can be used for planning and reference agents. POSGGym's API aims to stay as close to the Gymnasium and PettingZoo Parallel APIs as possible while incorporating models and agents into the mix.
+
+Any POSGGym environment can be converted into a PettingZoo environment using a simple wrapper (`posggym.wrappers.petting_zoo.PettingZoo`). This allows for easy integration with the ecosystem of libraries that support PettingZoo.
 
 
 ## Documentation
@@ -20,17 +21,17 @@ The documentation for the project is available at [posggym.readthedocs.io/](http
 
 ## Installation
 
-We support and test for Python>=3.8.
+POSGGym supports and tests for `Python>=3.8`. We recommend using a virtual environment to install POSGGym (e.g. [conda](https://docs.conda.io/projects/conda/en/latest/index.html), [venv](https://docs.python.org/3/library/venv.html)).
 
 ### Using pip
 
-The latest release version of POSGGym can be installed using `pip`` by running:
+The latest release version of POSGGym can be installed using `pip` by running:
 
-```
+```bash
 pip install posggym
 ```
 
-This will install the base dependencies for running the main environments and download the agent models (so may take a few minutes), but may not include all dependencies for all environments or for rendering some environments, and will not include dependencies for running many posggym agents.
+This will install the base dependencies for running the main environments and download the agent models (so may take a few minutes), but but in order to minimise the number of unused dependencies installed may not include all dependencies for all environments or for rendering some environments, and will not include dependencies for running many posggym agents.
 
 You can install all dependencies for a family of environments like `pip install posggym[grid-world]` and `pip install posggym[continuous]` or dependencies for all environments using `pip install posggym[envs-all]`.
 
@@ -51,6 +52,20 @@ This will install the base dependencies and download the agent models (so may ta
 pip install -e .[all]
 ```
 
+To run tests, install the test dependencies and then run the tests:
+
+```bash
+pip install -e .[test]
+pytest
+```
+
+Or alternatively you can run one of the examples from the `examples` directory:
+
+```bash
+python examples/run_random_agent.py python run_random_agents.py --env_id Driving-v0 --num_episodes 10 --render_mode human
+```
+
+
 ## Environments
 
 POSGGym includes the following families of environments (for a full list of environments and their descriptsion see the [documentation](https://posggym.readthedocs.io/)).
@@ -70,6 +85,7 @@ env = posggym.make("PredatorPrey-v0")
 observations, infos = env.reset(seed=42)
 
 for t in range(100):
+    env.render()
     actions = {i: env.action_spaces[i].sample() for i in env.agents}
     observations, rewards, terminations, truncations, all_done, infos = env.step(actions)
 
@@ -78,7 +94,6 @@ for t in range(100):
 
 env.close()
 ```
-
 
 ## Model API
 

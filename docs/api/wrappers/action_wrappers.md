@@ -1,6 +1,6 @@
 # Action Wrappers
 
-## Base Class
+## posggym.ActionWrapper
 
 ```{eval-rst}
 .. autoclass:: posggym.ActionWrapper

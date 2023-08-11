@@ -19,7 +19,7 @@ Creation of a new environment follows the following high-level steps:
 
 To illustrate the process of implementing a custom environment, we will implement a very simple game ``HurdleRace``. In this environment two agents are racing down a straight path, both agents are in separate tracks, and each track contains hurdles. The first agent to reach the end of their track wins, receiving a reward of `1` while the other agent receives a reward of `-1`. Each agent has two actions: `run` and `jump `. The `run` action moves the agent two cells forward but cannot go over hurdles, while `jump` action moves the agent one cell forward but can go over hurdles. The positions of the hurdles are the same for both agents but are random for each episode. Agents receive a single observation, whether the next cell contains a hurdle or not, so do not receive any information about the other agent or the position of all the hurdles.
 
-The ``HurdleRace`` environment is very simple and really doesn't require any strategy, but will be a nice example for demonstrating how to create a custom environment.
+The ``HurdleRace`` environment is very simple and really doesn't require much strategy, but it will be a nice example for demonstrating how to create a custom environment.
 
 The full code is available at [`posggym/examples/custom_envs/hurdle_race.py`](https://github.com/RDLLab/posggym/blob/main/examples/custom_envs/hurdle_race.py).
 
@@ -53,7 +53,7 @@ import posggym.model as M
 HurdleRaceState = Tuple[int, int, int, int, int]
 
 
-class HurdleRaceModelM.POSGModel[HurdleRaceState, int, int]):
+class HurdleRaceModel(M.POSGModel[HurdleRaceState, int, int]):
     """The model for the HurdleRace environment."""
 
     # environment parameters
@@ -78,7 +78,7 @@ class HurdleRaceModelM.POSGModel[HurdleRaceState, int, int]):
         # Tuple of possible agents in our environment
         self.possible_agents = ('0', '1')
 
-		# The state space is actually optional to define, but can be helpful for some
+        # The state space is actually optional to define, but can be helpful for some
         # algorithms and for debugging.
         # Each state is a tuple containing position of each agent and each hurdle
         # agents can be in position 0, ..., 10 (where 10 is over the finish line)
@@ -91,15 +91,15 @@ class HurdleRaceModelM.POSGModel[HurdleRaceState, int, int]):
         # We create an action space for each agent
         self.action_spaces = {i: spaces.Discrete(2) for i in self.possible_agents}
 
-		# Each agent can observe NOHURDLE=0 or HURDLE=1
+        # Each agent can observe NOHURDLE=0 or HURDLE=1
         self.observation_spaces = {i: spaces.Discrete(2) for i in self.possible_agents}
 
-		# The environment is symmetric since both agents are identical, only differing
+        # The environment is symmetric since both agents are identical, only differing
         # by ID
         self.is_symmetric = True
 
-	@property
-    def reward_ranges(self) -> Dict[M.AgentID, Tuple[float, float]]:
+    @property
+    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
         # This contains the minimum and maximum reward each agent can receive
         return {i: (self.R_LOSS, self.R_WIN) for i in self.possible_agents}
 
@@ -110,8 +110,8 @@ class HurdleRaceModelM.POSGModel[HurdleRaceState, int, int]):
         # library RNG, and the numpy library RNG.
         # You can also use your own, but for most envs the standard library or numpy
         # library will suffice.
-		# If you do use your own, you will also need to overwrite the seed() method.
-		# so the rng is seeded appropriately.
+        # If you do use your own, you will also need to overwrite the seed() method.
+        # so the rng is seeded appropriately.
         if self._rng is None:
             self._rng, seed = seeding.std_random()
         return self._rng
@@ -122,7 +122,7 @@ class HurdleRaceModelM.POSGModel[HurdleRaceState, int, int]):
 Depending on you environment, not all agents may be active at the same time during an episode. For example, an agent may terminate early, or may be added in the middle of an episode. To handle this, the `POSGModel` class defines the `get_agents` which returns the list of IDs of all currently active agents in the environment given the current state. Here we define it for the `HurdleRaceModel`:
 
 ```python
-    def get_agents(self, state: HurdleRaceState) -> List[M.AgentID]:
+    def get_agents(self, state: HurdleRaceState) -> List[str]:
         # This is the list of agents active in a given state
         # For our problem both agents are always active, but for some environments
         # agents may leave or join (e.g. via finishing early) and so the active agents
@@ -148,7 +148,7 @@ In the model we need a way of sampling an initial state, and also initial observ
         # the full state
         return (agent_0_pos, agent_1_pos, hurdle_0_pos, hurdle_1_pos, hurdle_2_pos)
 
-    def sample_initial_obs(self, state: HurdleRaceState) -> Dict[M.AgentID, int]:
+    def sample_initial_obs(self, state: HurdleRaceState) -> Dict[str, int]:
         # we get the initial observation for an agent (before any action is taken)
         # For this environment the observation is independent of action, so this is easy
         # each agent observes whether the next cell contains a hurdle or not
@@ -162,12 +162,12 @@ Perhaps the main method for the model is the `step` method. This takes a state a
 
 ```python
     def step(
-        self, state: HurdleRaceState, actions: Dict[M.AgentID, int]
+        self, state: HurdleRaceState, actions: Dict[str, int]
     ) -> M.JointTimestep[HurdleRaceState, int]:
         # first we get the next state
         next_state = self._get_next_state(state, actions)
 
-		# then the observation given the next state, and joint action
+        # then the observation given the next state, and joint action
         # In this environment the observation only depends on the state, so we ignore
         # the joint action
         obs = self._get_obs(next_state)
@@ -188,12 +188,12 @@ Perhaps the main method for the model is the `step` method. This takes a state a
         # TimeLimit wrapper, if we want there to be a episode step limit
         truncateds = {i: False for i in self.possible_agents}
 
-		# Since all agents are active at all times in our environment, all agents are
+        # Since all agents are active at all times in our environment, all agents are
         # considered done when any agent reaches the end
         all_done = end_reached
 
-		# Lastly we get the auxiliary info
-		infos = self._get_info(next_state)
+        # Lastly we get the auxiliary info
+        infos = self._get_info(next_state)
 
         # Everything is return in a posggym.model.JointTimestep dataclass object
         # this makes it easier to manage return values of the step function
@@ -202,7 +202,7 @@ Perhaps the main method for the model is the `step` method. This takes a state a
         )
 
     def _get_next_state(self,
-        state: HurdleRaceState, actions: Dict[M.AgentID, int]
+        state: HurdleRaceState, actions: Dict[str, int]
     ) -> HurdleRaceState:
         agent_positions = []
         for idx, i in enumerate(self.possible_agents):
@@ -226,11 +226,11 @@ Perhaps the main method for the model is the `step` method. This takes a state a
             agent_positions[0], agent_positions[1], *state[2:]
         )
 
-    def _get_obs(self, state: HurdleRaceState) -> Dict[M.AgentID, int]:
+    def _get_obs(self, state: HurdleRaceState) -> Dict[str, int]:
         # each agent observes whether the next cell contains a hurdle or not
         obs = {}
         for idx, i in enumerate(self.possible_agents):
-            # note the output obs maps agentID to Observation
+            # note the output obs maps agent ID to Observation
             # while the state is tuple, so we uses the agent's idx to get their position
             # from the state
             agent_pos = state[idx]
@@ -238,7 +238,7 @@ Perhaps the main method for the model is the `step` method. This takes a state a
             obs[i] = self.HURDLE if hurdle_present else self.NOHURDLE
         return obs
 
-    def _get_rewards(self, state: HurdleRaceState) -> Dict[M.AgentID, float]:
+    def _get_rewards(self, state: HurdleRaceState) -> Dict[str, float]:
         # agents only receive a reward when at least one agent reaches the end of their
         # track, otherwise the step reward is 0 for both agents
         agent_0_pos, agent_1_pos = state[0], state[1]
@@ -252,10 +252,10 @@ Perhaps the main method for the model is the `step` method. This takes a state a
             agent_0_reward, agent_1_reward = 0, 0
         return {"0": agent_0_reward, "1": agent_1_reward}
 
-    def _get_info(self, state: HurdleRaceState) -> Dict[M.AgentID, Dict]:
+    def _get_info(self, state: HurdleRaceState) -> Dict[str, Dict]:
         # we return the position of the agent each step in the auxiliary information
         # as well as the final outcome
-        infos: Dict[M.AgentID, Dict[str, Any]] = {
+        infos: Dict[str, Dict[str, Any]] = {
             i: {"pos": state[idx]} for idx, i in enumerate(self.possible_agents)
         }
         agent_0_pos, agent_1_pos = state[0], state[1]
@@ -283,7 +283,7 @@ Below is the full implementation of the `HurdleRaceEnv` class. In it we initiali
 class HurdleRaceEnv(posggym.DefaultEnv[HurdleRaceState, int, int]):
     """The HurdleRance environment."""
 
-	# Here we specify the meta-data, this should include as a minimum:
+    # Here we specify the meta-data, this should include as a minimum:
     # 'render_modes' - the render modes supported by the environment
     # 'render_fps' - the render framerate to use
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 1}

@@ -21,11 +21,13 @@ def capped_cubic_video_schedule(episode_id: int) -> bool:
 
     Arguments
     ---------
-    episode_id: The episode number
+    episode_id: int
+      The episode number
 
     Returns
     -------
-    Whether to record episode or not.
+    bool
+      Whether to record episode or not.
 
     """
     if episode_id < 1000:
@@ -39,26 +41,26 @@ class RecordVideo(Wrapper):
 
     Arguments
     ---------
-    env:
+    env: posggym.Env
         The environment that will be wrapped
-    video_folder:
+    video_folder: str
         The folder where the recordings will be stored
-    episode_trigger:
+    episode_trigger: Optional[Callable[[int], bool]]
         Function that accepts an integer and returns ``True`` iff a recording should be
         started at this episode
-    step_trigger:
+    step_trigger: Optional[Callable[[int], bool]]
         Function that accepts an integer and returns ``True`` iff a recording should be
         started at this step
-    video_length:
+    video_length: int
         The length of recorded episodes. If 0, entire episodes are recorded. Otherwise,
         snippets of the specified length are captured
-    name_prefix:
+    name_prefix: str, optional
         Will be prepended to the filename of the recordings
-    disable_logger:
+    disable_logger: bool
         Whether to disable moviepy logger or not.
 
-    Notes
-    -----
+    Note
+    ----
     This implementation is based on the gymnasium.wrappers.RecordVideo (version
     gymnasium 0.27) wrapper, adapted here to work with posggym's multiagent environment:
     https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/wrappers/record_video.py

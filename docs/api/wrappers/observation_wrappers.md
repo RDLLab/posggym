@@ -1,6 +1,6 @@
 # Observation Wrappers
 
-## Base Class
+## posggym.ObservationWrapper
 
 ```{eval-rst}
 .. autoclass:: posggym.ObservationWrapper

@@ -17,12 +17,12 @@ class DiscretizeActions(ActionWrapper):
 
     Arguments
     ---------
-    env :
+    env : posggym.Env
         The environment to apply the wrapper
-    num_actions :
+    num_actions : int
         The number of actions to discretize space into. For multi-dimensional
         continuous spaces each dimension will be discretized into this many actions.
-    flatten :
+    flatten : bool
        Whether to flatten action space into one-dimensional discrete space, or keep
        number of dimensions of the original action space.
 

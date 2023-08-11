@@ -22,3 +22,4 @@ env = posggym.make("DroneTeamCapture-v0")
 | `DTCAngelaniHeuristic` | `DroneTeamCapture-v0/DTCAngelaniHeuristic-v0` | All |
 | `DTCDPPHeuristic` | `DroneTeamCapture-v0/DTCDPPHeuristic-v0` | All |
 | `DTCJanosovHeuristic` | `DroneTeamCapture-v0/DTCJanosovHeuristic-v0` | All |
+| `DTCGreedyHeuristicPolicy` | `DroneTeamCapture-v0/DTCGreedyHeuristicPolicy-v0` | All |

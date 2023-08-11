@@ -14,14 +14,14 @@ class TimeLimit(posggym.Wrapper):
 
     Arguments
     ---------
-    env :
-        The environment to apply the wrapper
-    max_episode_steps :
-        The maximum length of episode before it is truncated. If None then will not
-        truncate episodes.
+    env : posggym.Env
+      The environment to apply the wrapper
+    max_episode_steps : int, optional
+      The maximum length of episode before it is truncated. If None then will not
+      truncate episodes.
 
-    Notes
-    -----
+    Note
+    ----
     This implementation is based on the similar Gymnasium wrapper:
     https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/wrappers/time_limit.py
 

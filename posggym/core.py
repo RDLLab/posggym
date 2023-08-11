@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, Any, Dict, Generic, List, Optional, Tuple, Typ
 
 from posggym.model import ActType, ObsType, POSGModel, StateType
 
-
 if TYPE_CHECKING:
     import numpy as np
     from gymnasium import spaces
@@ -27,7 +26,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
     r"""The main POSGGym class for implementing POSG environments.
 
     The class encapsulates an environment and a POSG model. The environment maintains an
-    internal state and can be interacted with by  multiple agents in parallel through
+    internal state and can be interacted with by multiple agents in parallel through
     the :meth:`step` and :meth:`reset` functions. The POSG model can be accessed via the
     :attr:`model` attribute and exposes the model of the environment which can be used
     for planning or for anything else (see :py:class:`posggym.POSGModel` class for
