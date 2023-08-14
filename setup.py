@@ -8,6 +8,7 @@ import urllib.request
 from setuptools import setup
 from setuptools.command import build_py
 
+
 CWD = pathlib.Path(__file__).absolute().parent
 
 ASSETS_URL = "https://github.com/RDLLab/posggym-agent-models/tarball/refs/tags/v0.4.0"
@@ -27,9 +28,9 @@ def get_version():
 def show_progress(block_num, block_size, total_size):
     downloaded_mb = int(block_num * block_size / 1024 / 1024)
     total_mb = int(total_size / 1024 / 1024)
-    progress = ((block_num * block_size) / total_size) * 100
+    progress = int((block_num * block_size) / total_size) * 100
     print(
-        f"Downloading {progress:.0f}/100 % ({downloaded_mb}/{total_mb} MB)",
+        f"Downloading {progress}/100 % ({downloaded_mb}/{total_mb} MB)",
         end="\r",
     )
 
