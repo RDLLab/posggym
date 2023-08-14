@@ -6,14 +6,20 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "posggym"
-description = "A standard API and diverse set of reference environments for reinforcement learning and planning in Partially Observable Stochastic Games (POSGs)."
+description = "A collection of diverse environments and reference agents for reinforcement learning and planning research in Partially Observable Stochastic Games (POSGs). ."
 readme = "README.md"
 requires-python = ">= 3.8"
 authors = [
 	{ name = "Jonathon Schwartz", email = "jonathon.schwartz@anu.edu.au" },
 ]
 license = { text = "MIT License" }
-keywords = ["Reinforcement Learning", "Planning", "Game", "RL", "AI", "POSG"]
+keywords = [
+	"multiagent-systems",
+	"reinforcement-learning",
+	"planning",
+	"gymnasium",
+	"POSG",
+]
 classifiers = [
 	# change to `5 - Production/Stable` maybe one day
 	"Development Status :: 4 - Beta",
