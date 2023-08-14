@@ -62,7 +62,7 @@ pytest
 Or alternatively you can run one of the examples from the `examples` directory:
 
 ```bash
-python examples/run_random_agent.py python run_random_agents.py --env_id Driving-v0 --num_episodes 10 --render_mode human
+python examples/run_random_agents.py --env_id Driving-v0 --num_episodes 10 --render_mode human
 ```
 
 
