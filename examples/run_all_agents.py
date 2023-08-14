@@ -121,6 +121,9 @@ def run_all_agents(
     render_mode: str = "human",
 ):
     """Run all agents."""
+    if render_mode.lower() == "none":
+        render_mode = None
+
     for policy_spec in pga.registry.values():
         if env_id_prefix is None or policy_spec.id.startswith(env_id_prefix):
             run_policy(policy_spec, num_episodes, seed, render_mode)
@@ -148,7 +151,10 @@ if __name__ == "__main__":
     )
     parser.add_argument("--seed", type=int, default=None, help="Environment seed.")
     parser.add_argument(
-        "--render_mode", type=str, default="human", help="The render mode to use."
+        "--render_mode",
+        type=str,
+        default="human",
+        help="The render mode to use. For no rendering use 'None'.",
     )
     args = parser.parse_args()
     run_all_agents(**vars(args))

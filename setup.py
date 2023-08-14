@@ -10,7 +10,7 @@ from setuptools.command import build_py
 
 CWD = pathlib.Path(__file__).absolute().parent
 
-ASSETS_URL = "https://github.com/RDLLab/posggym-agent-models/tarball/main"
+ASSETS_URL = "https://github.com/RDLLab/posggym-agent-models/tarball/refs/tags/v0.4.0"
 
 
 def get_version():
@@ -22,6 +22,16 @@ def get_version():
         if line.startswith("__version__"):
             return line.strip().split()[-1].strip().strip('"')
     raise RuntimeError("bad version data in __init__.py")
+
+
+def show_progress(block_num, block_size, total_size):
+    downloaded_mb = int(block_num * block_size / 1024 / 1024)
+    total_mb = int(total_size / 1024 / 1024)
+    progress = ((block_num * block_size) / total_size) * 100
+    print(
+        f"Downloading {progress:.0f}/100 % ({downloaded_mb}/{total_mb} MB)",
+        end="\r",
+    )
 
 
 class BuildPy(build_py.build_py):
@@ -42,7 +52,9 @@ class BuildPy(build_py.build_py):
         else:
             os.makedirs(os.path.dirname(tar_file_path), exist_ok=True)
             print("Downloading assets...", flush=True)
-            urllib.request.urlretrieve(ASSETS_URL, filename=tar_file_path)
+            urllib.request.urlretrieve(
+                ASSETS_URL, filename=tar_file_path, reporthook=show_progress
+            )
             print(f"Downloaded assets to {tar_file_path}", flush=True)
 
         root_dir = os.path.join(self.get_package_dir(""), "posggym")
