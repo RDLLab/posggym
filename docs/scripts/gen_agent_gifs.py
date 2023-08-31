@@ -7,14 +7,17 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/docs/scripts/gen_gif
 import os
 import os.path as osp
 import re
-import argparse
 from pprint import pprint
 from typing import List, Dict, Any
+from typing_extensions import Annotated
 
+import typer
 from PIL import Image
 
 import posggym
 import posggym.agents as pga
+
+app = typer.Typer()
 
 DOCS_DIR = osp.abspath(osp.join(osp.dirname(osp.abspath(__file__)), os.pardir))
 
@@ -25,13 +28,33 @@ pattern = re.compile(r"(?<!^)(?=[A-Z])")
 HEIGHT = 256
 
 
+@app.command()
 def gen_gif(
-    env_id: str,
-    policy_ids: List[str],
-    ignore_existing: bool = False,
-    length: int = 300,
-    custom_env: bool = False,
-    resize: bool = False,
+    env_id: Annotated[
+        str,
+        typer.Option(
+            help="ID of environment to run, if None then runs all registered envs."
+        ),
+    ],
+    policy_ids: Annotated[
+        List[str],
+        typer.Option(
+            "--policy_ids",
+            "-pids",
+            help=(
+                "List of IDs of policies to compare, one for each agent. Policy IDs"
+                "should be provided in order of env.possible_agents (i.e. the first"
+                "policy ID will be assigned to the 0-index policy in"
+                "env.possible_agent, etc.)."
+            ),
+        ),
+    ],
+    ignore_existing: Annotated[
+        bool, typer.Option(help="Overwrite existing GIF if it exists.")
+    ] = False,
+    length: Annotated[int, typer.Option(help="Number of frames for the GIF.")] = 300,
+    custom_env: Annotated[bool, typer.Option()] = False,
+    resize: Annotated[bool, typer.Option()] = False,
 ):
     """Gen gif for env."""
     print(f"\n{env_id=}")
@@ -140,33 +163,4 @@ def gen_gif(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    parser.add_argument(
-        "--env_id",
-        type=str,
-        help="ID of environment to run, if None then runs all registered envs.",
-    )
-    parser.add_argument(
-        "-pids",
-        "--policy_ids",
-        type=str,
-        nargs="+",
-        help=(
-            "List of IDs of policies to compare, one for each agent. Policy IDs should "
-            "be provided in order of env.possible_agents (i.e. the first policy ID "
-            "will be assigned to the 0-index policy in env.possible_agent, etc.)."
-        ),
-    )
-    parser.add_argument(
-        "--ignore-existing",
-        action="store_true",
-        help="Overwrite existing GIF if it exists.",
-    )
-    parser.add_argument(
-        "--length", type=int, help="Number of frames for the GIF.", default=300
-    )
-    args = parser.parse_args()
-
-    gen_gif(args.env_id, args.policy_ids, args.ignore_existing, args.length)
+    app()
