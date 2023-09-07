@@ -15,18 +15,31 @@ Example, to record 10 episodes of the `Driving-v0` environment run,
         --env_id Driving-v0 \
         --num_episodes 10
 """
-import argparse
 import os.path as osp
 from typing import Dict, List, Optional
+from typing_extensions import Annotated
 
+import typer
 import posggym
 
+app = typer.Typer()
 
+
+@app.command()
 def record_env(
-    env_id: str,
-    num_episodes: int,
-    max_episode_steps: Optional[int] = None,
-    seed: Optional[int] = None,
+    env_id: Annotated[
+        str,
+        typer.Option(
+            help="ID of environment to run, if None then runs all registered envs."
+        ),
+    ],
+    num_episodes: Annotated[
+        int, typer.Option(help="The number of episodes to run.")
+    ] = 1,
+    max_episode_steps: Annotated[
+        Optional[int], typer.Option(help="Max number of steps to run each episode for.")
+    ] = None,
+    seed: Annotated[Optional[int], typer.Option(help="Random Seed")] = None,
 ):
     """Run random agents."""
     if max_episode_steps is not None:
@@ -84,22 +97,4 @@ def record_env(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    parser.add_argument("--env_id", type=str, help="ID of environment to run")
-    parser.add_argument(
-        "--num_episodes",
-        type=int,
-        default=1,
-        help="The number of episodes to run.",
-    )
-    parser.add_argument(
-        "--max_episode_steps",
-        type=int,
-        default=None,
-        help="Max number of steps to run each episode for.",
-    )
-    parser.add_argument("--seed", type=int, default=None, help="Random Seed.")
-    args = parser.parse_args()
-    record_env(**vars(args))
+    app()
