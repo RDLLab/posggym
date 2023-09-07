@@ -5,11 +5,14 @@ To see options and usage:
     python test_env.py --help
 
 """
-import argparse
 import time
 from typing import Optional
+from typing_extensions import Annotated
 
+import typer
 import posggym
+
+app = typer.Typer()
 
 
 def time_env_step_rate(
@@ -48,40 +51,40 @@ def time_env_step_rate(
     return num_steps / time_elapsed
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    parser.add_argument(
-        "--env_id",
-        type=str,
-        default=None,
-        help="ID of environment to test. If none will run all registered environments.",
-    )
-    parser.add_argument(
-        "--num_steps", type=int, default=10000, help="The number of steps to test for."
-    )
-    parser.add_argument("--seed", type=int, default=None, help="Random Seed.")
-    parser.add_argument(
-        "--render_mode",
-        type=str,
-        default=None,
-        help="Mode to use for rendering. If None then doesn't render environment.",
-    )
-    args = parser.parse_args()
-
-    env_ids = list(posggym.registry) if args.env_id is None else [args.env_id]
+@app.command()
+def main(
+    env_id: Annotated[
+        Optional[str],
+        typer.Option(
+            help=(
+                "ID of environment to test. If none will run all registered"
+                "environments."
+            )
+        ),
+    ] = None,
+    num_steps: Annotated[
+        int, typer.Option(help="The number of steps to test for.")
+    ] = 1000,
+    seed: Annotated[Optional[int], typer.Option(help="Random Seed.")] = None,
+    render_mode: Annotated[
+        Optional[str],
+        typer.Option(
+            help="Mode to use for rendering. If None then doesn't render environment."
+        ),
+    ] = None,
+):
+    env_ids = list(posggym.registry) if env_id is None else [env_id]
 
     results = {}
     for env_id in env_ids:
-        print(f"Timing {env_id} environment for {args.num_steps} steps.")
+        print(f"Timing {env_id} environment for {num_steps} steps.")
         step_rate = time_env_step_rate(
             env_id=env_id,
-            num_steps=args.num_steps,
-            seed=args.seed,
-            render_mode=args.render_mode,
+            num_steps=num_steps,
+            seed=seed,
+            render_mode=render_mode,
         )
-        print(f"Step rate for '{args.env_id}' = {step_rate:.4f} steps per second")
+        print(f"Step rate for '{env_id}' = {step_rate:.4f} steps per second")
         results[env_id] = step_rate
 
     max_env_id_len = max(len(env_id) for env_id in results)
@@ -91,3 +94,7 @@ if __name__ == "__main__":
     print(f"| {'-' * max_env_id_len} | {'-' * col2_width} |")
     for env_id, step_rate in results.items():
         print(f"| {env_id:<{max_env_id_len}} | {step_rate:<{col2_width}.2f} |")
+
+
+if __name__ == "__main__":
+    app

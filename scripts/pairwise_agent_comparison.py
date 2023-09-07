@@ -15,15 +15,18 @@ instead of OMP.
 """
 from __future__ import annotations
 
-import argparse
 import csv
 import multiprocessing as mp
 import os
 from datetime import datetime
 from itertools import product
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing_extensions import Annotated
 
 import numpy as np
+import typer
 
 import posggym
 import posggym.agents as pga
@@ -37,6 +40,8 @@ POLICIES_TO_SKIP = [
 
 global lock
 lock = None
+
+app = typer.Typer()
 
 
 def _init_pool_processes(write_lock: mp.Lock):
@@ -267,14 +272,51 @@ def get_env_pairwise_comparisons(
     return all_pairwise_comparisons
 
 
-def main(args):  # noqa
+@app.command()
+def main(
+    env_id: Annotated[
+        str,
+        typer.Option(
+            help=(
+                "ID of the environment to run for. If None we will run for all "
+                "environments that have a registered policy attached."
+            )
+        ),
+    ] = None,
+    env_args_id: Annotated[
+        str,
+        typer.Option(
+            help=(
+                "ID of the environment arguments. If None will run a pairwise"
+                "comparison for all arguments which have a registered policy"
+                " attached. Only used if --env_id is not None."
+            )
+        ),
+    ] = None,
+    num_episodes: Annotated[int, typer.Option()] = 1000,
+    seed: Annotated[
+        Optional[int], typer.Option(help="Number of episodes to run per trial.")
+    ] = None,
+    output_dir: Annotated[
+        Optional[str], typer.Option(help="Directory to save results files too.")
+    ] = None,
+    n_procs: Annotated[
+        Optional[int],
+        typer.Option(
+            help=(
+                "Number of runs to do in parallel. If None then will use all available "
+                "CPUS on machine."
+            )
+        ),
+    ] = None,
+):  # noqa
     """Run the script."""
-    if args.env_id is None:
+    if env_id is None:
         env_ids = list(pga.get_all_envs())
         env_args_id = None
     else:
-        env_ids = [args.env_id]
-        env_args_id = args.env_args_id
+        env_ids = [env_id]
+        env_args_id = env_args_id
 
     all_pairwise_comparisons = []
     for env_id in env_ids:
@@ -282,12 +324,12 @@ def main(args):  # noqa
             get_env_pairwise_comparisons(
                 env_id,
                 env_args_id,
-                output_dir=args.output_dir,
-                num_episodes=args.num_episodes,
-                seed=args.seed,
+                output_dir=output_dir,
+                num_episodes=num_episodes,
+                seed=seed,
             )
         )
-    n_procs = args.n_procs
+    n_procs = n_procs
     print(
         f"Running total of {len(all_pairwise_comparisons)} comparisons using {n_procs} "
         "processes."
@@ -302,48 +344,4 @@ def main(args):  # noqa
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    parser.add_argument(
-        "--env_id",
-        type=str,
-        default=None,
-        help=(
-            "ID of the environment to run for. If None we will run for all "
-            "environments that have a registered policy attached."
-        ),
-    )
-    parser.add_argument(
-        "--env_args_id",
-        type=str,
-        default=None,
-        help=(
-            "ID of the environment arguments. If None will run a pairwise comparison "
-            "for all arguments which have a registered policy attached. Only used if "
-            "--env_id is not None."
-        ),
-    )
-    parser.add_argument(
-        "--num_episodes",
-        type=int,
-        default=1000,
-        help="Number of episodes to run per trial.",
-    )
-    parser.add_argument("--seed", type=int, default=0, help="Seed to use.")
-    parser.add_argument(
-        "--output_dir",
-        type=str,
-        default=None,
-        help="Directory to save results files too.",
-    )
-    parser.add_argument(
-        "--n_procs",
-        type=int,
-        default=None,
-        help=(
-            "Number of runs to do in parallel. If None then will use all available "
-            "CPUS on machine."
-        ),
-    )
-    main(parser.parse_args())
+    app()

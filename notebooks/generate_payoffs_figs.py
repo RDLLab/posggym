@@ -1,18 +1,23 @@
 """Script for generating pairwise payoff figures from results."""
 from __future__ import annotations
 
-import argparse
 import os
 import os.path as osp
 import sys
 from datetime import datetime
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing_extensions import Annotated
 
 from posggym.config import BASE_RESULTS_DIR, REPO_DIR
+import typer
 
 sys.path.append(osp.join(REPO_DIR, "notebooks"))
 import plot_utils  # noqa: E402
 
 results_dir = osp.join(REPO_DIR, "notebooks", "results", "pairwise_agent_comparison")
+app = typer.Typer()
 
 
 def generate_fig(
@@ -76,7 +81,13 @@ def generate_fig(
             )
 
 
-def main(env_id: str | None, output_dir: str | None = None):
+@app.command()
+def main(
+    env_id: Annotated[Optional[str], typer.Option(help="ID of the environment.")],
+    output_dir: Annotated[
+        Optional[str], typer.Option(help="Path to directory to save figures.")
+    ] = None,
+):
     available_env_result_dirs = os.listdir(results_dir)
     available_env_result_dirs.sort()
 
@@ -124,21 +135,4 @@ def main(env_id: str | None, output_dir: str | None = None):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Generate pairwise payoff figures from results.",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument(
-        "--env_id",
-        type=str,
-        default=None,
-        help="ID of the environment.",
-    )
-    parser.add_argument(
-        "--output_dir",
-        type=str,
-        default=None,
-        help="Path to directory to save figures.",
-    )
-    main(**vars(parser.parse_args()))
-    main(**vars(parser.parse_args()))
+    app()

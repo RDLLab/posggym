@@ -1,14 +1,17 @@
 """Script for doing balance testing on the pursuit evasion environment."""
 import sys
-from argparse import ArgumentParser
 from itertools import product
 from typing import Dict, List, Optional, Tuple, cast
+from typing_extensions import Annotated
 
 import numpy as np
+import typer
+
 import posggym
 import pygame
 from posggym.envs.continuous.pursuit_evasion_continuous import PEWorld
 
+app = typer.Typer()
 
 key_action_map = {
     None: 0,
@@ -79,9 +82,12 @@ def run_keyboard_agent(
     return rewards, t
 
 
+@app.command()
 def run_world_balancing(
-    world_name: str,
-    num_episodes_per_world: int,
+    world_name: Annotated[str, typer.Option(help="World to run balancing test on.")],
+    num_episodes_per_world: Annotated[
+        int, typer.Option(help="Number of episodes to run per world.")
+    ] = 4,
 ) -> None:
     """Run world balancing test on pursuit evasion environment."""
     original_env = posggym.make(
@@ -142,17 +148,4 @@ def run_world_balancing(
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser()
-    parser.add_argument(
-        "--world",
-        type=str,
-        help="World to run balancing test on.",
-    )
-    parser.add_argument(
-        "--num_episodes_per_world",
-        type=int,
-        default=4,
-        help="Number of episodes to run per world.",
-    )
-    args = parser.parse_args()
-    run_world_balancing(args.world, args.num_episodes_per_world)
+    app()
