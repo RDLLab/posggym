@@ -13,19 +13,39 @@ and with `human` rendering mode, run:
         --render_mode human
 
 """
-import argparse
 from typing import Dict, List, Optional
+from typing_extensions import Annotated
 
 import posggym
 import posggym.agents as pga
+import typer
+
+app = typer.Typer()
 
 
+@app.command()
 def run_agents(
-    env_id: str,
-    policy_ids: List[str],
-    num_episodes: int,
-    seed: Optional[int] = None,
-    render_mode: Optional[str] = "human",
+    env_id: Annotated[
+        str, typer.Option(help="ID of the environment to run experiment in.")
+    ],
+    policy_ids: Annotated[
+        List[str],
+        typer.Option(
+            help=(
+                "List of IDs of policies to compare, one for each agent. Policy IDs"
+                "should be provided in order of env.possible_agents (i.e. the first"
+                "policy ID will be assigned to the 0-index policy in env.possible_agent"
+                ", etc.)."
+            )
+        ),
+    ],
+    num_episodes: Annotated[
+        int, typer.Option(help="Number of episodes per experiment.")
+    ] = 10,
+    seed: Annotated[Optional[int], typer.Option(help="Environment seed.")] = None,
+    render_mode: Annotated[
+        Optional[str], typer.Option(help="The render mode to use.")
+    ] = "human",
 ):
     """Run agents."""
     print("\n== Running Agents ==")
@@ -101,32 +121,4 @@ def run_agents(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    parser.add_argument(
-        "--env_id", type=str, help="ID of the environment to run experiment in."
-    )
-    parser.add_argument(
-        "-pids",
-        "--policy_ids",
-        type=str,
-        nargs="+",
-        help=(
-            "List of IDs of policies to compare, one for each agent. Policy IDs should "
-            "be provided in order of env.possible_agents (i.e. the first policy ID "
-            "will be assigned to the 0-index policy in env.possible_agent, etc.)."
-        ),
-    )
-    parser.add_argument(
-        "--num_episodes",
-        type=int,
-        default=10,
-        help="Number of episodes per experiment.",
-    )
-    parser.add_argument("--seed", type=int, default=None, help="Environment seed.")
-    parser.add_argument(
-        "--render_mode", type=str, default=None, help="The render mode to use."
-    )
-    args = parser.parse_args()
-    run_agents(**vars(args))
+    app()
