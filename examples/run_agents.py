@@ -105,12 +105,16 @@ if __name__ == "__main__":
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument(
-        "--env_id", type=str, help="ID of the environment to run experiment in."
+        "--env_id",
+        type=str,
+        required=True,
+        help="ID of the environment to run experiment in.",
     )
     parser.add_argument(
         "-pids",
         "--policy_ids",
         type=str,
+        required=True,
         nargs="+",
         help=(
             "List of IDs of policies to compare, one for each agent. Policy IDs should "
