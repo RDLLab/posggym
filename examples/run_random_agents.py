@@ -46,20 +46,17 @@ def run_random_agent(
         t = 0
         done = False
         rewards = {i: 0.0 for i in env.possible_agents}
-        while max_episode_steps is None or t < max_episode_steps:
+        while not done and (max_episode_steps is None or t < max_episode_steps):
             a = {i: env.action_spaces[i].sample() for i in env.agents}
             _, r, _, _, done, _ = env.step(a)
             t += 1
 
             env.render()
 
-            if done:
-                print(f"End episode {ep_num}")
-                break
-
             for i, r_i in r.items():
-                rewards[i] += r_i  # type: ignore
+                rewards[i] += r_i
 
+        print(f"End episode {ep_num}")
         dones += int(done)
         episode_steps.append(t)
 
@@ -68,10 +65,15 @@ def run_random_agent(
         for i, r_i in rewards.items():
             episode_rewards[i].append(r_i)
 
+        if done:
+            print(t, rewards)
+
     env.close()
 
     print("All episodes finished")
-    print(f"Episodes ending with 'done=True' = {dones} out of {num_episodes}")
+    print(
+        f"Completed episodes (i.e. where 'done=True') = {dones} out of {num_episodes}"
+    )
     mean_steps = sum(episode_steps) / len(episode_steps)
     print(f"Mean episode steps = {mean_steps:.2f}")
     mean_returns = {i: sum(r) / len(r) for i, r in episode_rewards.items()}

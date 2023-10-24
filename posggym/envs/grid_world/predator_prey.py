@@ -125,8 +125,8 @@ class PredatorPreyEnv(DefaultEnv[PPState, PPObs, PPAction]):
     ---------
 
     - `grid` - the grid layout to use. This can either be a string specifying one of
-         the supported grids, or a custom :class:`PredatorPreyGrid` object
-         (default = `"10x10"`).
+        the supported grids, or a custom :class:`PredatorPreyGrid` object
+        (default = `"10x10"`).
     - `num_predators` - the number of predator (and thus controlled agents)
         (default = `2`).
     - `num_prey` - the number of prey (default = `3`)
@@ -141,7 +141,6 @@ class PredatorPreyEnv(DefaultEnv[PPState, PPObs, PPAction]):
 
     Available variants
     ------------------
-
     The PredatorPrey environment comes with a number of pre-built grid layouts which can
     be passed as an argument to `posggym.make`, to create different grids. All layouts
     support 2 to 8 agents.
@@ -418,7 +417,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
     @property
     def rng(self) -> seeding.RNG:
         if self._rng is None:
-            self._rng, seed = seeding.std_random()
+            self._rng, _ = seeding.std_random()
         return self._rng
 
     def get_agents(self, state: PPState) -> List[str]:
@@ -780,11 +779,11 @@ class PredatorPreyGrid(Grid):
         # predators start in corners or half-way along a side
         if predator_start_coords is None:
             predator_start_coords = [
-                c  # type: ignore
+                c
                 for c in product([0, grid_size // 2, grid_size - 1], repeat=2)
                 if c[0] in (0, grid_size - 1) or c[1] in (0, grid_size - 1)
             ]
-        self.predator_start_coords = predator_start_coords
+        self.predator_start_coords: List[Coord] = predator_start_coords
         self.prey_start_coords = prey_start_coords
 
     def get_ascii_repr(
