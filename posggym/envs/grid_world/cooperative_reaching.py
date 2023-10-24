@@ -528,4 +528,3 @@ def equid_points_line(n_points: int, grid_size: int) -> List[Tuple[int, int]]:
     dr = grid_size / n_points
     points = [(col, int(0.5 * dr + i * dr)) for i in range(n_points)]
     return points
-    return points

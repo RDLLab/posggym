@@ -20,6 +20,7 @@ from posggym.agents.continuous import (
     predator_prey_continuous,
 )
 from posggym.agents.grid_world import (
+    cooperative_reaching,
     driving,
     level_based_foraging,
     predator_prey,
@@ -85,6 +86,9 @@ for policy_spec in pursuit_evasion_continuous.policy_specs.values():
 
 # Grid World
 # ----------
+# Cooperative Reaching
+for policy_spec in cooperative_reaching.policy_specs.values():
+    register_spec(policy_spec)
 
 # Driving
 for policy_spec in driving.policy_specs.values():
