@@ -8,7 +8,6 @@ import math
 
 from posggym.envs.registration import make, pprint_registry, register, registry, spec
 
-
 # Classic
 # -------------------------------------------
 
@@ -85,6 +84,20 @@ register(
 
 # Grid World
 # -------------------------------------------
+
+# Cooperative Reaching
+register(
+    id="CooperativeReaching-v0",
+    entry_point="posggym.envs.grid_world.cooperative_reaching:CooperativeReachingEnv",
+    max_episode_steps=50,
+    kwargs={
+        "size": 5,
+        "num_goals": 4,
+        "mode": "original",
+        "obs_distance": None,
+    },
+)
+
 
 # Driving
 register(

@@ -8,6 +8,7 @@ lastpage:
 ```{toctree}
 :hidden:
 
+grid_world/cooperative_reaching.md
 grid_world/driving.md
 grid_world/driving_gen.md
 grid_world/level_based_foraging.md
@@ -17,6 +18,15 @@ grid_world/two_paths.md
 grid_world/u_a_v.md
 
 ```
+
+```{figure} ../_static/videos/grid_world/cooperative_reaching.gif
+   :alt: Cooperative Reaching
+   :width: 30%
+   :align: center
+
+   [Cooperative Reaching](grid_world/cooperative_reaching)
+```
+
 
 ```{figure} ../_static/videos/grid_world/driving.gif
    :alt: Driving
