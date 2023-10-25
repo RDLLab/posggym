@@ -89,8 +89,8 @@ def run_policy(
     assert env is not None
 
     env.reset(seed=seed)
-    for pi in policies.values():
-        pi.reset(seed=seed)
+    for i, pi in enumerate(policies.values()):
+        pi.reset(seed=seed if seed is None else seed + i)
 
     for _ in range(num_episodes):
         obs, _ = env.reset()

@@ -32,7 +32,7 @@ AGENT_COLORS = [
 
 def get_agent_color(agent_id: str) -> Tuple[ColorTuple, ColorTuple]:
     """Get color for agent."""
-    return AGENT_COLORS[int(agent_id)]
+    return AGENT_COLORS[int(agent_id) % len(AGENT_COLORS)]
 
 
 def get_color(color_name: str) -> ColorTuple:
@@ -47,7 +47,7 @@ def load_img_file(img_path: str, cell_size: Tuple[int, int]):
 
 def get_default_font_size(cell_size: Tuple[int, int]) -> int:
     """Get the default font size based on cell size."""
-    return cell_size[1] // 4
+    return cell_size[1] // 2
 
 
 def load_font(font_name: str, font_size: int) -> pygame.font.Font:

@@ -88,15 +88,17 @@ class CRHeuristicPolicy(Policy[CRAction, CRObs]):
     def _move_towards(self, target_pos: Coord, agent_pos: Coord) -> List[CRAction]:
         """Get list of actions that move towards target_pos from agent_pos."""
         valid_actions = []
-        if target_pos[0] < agent_pos[0]:
-            valid_actions.append(LEFT)
-        elif target_pos[1] < agent_pos[1]:
+        if target_pos[1] < agent_pos[1]:
             valid_actions.append(UP)
-        elif target_pos[0] > agent_pos[0]:
-            valid_actions.append(RIGHT)
         elif target_pos[1] > agent_pos[1]:
             valid_actions.append(DOWN)
-        else:
+
+        if target_pos[0] < agent_pos[0]:
+            valid_actions.append(LEFT)
+        elif target_pos[0] > agent_pos[0]:
+            valid_actions.append(RIGHT)
+
+        if not valid_actions:
             valid_actions.append(DO_NOTHING)
         return valid_actions
 

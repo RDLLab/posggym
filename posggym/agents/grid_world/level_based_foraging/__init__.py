@@ -1,14 +1,21 @@
 """Policies for the LevelBasedForaging-v2 environment."""
-import posggym.agents.grid_world.level_based_foraging.heuristic as heuristic_agent
+from posggym.agents.grid_world.level_based_foraging import heuristic
 from posggym.agents.registration import PolicySpec
 
 policy_specs = {}
 for i, policy_class in enumerate(
     [
-        heuristic_agent.LBFHeuristicPolicy1,
-        heuristic_agent.LBFHeuristicPolicy2,
-        heuristic_agent.LBFHeuristicPolicy3,
-        heuristic_agent.LBFHeuristicPolicy4,
+        heuristic.LBFHeuristicPolicy1,
+        heuristic.LBFHeuristicPolicy2,
+        heuristic.LBFHeuristicPolicy3,
+        heuristic.LBFHeuristicPolicy4,
+        heuristic.LBFHeuristicPolicy5,
+        heuristic.LBFHeuristicPolicy6,
+        heuristic.LBFHeuristicPolicy7,
+        heuristic.LBFHeuristicPolicy8,
+        heuristic.LBFHeuristicPolicy9,
+        heuristic.LBFHeuristicPolicy10,
+        heuristic.LBFHeuristicPolicy11,
     ]
 ):
     policy_spec = PolicySpec(
