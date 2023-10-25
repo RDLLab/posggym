@@ -13,8 +13,9 @@ This release adds some more environments and agents, fixes some bugs, and tweaks
 
 Major changes include:
 
-- Added the `CooperativeReaching-v0` grid-world environment
+- Added the `CooperativeReaching-v0` grid-world environment along with heuristic policies
 - Added release notes section to the docs
+- Updated and added more heuristic policies for `LevelBasedForaging-v2` grid-world environment
 
 ---
 
