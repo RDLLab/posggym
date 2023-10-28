@@ -8,11 +8,11 @@ https://github.com/Farama-Foundation/Gymnasium/blob/main/gymnasium/vector/sync_v
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Dict, Iterable, Callable, Any, List, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Tuple
 
 import numpy as np
+from gymnasium.vector.utils import concatenate, create_empty_array
 from gymnasium.vector.utils.spaces import batch_space
-from gymnasium.vector.utils import create_empty_array, concatenate
 
 import posggym
 
@@ -20,7 +20,7 @@ import posggym
 class SyncVectorEnv(posggym.Env):
     """Vectorized environment that serially runs multiple environments.
 
-    A vectorized environment runs multiple independent copiries of the same environment.
+    A vectorized environment runs multiple independent copies of the same environment.
 
     This implementation is based on the Gymnasium Vectorized Environments:
     https://github.com/Farama-Foundation/Gymnasium/blob/main/gymnasium/vector/vector_env.py
@@ -122,13 +122,43 @@ class SyncVectorEnv(posggym.Env):
     def step(self, actions):
         """Take a step in all environments with the given actions.
 
+        If any environment is done, then it is reset before taking the next step. The
+        final observation and info of the previous environment is stored in the info
+        dictionary under the keys ``final_observation`` and ``final_info``.
+
+
         Arguments
         ---------
-        actions: dict mapping agent ID to batch of actions for that agent, with one
-            action for each environment.
+        actions:
+            dict mapping agent ID to batch of actions for that agent, with one action
+            for each environment. So should be a dict of arrays or lists, with each
+            array/list having length equal to the number of environments.
 
         Returns
         -------
+        observations:
+            dict mapping agent ID to batch of observations for that agent, with one
+            observation for each environment. Each array having shape
+            ``(num_envs,) + observation_space.shape``.
+        rewards:
+            dict mapping agent ID to batch of rewards for that agent, with one reward
+            for each environment. Each entry is an array with  shape ``(num_envs,)``.
+        terminateds:
+            dict mapping agent ID to batch of termination signals for that agent, with
+            one termination signal for each environment. Each entry is an array with
+            shape ``(num_envs,)``.
+        truncateds:
+            dict mapping agent ID to batch of truncation signals for that agent, with
+            one truncation signal for each environment. Each entry is an array with
+            shape ``(num_envs,)``.
+        all_dones:
+            array of booleans, with one entry for each environment, indicating whether
+            the environment is done. Shape is ``(num_envs,)``.
+        infos:
+            dict mapping agent ID to batch of info objects for that agent, with one
+            info object for each environment. Each entry is a dict with one entry for
+
+
         The batched environment step results.
 
         """

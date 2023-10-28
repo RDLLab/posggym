@@ -6,7 +6,6 @@ https://github.com/Farama-Foundation/Gymnasium/blob/main/gymnasium/wrappers/reco
 """
 import time
 from collections import deque
-from typing import Dict
 
 import numpy as np
 
@@ -20,6 +19,35 @@ class RecordEpisodeStatistics(posggym.Wrapper):
     using the key ``episode``. If using a vectorized environment also the key
     ``_episode`` is used which indicates whether the env at the respective index has
     the episode statistics.
+
+    After the completion of an episode, ``info`` will look like this::
+
+        >>> info = {
+        ...     "episode": {
+        ...         "r": "<cumulative reward>",
+        ...         "l": "<episode length>",
+        ...         "t": "<elapsed time since beginning of episode>"
+        ...     },
+        ... }
+
+    For a vectorized environments the output will be in the form of::
+
+        >>> infos = {
+        ...     "final_observation": "<array of length num-envs>",
+        ...     "_final_observation": "<boolean array of length num-envs>",
+        ...     "final_info": "<array of length num-envs>",
+        ...     "_final_info": "<boolean array of length num-envs>",
+        ...     "episode": {
+        ...         "r": "<array of cumulative reward>",
+        ...         "l": "<array of episode length>",
+        ...         "t": "<array of elapsed time since beginning of episode>"
+        ...     },
+        ...     "_episode": "<boolean array of length num-envs>"
+        ... }
+
+    Moreover, the most recent rewards and episode lengths are stored in buffers that
+    can be accessed via :attr:`wrapped_env.return_queue` and
+    :attr:`wrapped_env.length_queue` respectively.
 
     Attributes
     ----------
@@ -52,20 +80,21 @@ class RecordEpisodeStatistics(posggym.Wrapper):
         self._deque_size = deque_size
 
         self.num_envs = getattr(env, "num_envs", 1)
+        self.is_vector_env = getattr(env, "is_vector_env", False)
+
         self.episode_count = 0
-        self.episode_start_times: np.ndarray = np.zeros(self.num_envs, np.float32)
-        self.episode_returns: Dict[str, np.ndarray] = {
+        self.episode_start_times = np.zeros(self.num_envs, np.float32)
+        self.episode_returns = {
             i: np.zeros(self.num_envs, np.float32) for i in self.possible_agents
         }
-        self.episode_lengths: Dict[str, np.ndarray] = {
+        self.episode_lengths = {
             i: np.zeros(self.num_envs, np.int32) for i in self.possible_agents
         }
         self.return_queue = deque(maxlen=deque_size)
         self.length_queue = deque(maxlen=deque_size)
-        self.is_vector_env = getattr(env, "is_vector_env", False)
 
     def reset(self, **kwargs):
-        obs, info = self.env.reset(**kwargs)
+        obs, info = super().reset(**kwargs)
         self.episode_start_times = np.full(
             self.num_envs, time.perf_counter(), dtype=np.float32
         )
@@ -91,6 +120,7 @@ class RecordEpisodeStatistics(posggym.Wrapper):
                     "Attempted to add episode statistics when they already exist."
                 )
 
+            dones = np.array([dones]) if isinstance(dones, bool) else dones
             for i in self.possible_agents:
                 infos[i]["episode"] = {
                     "r": np.where(dones, self.episode_returns[i], 0.0),
@@ -106,7 +136,7 @@ class RecordEpisodeStatistics(posggym.Wrapper):
 
             self.episode_count += num_dones
             self.episode_start_times[dones] = time.perf_counter()
-            for env_idx, d in enumerate([dones] if isinstance(dones, bool) else dones):
+            for env_idx, d in enumerate(dones):
                 if not d:
                     continue
                 env_episode_returns = {

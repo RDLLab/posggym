@@ -63,7 +63,7 @@ agents = [
 	"pandas >=1.0",
 	"prettytable >=3.6.0",
 ]
-other = ["moviepy >=1.0.0"]
+other = ["moviepy >=1.0.0", "seaborn >=0.13.0", "matplotlib >=3.0.0"]
 all = [
 	# Dependencieis for all envs and agents
 	# envs
@@ -78,6 +78,8 @@ all = [
 	"prettytable >=3.6.0",
 	# other
 	"moviepy >=1.0.0",
+	"seaborn >=0.11.1",
+	"matplotlib >=3.3.4",
 ]
 testing = ["pytest >=7.2"]
 
