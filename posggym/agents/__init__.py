@@ -1,4 +1,4 @@
-"""Root '__init__' of the posggym package."""
+"""Root '__init__' of the posggym.agents package."""
 # isort: skip_file
 from posggym.agents.registration import (
     make,

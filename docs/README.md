@@ -25,6 +25,8 @@ cd docs
 sphinx-autobuild -b dirhtml . _build
 ```
 
+You should now be able to view the document by going to `http://127.0.0.1:8000` in your browser (or the address displayed in the stdout of the `sphinx-autobuild` command).
+
 ## Adding docs for new environment
 
 Firstly ensure the docstrings for the environment are up-to-date and contains all the relevant information. If updating an existing environment make sure to update the version history in the docstring.
