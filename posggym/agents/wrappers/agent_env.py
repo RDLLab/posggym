@@ -8,7 +8,11 @@ import posggym.agents as pga
 
 
 class AgentEnvWrapper(posggym.Wrapper):
-    """This wrapper incorporates the posggym.agent policies as part of the environment.
+    """This wrapper incorporates posggym.agent policies as part of the environment.
+
+    This wrapper makes it so that specified agents within the environment have their
+    actions determined internally by a posggym.agent policy. The environment wrapper
+    will only return observations, rewards, etc, for agents which are not controlled.
 
     Arguments
     ---------

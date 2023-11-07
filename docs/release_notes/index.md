@@ -16,6 +16,9 @@ Major changes include:
 - Added the `CooperativeReaching-v0` grid-world environment along with heuristic policies
 - Added release notes section to the docs
 - Updated and added more heuristic policies for `LevelBasedForaging-v2` grid-world environment
+- Added the `AgentEnvWrapper` class which can be used to incorporate a `posggym.agents` policy as part of an environment
+- Added the `StackEnv` wrapper for converting a `posggym.Env` into accepting and outputting stacked arrays as opposed to dictionaries.
+- Cleaned up docstrings of a bunch of classes
 
 ---
 

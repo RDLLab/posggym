@@ -2,7 +2,7 @@
 
 import posggym
 import posggym.agents as pga
-from posggym.agents.utils.agent_env_wrapper import AgentEnvWrapper
+from posggym.posggym.agents.wrappers.agent_env import AgentEnvWrapper
 
 
 def test_agent_env_wrapper():

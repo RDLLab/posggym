@@ -20,21 +20,52 @@ import posggym
 class SyncVectorEnv(posggym.Env):
     """Vectorized environment that serially runs multiple environments.
 
-    A vectorized environment runs multiple independent copies of the same environment.
+    This implementation is based on the Gymnasium Vectorized Environments, modified to
+    support multiple agents and the POSGGym API.
 
-    This implementation is based on the Gymnasium Vectorized Environments:
+    A vectorized environment runs multiple independent copies of the same environment
+    allowing for batched interactions. To prevent terminated environments waiting until
+    all sub-environments are done (terminated or truncated), the vector environment
+    autoresets sub-environments when they are done. As a result, the final observaiton
+    and info are overwritten by the reset's observation and info. The final observation
+    and info of the previous environment is stored in the info dictionary of each agent
+    under the keys ``final_observation`` and ``final_info``. See :meth:`step` for more
+    information.
+
+    Vector Environments have additional attributes on top of `posggym.Env` as well as,
+    slightly modified :attr:`observation_spaces` and :attr:`action_spaces` attributes:
+
+    - :attr:`num_envs` - The number of sub-environments in the vector environment.
+    - :attr:`observation_spaces` - The batched observation space of each agent of the
+        vector environment.
+    - :attr:`single_observation_spaces` - The observation space of each agent in a
+        single sub-environment.
+    - :attr:`action_spaces` - The batched action space of each agent of the  vector
+        environment.
+    - :attr:`single_action_spaces` - The action space of each agent in a  single
+        sub-environment.
+
+
+    Notes
+    -----
     https://github.com/Farama-Foundation/Gymnasium/blob/main/gymnasium/vector/vector_env.py
     https://github.com/Farama-Foundation/Gymnasium/blob/main/gymnasium/vector/sync_vector_env.py
 
     """
 
-    def __init__(self, env_fns: Iterable[Callable[[], posggym.Env]], copy: bool = True):
+    def __init__(
+        self,
+        env_fns: Iterable[Callable[[], posggym.Env]],
+        copy: bool = True,
+    ):
         """Initialize the vectorized environment.
 
         Arguments
         ---------
-        env_fns: iterable of callable functions that create the environments.
-        copy: If ``True``, then the :meth:`reset` and :meth:`step` methods return a
+        env_fns:
+            iterable of callable functions that create the environments.
+        copy:
+            If ``True``, then the :meth:`reset` and :meth:`step` methods return a
             copy of the observations.
 
         """
@@ -249,13 +280,17 @@ class SyncVectorEnv(posggym.Env):
 
         Arguments:
         ----------
-        infos: the infos of the vectorized environment
-        info: the info coming from the single environment
-        env_num: the index of the single environment
+        infos: dict
+            the infos of the vectorized environment
+        info: dict
+            the info coming from the single environment
+        env_num: int
+            the index of the single environment
 
         Returns
         -------
-        infos: the (updated) infos of the vectorized environment
+        infos: dict
+            the (updated) infos of the vectorized environment
 
         """
         for k in info:
@@ -278,12 +313,15 @@ class SyncVectorEnv(posggym.Env):
 
         Arguments
         ---------
-        dtype: data type of the info coming from the env.
+        dtype: type
+            data type of the info coming from the env.
 
         Returns
         -------
-        array: the initialized info array.
-        array_mask: the initialized boolean array.
+        array: np.ndarray
+            the initialized info array.
+        array_mask: np.ndarray
+            the initialized boolean array.
 
         """
         if dtype in [int, float, bool] or issubclass(dtype, np.number):

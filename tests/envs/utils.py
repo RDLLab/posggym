@@ -6,10 +6,10 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/utils.py
 from typing import List, Optional
 
 import numpy as np
-
 import posggym
 from posggym import logger
 from posggym.envs.registration import EnvSpec
+
 from tests.conftest import env_id_prefix
 
 
@@ -56,9 +56,12 @@ def assert_equals(a, b, prefix=None):
 
     Arguments
     ---------
-    a: first data structure
-    b: second data structure
-    prefix: prefix for failed assertion message for types and dicts
+    a:
+        first data structure
+    b:
+        second data structure
+    prefix:
+        prefix for failed assertion message for types and dicts
 
     """
     assert type(a) == type(b), f"{prefix}Differing types: {a} and {b}"
