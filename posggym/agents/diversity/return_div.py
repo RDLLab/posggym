@@ -373,6 +373,15 @@ def get_pairwise_returns_matrix(
     co_teams_per_agent = {
         i: df[df["agent_id"] == i]["co_team_id"].unique().tolist() for i in agent_ids
     }
+    co_teams_per_agent = {i: [] for i in agent_ids}
+    for i in agent_ids:
+        co_teams_i = df[df["agent_id"] == i]["co_team_id"].unique().tolist()
+        # exclude non-homogenous teams
+        for co_team in co_teams_i:
+            pi_ids = co_team.replace("(", "").replace(")", "").split(",")
+            if all(pi_j == pi_ids[0] for pi_j in pi_ids):
+                co_teams_per_agent[i].append(co_team)
+
     for i in agent_ids:
         policies_per_agent[i].sort()
         co_teams_per_agent[i].sort()
@@ -381,7 +390,12 @@ def get_pairwise_returns_matrix(
         i: (
             np.zeros((3, len(policies_per_agent[i]), len(co_teams_per_agent[i]))),
             policies_per_agent[i],
-            co_teams_per_agent[i],
+            # store co-team labels for plotting, keep only first policy name for each
+            # co-team
+            [
+                team_id.replace("(", "").replace(")", "").split(",")[0]
+                for team_id in co_teams_per_agent[i]
+            ],
         )
         for i in agent_ids
     }
@@ -433,7 +447,11 @@ def generate_pairwise_returns_plot(
 
     for stat in ["mean", "std", "CI95"]:
         fig, axs = plt.subplots(
-            nrows=1, ncols=num_agents, figsize=(6 * num_agents, 6), layout="constrained"
+            nrows=1,
+            ncols=num_agents,
+            figsize=(6 * num_agents, 6),
+            layout="constrained",
+            squeeze=False,
         )
         for idx, i in enumerate(pw_returns_per_agent):
             pw_returns, policy_ids, co_teams_ids = pw_returns_per_agent[i]
@@ -444,18 +462,15 @@ def generate_pairwise_returns_plot(
             else:
                 values = pw_returns[2]
 
-            if num_agents > 2:
-                # only show first policy name for each co-team
-                co_team_labels = [
-                    team_id.replace("(", "").replace(")", "").split(",")[0]
-                    for team_id in co_teams_ids
-                ]
-            else:
-                co_team_labels = co_teams_ids
+            # only show first policy name for each co-team
+            co_team_labels = [
+                team_id.replace("(", "").replace(")", "").split(",")[0]
+                for team_id in co_teams_ids
+            ]
 
             sns.heatmap(
                 values,
-                ax=axs[idx],
+                ax=axs[0][idx],
                 annot=True,
                 fmt=".2f",
                 cmap="YlGnBu",
@@ -463,16 +478,16 @@ def generate_pairwise_returns_plot(
                 yticklabels=policy_ids,
                 square=True,
             )
-            axs[idx].set_title(f"agent `{i}`")
+            axs[0][idx].set_title(f"agent `{i}`")
 
         if save:
             if env_id in output_dir:
                 output_file = os.path.join(
-                    output_dir, f"{env_args_id}_pairwise_returns_{stat}.png"
+                    output_dir, f"{env_args_id}_pairwise_returns_{stat}.svg"
                 )
             else:
                 output_file = os.path.join(
-                    output_dir, f"{env_id}_{env_args_id}_pairwise_returns_{stat}.png"
+                    output_dir, f"{env_id}_{env_args_id}_pairwise_returns_{stat}.svg"
                 )
             fig.savefig(output_file, bbox_inches="tight")
 
@@ -505,7 +520,23 @@ def measure_return_diversity(
 
     """
     assert (len(policies), len(co_teams)) == pw_returns.shape
-    max_return, min_return = np.max(pw_returns), np.min(pw_returns)
+
+    # get max and min returns, excluding random policy if it exists
+    random_co_team_idxs = []
+    if len(policies) > 2 and "Random" in policies:
+        random_idx = policies.index("Random")
+        pw_returns_excl_random = np.delete(pw_returns, random_idx, axis=0)
+        random_co_team_idxs = [
+            idx for idx, co_team in enumerate(co_teams) if "Random" in co_team
+        ]
+        pw_returns_excl_random = np.delete(
+            pw_returns_excl_random, random_co_team_idxs, axis=1
+        )
+        max_return = np.max(pw_returns_excl_random)
+        min_return = np.min(pw_returns_excl_random)
+    else:
+        max_return, min_return = np.max(pw_returns), np.min(pw_returns)
+
     bin_size = (max_return - min_return) / (num_bins - 1)
 
     if verbose:
@@ -517,7 +548,7 @@ def measure_return_diversity(
     bin_dist = np.zeros(pw_returns.shape, dtype=int)
     for pi_idx in range(pw_returns.shape[0]):
         for co_team_idx, pw_return in enumerate(pw_returns[pi_idx, :]):
-            bin_idx = int((pw_return - min_return) / bin_size)
+            bin_idx = 0 if bin_size == 0 else int((pw_return - min_return) / bin_size)
             bin_dist[pi_idx, co_team_idx] += bin_idx
 
     if verbose:
@@ -547,8 +578,14 @@ def measure_return_diversity(
         with np.printoptions(precision=2, suppress=True):
             print(f"{policy_div=}")
 
-    # Group similar policies
-    min_mse, max_mse = np.min(pw_div), np.max([pw_div])
+    # Group similar policies by relative MSE
+    if len(policies) > 2 and "Random" in policies:
+        # exclude random policy from calculating bin sizes for grouping
+        pw_div_excl_random = np.delete(pw_div, random_idx, axis=0)
+        pw_div_excl_random = np.delete(pw_div_excl_random, random_idx, axis=1)
+        min_mse, max_mse = np.min(pw_div_excl_random), np.max(pw_div_excl_random)
+    else:
+        min_mse, max_mse = np.min(pw_div), np.max([pw_div])
     threshold = min_mse + (max_mse - min_mse) * 0.05
     similar_policy_groups = [[policies[0]]]
     for policy_name in policies[1:]:
@@ -624,6 +661,12 @@ def run_return_diversity_analysis(
 
             print(f"  {args_id=}")
             df = load_pairwise_comparison_results(env_id, output_dir, args_id)
+
+            if df["symmetric"].unique().tolist()[0]:
+                # only keep results for one agent
+                agent_ids = df["agent_id"].unique().tolist()
+                df = df[df["agent_id"] == agent_ids[0]]
+
             pw_returns_per_agent = get_pairwise_returns_matrix(df)
 
             generate_pairwise_returns_plot(
@@ -652,7 +695,7 @@ def run_return_diversity_analysis(
                     nrows=1,
                     ncols=len(results),
                     figsize=(6 * len(results), 6),
-                    squeeze=True,
+                    squeeze=False,
                     layout="constrained",
                 )
                 for idx, i in enumerate(results):
@@ -667,12 +710,16 @@ def run_return_diversity_analysis(
                     else:
                         co_team_labels = co_teams_ids
 
-                    xticklabels = (
-                        [""] if div_results[k].shape[1] == 1 else co_team_labels
-                    )
+                    if div_results[k].shape[1] == 1:
+                        xticklabels = [""]
+                    elif k in ["pairwise_return_mse"]:
+                        xticklabels = policy_ids
+                    else:
+                        xticklabels = co_team_labels
+
                     sns.heatmap(
                         div_results[k],
-                        ax=axs[idx],
+                        ax=axs[0][idx],
                         annot=True,
                         fmt=".0f" if div_results[k].dtype == int else ".2f",
                         cmap="YlGnBu",
@@ -680,9 +727,9 @@ def run_return_diversity_analysis(
                         yticklabels=policy_ids,
                         square=True,
                     )
-                    axs[idx].set_title(f"agent `{i}`")
+                    axs[0][idx].set_title(f"agent `{i}`")
                 fig.savefig(
-                    os.path.join(env_results_dir, f"{args_id}_{k}.png"),
+                    os.path.join(env_results_dir, f"{args_id}_{k}.svg"),
                     bbox_inches="tight",
                 )
 
@@ -698,7 +745,7 @@ if __name__ == "__main__":
         help=(
             "Action to perform. "
             "`run` - runs pairwise comparisons to generate data. "
-            "`run` - plots results (expects `--output_dir`). "
+            "`plot` - plots results (expects `--output_dir`). "
             "`run_and_plot` - run pairwise comparisons then plots results. "
         ),
     )
