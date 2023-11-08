@@ -18,6 +18,7 @@ Major changes include:
 - Updated and added more heuristic policies for `LevelBasedForaging-v2` grid-world environment
 - Added the `AgentEnvWrapper` class which can be used to incorporate a `posggym.agents` policy as part of an environment
 - Added the `StackEnv` wrapper for converting a `posggym.Env` into accepting and outputting stacked arrays as opposed to dictionaries.
+- Updated the `posggym.agents.Policy` API to make it a bit less confusing
 - Cleaned up docstrings of a bunch of classes
 
 ---
