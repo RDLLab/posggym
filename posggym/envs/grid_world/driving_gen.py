@@ -24,6 +24,8 @@ class DrivingGenEnv(DrivingEnv):
     - `obstacle_collisions` -  whether running into a wall results in the agent's
         vehicle crashing and thus the agent reaching a terminal state. This can make
         the problem significantly harder (default = "False").
+    - `observe_current_loc` - whether to include the agent's current location in the
+        agent's observation (default = `True`).
     - `generator_params` - the parameters to use for generating the grid
         (default = "14x14"). This can either be a string specyfing one of the supported
         sets of params (can be "7x7", "14x14", "28x28") or a dictionary with the
@@ -62,6 +64,9 @@ class DrivingGenEnv(DrivingEnv):
 
     Version History
     ---------------
+    - `v1`: Added agent's current location to observation space. This is to be
+        consistent with :class:`DrivingEnv` and also to allow for the creation of
+        heuristic policies for the environment.
     - `v0`: Initial version
 
     """
@@ -71,6 +76,7 @@ class DrivingGenEnv(DrivingEnv):
         num_agents: int = 2,
         obs_dim: Tuple[int, int, int] = (3, 1, 2),
         obstacle_collisions: bool = False,
+        observe_current_loc: bool = True,
         generator_params: Union[str, Dict[str, int]] = "14x14",
         n_grids: Optional[int] = None,
         shuffle_grid_order: bool = True,
@@ -102,6 +108,7 @@ class DrivingGenEnv(DrivingEnv):
             num_agents,
             obs_dim,
             obstacle_collisions=obstacle_collisions,
+            observe_current_loc=observe_current_loc,
             render_mode=render_mode,
         )
 

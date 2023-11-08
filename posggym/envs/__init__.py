@@ -8,6 +8,7 @@ import math
 
 from posggym.envs.registration import make, pprint_registry, register, registry, spec
 
+
 # Classic
 # -------------------------------------------
 
@@ -109,12 +110,25 @@ register(
         "num_agents": 2,
         "obs_dim": (3, 1, 1),
         "obstacle_collisions": False,
+        "observe_current_loc": False,
+    },
+)
+
+register(
+    id="Driving-v1",
+    entry_point="posggym.envs.grid_world.driving:DrivingEnv",
+    max_episode_steps=50,
+    kwargs={
+        "grid": "14x14RoundAbout",
+        "num_agents": 2,
+        "obs_dim": (3, 1, 1),
+        "obstacle_collisions": False,
+        "observe_current_loc": True,
     },
 )
 
 
 # Driving Gen
-# Default grid generator params is "14x14"
 register(
     id="DrivingGen-v0",
     entry_point="posggym.envs.grid_world.driving_gen:DrivingGenEnv",
@@ -123,6 +137,23 @@ register(
         "num_agents": 2,
         "obs_dim": (3, 1, 1),
         "obstacle_collisions": False,
+        "observe_current_loc": False,
+        "generator_params": "14x14",
+        "n_grids": None,
+        "shuffle_grid_order": True,
+    },
+)
+
+# Driving Gen
+register(
+    id="DrivingGen-v1",
+    entry_point="posggym.envs.grid_world.driving_gen:DrivingGenEnv",
+    max_episode_steps=50,
+    kwargs={
+        "num_agents": 2,
+        "obs_dim": (3, 1, 1),
+        "obstacle_collisions": False,
+        "observe_current_loc": True,
         "generator_params": "14x14",
         "n_grids": None,
         "shuffle_grid_order": True,

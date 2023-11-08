@@ -58,8 +58,13 @@ TURN_LEFT = 4
 ACTIONS = [DO_NOTHING, ACCELERATE, DECELERATE, TURN_RIGHT, TURN_LEFT]
 ACTIONS_STR = ["0", "acc", "dec", "tr", "tl"]
 
-# Obs = (adj_obs, speed, dest_coord, dest_reached, crashed)
-DObs = Tuple[Tuple[int, ...], Speed, Coord, int, int]
+# Obs = [
+# V0 Obs = (adj_obs, speed, dest_coord, dest_reached, crashed)
+# V1 Obs = (adj_obs, speed, Coord, dest_coord, dest_reached, crashed)
+DObs = Union[
+    Tuple[Tuple[int, ...], Speed, Coord, int, int],
+    Tuple[Tuple[int, ...], Speed, Coord, Coord, int, int],
+]
 
 # Cell obs
 VEHICLE = 0
@@ -116,16 +121,17 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
     Observation Space
     -----------------
     Each agent observes the cells in their local area, as well as their current speed,
-    their destination location, whether they've reached their destination, and whether
-    they've crashed. The size of the local area observed is controlled by the `obs_dims`
-    parameter (default = `(3, 1, 1)`, 3 cells in front, one cell behind, and 1 cell each
-    side, giving a observation size of 5x3). For each cell in the observed area the
-    agent observes whether the cell contains a `VEHICLE=0`, `WALL=1`, `EMPTY=2`, or it's
-    `DESTINATION=3`.
+    current location (added in `v1`, can be disabled via the `observe_current_loc`
+    parameter), their destination location, whether they've reached their destination,
+    and whether they've crashed. The size of the local area observed is controlled
+    by the `obs_dims` parameter (default = `(3, 1, 1)`, 3 cells in front, one cell
+    behind, and 1 cell each side, giving a observation size of 5x3).For each cell in
+    the observed area the agent observes whether the cell contains a `VEHICLE=0`,
+    `WALL=1`, `EMPTY=2`, or it's `DESTINATION=3`.
 
     All together each agent's observation is tuple of the form:
 
-        ((local obs), speed, destination coord, destination reached, crashed)
+        ((local obs), speed, coord, destination coord, destination reached, crashed)
 
     Rewards
     -------
@@ -173,15 +179,17 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
     ---------
 
     - `grid` - the grid layout to use. This can either be a string specifying one of
-         the supported grids, or a custom :class:`DrivingGrid` object
-         (default = `"14x14RoundAbout"`).
+        the supported grids, or a custom :class:`DrivingGrid` object
+        (default = `"14x14RoundAbout"`).
     - `num_agents` - the number of agents in the environment (default = `2`).
     - `obs_dim` - the local observation dimensions, specifying how many cells in front,
-         behind, and to each side the agent observes (default = `(3, 1, 1)`, resulting
-         in the agent observing a 5x3 area: 3 in front, 1 behind, 1 to each side.)
+        behind, and to each side the agent observes (default = `(3, 1, 1)`, resulting
+        in the agent observing a 5x3 area: 3 in front, 1 behind, 1 to each side.)
     - `obstacle_collisions` -  whether running into a wall results in the agent's
-         vehicle crashing and thus the agent reaching a terminal state. This can make
-         the problem significantly harder (default = "False").
+        vehicle crashing and thus the agent reaching a terminal state. This can make
+        the problem significantly harder (default = "False").
+    - `observe_current_loc` - whether to include the agent's current location in the
+        agent's observation (default = `True`).
 
     Available variants
     ------------------
@@ -211,6 +219,8 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
 
     Version History
     ---------------
+    - `v1`: Added agent's current location to observation space. This is to allow for
+        the creation of heuristic policies for the environment.
     - `v0`: Initial version
 
     References
@@ -231,14 +241,17 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
 
     def __init__(
         self,
-        grid: Union[str, "DrivingGrid"] = "7x7RoundAbout",
+        grid: Union[str, "DrivingGrid"] = "14x14RoundAbout",
         num_agents: int = 2,
         obs_dim: Tuple[int, int, int] = (3, 1, 1),
         obstacle_collisions: bool = False,
+        observe_current_loc: bool = True,
         render_mode: Optional[str] = None,
     ):
         super().__init__(
-            DrivingModel(grid, num_agents, obs_dim, obstacle_collisions),
+            DrivingModel(
+                grid, num_agents, obs_dim, obstacle_collisions, observe_current_loc
+            ),
             render_mode=render_mode,
         )
         self._obs_dim = obs_dim
@@ -372,6 +385,8 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
     obstacle_collisions : bool
         whether cars can crash into wall and other obstacles, on top of
         crashing into other vehicles
+    observe_current_loc : bool
+        whether to include the agent's current location in the agent's observation
 
     """
 
@@ -387,6 +402,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         num_agents: int,
         obs_dim: Tuple[int, int, int],
         obstacle_collisions: bool,
+        observe_current_loc: bool,
     ):
         if isinstance(grid, str):
             assert grid in SUPPORTED_GRIDS, (
@@ -411,8 +427,10 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
         assert obs_dim[0] > 0 and obs_dim[1] >= 0 and obs_dim[2] >= 0
         self._grid = grid
+        self.obs_dim = obs_dim
         self._obs_front, self._obs_back, self._obs_side = obs_dim
         self._obstacle_collisions = obstacle_collisions
+        self.observe_current_loc = observe_current_loc
 
         def _coord_space():
             return spaces.Tuple(
@@ -444,23 +462,44 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         }
         obs_depth = self._obs_front + self._obs_back + 1
         obs_width = (2 * self._obs_side) + 1
-        self.observation_spaces = {
-            i: spaces.Tuple(
-                (
-                    spaces.Tuple(
-                        tuple(
-                            spaces.Discrete(len(CELL_OBS))
-                            for _ in range(obs_depth * obs_width)
-                        )
-                    ),
-                    spaces.Discrete(len(Speed)),
-                    _coord_space(),  # dest coord,
-                    spaces.Discrete(2),  # dest reached
-                    spaces.Discrete(2),  # crashed
+
+        if self.observe_current_loc:
+            self.observation_spaces = {
+                i: spaces.Tuple(
+                    (
+                        spaces.Tuple(
+                            tuple(
+                                spaces.Discrete(len(CELL_OBS))
+                                for _ in range(obs_depth * obs_width)
+                            )
+                        ),
+                        spaces.Discrete(len(Speed)),
+                        _coord_space(),  # current coord
+                        _coord_space(),  # dest coord,
+                        spaces.Discrete(2),  # dest reached
+                        spaces.Discrete(2),  # crashed
+                    )
                 )
-            )
-            for i in self.possible_agents
-        }
+                for i in self.possible_agents
+            }
+        else:
+            self.observation_spaces = {
+                i: spaces.Tuple(
+                    (
+                        spaces.Tuple(
+                            tuple(
+                                spaces.Discrete(len(CELL_OBS))
+                                for _ in range(obs_depth * obs_width)
+                            )
+                        ),
+                        spaces.Discrete(len(Speed)),
+                        _coord_space(),  # dest coord,
+                        spaces.Discrete(2),  # dest reached
+                        spaces.Discrete(2),  # crashed
+                    )
+                )
+                for i in self.possible_agents
+            }
         self.is_symmetric = True
 
     @property
@@ -523,21 +562,24 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
     def sample_agent_initial_state(self, agent_id: str, obs: DObs) -> DState:
         agent_idx = int(agent_id)
         possible_agent_start_coords = set()
-        agent_dest_coords = obs[2]
+        agent_dest_coords = obs[3] if self.observe_current_loc else obs[2]
 
-        # Need to get start states for agent that are valid given initial obs
-        # Need to handle possible start states for other agents
-        for all_agent_start_coords in product(
-            *[list(s) for s in self.grid.start_coords[: len(self.possible_agents)]]
-        ):
-            if len(set(all_agent_start_coords)) != len(all_agent_start_coords):
-                # skip any sets of start coord that contain duplicates
-                continue
-            local_obs = self._get_local_cell__obs(
-                agent_idx, all_agent_start_coords, INIT_DIR, agent_dest_coords
-            )
-            if local_obs == obs[0]:
-                possible_agent_start_coords.add(all_agent_start_coords[agent_idx])
+        if self.observe_current_loc:
+            possible_agent_start_coords.add(obs[2])
+        else:
+            # Need to get start states for agent that are valid given initial obs
+            # Need to handle possible start states for other agents
+            for all_agent_start_coords in product(
+                *[list(s) for s in self.grid.start_coords[: len(self.possible_agents)]]
+            ):
+                if len(set(all_agent_start_coords)) != len(all_agent_start_coords):
+                    # skip any sets of start coord that contain duplicates
+                    continue
+                local_obs = self._get_local_cell__obs(
+                    agent_idx, all_agent_start_coords, INIT_DIR, agent_dest_coords
+                )
+                if local_obs == obs[0]:
+                    possible_agent_start_coords.add(all_agent_start_coords[agent_idx])
 
         state = []
         chosen_start_coords: Set[Coord] = set()
@@ -638,12 +680,9 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
             vehicle_coords.remove(state_i.coord)
 
-            next_speed = self._get_next_speed(action_i, state_i.speed)
-            move_dir = self._get_move_direction(
-                action_i, next_speed, state_i.facing_dir
-            )
-            next_dir = self._get_next_direction(action_i, state_i.facing_dir)
-            next_speed = self._get_next_speed(action_i, state_i.speed)
+            next_speed = self.get_next_speed(action_i, state_i.speed)
+            move_dir = self.get_move_direction(action_i, next_speed, state_i.facing_dir)
+            next_dir = self.get_next_direction(action_i, next_speed, state_i.facing_dir)
             next_coord, collision_type, hit_vehicle = self._get_next_coord(
                 state_i.coord, next_speed, move_dir, vehicle_coords
             )
@@ -718,25 +757,28 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         )
         return new_vs_i
 
-    def _get_move_direction(
-        self, action: DAction, speed: Speed, curr_dir: Direction
+    @staticmethod
+    def get_move_direction(
+        action: DAction, speed: Speed, curr_dir: Direction
     ) -> Direction:
         if speed == Speed.REVERSE:
             # No turning while in reverse,
-            # so movement dir is just the opposite of current direction
+            # so movement dir is always just the opposite of current direction
             return Direction((curr_dir + 2) % len(Direction))
-        return self._get_next_direction(action, curr_dir)
+        return DrivingModel.get_next_direction(action, speed, curr_dir)
 
     @staticmethod
-    def _get_next_direction(action: DAction, curr_dir: Direction) -> Direction:
-        if action == TURN_RIGHT:
+    def get_next_direction(
+        action: DAction, speed: Speed, curr_dir: Direction
+    ) -> Direction:
+        if action == TURN_RIGHT and speed != Speed.REVERSE:
             return Direction((curr_dir + 1) % len(Direction))
-        if action == TURN_LEFT:
+        if action == TURN_LEFT and speed != Speed.REVERSE:
             return Direction((curr_dir - 1) % len(Direction))
         return curr_dir
 
     @staticmethod
-    def _get_next_speed(action: DAction, curr_speed: Speed) -> Speed:
+    def get_next_speed(action: DAction, curr_speed: Speed) -> Speed:
         if action == DO_NOTHING:
             return curr_speed
         if action in (TURN_LEFT, TURN_RIGHT):
@@ -784,13 +826,23 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 state[idx].facing_dir,
                 state[idx].dest_coord,
             )
-            obs[i] = (
-                local_cell_obs,
-                state[idx].speed,
-                state[idx].dest_coord,
-                state[idx].dest_reached,
-                state[idx].crashed,
-            )
+            if self.observe_current_loc:
+                obs[i] = (
+                    local_cell_obs,
+                    state[idx].speed,
+                    state[idx].coord,
+                    state[idx].dest_coord,
+                    state[idx].dest_reached,
+                    state[idx].crashed,
+                )
+            else:
+                obs[i] = (
+                    local_cell_obs,
+                    state[idx].speed,
+                    state[idx].dest_coord,
+                    state[idx].dest_reached,
+                    state[idx].crashed,
+                )
         return obs
 
     def _get_local_cell__obs(
@@ -805,7 +857,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         agent_coord = vehicle_coords[agent_idx]
 
         cell_obs = []
-        for col, row in product(range(obs_width), range(obs_depth)):
+        for row, col in product(range(obs_depth), range(obs_width)):
             obs_grid_coord = self._map_obs_to_grid_coord(
                 (col, row), agent_coord, facing_dir
             )
@@ -840,7 +892,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         return None
 
     def get_obs_coords(self, origin: Coord, facing_dir: Direction) -> List[Coord]:
-        """Get the list of coords observed from agent at origin."""
+        """Get the list of coords observed by agent at origin."""
         obs_depth = self._obs_front + self._obs_back + 1
         obs_width = (2 * self._obs_side) + 1
         obs_coords: List[Coord] = []
