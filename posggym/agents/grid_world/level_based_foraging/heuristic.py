@@ -18,6 +18,7 @@ from posggym.envs.grid_world.level_based_foraging import (
     LevelBasedForagingModel,
 )
 
+
 if TYPE_CHECKING:
     from posggym.envs.grid_world.core import Coord
 
@@ -51,6 +52,7 @@ class LBFHeuristicPolicy(Policy[LBFAction, LBFObs]):
 
     def get_next_state(
         self,
+        action: LBFAction | None,
         obs: LBFObs,
         state: PolicyState,
     ) -> PolicyState:
@@ -61,19 +63,12 @@ class LBFHeuristicPolicy(Policy[LBFAction, LBFObs]):
             "last_obs": obs,
             "agent_pos": agent_obs[0][:2],
             "target_pos": self._get_target_pos(
-                agent_obs[0], food_obs, other_agent_obs, state
+                agent_obs[0], food_obs, other_agent_obs, action, state["target_pos"]
             ),
         }
 
     def sample_action(self, state: PolicyState) -> LBFAction:
-        if state["target_pos"] is None:
-            return self._rng.choice(list(LBFAction))
-
-        possible_actions = self._move_towards(
-            state["agent_pos"], state["target_pos"], load_if_adjacent=True
-        )
-        action = self._rng.choice(possible_actions)
-        return action
+        return self.get_pi(state).sample()
 
     def get_pi(self, state: PolicyState) -> action_distributions.ActionDistribution:
         if state["target_pos"] is None:
@@ -96,7 +91,8 @@ class LBFHeuristicPolicy(Policy[LBFAction, LBFObs]):
         agent_obs: Tuple[int, int, int],
         food_obs: List[Tuple[int, int, int]],
         other_agent_obs: List[Tuple[int, int, int]],
-        state: PolicyState,
+        last_action: LBFAction,
+        target_pos: Optional[Coord],
     ) -> Optional[Coord]:
         """Get target position from observations."""
         raise NotImplementedError
@@ -180,7 +176,8 @@ class LBFHeuristicPolicy1(LBFHeuristicPolicy):
         agent_obs: Tuple[int, int, int],
         food_obs: List[Tuple[int, int, int]],
         other_agent_obs: List[Tuple[int, int, int]],
-        state: PolicyState,
+        last_action: LBFAction,
+        target_pos: Optional[Coord],
     ) -> Optional[Coord]:
         agent_pos = agent_obs[:2]
         return self._get_food_by_distance(
@@ -200,7 +197,8 @@ class LBFHeuristicPolicy2(LBFHeuristicPolicy):
         agent_obs: Tuple[int, int, int],
         food_obs: List[Tuple[int, int, int]],
         other_agent_obs: List[Tuple[int, int, int]],
-        state: PolicyState,
+        last_action: LBFAction,
+        target_pos: Optional[Coord],
     ) -> Optional[Coord]:
         if not other_agent_obs:
             return None
@@ -222,7 +220,8 @@ class LBFHeuristicPolicy3(LBFHeuristicPolicy):
         agent_obs: Tuple[int, int, int],
         food_obs: List[Tuple[int, int, int]],
         other_agent_obs: List[Tuple[int, int, int]],
-        state: PolicyState,
+        last_action: LBFAction,
+        target_pos: Optional[Coord],
     ) -> Optional[Coord]:
         agent_pos, agent_level = agent_obs[:2], agent_obs[2]
         return self._get_food_by_distance(
@@ -243,7 +242,8 @@ class LBFHeuristicPolicy4(LBFHeuristicPolicy):
         agent_obs: Tuple[int, int, int],
         food_obs: List[Tuple[int, int, int]],
         other_agent_obs: List[Tuple[int, int, int]],
-        state: PolicyState,
+        last_action: LBFAction,
+        target_pos: Optional[Coord],
     ) -> Optional[Coord]:
         if not other_agent_obs:
             return None
@@ -269,11 +269,11 @@ class LBFHeuristicPolicy5(LBFHeuristicPolicy):
         agent_obs: Tuple[int, int, int],
         food_obs: List[Tuple[int, int, int]],
         other_agent_obs: List[Tuple[int, int, int]],
-        state: PolicyState,
+        last_action: LBFAction,
+        target_pos: Optional[Coord],
     ) -> Optional[Coord]:
-        target_pos = state["target_pos"]
         if target_pos is not None:
-            new_target_pos = self._get_updated_pos(target_pos, state["action"])
+            new_target_pos = self._get_updated_pos(target_pos, last_action)
             if new_target_pos in (f[:2] for f in food_obs):
                 return new_target_pos
 
@@ -297,11 +297,11 @@ class LBFHeuristicPolicy6(LBFHeuristicPolicy):
         agent_obs: Tuple[int, int, int],
         food_obs: List[Tuple[int, int, int]],
         other_agent_obs: List[Tuple[int, int, int]],
-        state: PolicyState,
+        last_action: LBFAction,
+        target_pos: Optional[Coord],
     ) -> Optional[Coord]:
-        target_pos = state["target_pos"]
         if target_pos is not None:
-            new_target_pos = self._get_updated_pos(target_pos, state["action"])
+            new_target_pos = self._get_updated_pos(target_pos, last_action)
             if new_target_pos in (f[:2] for f in food_obs):
                 return new_target_pos
 
@@ -330,11 +330,11 @@ class LBFHeuristicPolicy7(LBFHeuristicPolicy):
         agent_obs: Tuple[int, int, int],
         food_obs: List[Tuple[int, int, int]],
         other_agent_obs: List[Tuple[int, int, int]],
-        state: PolicyState,
+        last_action: LBFAction,
+        target_pos: Optional[Coord],
     ) -> Optional[Coord]:
-        target_pos = state["target_pos"]
         if target_pos is not None:
-            new_target_pos = self._get_updated_pos(target_pos, state["action"])
+            new_target_pos = self._get_updated_pos(target_pos, last_action)
             if new_target_pos in (f[:2] for f in food_obs):
                 return new_target_pos
 
@@ -358,11 +358,11 @@ class LBFHeuristicPolicy8(LBFHeuristicPolicy):
         agent_obs: Tuple[int, int, int],
         food_obs: List[Tuple[int, int, int]],
         other_agent_obs: List[Tuple[int, int, int]],
-        state: PolicyState,
+        last_action: LBFAction,
+        target_pos: Optional[Coord],
     ) -> Optional[Coord]:
-        target_pos = state["target_pos"]
         if target_pos is not None:
-            new_target_pos = self._get_updated_pos(target_pos, state["action"])
+            new_target_pos = self._get_updated_pos(target_pos, last_action)
             if new_target_pos in (f[:2] for f in food_obs):
                 return new_target_pos
 
@@ -390,11 +390,11 @@ class LBFHeuristicPolicy9(LBFHeuristicPolicy):
         agent_obs: Tuple[int, int, int],
         food_obs: List[Tuple[int, int, int]],
         other_agent_obs: List[Tuple[int, int, int]],
-        state: PolicyState,
+        last_action: LBFAction,
+        target_pos: Optional[Coord],
     ) -> Optional[Coord]:
-        target_pos = state["target_pos"]
         if target_pos is not None:
-            new_target_pos = self._get_updated_pos(target_pos, state["action"])
+            new_target_pos = self._get_updated_pos(target_pos, last_action)
             if new_target_pos in (f[:2] for f in food_obs):
                 return new_target_pos
 
@@ -418,11 +418,11 @@ class LBFHeuristicPolicy10(LBFHeuristicPolicy):
         agent_obs: Tuple[int, int, int],
         food_obs: List[Tuple[int, int, int]],
         other_agent_obs: List[Tuple[int, int, int]],
-        state: PolicyState,
+        last_action: LBFAction,
+        target_pos: Optional[Coord],
     ) -> Optional[Coord]:
-        target_pos = state["target_pos"]
         if target_pos is not None:
-            new_target_pos = self._get_updated_pos(target_pos, state["action"])
+            new_target_pos = self._get_updated_pos(target_pos, last_action)
             if new_target_pos in (f[:2] for f in food_obs):
                 return new_target_pos
 
@@ -446,11 +446,11 @@ class LBFHeuristicPolicy11(LBFHeuristicPolicy):
         agent_obs: Tuple[int, int, int],
         food_obs: List[Tuple[int, int, int]],
         other_agent_obs: List[Tuple[int, int, int]],
-        state: PolicyState,
+        last_action: LBFAction,
+        target_pos: Optional[Coord],
     ) -> Optional[Coord]:
-        target_pos = state["target_pos"]
         if target_pos is not None:
-            new_target_pos = self._get_updated_pos(target_pos, state["action"])
+            new_target_pos = self._get_updated_pos(target_pos, last_action)
             if new_target_pos in (f[:2] for f in food_obs):
                 return new_target_pos
 

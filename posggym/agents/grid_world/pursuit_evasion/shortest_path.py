@@ -1,7 +1,7 @@
 """Shortest path policy for PursuitEvasion env."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, List, cast
+from typing import TYPE_CHECKING, List, cast
 
 from posggym.agents.policy import Policy, PolicyID, PolicyState
 from posggym.agents.utils import action_distributions
@@ -38,11 +38,7 @@ class PEShortestPathPolicy(Policy[PEAction, PEObs]):
 
         self._grid = self.model.grid
         self._is_evader = self.agent_id == self.model.EVADER_IDX
-
-        self._action_space = list(
-            range(self.model.action_spaces[self.agent_id].n)  # type: ignore
-        )
-
+        self._action_space = list(range(self.model.action_spaces[self.agent_id].n))
         evader_end_coords = list(
             set(self._grid.evader_start_coords + self._grid.all_goal_coords)
         )
@@ -59,7 +55,6 @@ class PEShortestPathPolicy(Policy[PEAction, PEObs]):
         state = super().get_initial_state()
         state.update(
             {
-                "action": None,
                 "update_num": 0,
                 "facing_dir": INITIAL_DIR,
                 "coord": (0, 0),
@@ -71,6 +66,7 @@ class PEShortestPathPolicy(Policy[PEAction, PEObs]):
 
     def get_next_state(
         self,
+        action: PEAction | None,
         obs: PEObs,
         state: PolicyState,
     ) -> PolicyState:
@@ -83,26 +79,19 @@ class PEShortestPathPolicy(Policy[PEAction, PEObs]):
             target_coord = obs[3] if self._is_evader else obs[1]
         else:
             next_update_num = state["update_num"] + 1
-            next_facing_dir = ACTION_TO_DIR[state["action"]][state["facing_dir"]]
+            next_facing_dir = ACTION_TO_DIR[action][state["facing_dir"]]
             next_coord = self._grid.get_next_coord(
                 state["coord"], next_facing_dir, False
             )
             next_prev_coord = state["coord"]
             target_coord = state["target_coord"]
 
-        next_action = self._get_sp_action(
-            next_facing_dir,
-            next_coord,
-            next_prev_coord,
-            target_coord,
-        )
         next_state = {
             "update_num": next_update_num,
             "facing_dir": next_facing_dir,
             "coord": next_coord,
             "prev_coord": next_prev_coord,
             "target_coord": target_coord,
-            "action": next_action,
         }
         return next_state
 
@@ -129,26 +118,15 @@ class PEShortestPathPolicy(Policy[PEAction, PEObs]):
         }
 
     def sample_action(self, state: PolicyState) -> PEAction:
-        return state["action"]
+        return self.get_pi(state).sample()
 
     def get_pi(self, state: PolicyState) -> action_distributions.ActionDistribution:
-        dist = self._get_pi_from_coords(
+        dists = self._get_action_sp_dists(
             state["facing_dir"],
             state["coord"],
             state["prev_coord"],
             state["target_coord"],
         )
-        return action_distributions.DiscreteActionDistribution(dist, self._rng)
-
-    def get_value(self, state: PolicyState) -> float:
-        raise NotImplementedError(
-            f"`get_value()` no implemented by {self.__class__.__name__} policy"
-        )
-
-    def _get_pi_from_coords(
-        self, facing_dir: Direction, coord: Coord, prev_coord: Coord, goal_coord: Coord
-    ) -> Dict[PEAction, float]:
-        dists = self._get_action_sp_dists(facing_dir, coord, prev_coord, goal_coord)
 
         pi = {a: 1.0 for a in self._action_space}
         max_dist, min_dist = max(dists), min(dists)
@@ -163,24 +141,12 @@ class PEShortestPathPolicy(Policy[PEAction, PEObs]):
         for a in self._action_space:
             pi[a] /= weight_sum
 
-        return pi
+        return action_distributions.DiscreteActionDistribution(pi, self._rng)
 
-    def _get_sp_action(
-        self, facing_dir: Direction, coord: Coord, prev_coord: Coord, goal_coord: Coord
-    ) -> PEAction:
-        sp_action = self._action_space[0]
-        sp_dist = float("inf")
-        for a in self._action_space:
-            a_dir = ACTION_TO_DIR[a][facing_dir]
-            next_coord = self._grid.get_next_coord(coord, a_dir, False)
-            if next_coord == prev_coord:
-                continue
-
-            dist = self._dists[goal_coord][next_coord]
-            if dist < sp_dist:
-                sp_dist = dist
-                sp_action = a
-        return sp_action
+    def get_value(self, state: PolicyState) -> float:
+        raise NotImplementedError(
+            f"`get_value()` no implemented by {self.__class__.__name__} policy"
+        )
 
     def _get_action_sp_dists(
         self, facing_dir: Direction, coord: Coord, prev_coord: Coord, goal_coord: Coord

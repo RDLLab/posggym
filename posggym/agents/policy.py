@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, Generic
 
 from posggym.model import ActType, ObsType
 
+
 if TYPE_CHECKING:
     from posggym.agents.registration import PolicySpec
     from posggym.agents.utils.action_distributions import ActionDistribution
@@ -56,6 +57,20 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
     - :meth:`get_state`
     - :meth:`get_state_from_history`
 
+    The policy maintains an internal state, which is a dictionary and stored in the
+    :attr:`_state` attribute. This state is updated each time the :meth:`step` method is
+    called and reset to an initial state whenever the :meth:`reset` method is called.
+    By default the policy state is an empty dictionary. However, subclasses should
+    extend this state to include any additional information required by the policy to
+    select the next action given it's action-observation history.
+
+    The policy also maintains a reference to the last action it returned by the
+    :meth:`step` method, which is stored in the :attr:`_last_action` attribute. This
+    attribute is set to None when the policy is first created and whenever the
+    :meth:`reset` method is called. It is used to update the policy's internal state
+    each time the :meth:`step` method is called.
+
+
     """
 
     # PolicySpec used to initialize policy instance
@@ -70,6 +85,7 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
         self.agent_id = agent_id
         self.policy_id = policy_id
         self._state = self.get_initial_state()
+        self._last_action = None
 
     def step(self, obs: ObsType) -> ActType:
         """Get the next action from the policy.
@@ -80,18 +96,17 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
         Arguments
         ---------
         obs : ObsType
-          the latest observation.
+            the latest observation.
 
         Returns
         -------
         action : ActType
-          the next action
+            the next action
 
         """
-        self._state = self.get_next_state(obs, self._state)
-        action = self.sample_action(self._state)
-        self._state["action"] = action
-        return action
+        self._state = self.get_next_state(self._last_action, obs, self._state)
+        self._last_action = self.sample_action(self._state)
+        return self._last_action
 
     def reset(self, *, seed: int | None = None):
         """Reset the policy to it's initial state.
@@ -106,11 +121,12 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
 
         Arguments
         ---------
-        seed: int, optional
-          seed for random number generator.
+        seed : int, optional
+            seed for random number generator.
 
         """
         self._state = self.get_initial_state()
+        self._last_action = None
 
     def close(self):
         """Close policy and perform any necessary cleanup.
@@ -128,33 +144,36 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
 
         Returns
         -------
-        initial_state: PolicyState
-          the initial policy state
+        initial_state : PolicyState
+            the initial policy state
 
         """
-        return {"action": None}
+        return {}
 
     @abc.abstractmethod
     def get_next_state(
         self,
+        action: ActType | None,
         obs: ObsType,
         state: PolicyState,
     ) -> PolicyState:
-        """Get the next policy state given the current state and next observation.
+        """Get the next policy state.
 
         Subclasses must implement this method.
 
         Arguments
         ---------
-        obs: ObsType
-          the observation received
-        state: PolicyState
-          the policy's state before action was performed and obs received
+        action : ActType, optional
+            the action performed. May be None if this is the first observation.
+        obs : ObsType
+            the observation received
+        state : PolicyState
+            the policy's state before action was performed and obs received
 
         Returns
         -------
-        next_state: PolicyState
-          the next policy state
+        next_state : PolicyState
+            the next policy state
 
         """
 
@@ -170,13 +189,13 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
 
         Arguments
         ---------
-        state: PolicyState
-          the policy's current state
+        state : PolicyState
+            the policy's current state
 
         Returns
         -------
-        action: ActType
-          the sampled action
+        action : ActType
+            the sampled action
 
         """
 
@@ -191,13 +210,13 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
 
         Arguments
         ---------
-        state: PolicyState
-          the policy's current state
+        state : PolicyState
+            the policy's current state
 
         Returns
         -------
-        pi: ActionDistribution
-          the policy's distribution over actions
+        pi : ActionDistribution
+            the policy's distribution over actions
 
         """
 
@@ -210,17 +229,17 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
 
         Arguments
         ---------
-        state: PolicyState
-          the policy's current state
+        state : PolicyState
+            the policy's current state
 
         Returns
         -------
         value : float
-          the value estimate
+            the value estimate
 
         """
 
-    def set_state(self, state: PolicyState):
+    def set_state(self, state: PolicyState, last_action: ActType | None = None):
         """Set the policy's internal state.
 
         Subclasses that utilize custom internal states (e.g. RNN policies) may wish to
@@ -230,25 +249,29 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
         Arguments
         ---------
         state : PolicyState
-          the new policy state
+            the new policy state
+        last_action : ActType, optional
+            the last action taken by the policy. If not provided then the last action
+            will be set to None.
 
         Raises
         ------
         AssertionError :
-          if new policy state is not valid.
+            if new policy state is not valid.
 
         """
         if self._state is not None and state is not None:
             assert all(k in state for k in self._state), f"Invalid policy state {state}"
         self._state = state
+        self._last_action = last_action
 
     def get_state(self) -> PolicyState:
         """Get the policy's current state.
 
         Returns
         -------
-        state: PolicyState
-          policy's current internal state.
+        state : PolicyState
+            policy's current internal state.
 
         """
         return copy.deepcopy(self._state)
@@ -259,19 +282,22 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
         This function essentially unrolls the policy using the actions and observations
         contained in the agent history.
 
+        Note, this function will return None for the action in the final output state,
+        as this would correspond to the action that was selected by the policy to action
+
+
         Arguments
         ---------
-        history: AgentHistory
-          the agent's action-observation history
+        history : AgentHistory
+            the agent's action-observation history
 
         Returns
         -------
-        state: PolicyState
-          policy state given history
+        state : PolicyState
+            policy state given history
 
         """
         state = self.get_initial_state()
         for a, o in history:
-            state["action"] = a
-            state = self.get_next_state(o, state)
+            state = self.get_next_state(a, o, state)
         return state

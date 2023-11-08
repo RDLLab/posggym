@@ -58,6 +58,7 @@ class CRHeuristicPolicy(Policy[CRAction, CRObs]):
 
     def get_next_state(
         self,
+        action: CRAction | None,
         obs: CRObs,
         state: PolicyState,
     ) -> PolicyState:
@@ -67,10 +68,7 @@ class CRHeuristicPolicy(Policy[CRAction, CRObs]):
         }
 
     def sample_action(self, state: PolicyState) -> CRAction:
-        possible_actions = self._move_towards(
-            state["target_goal"], state["last_obs"][0]
-        )
-        return self._rng.choice(possible_actions)
+        return self.get_pi(state).sample()
 
     def get_pi(self, state: PolicyState) -> action_distributions.ActionDistribution:
         possible_actions = self._move_towards(

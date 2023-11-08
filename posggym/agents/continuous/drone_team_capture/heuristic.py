@@ -73,6 +73,7 @@ class DTCHeuristicPolicy(Policy[DTCAction, DTCObs], abc.ABC):
 
     def get_next_state(
         self,
+        action: DTCAction | None,
         obs: DTCObs,
         state: PolicyState,
     ) -> PolicyState:
@@ -115,7 +116,6 @@ class DTCHeuristicPolicy(Policy[DTCAction, DTCObs], abc.ABC):
         )
 
         return {
-            "action": None,
             "prev_yaw": state["yaw"],
             "yaw": yaw,
             "prev_xy": state["xy"],

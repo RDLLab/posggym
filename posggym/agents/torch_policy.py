@@ -418,12 +418,6 @@ class PPOPolicy(Policy[ActType, ObsType]):
         # RNG for sampling actions
         self._rng, _ = seeding.np_random()
 
-    def step(self, obs: ObsType) -> ActType:
-        self._state = self.get_next_state(obs, self._state)
-        action = self.sample_action(self._state)
-        self._state["action"] = action
-        return action
-
     def reset(self, *, seed: int | None = None):
         super().reset(seed=seed)
         if seed is not None:
@@ -464,83 +458,64 @@ class PPOPolicy(Policy[ActType, ObsType]):
         state["prev_reward"] = None
         state["lstm_state"] = self.policy_model.get_initial_state(batch_size=1)
         state["action_probs"] = None
-        state["action"] = None
         state["value"] = 0.0
         return state
 
-    def get_next_state(self, obs: ObsType, state: PolicyState) -> PolicyState:
+    def get_next_state(
+        self, action: ActType | None, obs: ObsType, state: PolicyState
+    ) -> PolicyState:
         obs = self.obs_processor(obs)
 
-        if state["action"] is not None:
-            processed_action = self.action_processor(state["action"])
-        else:
-            processed_action = None
+        if action is not None:
+            action = self.action_processor(action)
+
         (
-            action,
+            _,
             lstm_state,
             value,
             action_probs,
         ) = self.policy_model.get_action_and_value(
             obs,
             state["lstm_state"],
-            processed_action,
+            prev_action=action,
             prev_reward=None,
             deterministic=self.deterministic,
         )
 
-        action = action.numpy().squeeze()
-        if isinstance(self.action_space, spaces.Discrete):
-            action = action.item()
-        elif len(action.shape) == 1 and action.shape[0] == 1:
-            action = action[0]
-
         return {
             "obs": obs,
-            "prev_action": state["action"],
+            "prev_action": action,
             "prev_reward": None,
             "lstm_state": lstm_state,
             "action_probs": action_probs.numpy().squeeze(),
-            "action": self.action_processor.unprocess(action),
             "value": value[0],
         }
 
     def sample_action(self, state: PolicyState) -> ActType:
-        if self.deterministic:
-            return state["action"]
-
-        processed_action_space = self.action_processor.input_space
-        if isinstance(processed_action_space, spaces.Discrete):
-            action = self._rng.choice(
-                processed_action_space.n, p=state["action_probs"], size=1
-            )[0]
-        elif isinstance(processed_action_space, spaces.MultiDiscrete):
-            action = [  # type: ignore
-                self._rng.choice(
-                    processed_action_space.nvec[i], p=state["action_probs"][i], size=1
-                )[0]
-                for i in range(len(processed_action_space))
-            ]
-        else:
-            # Box - continuous action space
-            mean, stdev = state["action_probs"]
-            action = self._rng.normal(loc=mean, scale=stdev)
-        # print(f"processed action: {action}")
-        action = self.action_processor.unprocess(action)
-        # print(f"unprocessed action: {action}")
-        return action
+        pi = self.get_pi(state)
+        action = pi.sample()
+        return self.action_processor.unprocess(action)
 
     def get_value(self, state: PolicyState) -> float:
         return state["value"]
 
     def get_pi(self, state: PolicyState) -> action_distributions.ActionDistribution:
-        # TODO handle action processing
-        if isinstance(self.action_space, spaces.Discrete):
-            return action_distributions.DiscreteActionDistribution(
-                state["action_probs"], self._rng
-            )
-        if isinstance(self.action_space, spaces.MultiDiscrete):
+        processed_action_space = self.action_processor.input_space
+        if isinstance(processed_action_space, spaces.Discrete):
+            probs = {
+                a: state["action_probs"][a] for a in range(processed_action_space.n)
+            }
+            return action_distributions.DiscreteActionDistribution(probs, self._rng)
+        if isinstance(processed_action_space, spaces.MultiDiscrete):
+            probs = [
+                {
+                    a: state["action_probs"][i][a]
+                    for a in range(processed_action_space.nvec[i])
+                }
+                for i in range(len(processed_action_space))
+            ]
             return action_distributions.MultiDiscreteActionDistribution(
-                state["action_probs"], self._rng
+                probs, self._rng
             )
         return action_distributions.NormalActionDistribution(
             state["action_probs"][0], state["action_probs"][1], self._rng

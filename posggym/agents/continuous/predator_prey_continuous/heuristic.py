@@ -16,7 +16,6 @@ from posggym.envs.continuous.predator_prey_continuous import (
 )
 from posggym.utils import seeding
 
-
 if TYPE_CHECKING:
     from posggym.posggym.model import POSGModel
     from posggym.utils.history import AgentHistory
@@ -53,6 +52,7 @@ class PPCHeuristicPolicy(Policy[PPAction, PPObs], abc.ABC):
 
     def get_next_state(
         self,
+        action: PPAction | None,
         obs: PPObs,
         state: PolicyState,
     ) -> PolicyState:
