@@ -1,13 +1,34 @@
-"""Policies for the Driving-v0 environment."""
+"""Policies for the Driving environments."""
 import os.path as osp
 
+from posggym.agents.grid_world.driving.shortest_path import DrivingShortestPathPolicy
+from posggym.agents.registration import PolicySpec
 from posggym.agents.torch_policy import PPOPolicy
 from posggym.agents.utils import processors
 from posggym.config import AGENT_MODEL_DIR
 
+
 ENV_ID = "Driving-v0"
 agent_model_dir = osp.join(AGENT_MODEL_DIR, "grid_world", "driving")
 policy_specs = {}
+
+for name, aggressiveness in [
+    ("aggressive", 1),
+    ("normal", 0.5),
+    ("conservative", 0),
+]:
+    spec = PolicySpec(
+        policy_name=f"{name}_shortestpath",
+        entry_point=DrivingShortestPathPolicy,
+        version=0,
+        env_id="Driving-v1",
+        env_args=None,
+        valid_agent_ids=None,
+        nondeterministic=False,
+        kwargs={"aggressiveness": aggressiveness},
+    )
+    policy_specs[spec.id] = spec
+
 
 # 7x7RoundAbout-n2-v0
 for policy_file_name in [
@@ -49,6 +70,7 @@ for policy_file_name in [
             "num_agents": 2,
             "obs_dim": (3, 1, 1),
             "obstacle_collisions": False,
+            "observe_current_loc": False,
         },
         policy_file_path=osp.join(
             agent_model_dir,
@@ -105,6 +127,7 @@ for policy_file_name in [
             "num_agents": 2,
             "obs_dim": (3, 1, 1),
             "obstacle_collisions": False,
+            "observe_current_loc": False,
         },
         policy_file_path=osp.join(
             agent_model_dir,

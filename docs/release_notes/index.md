@@ -19,6 +19,8 @@ Major changes include:
 - Added the `AgentEnvWrapper` class which can be used to incorporate a `posggym.agents` policy as part of an environment
 - Added the `StackEnv` wrapper for converting a `posggym.Env` into accepting and outputting stacked arrays as opposed to dictionaries.
 - Updated the `posggym.agents.Policy` API to make it a bit less confusing
+- Updated the `Driving` and `DrivingGen` envs to `v1` which includes a few bug fixes and adds the current location of the agent into the observation.
+- Added shortest path based policies for all `Driving-v1` and `DrivingGen-v1` environments
 - Cleaned up docstrings of a bunch of classes
 
 ---
