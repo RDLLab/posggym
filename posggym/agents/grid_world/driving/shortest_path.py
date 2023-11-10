@@ -23,7 +23,6 @@ from posggym.envs.grid_world.driving import (
 )
 from posggym.utils import seeding
 
-
 if TYPE_CHECKING:
     from posggym.model import POSGModel
     from posggym.utils.history import AgentHistory
@@ -64,10 +63,6 @@ class DrivingShortestPathPolicy(Policy[DAction, DObs]):
     ):
         super().__init__(model, agent_id, policy_id)
         self.model = cast(DrivingModel, model)
-        assert self.model.observe_current_loc, (
-            f"{self.__class__.__name__} only supported for Driving environments "
-            "which observe the agent's current location."
-        )
         assert (
             0.0 <= aggressiveness <= 1.0
         ), f"Aggressiveness must be between 0.0 and 1.0, got {aggressiveness}"

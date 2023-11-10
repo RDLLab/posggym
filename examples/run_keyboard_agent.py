@@ -6,11 +6,11 @@ To see all available arguments, run:
 
     python run_keyboard_agent.py --help
 
-Example, to run a keyboard agent in the `Driving-v0` environment while controlling
+Example, to run a keyboard agent in the `Driving-v1` environment while controlling
 agent '0' for 10 episodes, run:
 
     python run_keyboard_agent.py \
-        --env_id Driving-v0 \
+        --env_id Driving-v1 \
         --keyboard_agent_ids 0 \
         --num_episodes 10
 
@@ -27,7 +27,7 @@ from gymnasium import spaces
 
 
 grid_world_key_action_map = {
-    "Driving-v0": {
+    "Driving-v1": {
         None: 0,
         pygame.K_SPACE: 0,
         pygame.K_UP: 1,
@@ -77,7 +77,7 @@ grid_world_key_action_map = {
         pygame.K_RIGHT: 2,
     },
 }
-grid_world_key_action_map["DrivingGen-v0"] = grid_world_key_action_map["Driving-v0"]
+grid_world_key_action_map["DrivingGen-v1"] = grid_world_key_action_map["Driving-v1"]
 
 
 def display_key_action_map(key_action_map):

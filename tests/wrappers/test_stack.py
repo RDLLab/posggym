@@ -1,21 +1,21 @@
 """Test for Stack Wrapper."""
 import numpy as np
-from tests.wrappers.utils import assert_equals
-
 import posggym
 from posggym.vector import SyncVectorEnv
 from posggym.wrappers import FlattenObservations, StackEnv
 
+from tests.wrappers.utils import assert_equals
+
 
 def test_stack():
     env = posggym.make(
-        "Driving-v0", disable_env_checker=True, num_agents=2, grid="7x7RoundAbout"
+        "Driving-v1", disable_env_checker=True, num_agents=2, grid="7x7RoundAbout"
     )
     # need to convert to Box obs for it to work with StackEnv
     env = FlattenObservations(env)
 
     env2 = posggym.make(
-        "Driving-v0", disable_env_checker=True, num_agents=2, grid="7x7RoundAbout"
+        "Driving-v1", disable_env_checker=True, num_agents=2, grid="7x7RoundAbout"
     )
     wrapped_env = StackEnv(FlattenObservations(env2))
 
@@ -70,7 +70,7 @@ def test_stack_vec_env():
 
     def thunk():
         env = posggym.make(
-            "Driving-v0", disable_env_checker=True, num_agents=2, grid="7x7RoundAbout"
+            "Driving-v1", disable_env_checker=True, num_agents=2, grid="7x7RoundAbout"
         )
         # need to convert to Box obs for it to work with StackEnv
         env = FlattenObservations(env)

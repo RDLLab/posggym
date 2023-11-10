@@ -12,10 +12,10 @@ Example 1. To run 10 episodes of every agent for every environment:
     python run_all_agents.py --num_episodes 10
 
 
-Example 2. To run 10 episodes of every agent that is compatible with the `Driving-v0`
+Example 2. To run 10 episodes of every agent that is compatible with the `Driving-v1`
 environment:
 
-    python run_all_agents.py --env_id_prefix Driving-v0 --num_episodes 10
+    python run_all_agents.py --env_id_prefix Driving-v1 --num_episodes 10
 
 
 Example 3. To run 10 episodes of every agent that is compatible with the
@@ -46,7 +46,7 @@ def try_make_policy(
 ) -> Tuple[Optional[posggym.Env], Optional[Dict[str, pga.Policy]]]:
     """Tries to make the policy showing if it is possible."""
     try:
-        env_id = "Driving-v0" if spec.env_id is None else spec.env_id
+        env_id = "Driving-v1" if spec.env_id is None else spec.env_id
         env_args = {} if spec.env_args is None else spec.env_args
         env = posggym.make(env_id, render_mode=render_mode, **env_args)
 

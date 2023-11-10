@@ -7,10 +7,10 @@ mode, etc.). To see all available arguments, run:
 
     python run_random_agents.py --help
 
-Example, to run 10 episodes of the `Driving-v0` environment with `human` rendering mode,
+Example, to run 10 episodes of the `Driving-v1` environment with `human` rendering mode,
 
     python run_random_agents.py \
-        --env_id Driving-v0 \
+        --env_id Driving-v1 \
         --num_episodes 10 \
         --render_mode human
 """

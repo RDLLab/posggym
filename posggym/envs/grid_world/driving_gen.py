@@ -21,11 +21,6 @@ class DrivingGenEnv(DrivingEnv):
     - `obs_dim` - the local observation dimensions, specifying how many cells in front,
         behind, and to each side the agent observes (default = `(3, 1, 1)`, resulting
         in the agent observing a 5x3 area: 3 in front, 1 behind, 1 to each side.)
-    - `obstacle_collisions` -  whether running into a wall results in the agent's
-        vehicle crashing and thus the agent reaching a terminal state. This can make
-        the problem significantly harder (default = "False").
-    - `observe_current_loc` - whether to include the agent's current location in the
-        agent's observation (default = `True`).
     - `generator_params` - the parameters to use for generating the grid
         (default = "14x14"). This can either be a string specyfing one of the supported
         sets of params (can be "7x7", "14x14", "28x28") or a dictionary with the
@@ -59,14 +54,13 @@ class DrivingGenEnv(DrivingEnv):
 
     ```python
     import posggym
-    env = posggym.make('DrivingGen-v0', generator_params="7x7", num_agents="2")
+    env = posggym.make('DrivingGen-v1', generator_params="7x7", num_agents="2")
     ```
 
     Version History
     ---------------
-    - `v1`: Added agent's current location to observation space. This is to be
-        consistent with :class:`DrivingEnv` and also to allow for the creation of
-        heuristic policies for the environment.
+    - `v1`: Updated to `Driving-v1` (See Version history of `Driving` environment for
+        details.
     - `v0`: Initial version
 
     """
@@ -75,8 +69,6 @@ class DrivingGenEnv(DrivingEnv):
         self,
         num_agents: int = 2,
         obs_dim: Tuple[int, int, int] = (3, 1, 2),
-        obstacle_collisions: bool = False,
-        observe_current_loc: bool = True,
         generator_params: Union[str, Dict[str, int]] = "14x14",
         n_grids: Optional[int] = None,
         shuffle_grid_order: bool = True,
@@ -107,8 +99,6 @@ class DrivingGenEnv(DrivingEnv):
             grid,
             num_agents,
             obs_dim,
-            obstacle_collisions=obstacle_collisions,
-            observe_current_loc=observe_current_loc,
             render_mode=render_mode,
         )
 
