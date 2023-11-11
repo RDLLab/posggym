@@ -148,6 +148,7 @@ reportGeneralTypeIssues = "none" # -> commented out raises 489 errors
 
 reportPrivateUsage = "warning"
 reportUnboundVariable = "warning"
+reportOptionalOperand = "warning"
 
 [tool.pytest.ini_options]
 filterwarnings = [
