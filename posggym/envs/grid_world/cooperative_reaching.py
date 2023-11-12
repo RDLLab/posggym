@@ -11,6 +11,7 @@ from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import Coord, Direction, Grid
 from posggym.utils import seeding
 
+
 # State = (coord_0, coord_1)
 CRState = Tuple[Coord, Coord]
 
@@ -429,7 +430,7 @@ class CooperativeReachingModel(M.POSGModel[CRState, CRObs, CRAction]):
         obs: Dict[str, CRObs] = {}
         for i in self.possible_agents:
             idx = int(i)
-            other_idx = idx % 2
+            other_idx = (idx + 1) % 2
             state_i, state_j = state[idx], state[other_idx]
 
             if (

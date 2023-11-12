@@ -26,6 +26,7 @@ from posggym.envs.grid_world.cooperative_reaching import (
     CRObs,
 )
 
+
 if TYPE_CHECKING:
     from posggym.envs.grid_world.core import Coord
 
@@ -151,7 +152,7 @@ class CRHeuristicPolicy(Policy[CRAction, CRObs]):
         return self._rng.choice(valid_target_goals)
 
 
-class CRHeuristicPolicy1(CRHeuristicPolicy):
+class CRHeuristic1(CRHeuristicPolicy):
     """Cooperative Reaching Heuristic Policy 1.
 
     H1 always goes to the closest rewarding goal.
@@ -163,7 +164,7 @@ class CRHeuristicPolicy1(CRHeuristicPolicy):
         return target_goal
 
 
-class CRHeuristicPolicy2(CRHeuristicPolicy):
+class CRHeuristic2(CRHeuristicPolicy):
     """Cooperative Reaching Heuristic Policy 2.
 
     H2 always goes to the furthest rewarding goal.
@@ -175,7 +176,7 @@ class CRHeuristicPolicy2(CRHeuristicPolicy):
         return target_goal
 
 
-class CRHeuristicPolicy3(CRHeuristicPolicy):
+class CRHeuristic3(CRHeuristicPolicy):
     """Cooperative Reaching Heuristic Policy 3
 
     H3 always goes to the closest optimal goal.
@@ -187,7 +188,7 @@ class CRHeuristicPolicy3(CRHeuristicPolicy):
         return target_goal
 
 
-class CRHeuristicPolicy4(CRHeuristicPolicy):
+class CRHeuristic4(CRHeuristicPolicy):
     """Cooperative Reaching Heuristic Policy 4
 
     H4 always goes to the furthest optimal goal.
@@ -199,7 +200,7 @@ class CRHeuristicPolicy4(CRHeuristicPolicy):
         return target_goal
 
 
-class CRHeuristicPolicy5(CRHeuristicPolicy):
+class CRHeuristic5(CRHeuristicPolicy):
     """Cooperative Reaching Heuristic Policy 5
 
     H5 always goes to the closest suboptimal goal.
@@ -211,7 +212,7 @@ class CRHeuristicPolicy5(CRHeuristicPolicy):
         return target_goal
 
 
-class CRHeuristicPolicy6(CRHeuristicPolicy):
+class CRHeuristic6(CRHeuristicPolicy):
     """Cooperative Reaching Heuristic Policy 6
 
     H6 always goes to the furthest suboptimal goal.
@@ -223,7 +224,7 @@ class CRHeuristicPolicy6(CRHeuristicPolicy):
         return target_goal
 
 
-class CRHeuristicPolicy7(CRHeuristicPolicy):
+class CRHeuristic7(CRHeuristicPolicy):
     """Cooperative Reaching Heuristic Policy 7
 
     H7 goes to a randomly selected goal.
@@ -235,7 +236,7 @@ class CRHeuristicPolicy7(CRHeuristicPolicy):
         return target_goal
 
 
-class CRHeuristicPolicy8(CRHeuristicPolicy):
+class CRHeuristic8(CRHeuristicPolicy):
     """Cooperative Reaching Heuristic Policy 8
 
     H8 goes to the goal closest to the other agent at each time step.
@@ -258,7 +259,7 @@ class CRHeuristicPolicy8(CRHeuristicPolicy):
         return self._rng.choice(closest_goals)
 
 
-class CRHeuristicPolicy9(CRHeuristicPolicy):
+class CRHeuristic9(CRHeuristicPolicy):
     """Cooperative Reaching Heuristic Policy 9
 
     H9 goes to the optimal goal closest to the other agent.
@@ -287,10 +288,39 @@ class CRHeuristicPolicy9(CRHeuristicPolicy):
         return self._rng.choice(closest_goals)
 
 
-class CRHeuristicPolicy10(CRHeuristicPolicy):
+class CRHeuristic10(CRHeuristicPolicy):
     """Cooperative Reaching Heuristic Policy 10
 
-    H10 follows the other agent.
+    H10 goes to the sub-optimal goal closest to the other agent.
+    """
+
+    def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
+        other_pos = obs[1]
+        if other_pos == (self.grid_size, self.grid_size):
+            # cannot see other agent, so just go towards a random optimal goal
+            return self._get_target_goal(obs, closest=None, optimal=True)
+
+        goal_list = [
+            goal
+            for goal, reward in self.goals.items()
+            if reward == min(self.goals.values())
+        ]
+
+        dist_to_goal = [
+            abs(other_pos[0] - goal[0]) + abs(other_pos[1] - goal[1])
+            for goal in goal_list
+        ]
+        min_dist_to_goal = min(dist_to_goal)
+        closest_goals = [
+            g for g, dist in zip(goal_list, dist_to_goal) if dist == min_dist_to_goal
+        ]
+        return self._rng.choice(closest_goals)
+
+
+class CRHeuristic11(CRHeuristicPolicy):
+    """Cooperative Reaching Heuristic Policy 11
+
+    H11 follows the other agent.
     """
 
     def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
@@ -299,77 +329,3 @@ class CRHeuristicPolicy10(CRHeuristicPolicy):
             # cannot see other agent, so just go towards a random goal
             return self._rng.choice(list(self.goals))
         return other_pos
-
-
-# def get_cr_vec_bot(
-#     bot_class: type[CRHeuristicPolicy],
-#     num_envs: int | None,
-#     goals: dict[Coord, float],
-# ) -> Callable[[], CRHeuristicPolicy]:
-#     """Get vectorized Cooperative Reaching bot."""
-
-#     def thunk():
-#         return bot_class(goals)
-
-#     return VecBot(thunk, num_envs)
-
-
-# if __name__ == "__main__":
-#     import time
-#     from itertools import product
-
-#     from posggym.envs.grid_world.cooperative_reaching import CooperativeReachingEnv
-
-#     def run_env(env, policies, n_steps=100):
-#         obs, _ = env.reset()
-#         env.render()
-#         for pi in policies.values():
-#             pi.reset()
-#         ep_return = 0
-#         for _ in range(n_steps):
-#             actions = {
-#                 i: policies[i].step(obs[i], np.array([False])) for i in env.agents
-#             }
-#             obs, rewards, _, _, _ = env.step(actions)
-#             ep_return += rewards[env.possible_agents[0]]
-
-#             env.render()
-#             time.sleep(0.05)
-
-#             if not env.agents:
-#                 print(f"Episode return: {ep_return}")
-#                 obs, _ = env.reset()
-#                 for pi in policies.values():
-#                     pi.reset()
-#                 ep_return = 0
-
-#         return ep_return
-
-#     for (m, n), s, bot_class in product(
-#         [
-#             ("original", 4),
-#         ],
-#         [10],
-#         ALL_CR_BOTS,
-#     ):
-#         print(
-#             f"\nRunning mode: {m}, n_goals: {n}, size: {s}, bot: {bot_class.__name__}"
-#         )
-#         if bot_class.__doc__ is not None:
-#             print(bot_class.__doc__.split("\n")[0])
-#             input("Press enter to continue...")
-#         env = CooperativeReachingEnv(size=s, n_goals=n, mode=m, render_mode="human")
-
-#         env.reset()
-#         policies = {
-#             env.possible_agents[0]: bot_class(env.possible_agents[0], s, env.goals),
-#             env.possible_agents[1]: bot_class(env.possible_agents[1], s, env.goals),
-#         }
-#         run_env(env, policies)
-
-#         env.close()
-
-#         env.close()
-#         env.close()
-
-#         env.close()

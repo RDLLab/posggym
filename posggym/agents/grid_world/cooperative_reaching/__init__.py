@@ -5,16 +5,17 @@ from posggym.agents.registration import PolicySpec
 policy_specs = {}
 for i, policy_class in enumerate(
     [
-        heuristic.CRHeuristicPolicy1,
-        heuristic.CRHeuristicPolicy2,
-        heuristic.CRHeuristicPolicy3,
-        heuristic.CRHeuristicPolicy4,
-        heuristic.CRHeuristicPolicy5,
-        heuristic.CRHeuristicPolicy6,
-        heuristic.CRHeuristicPolicy7,
-        heuristic.CRHeuristicPolicy8,
-        heuristic.CRHeuristicPolicy9,
-        heuristic.CRHeuristicPolicy10,
+        heuristic.CRHeuristic1,
+        heuristic.CRHeuristic2,
+        heuristic.CRHeuristic3,
+        heuristic.CRHeuristic4,
+        heuristic.CRHeuristic5,
+        heuristic.CRHeuristic6,
+        heuristic.CRHeuristic7,
+        heuristic.CRHeuristic8,
+        heuristic.CRHeuristic9,
+        heuristic.CRHeuristic10,
+        heuristic.CRHeuristic11,
     ]
 ):
     policy_spec = PolicySpec(
