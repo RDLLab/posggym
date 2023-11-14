@@ -92,6 +92,7 @@ def run_policy(
     for i, pi in enumerate(policies.values()):
         pi.reset(seed=seed if seed is None else seed + i)
 
+    episode_rewards = {i: [] for i in env.possible_agents}
     for _ in range(num_episodes):
         obs, _ = env.reset()
         for pi in policies.values():
@@ -99,6 +100,7 @@ def run_policy(
         env.render()
 
         all_done = False
+        rewards = {i: 0.0 for i in env.possible_agents}
         while not all_done:
             joint_action = {}
             for i in env.agents:
@@ -106,12 +108,21 @@ def run_policy(
                 a = pi.step(env.state) if pi.observes_state else pi.step(obs[i])
                 joint_action[i] = a
 
-            obs, _, _, _, all_done, _ = env.step(joint_action)
+            obs, rews, _, _, all_done, _ = env.step(joint_action)
             env.render()
+
+            for agent_id, r_i in rews.items():
+                rewards[agent_id] += r_i
+
+        for j in env.possible_agents:
+            episode_rewards[j].append(rewards[j])
 
     env.close()
     for pi in policies.values():
         pi.close()
+
+    mean_returns = {i: f"{sum(r) / len(r):.2f}" for i, r in episode_rewards.items()}
+    print(f"  Mean Episode returns {mean_returns}")
 
 
 def run_all_agents(
