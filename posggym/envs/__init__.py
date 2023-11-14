@@ -129,20 +129,18 @@ register(
 # Level-Based Foraging
 # Based on github.com/semitable/lb-foraging/
 register(
-    id="LevelBasedForaging-v2",
+    id="LevelBasedForaging-v3",
     entry_point="posggym.envs.grid_world.level_based_foraging:LevelBasedForagingEnv",
     max_episode_steps=50,
     kwargs={
         "num_agents": 2,
         "max_agent_level": 3,
-        "field_size": (10, 10),
+        "size": 10,
         "max_food": 8,
         "sight": 2,
         "force_coop": False,
         "static_layout": False,
-        "normalize_reward": True,
         "observation_mode": "tuple",
-        "penalty": 0.0,
     },
 )
 

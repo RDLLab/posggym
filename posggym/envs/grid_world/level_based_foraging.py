@@ -36,6 +36,7 @@ class LBFState(NamedTuple):
 
     players: Tuple[Player, ...]
     food: Tuple[Food, ...]
+    # sum of levels of all food that have been spawned in the episode
     food_spawned: int
 
 
@@ -149,7 +150,9 @@ class LevelBasedForagingEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
     -------
     Agents receive a reward whenever they successfully pick-up food. The reward received
     by each agent depends on the food's level and how many agents picked up the food and
-    their levels. In cooperative mode all agents receive the same reward.
+    their levels. In cooperative mode all agents receive the same reward. The reward
+    per food item is set so that the max sum of rewards for an episode is 1.0 (minimum
+    is 0.0).
 
     Dynamics
     --------
@@ -187,7 +190,7 @@ class LevelBasedForagingEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
 
     - `num_agents` - the number of agents in the environment (default = `2`).
     - `max_agent_level` - the maximum level of an agent (default = `3`).
-    - `field_size` - the width and height of the grid world (default = `(10, 10)`).
+    - `size` - the width and height of the square grid world (default = `10`).
     - `max_food` - the maximum number of food that will appear in an episode
         (default = `8`).
     - `sight` - the local observation dimensions, specifying how many cells in each
@@ -199,14 +202,17 @@ class LevelBasedForagingEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
         number of food will always appear each episode and always in the same locations.
         The level of the food will be random each episode. If false, food location and
         levels is random each episode (default = 'False`)
-    - `normalize_reward` - whether to normalize rewards so that the max sum of rewards
-        for an episode is 1.0 (default=`True`).
     - `observation_mode` - the observation mode to use out of `grid`, `vector`, or
         `tuple` (default=`tuple`)
-    - `penalty` - the penalty for failing to load food (default=0.0)
 
     Version History
     ---------------
+    - `v3`: cleaned up version of `v2` with some minor changes, mostly removing unused
+        parameters:
+        - removed `penalty` option for penalizing failed load actions
+        - removed `normalize_reward` option (always normalize rewards now)
+        - changed `field_size` parameter to `size` and restricted field to be a square
+          (`field_size`/`size` is now a single int)
     - `v2`: Version adapted from <https://github.com/semitable/lb-foraging>
 
     References
@@ -238,30 +244,24 @@ class LevelBasedForagingEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
         self,
         num_agents: int = 2,
         max_agent_level: int = 3,
-        field_size: Tuple[int, int] = (10, 10),
+        size: int = 10,
         max_food: int = 8,
         sight: int = 2,
         force_coop: bool = False,
         static_layout: bool = False,
-        normalize_reward: bool = True,
         observation_mode: str = "tuple",
-        penalty: float = 0.0,
         render_mode: Optional[str] = None,
-        **kwargs,
     ):
         super().__init__(
             LevelBasedForagingModel(
                 num_agents,
                 max_agent_level,
-                field_size=field_size,
+                size=size,
                 max_food=max_food,
                 sight=sight,
                 force_coop=force_coop,
                 static_layout=static_layout,
-                normalize_reward=normalize_reward,
                 observation_mode=observation_mode,
-                penalty=penalty,
-                **kwargs,
             ),
             render_mode=render_mode,
         )
@@ -363,7 +363,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         the number of agents in the environment
     max_agent_level : int
         maximum foraging level of any agent
-    field_size : Tuple[int, int]
+    size : int
         width and height of the playing field
     max_food : int
         the max number of food that can be spawned
@@ -371,8 +371,6 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         observation size of each agent
     force_coop : bool
         whether to force cooperation or not
-    normalize_reward : bool, optional
-        whether to normalize the reward or not (default=True)
     observation_mode : str, optional
         The observation mode for agent (default='tuple')
           - 'grid' - observations are multiple 2D grids (3D np.ndarray)
@@ -380,39 +378,34 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
           - 'tuple' - observations are a tuple with same format as 'vector'
                       observations but as a hashable Python tuple object
                       containing integers instead of floats
-    penalty : float, optional
-        the penalty for failing to load food (default=0.0)
-
     """
 
     OBSERVATION_MODES = ["grid", "vector", "tuple"]
 
-    # pylint: disable=unused-argument
     def __init__(
         self,
         num_agents: int,
         max_agent_level: int,
-        field_size: Tuple[int, int],
+        size: int,
         max_food: int,
         sight: int,
         force_coop: bool,
         static_layout: bool,
-        normalize_reward: bool = True,
         observation_mode: str = "tuple",
-        penalty: float = 0.0,
-        **kwargs,
     ):
+        assert num_agents >= 2
+        assert max_agent_level >= 1
+        assert size >= 3
+        assert max_food >= 1
+        assert sight >= 1
         assert observation_mode in self.OBSERVATION_MODES
-        self.field_size = field_size
-        self._rows, self._cols = field_size
-        self._max_agent_level = max_agent_level
-        self._max_food = max_food
+        self.size = size
+        self.max_agent_level = max_agent_level
+        self.max_food = max_food
         self.sight = sight
-        self._force_coop = force_coop
-        self._static_layout = static_layout
-        self._normalize_reward = normalize_reward
+        self.force_coop = force_coop
+        self.static_layout = static_layout
         self.observation_mode = observation_mode
-        self._penalty = penalty
 
         self.possible_agents = tuple(str(i) for i in range(num_agents))
         self.action_spaces = {
@@ -423,16 +416,21 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         }
         self.is_symmetric = True
 
-        self.grid = Grid(
-            grid_width=self._cols, grid_height=self._rows, block_coords=None
-        )
+        self.grid = Grid(grid_width=self.size, grid_height=self.size, block_coords=None)
 
         self._food_locations: Optional[List[Coord]] = None
         self._player_locations: Optional[List[Coord]] = None
         if static_layout:
-            assert (
-                self._rows == self._cols
-            ), "static layout only supported for square grids"
+            assert self.max_food <= math.floor((self.size - 1) / 2) ** 2, (
+                "when using static layout there must be enough space to surround each "
+                "food with free cells. Increase the size of the field or reduce the "
+                "number of food"
+            )
+            assert len(self.possible_agents) <= math.ceil(self.size / 2) * 4 - 4, (
+                "when using static layout there must be enough space to place each "
+                "player in a corner or along an edge. Increase the size of the field "
+                "or reduce the number of agents"
+            )
             self._food_locations = self._generate_static_food_coords()
             self._player_locations = self._generate_static_player_coords()
 
@@ -444,37 +442,37 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
 
         """
         n_agents = len(self.possible_agents)
-        max_food_level = self._max_agent_level * min(n_agents, 4)
+        max_food_level = self.max_agent_level * min(n_agents, 4)
         if self.observation_mode == "tuple":
-            max_x, max_y = self._cols, self._rows
+            max_x, max_y = self.size, self.size
             tuple_obs_space = []
             for _ in range(n_agents):
                 tuple_obs_space.append(spaces.Discrete(max_x + 1, start=-1))
                 tuple_obs_space.append(spaces.Discrete(max_y + 1, start=-1))
                 tuple_obs_space.append(
-                    spaces.Discrete(self._max_agent_level + 1, start=0)
+                    spaces.Discrete(self.max_agent_level + 1, start=0)
                 )
-            for _ in range(self._max_food):
+            for _ in range(self.max_food):
                 tuple_obs_space.append(spaces.Discrete(max_x + 2, start=-1))
                 tuple_obs_space.append(spaces.Discrete(max_y + 2, start=-1))
                 tuple_obs_space.append(spaces.Discrete(max_food_level + 1, start=0))
             return spaces.Tuple(tuple_obs_space)
 
         if self.observation_mode == "vector":
-            max_x, max_y = self._cols - 1, self._rows - 1
-            min_obs = [-1, -1, 0] * n_agents + [-1, -1, 0] * self._max_food
-            max_obs = [max_x, max_y, self._max_agent_level] * n_agents + [
+            max_x, max_y = self.size - 1, self.size - 1
+            min_obs = [-1, -1, 0] * n_agents + [-1, -1, 0] * self.max_food
+            max_obs = [max_x, max_y, self.max_agent_level] * n_agents + [
                 max_x,
                 max_y,
                 max_food_level,
-            ] * self._max_food
+            ] * self.max_food
         else:
             # grid observation space
             grid_shape = (1 + 2 * self.sight, 1 + 2 * self.sight)
 
             # agents layer: agent levels
             agents_min = np.zeros(grid_shape, dtype=np.float32)
-            agents_max = np.ones(grid_shape, dtype=np.float32) * self._max_agent_level
+            agents_max = np.ones(grid_shape, dtype=np.float32) * self.max_agent_level
 
             # foods layer: foods level
             foods_min = np.zeros(grid_shape, dtype=np.float32)
@@ -498,11 +496,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
 
     @property
     def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
-        if self._normalize_reward:
-            reward_range = (self._penalty, 1.0)
-        else:
-            reward_range = (self._penalty, self._max_agent_level)
-        return {i: reward_range for i in self.possible_agents}
+        return {i: (0.0, 1.0) for i in self.possible_agents}
 
     def get_agents(self, state: LBFState) -> List[str]:
         return list(self.possible_agents)
@@ -510,15 +504,12 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
     @property
     def rng(self) -> seeding.RNG:
         if self._rng is None:
-            self._rng, seed = seeding.std_random()
+            self._rng, _ = seeding.std_random()
         return self._rng
 
     def seed(self, seed: Optional[int] = None):
         super().seed(seed)
-        if self._static_layout:
-            assert (
-                self._rows == self._cols
-            ), "static layout only supported for square grids"
+        if self.static_layout:
             self._food_locations = self._generate_static_food_coords()
             self._player_locations = self._generate_static_player_coords()
 
@@ -528,20 +519,16 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         Number and location of food is the same for given pairing of
         (field size, max_food).
         """
-        assert self._rows == self._cols
-        # must be enough space to surround each food with free cells
-        assert self._max_food <= math.floor((self._rows - 1) / 2) ** 2
-
-        food_grid_size = math.floor((self._rows - 1) / 2)
+        food_grid_size = math.floor((self.size - 1) / 2)
         available_food_locs = sorted_from_middle(
             list(product(range(food_grid_size), repeat=2))
         )
 
         food_locs = []
-        for f in range(self._max_food):
-            row = available_food_locs[f][0] * 2 + 1
-            col = available_food_locs[f][1] * 2 + 1
-            food_locs.append((row, col))
+        for f in range(self.max_food):
+            x = available_food_locs[f][0] * 2 + 1
+            y = available_food_locs[f][1] * 2 + 1
+            food_locs.append((x, y))
         return food_locs
 
     def _generate_static_player_coords(self) -> List[Coord]:
@@ -549,23 +536,18 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
 
         Players always start around edge of field.
         """
-        assert self._rows == self._cols
-
-        assert len(self.possible_agents) <= math.ceil(self._rows / 2) * 4 - 4
-
         idxs = [
-            i * 2 if i < self._rows / 4 else i * 2 + ((self._rows + 1) % 2)
-            for i in range(math.ceil(self._rows / 2))
+            i * 2 if i < self.size / 4 else i * 2 + ((self.size + 1) % 2)
+            for i in range(math.ceil(self.size / 2))
         ]
         idxs_reverse = list(reversed(idxs))
 
-        # set it so locations are chosen from corners first then
-        # alternating sides
+        # set it so locations are chosen from corners first then alternating sides
         sides = [
             product([0], idxs[:-1]),
-            product([self._rows - 1], idxs_reverse[:-1]),
+            product([self.size - 1], idxs_reverse[:-1]),
             product(idxs_reverse[:-1], [0]),
-            product(idxs[:-1], [self._rows - 1]),
+            product(idxs[:-1], [self.size - 1]),
         ]
         available_locations: List[Coord] = []
         for locs in zip(*sides):
@@ -574,7 +556,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         return available_locations[: len(self.possible_agents)]
 
     def sample_initial_state(self) -> LBFState:
-        if self._static_layout:
+        if self.static_layout:
             players = self._spawn_players_static()
         else:
             players = self._spawn_players_generative()
@@ -582,11 +564,11 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         player_levels = sorted([player.level for player in players])
         max_level = sum(player_levels[:3])
 
-        if self._static_layout:
+        if self.static_layout:
             food = self._spawn_food_static(max_level)
         else:
             food = self._spawn_food_generative(
-                self._max_food, max_level, [p.coord for p in players]
+                self.max_food, max_level, [p.coord for p in players]
             )
         return LBFState(players, food, sum(f.level for f in food))
 
@@ -595,15 +577,15 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         players = []
         for i in range(len(self.possible_agents)):
             (x, y) = self._player_locations[i]
-            level = self.rng.randint(1, self._max_agent_level - 1)  # type: ignore
+            level = self.rng.randint(1, self.max_agent_level)
             players.append(Player(i, (x, y), level))
         return tuple(players)
 
     def _spawn_players_generative(self) -> Tuple[Player, ...]:
         players = []
-        available_coords = list(product(range(self._cols), range(self._rows)))
+        available_coords = list(product(range(self.size), range(self.size)))
         for i in range(len(self.possible_agents)):
-            level = self.rng.randint(1, self._max_agent_level - 1)  # type: ignore
+            level = self.rng.randint(1, self.max_agent_level)
             coord = self.rng.choice(available_coords)
             available_coords.remove(coord)
             players.append(Player(i, coord, level))
@@ -612,17 +594,16 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
     def _spawn_food_static(self, max_level: int) -> Tuple[Food, ...]:
         """Spawn food in static layout.
 
-        Number and location of food is the same for given pairing of
-        (field size, max_food), only the levels of each food will change.
+        Number and location of food is the same for given pairing of (size, max_food),
+        only the levels of each food will change.
         """
         assert self._food_locations is not None
-        assert max_level >= 1
-        min_level = max_level if self._force_coop else 1
+        min_level = max_level if self.force_coop else 1
         food = []
         for x, y in self._food_locations:
             level = min_level
             if min_level != max_level:
-                level = self.rng.randint(min_level, max_level)  # type: ignore
+                level = self.rng.randint(min_level, max_level)
             food.append(Food((x, y), level))
         return tuple(food)
 
@@ -632,22 +613,23 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         max_level: int,
         player_coords: List[Coord],
     ) -> Tuple[Food, ...]:
-        assert max_level >= 1
         attempts = 0
-        min_level = max_level if self._force_coop else 1
+        min_level = max_level if self.force_coop else 1
         unavailable_coords = set(player_coords)
-        food: List[Food] = []
+        food = []
         while len(food) < max_food and attempts < 1000:
             attempts += 1
-            x = self.rng.randint(1, self._cols - 2)  # type: ignore
-            y = self.rng.randint(1, self._rows - 2)  # type: ignore
+            x = self.rng.randint(1, self.size - 2)
+            y = self.rng.randint(1, self.size - 2)
 
             if (x, y) in unavailable_coords:
                 continue
+
             # add coord and adjacent coord to unavailable set so food are always
             # at least one cell apart
             for x_delta, y_delta in product([-1, 0, 1], repeat=2):
                 unavailable_coords.add((x + x_delta, y + y_delta))
+
             level = min_level
             if min_level != max_level:
                 level = self.rng.randint(min_level, max_level)  # type: ignore
@@ -661,17 +643,17 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         self, state: LBFState, actions: Dict[str, LBFAction]
     ) -> M.JointTimestep[LBFState, LBFObs]:
         assert all(0 <= a < len(LBFAction) for a in actions.values())
-        next_state, rewards = self._get_next_state(state, actions)
+        next_state, rewards = self._get_next_state_and_rewards(state, actions)
         obs = self._get_obs(next_state)
         all_done = len(next_state.food) == 0
         terminated = {i: all_done for i in self.possible_agents}
         truncated = {i: False for i in self.possible_agents}
-        info: Dict[str, Dict] = {i: {} for i in self.possible_agents}
+        info = {i: {} for i in self.possible_agents}
         return M.JointTimestep(
             next_state, obs, rewards, terminated, truncated, all_done, info
         )
 
-    def _get_next_state(
+    def _get_next_state_and_rewards(
         self, state: LBFState, actions: Dict[str, LBFAction]
     ) -> Tuple[LBFState, Dict[str, float]]:
         next_food = {f.coord: f for f in state.food}
@@ -704,7 +686,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
             next_players[player.idx] = Player(player.idx, coord, player.level)
 
         # process the loadings and calculate rewards as necessary
-        rewards: Dict[str, float] = {i: 0.0 for i in self.possible_agents}
+        rewards = {i: 0.0 for i in self.possible_agents}
         for player in loading_players:
             adj_coords = self.grid.get_neighbours(player.coord)
             for adj_coord in adj_coords:
@@ -715,28 +697,22 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
                 adj_players = [p for p in loading_players if p.coord in food_adj_coords]
                 adj_player_level = sum([p.level for p in adj_players])
 
-                if adj_player_level < adj_food.level:
-                    # failed to load
+                if adj_player_level >= adj_food.level:
+                    # food was loaded and each player involved scores points
+                    food_value = adj_food.level / (
+                        adj_player_level * state.food_spawned
+                    )
                     for p in adj_players:
-                        rewards[str(p.idx)] -= self._penalty
-                else:
-                    # food was loaded and each player scores points
-                    for p in adj_players:
-                        p_reward = float(p.level * adj_food.level)
-                        if self._normalize_reward:
-                            p_reward = p_reward / float(
-                                adj_player_level * state.food_spawned
-                            )
-                        rewards[str(p.idx)] += p_reward
+                        rewards[str(p.idx)] += float(p.level * food_value)
                     # and food is removed
                     next_food.pop(adj_coord)
         next_state = LBFState(
             tuple(next_players), tuple(next_food.values()), state.food_spawned
         )
-        return next_state, rewards  # type: ignore
+        return next_state, rewards
 
     def _get_obs(self, state: LBFState) -> Dict[str, LBFObs]:
-        obs: Dict[str, LBFObs] = {}
+        obs = {}
         for i in self.possible_agents:
             player_obs, food_obs = self._get_local_obs(state, int(i))
             if self.observation_mode == "tuple":
@@ -745,7 +721,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
                 obs[i] = self._get_vector_obs(int(i), player_obs, food_obs)
             else:
                 obs[i] = self._get_grid_obs(
-                    int(i), state.players[int(i)].coord, player_obs, food_obs
+                    state.players[int(i)].coord, player_obs, food_obs
                 )
         return obs
 
@@ -798,7 +774,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
                 obs.insert(0, o.coord[0])
             else:
                 obs.extend((*o.coord, o.level))
-        for f_idx in range(self._max_food):
+        for f_idx in range(self.max_food):
             if f_idx < len(food_obs):
                 obs.extend((*food_obs[f_idx].coord, food_obs[f_idx].level))
             else:
@@ -813,7 +789,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
     ) -> np.ndarray:
         # initialize obs array to (-1, -1, 0)
         obs = np.full(
-            ((len(self.possible_agents) + self._max_food) * 3,), -1.0, dtype=np.float32
+            ((len(self.possible_agents) + self.max_food) * 3,), -1.0, dtype=np.float32
         )
         obs[2::3] = 0
         for i, o in enumerate(player_obs):
@@ -824,7 +800,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
             obs[p_idx : p_idx + 3] = (*o.coord, o.level)
 
         food_start_idx = len(self.possible_agents) * 3
-        for i in range(self._max_food):
+        for i in range(self.max_food):
             if i < len(food_obs):
                 f_idx = food_start_idx + (i * 3)
                 obs[f_idx : f_idx + 3] = (*food_obs[i].coord, food_obs[i].level)
@@ -833,7 +809,6 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
 
     def _get_grid_obs(
         self,
-        agent_id: int,
         agent_coord: Coord,
         player_obs: List[LBFEntityObs],
         food_obs: List[LBFEntityObs],
@@ -846,8 +821,8 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         # cells containing players and food will be made inaccessible in next steps
         agent_x, agent_y = agent_coord
         for x, y in product(
-            range(max(agent_x - self.sight, 0), min(self._cols, agent_x + self.sight)),
-            range(max(agent_y - self.sight, 0), min(self._rows, agent_y + self.sight)),
+            range(max(agent_x - self.sight, 0), min(self.size, agent_x + self.sight)),
+            range(max(agent_y - self.sight, 0), min(self.size, agent_y + self.sight)),
         ):
             obs_x = x - agent_x + self.sight
             obs_y = y - agent_y + self.sight
@@ -911,7 +886,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         On triplet of [-1, -1, 0] means no observation for the given agent or
         food.
         """
-        assert obs.shape[0] == 3 * (len(self.possible_agents) + self._max_food)
+        assert obs.shape[0] == 3 * (len(self.possible_agents) + self.max_food)
         agent_obs = []
         food_obs = []
         for i in range(0, obs.shape[0], 3):
@@ -933,7 +908,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         On triplet of [-1, -1, 0] means no observation for the given agent or
         food.
         """
-        assert len(obs) == 3 * (len(self.possible_agents) + self._max_food)
+        assert len(obs) == 3 * (len(self.possible_agents) + self.max_food)
         agent_obs = []
         food_obs = []
         for i in range(0, len(obs), 3):
@@ -959,9 +934,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
     ) -> Optional[Coord]:
         grid_col = agent_coord[0] + obs_coord[0] - self.sight
         grid_row = agent_coord[1] + obs_coord[1] - self.sight
-
-        width, height = self.field_size
-        if 0 <= grid_row < height and 0 <= grid_col < width:
+        if 0 <= grid_row < self.size and 0 <= grid_col < self.size:
             return (grid_col, grid_row)
         return None
 
