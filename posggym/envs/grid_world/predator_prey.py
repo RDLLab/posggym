@@ -628,6 +628,9 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
         next_prey_coords: Tuple[Coord, ...],
     ) -> Tuple[Coord, ...]:
         potential_next_coords = []
+        occupied_prey_coords = {
+            c for i, c in enumerate(next_prey_coords) if not state.prey_caught[i]
+        }
         for i, coord in enumerate(state.predator_coords):
             if actions[str(i)] == 0:
                 next_coord = coord
@@ -636,7 +639,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
                 next_coord = self.grid.get_next_coord(
                     coord, a_dir, ignore_blocks=False  # type: ignore
                 )
-                if next_coord in next_prey_coords:
+                if next_coord in occupied_prey_coords:
                     next_coord = coord
             potential_next_coords.append(next_coord)
 
@@ -644,17 +647,14 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
         next_coords = []
         for i in range(self.num_predators):
             coord_i = potential_next_coords[i]
-            collision = False
             for j in range(self.num_predators):
                 if i == j:
                     continue
                 elif coord_i == potential_next_coords[j]:
-                    collision = True
+                    # collision, stay in current cell
+                    coord_i = state.predator_coords[i]
                     break
-            if collision:
-                next_coords.append(state.predator_coords[i])
-            else:
-                next_coords.append(coord_i)
+            next_coords.append(coord_i)
 
         return tuple(next_coords)
 
@@ -690,7 +690,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
         agent_coord = next_state.predator_coords[agent_idx]
 
         cell_obs = []
-        for col, row in product(range(obs_size), repeat=2):
+        for row, col in product(range(obs_size), repeat=2):
             obs_grid_coord = self._map_obs_to_grid_coord((col, row), agent_coord)
             if obs_grid_coord is None or obs_grid_coord in self.grid.block_coords:
                 cell_obs.append(WALL)
