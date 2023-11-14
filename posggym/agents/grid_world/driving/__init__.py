@@ -7,7 +7,6 @@ from posggym.agents.torch_policy import PPOPolicy
 from posggym.agents.utils import processors
 from posggym.config import AGENT_MODEL_DIR
 
-
 agent_model_dir = osp.join(AGENT_MODEL_DIR, "grid_world", "driving")
 policy_specs = {}
 
@@ -41,9 +40,10 @@ for policy_file_name in [
             "num_agents": 2,
             "obs_dim": (3, 1, 1),
         },
+        env_args_id="grid=14x14RoundAbout-num_agents=2",
         policy_file_path=osp.join(
             agent_model_dir,
-            "grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)",
+            "grid=14x14RoundAbout-num_agents=2",
             policy_file_name,
         ),
         version=0,

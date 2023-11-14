@@ -23,12 +23,12 @@ from posggym.envs.grid_world.driving import (
 )
 from posggym.utils import seeding
 
+
 if TYPE_CHECKING:
     from posggym.model import POSGModel
     from posggym.utils.history import AgentHistory
 
 
-# Convenient type definitions
 # Current coord, speed, facing direction
 Pos = Tuple[Coord, Speed, Direction]
 

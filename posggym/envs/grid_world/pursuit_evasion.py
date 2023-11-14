@@ -29,8 +29,11 @@ class PEState(NamedTuple):
 
 
 # Action = Direction of movement
-# 0 = Forward, 1 = Backward, 2 = Left, 3 = Right
 PEAction = int
+FORWARD = 0
+BACKWARD = 1
+LEFT = 2
+RIGHT = 3
 ACTION_TO_DIR = [
     # Forward
     [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST],
