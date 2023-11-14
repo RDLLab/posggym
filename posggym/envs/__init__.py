@@ -163,14 +163,12 @@ register(
 
 # Pursuit-Evasion
 register(
-    id="PursuitEvasion-v0",
+    id="PursuitEvasion-v1",
     entry_point="posggym.envs.grid_world.pursuit_evasion:PursuitEvasionEnv",
     max_episode_steps=100,
     kwargs={
         "grid": "16x16",
-        "action_probs": 1.0,
         "max_obs_distance": 12,
-        "normalize_reward": True,
         "use_progress_reward": True,
     },
 )

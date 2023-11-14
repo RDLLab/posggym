@@ -21,6 +21,9 @@ Major changes include:
 - Updated the `posggym.agents.Policy` API to make it a bit less confusing
 - Updated the `Driving` and `DrivingGen` envs to `v1` which includes a few bug fixes and adds a number of improvements (`Driving-v0` is no longer supported, including the `Driving-v0` agent policies.)
 - Added shortest path based policies for all `Driving-v1` and `DrivingGen-v1` environments
+- Updated `LevelBasedForaging` environment to `v3` which includes a number of small improvements, mainly around removing unused parameters (`LevelBasedForaging-v2` is no longer supported, including the `LevelBasedForaging-v2` agent policies.)
+- Updated `PursuitEvasion` environment to `v1` which removes unused parameters (`PursuitEvasion-v0` is no longer supported, including the `PursuitEvasion-v0` agent policies.)
+- Updated agents for `PursuitEvasion-v1`
 - Cleaned up docstrings of a bunch of classes
 
 ---

@@ -1,6 +1,6 @@
 """The Pursuit-Evasion Grid World Environment."""
 from collections import deque
-from typing import Any, Deque, Dict, List, NamedTuple, Optional, Set, Tuple, Union
+from typing import Any, Deque, Dict, List, NamedTuple, Optional, Set, Tuple, Union, cast
 
 from gymnasium import spaces
 
@@ -116,25 +116,21 @@ class PursuitEvasionEnv(DefaultEnv):
     Rewards
     -------
     The environment is zero-sum with the pursuer receiving the negative of the evader
-    reward. Additionally, rewards are by default normalized so that returns are bounded
-    between `-1` and `1` (this can be disabled by the `normalize_reward` parameter).
+    reward. Rewards are normalized so that returns are bounded between `-1` and `1`.
 
     The evader receives a reward of `1` for reaching it's goal location and a
     reward of `-1` if it gets captured. Additionally, the evader receives a small
     reward of `0.01` each time it's minimum distance achieved to it's goal along the
     shortest path decreases for the current episode. This is to make it so the
     environment is no longer sparesely rewarded and helps with exploration and learning
-    (it can be disabled by the `use_progress_reward` parameter.)
+    (it can be disabled by the `use_progress_reward` parameter). If progress reward
+    is enabled, reward normalization still applies so the returns are bounded between
+    `-1` and `1`.
 
     Dynamics
     --------
-    By default actions are deterministic and will move the agent one cell in the target
-    direction if the cell is empty.
-
-    The environment can also be run in stochastic mode by changing the `action_probs`
-    parameter at initialization. This controls the probability the agent will move in
-    the desired direction each step, otherwise moving randomly in one of the other 3
-    possible directions.
+    Actions are deterministic and will move the agent one cell in the target direction
+    if the cell is empty.
 
     Starting State
     --------------
@@ -157,14 +153,8 @@ class PursuitEvasionEnv(DefaultEnv):
 
     - `grid` - the grid layout to use. This can either be a string specifying one of
          the supported grids, or a custom :class:`PEGrid` object (default = `"16x16"`).
-    - `action_probs` - the action success probability for each agent. This can be a
-        single float (same value for both evader and pursuer agents) or a tuple with
-        separate values for each agent (default = `1.0`).
     - `max_obs_distance` - the maximum number of cells in front each agent's field of
         vision extends (default = `12`).
-    - `num_prey` - the number of prey (default = `3`)
-    - `normalize_reward` - whether to normalize both agents' rewards to be between `-1`
-        and `1` (default = 'True`)
     - `use_progress_reward` - whether to reward the evader agent for making progress
         towards it's goal. If False the evader will only be rewarded when it reaches
         it's goal, making it a sparse reward problem (default = 'True`).
@@ -194,6 +184,13 @@ class PursuitEvasionEnv(DefaultEnv):
     )
     ```
 
+    Version History
+    ---------------
+    - `v1`: Minor update, mainly removing unused parameters:
+        - removed `action_probs` parameter (actions are now always deterministic)
+        - removed `normalize_reward` parameter (rewards are now always normalized)
+    - `v0`: Initial version
+
     References
     ----------
     - [This Pursuit-Evasion implementation is directly inspired by the problem] Seaman,
@@ -215,20 +212,14 @@ class PursuitEvasionEnv(DefaultEnv):
     def __init__(
         self,
         grid: Union[str, "PEGrid"] = "16x16",
-        action_probs: Union[float, Tuple[float, float]] = 1.0,
         max_obs_distance: int = 12,
-        normalize_reward: bool = True,
         use_progress_reward: bool = True,
         render_mode: Optional[str] = None,
-        **kwargs,
     ):
         model = PursuitEvasionModel(
             grid,
-            action_probs=action_probs,
             max_obs_distance=max_obs_distance,
-            normalize_reward=normalize_reward,
             use_progress_reward=use_progress_reward,
-            **kwargs,
         )
         super().__init__(model, render_mode=render_mode)
 
@@ -288,7 +279,7 @@ class PursuitEvasionEnv(DefaultEnv):
         evader_coord = self._state[0]
         pursuer_coord = self._state[2]
         goal_coord = self._state[6]
-        model: PursuitEvasionModel = self.model  # type: ignore
+        model = cast(PursuitEvasionModel, self.model)
 
         import posggym.envs.grid_world.render as render_lib
 
@@ -367,9 +358,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
     def __init__(
         self,
         grid: Union[str, "PEGrid"],
-        action_probs: Union[float, Tuple[float, float]] = 1.0,
         max_obs_distance: int = 12,
-        normalize_reward: bool = True,
         use_progress_reward: bool = True,
     ):
         if isinstance(grid, str):
@@ -379,13 +368,8 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             )
             grid = SUPPORTED_GRIDS[grid][0]()
 
-        if isinstance(action_probs, float):
-            action_probs = (action_probs, action_probs)
-
         self._grid = grid
-        self.action_probs = action_probs
         self.max_obs_distance = max_obs_distance
-        self.normalize_reward = normalize_reward
         self.use_progress_reward = use_progress_reward
 
         self._max_sp_distance = self._grid.get_max_shortest_path_distance()
@@ -442,8 +426,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         max_reward = self.R_EVASION
         if self.use_progress_reward:
             max_reward += self.R_PROGRESS
-        if self.normalize_reward:
-            max_reward = self._get_normalized_reward(max_reward)
+        max_reward = self._get_normalized_reward(max_reward)
         return {i: (-max_reward, max_reward) for i in self.possible_agents}
 
     @property
@@ -514,21 +497,6 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
     def _get_next_state(self, state: PEState, actions: Dict[str, PEAction]) -> PEState:
         evader_a = actions[str(self.EVADER_IDX)]
         pursuer_a = actions[str(self.PURSUER_IDX)]
-
-        if (
-            self.action_probs[self.EVADER_IDX] < 1.0
-            and self.rng.random() > self.action_probs[self.EVADER_IDX]
-        ):
-            other_as = [a for a in range(len(Direction)) if a != evader_a]
-            evader_a = self.rng.choice(other_as)
-
-        if (
-            self.action_probs[self.PURSUER_IDX]
-            and self.rng.random() > self.action_probs[self.PURSUER_IDX]
-        ):
-            other_as = [a for a in range(len(Direction)) if a != pursuer_a]
-            pursuer_a = self.rng.choice(other_as)
-
         pursuer_next_dir = Direction(ACTION_TO_DIR[pursuer_a][state.pursuer_dir])
         pursuer_next_coord = self.grid.get_next_coord(
             state.pursuer_coord, pursuer_next_dir, ignore_blocks=False
@@ -624,8 +592,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         elif evader_coord == evader_goal_coord:
             evader_reward += self.R_EVASION
 
-        if self.normalize_reward:
-            evader_reward = self._get_normalized_reward(evader_reward)
+        evader_reward = self._get_normalized_reward(evader_reward)
 
         return {
             str(self.EVADER_IDX): evader_reward,
