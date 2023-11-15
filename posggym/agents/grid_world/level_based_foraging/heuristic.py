@@ -36,7 +36,6 @@ class LBFHeuristicPolicy(Policy[LBFAction, LBFObs]):
         super().__init__(model, agent_id, policy_id)
         assert model.observation_mode in ("vector", "tuple")
         self._rng = random.Random()
-        self.field_width, self.field_height = model.field_size
 
     def reset(self, *, seed: int | None = None):
         super().reset(seed=seed)
@@ -165,7 +164,7 @@ class LBFHeuristicPolicy(Policy[LBFAction, LBFObs]):
             return prev_pos
 
 
-class LBFHeuristicPolicy1(LBFHeuristicPolicy):
+class LBFHeuristic1(LBFHeuristicPolicy):
     """Level-Based Foraging Heuristic Policy 1.
 
     H1 always goes to the closest observed food, irrespective of the foods level.
@@ -185,7 +184,7 @@ class LBFHeuristicPolicy1(LBFHeuristicPolicy):
         )
 
 
-class LBFHeuristicPolicy2(LBFHeuristicPolicy):
+class LBFHeuristic2(LBFHeuristicPolicy):
     """Level-Based Foraging Heuristic Policy 2.
 
     H2 goes towards the visible food that is closest to the centre of visible players,
@@ -209,7 +208,7 @@ class LBFHeuristicPolicy2(LBFHeuristicPolicy):
         )
 
 
-class LBFHeuristicPolicy3(LBFHeuristicPolicy):
+class LBFHeuristic3(LBFHeuristicPolicy):
     """Level-Based Foraging Heuristic Policy 3.
 
     H3 goes towards the closest visible food with a compatible level.
@@ -229,128 +228,13 @@ class LBFHeuristicPolicy3(LBFHeuristicPolicy):
         )
 
 
-class LBFHeuristicPolicy4(LBFHeuristicPolicy):
+class LBFHeuristic4(LBFHeuristicPolicy):
     """Level-Based Foraging Heuristic Policy 4.
 
-    H4 goes towards the visible food which is closest to all visible agents such that
-    the sum of the visible players level and the policy agent's level is sufficient to
-    load the food.
-    """
-
-    def _get_target_pos(
-        self,
-        agent_obs: Tuple[int, int, int],
-        food_obs: List[Tuple[int, int, int]],
-        other_agent_obs: List[Tuple[int, int, int]],
-        last_action: LBFAction,
-        target_pos: Optional[Coord],
-    ) -> Optional[Coord]:
-        if not other_agent_obs:
-            return None
-
-        center_pos = self._center_of_agents(other_agent_obs)
-        level_sum = sum([o[2] for o in other_agent_obs]) + agent_obs[2]
-        return self._get_food_by_distance(
-            center_pos, food_obs, closest=True, max_food_level=level_sum
-        )
-
-
-class LBFHeuristicPolicy5(LBFHeuristicPolicy):
-    """Level-Based Foraging Heuristic Policy 5.
-
-    H5 selects and goes towards the furthest visible food, irrespective of food level.
-    At the start of an episode it will select a target food and move towards it. Each
-    time it's current target food is collected it then selects a new target based on
-    the heuristic above.
-    """
-
-    def _get_target_pos(
-        self,
-        agent_obs: Tuple[int, int, int],
-        food_obs: List[Tuple[int, int, int]],
-        other_agent_obs: List[Tuple[int, int, int]],
-        last_action: LBFAction,
-        target_pos: Optional[Coord],
-    ) -> Optional[Coord]:
-        if target_pos is not None:
-            new_target_pos = self._get_updated_pos(target_pos, last_action)
-            if new_target_pos in (f[:2] for f in food_obs):
-                return new_target_pos
-
-        # either no target selected yet or food was collected, or is no longer visible
-        return self._get_food_by_distance(
-            agent_obs[:2], food_obs, closest=False, max_food_level=None
-        )
-
-
-class LBFHeuristicPolicy6(LBFHeuristicPolicy):
-    """Level-Based Foraging Heuristic Policy 6.
-
-    H6 selects and goes towards the visible food that is furthest from the center of
-    visible players, irrespective of food level. At the start of an episode it will
-    select a target food and move towards it. Each time it's current target food is
-    collected it then selects a new target based on the heuristic above.
-    """
-
-    def _get_target_pos(
-        self,
-        agent_obs: Tuple[int, int, int],
-        food_obs: List[Tuple[int, int, int]],
-        other_agent_obs: List[Tuple[int, int, int]],
-        last_action: LBFAction,
-        target_pos: Optional[Coord],
-    ) -> Optional[Coord]:
-        if target_pos is not None:
-            new_target_pos = self._get_updated_pos(target_pos, last_action)
-            if new_target_pos in (f[:2] for f in food_obs):
-                return new_target_pos
-
-        # select new target
-        if not other_agent_obs:
-            # act randomly until we see other agents
-            return None
-
-        center_pos = self._center_of_agents(other_agent_obs)
-        return self._get_food_by_distance(
-            center_pos, food_obs, closest=False, max_food_level=None
-        )
-
-
-class LBFHeuristicPolicy7(LBFHeuristicPolicy):
-    """Level-Based Foraging Heuristic Policy 7.
-
-    H7 selects and goes towards the furthest visible food with a compatible level.
-    At the start of an episode it will select a target food and move towards it.
-    Each time it's current target food is collected it then selects a new target based
-    on the heuristic above.
-    """
-
-    def _get_target_pos(
-        self,
-        agent_obs: Tuple[int, int, int],
-        food_obs: List[Tuple[int, int, int]],
-        other_agent_obs: List[Tuple[int, int, int]],
-        last_action: LBFAction,
-        target_pos: Optional[Coord],
-    ) -> Optional[Coord]:
-        if target_pos is not None:
-            new_target_pos = self._get_updated_pos(target_pos, last_action)
-            if new_target_pos in (f[:2] for f in food_obs):
-                return new_target_pos
-
-        # either no target selected yet or food was collected, or is no longer visible
-        return self._get_food_by_distance(
-            agent_obs[:2], food_obs, closest=False, max_food_level=agent_obs[2]
-        )
-
-
-class LBFHeuristicPolicy8(LBFHeuristicPolicy):
-    """Level-Based Foraging Heuristic Policy 8.
-
-    H8 selects and goes towards the visible food that is furthest from the center of
-    visible players that is compatible with the agents level. At the start of an episode
-    it will select a target food and move towards it. Each time it's current target food
-    is collected it then selects a new target based on the heuristic above.
+    H4 selects and goes towards the visible food that is furthest from the center of
+    visible players and that is compatible with the agents level. At the start of an
+    episode it will select a target food and move towards it. Each time it's current
+    target food is collected it then selects a new target based on the heuristic above.
     """
 
     def _get_target_pos(
@@ -377,65 +261,10 @@ class LBFHeuristicPolicy8(LBFHeuristicPolicy):
         )
 
 
-class LBFHeuristicPolicy9(LBFHeuristicPolicy):
-    """Level-Based Foraging Heuristic Policy 9.
+class LBFHeuristic5(LBFHeuristicPolicy):
+    """Level-Based Foraging Heuristic Policy 5.
 
-    H9 targets a random visible food. At the start of an episode it will select a target
-    food and move towards it. Each time it's current target food is collected it then
-    selects a new target based on the heuristic above.
-    """
-
-    def _get_target_pos(
-        self,
-        agent_obs: Tuple[int, int, int],
-        food_obs: List[Tuple[int, int, int]],
-        other_agent_obs: List[Tuple[int, int, int]],
-        last_action: LBFAction,
-        target_pos: Optional[Coord],
-    ) -> Optional[Coord]:
-        if target_pos is not None:
-            new_target_pos = self._get_updated_pos(target_pos, last_action)
-            if new_target_pos in (f[:2] for f in food_obs):
-                return new_target_pos
-
-        food_coords = [f[:2] for f in food_obs if f[1] > -1]
-        if not food_coords:
-            return None
-        return self._rng.choice(food_coords)
-
-
-class LBFHeuristicPolicy10(LBFHeuristicPolicy):
-    """Level-Based Foraging Heuristic Policy 10.
-
-    H10 targets a random visible food whose level is compatible the agents. At the start
-    of an episode it will select a target food and move towards it. Each time it's
-    current target food is collected it then selects a new target based on the heuristic
-    above.
-    """
-
-    def _get_target_pos(
-        self,
-        agent_obs: Tuple[int, int, int],
-        food_obs: List[Tuple[int, int, int]],
-        other_agent_obs: List[Tuple[int, int, int]],
-        last_action: LBFAction,
-        target_pos: Optional[Coord],
-    ) -> Optional[Coord]:
-        if target_pos is not None:
-            new_target_pos = self._get_updated_pos(target_pos, last_action)
-            if new_target_pos in (f[:2] for f in food_obs):
-                return new_target_pos
-
-        food_coords = [f[:2] for f in food_obs if f[1] > -1 and f[2] <= agent_obs[2]]
-        if not food_coords:
-            return None
-        return self._rng.choice(food_coords)
-
-
-class LBFHeuristicPolicy11(LBFHeuristicPolicy):
-    """Level-Based Foraging Heuristic Policy 11.
-
-    H11 targets a random visible food whose level is compatible with all visible
+    H5 targets a random visible food whose level is compatible with all visible
     agents. At the start of an episode it will select a target food and move towards it.
     Each time it's current target food is collected it then selects a new target based
     on the heuristic above.
