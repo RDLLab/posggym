@@ -9,7 +9,6 @@ from typing import (
     Callable,
     Dict,
     List,
-    Mapping,
     NamedTuple,
     Optional,
     Tuple,
@@ -30,6 +29,7 @@ from posggym.agents.registration import PolicySpec
 from posggym.agents.utils import action_distributions, processors
 from posggym.agents.utils.download import download_from_repo
 from posggym.utils import seeding
+
 
 if TYPE_CHECKING:
     import posggym.model as M
@@ -93,8 +93,6 @@ class PPOLSTMModel(nn.Module):
         self.use_prev_action = lstm_use_prev_action
         self.use_prev_reward = lstm_use_prev_reward
 
-        # Ref: Line 148-156
-        # https://github.com/ray-project/ray/blob/ray-2.3.0/rllib/models/torch/recurrent_net.py
         if isinstance(action_space, spaces.Discrete):
             self.action_dim = action_space.n
         elif isinstance(action_space, spaces.MultiDiscrete):
@@ -342,56 +340,6 @@ class PPOLSTMModel(nn.Module):
             torch.zeros((self.lstm.num_layers, batch_size, self.lstm.hidden_size)),
             torch.zeros((self.lstm.num_layers, batch_size, self.lstm.hidden_size)),
         )
-
-    def load_state_dict(self, state_dict: Mapping[str, Any], strict: bool = True):
-        model_state_dict = self.state_dict()
-        if not all([k in model_state_dict for k in state_dict]):
-            # may be using rllib naming conventions
-            state_dict = self.map_rllib_to_torch_model_state(state_dict)
-        return super().load_state_dict(state_dict, strict)
-
-    @staticmethod
-    def map_rllib_to_torch_model_state(
-        rllib_state: Mapping[str, Any]
-    ) -> Dict[str, Any]:
-        """Map Rllib model state to PyTorch model state.
-
-        Arguments
-        ---------
-        rllib_state : Rllib model state.
-
-        Returns
-        -------
-        PyTorch model state.
-
-        """
-        torch_state = {}
-        for k, v in rllib_state.items():
-            if k.startswith("_hidden_layers"):
-                # rllib: _hidden_layers.<layer_idx>._model.0.<layer_type>
-                # torch: trunk.<layer_idx>.<layer_type>
-                tokens = k.split(".")
-                # x 2 because rllib combines linear and activation in same model layer
-                layer_idx = int(tokens[1]) * 2
-                layer_type = tokens[-1]
-                torch_state[f"trunk.{layer_idx}.{layer_type}"] = torch.tensor(v)
-            elif k.startswith("_logits_branch"):
-                tokens = k.split(".")
-                layer_type = tokens[-1]
-                torch_state[f"actor.{layer_type}"] = torch.tensor(v)
-            elif k.startswith("_value_branch"):
-                tokens = k.split(".")
-                layer_type = tokens[-1]
-                torch_state[f"critic.{layer_type}"] = torch.tensor(v)
-            elif k.startswith("lstm"):
-                tokens = k.split(".")
-                layer_type = tokens[-1]
-                torch_state[f"lstm.{layer_type}"] = torch.tensor(v)
-            else:
-                # Unused layer
-                # E.g. `_value_branch_seperate` which is not used when using LSTM
-                pass
-        return torch_state
 
 
 class PPOPolicy(Policy[ActType, ObsType]):

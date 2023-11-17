@@ -11,14 +11,14 @@ import posggym.agents as pga
 
 def test_pprint_custom_registry():
     """Testing a registry different from default."""
-    pp_env_args_id = "grid=10x10-num_predators=2-num_prey=3-cooperative=True-prey_strength=2-obs_dim=2"
+    pp_env_args_id = "grid=10x10-num_predators=2-num_prey=3-cooperative=True"
     a = {
         "Random-v0": pga.registry["Random-v0"],
-        "LevelBasedForaging-v2/Heuristic1-v0": pga.registry[
-            "LevelBasedForaging-v2/Heuristic1-v0"
+        "LevelBasedForaging-v3/Heuristic1-v0": pga.registry[
+            "LevelBasedForaging-v3/Heuristic1-v0"
         ],
-        f"PredatorPrey-v0/{pp_env_args_id}/sp_seed0-v0": pga.registry[
-            f"PredatorPrey-v0/{pp_env_args_id}/sp_seed0-v0"
+        f"PredatorPrey-v0/{pp_env_args_id}/RL1-v0": pga.registry[
+            f"PredatorPrey-v0/{pp_env_args_id}/RL1-v0"
         ],
     }
     out = pga.pprint_registry(a, disable_print=True)
@@ -27,13 +27,13 @@ def test_pprint_custom_registry():
 Random-v0
 
 
-===== LevelBasedForaging-v2 =====
+===== LevelBasedForaging-v3 =====
 Heuristic1-v0
 
 
 ===== PredatorPrey-v0 =====
 ----- PredatorPrey-v0/{pp_env_args_id} -----
-sp_seed0-v0
+RL1-v0
 
 
 """

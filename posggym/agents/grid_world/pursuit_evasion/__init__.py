@@ -7,6 +7,7 @@ from posggym.agents.torch_policy import PPOPolicy
 from posggym.agents.utils import processors
 from posggym.config import AGENT_MODEL_DIR
 
+
 agent_model_dir = osp.join(AGENT_MODEL_DIR, "grid_world", "pursuit_evasion")
 policy_specs = {}
 
@@ -30,7 +31,6 @@ for policy_file_name in [
     "KLR3_i0.pkl",
     "KLR4_i0.pkl",
     "KLRBR_i0.pkl",
-    "RL0_i0.pkl",
     "RL1_i0.pkl",
     "RL2_i0.pkl",
     "RL3_i0.pkl",
@@ -41,6 +41,7 @@ for policy_file_name in [
     "RL8_i0.pkl",
     "RL9_i0.pkl",
     "RL10_i0.pkl",
+    "RL11_i0.pkl",
 ]:
     spec = PPOPolicy.get_spec_from_path(
         env_id="PursuitEvasion-v1",
@@ -73,7 +74,6 @@ for policy_file_name in [
     "KLR3_i1.pkl",
     "KLR4_i1.pkl",
     "KLRBR_i1.pkl",
-    "RL0_i1.pkl",
     "RL1_i1.pkl",
     "RL2_i1.pkl",
     "RL3_i1.pkl",
@@ -84,6 +84,7 @@ for policy_file_name in [
     "RL8_i1.pkl",
     "RL9_i1.pkl",
     "RL10_i1.pkl",
+    "RL11_i1.pkl",
 ]:
     spec = PPOPolicy.get_spec_from_path(
         env_id="PursuitEvasion-v1",
@@ -116,13 +117,13 @@ for policy_file_name in [
     "KLR3_i0.pkl",
     "KLR4_i0.pkl",
     "KLRBR_i0.pkl",
-    "RL0_i0.pkl",
     "RL1_i0.pkl",
     "RL2_i0.pkl",
     "RL3_i0.pkl",
     "RL4_i0.pkl",
     "RL5_i0.pkl",
     "RL6_i0.pkl",
+    "RL7_i0.pkl",
 ]:
     spec = PPOPolicy.get_spec_from_path(
         env_id="PursuitEvasion-v1",
@@ -155,13 +156,13 @@ for policy_file_name in [
     "KLR3_i1.pkl",
     "KLR4_i1.pkl",
     "KLRBR_i1.pkl",
-    "RL0_i1.pkl",
     "RL1_i1.pkl",
     "RL2_i1.pkl",
     "RL3_i1.pkl",
     "RL4_i1.pkl",
     "RL5_i1.pkl",
     "RL6_i1.pkl",
+    "RL7_i1.pkl",
 ]:
     spec = PPOPolicy.get_spec_from_path(
         env_id="PursuitEvasion-v1",

@@ -7,7 +7,6 @@ from posggym.agents.torch_policy import PPOPolicy
 from posggym.agents.utils import processors
 from posggym.config import AGENT_MODEL_DIR
 
-
 agent_model_dir = osp.join(AGENT_MODEL_DIR, "grid_world", "predator_prey")
 policy_specs = {}
 
@@ -36,6 +35,7 @@ for policy_file_name in [
     "RL5.pkl",
     "RL6.pkl",
     "RL7.pkl",
+    "RL8.pkl",
 ]:
     spec = PPOPolicy.get_spec_from_path(
         env_id="PredatorPrey-v0",

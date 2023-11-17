@@ -1,4 +1,4 @@
-"""Tests for posggym_agents.rllib.policy module."""
+"""Tests for posggym.agent.torch_policy module."""
 import os.path as osp
 import pickle
 
@@ -6,29 +6,36 @@ import posggym
 import posggym.agents as pga
 import posggym.agents.continuous.driving_continuous as driving_continuous_agents
 import posggym.agents.grid_world.driving as driving_agents
-from posggym.agents.torch_policy import PPOLSTMModel, PPOPolicy
+from posggym.agents.torch_policy import (
+    PPOLSTMModel,
+    PPOPolicy,
+    PPOTorchModelSaveFileFormat,
+)
 from posggym.agents.utils import download, processors
 
 
 # Discrete test policy
-TEST_DISCRETE_ENV_ID = driving_agents.ENV_ID
+TEST_DISCRETE_ENV_ID = "Driving-v1"
+TEST_DISCRETE_ENV_ARGS_ID = "grid=14x14RoundAbout-num_agents=2"
 TEST_DISCRETE_ENV_ARGS = {
     "grid": "14x14RoundAbout",
     "num_agents": 2,
     "obs_dim": (3, 1, 1),
-    "obstacle_collisions": False,
 }
-TEST_DISCRETE_POLICY_FILE_NAME = "klr_k0_seed0.pkl"
+TEST_DISCRETE_POLICY_FILE_NAME = "RL1.pkl"
 TEST_DISCRETE_POLICY_NAME = TEST_DISCRETE_POLICY_FILE_NAME.split(".")[0]
 TEST_DISCRETE_POLICY_VERSION = 0
 TEST_DISCRETE_POLICY_FILE = osp.join(
     driving_agents.agent_model_dir,
-    "grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False",
+    TEST_DISCRETE_ENV_ARGS_ID,
     TEST_DISCRETE_POLICY_FILE_NAME,
 )
 
 # Continuous test policy
 TEST_CONTINUOUS_ENV_ID = driving_continuous_agents.ENV_ID
+TEST_CONTINUOUS_ENV_ARGS_ID = (
+    "world=14x14RoundAbout-num_agents=2-obs_dist=5-n_sensors=16"
+)
 TEST_CONTINUOUS_ENV_ARGS = {
     "world": "14x14RoundAbout",
     "num_agents": 2,
@@ -40,7 +47,7 @@ TEST_CONTINUOUS_POLICY_NAME = TEST_CONTINUOUS_POLICY_FILE_NAME.split(".")[0]
 TEST_CONTINUOUS_POLICY_VERSION = 0
 TEST_CONTINUOUS_POLICY_FILE = osp.join(
     driving_continuous_agents.agent_model_dir,
-    "world=14x14RoundAbout-num_agents=2-obs_dist=5-n_sensors=16",
+    TEST_CONTINUOUS_ENV_ARGS_ID,
     TEST_CONTINUOUS_POLICY_FILE_NAME,
 )
 
@@ -50,12 +57,6 @@ def test_load_discrete_ppo_policy_model():
         # ensure file is already downloaded
         download.download_from_repo(TEST_DISCRETE_POLICY_FILE)
 
-    with open(TEST_DISCRETE_POLICY_FILE, "rb") as f:
-        data = pickle.load(f)
-
-    config = data["config"]
-    model_state = data["state"]["weights"] if "state" in data else data["model_weights"]
-
     env = posggym.make(TEST_DISCRETE_ENV_ID, **TEST_DISCRETE_ENV_ARGS)
     agent_id = env.possible_agents[0]
     action_space = env.action_spaces[agent_id]
@@ -63,13 +64,21 @@ def test_load_discrete_ppo_policy_model():
 
     obs_processor = processors.FlattenProcessor(obs_space)
 
-    model = PPOLSTMModel(
-        obs_processor.get_processed_space(), action_space, config["model"]
-    )
-    model.load_state_dict(model_state)
+    with open(TEST_DISCRETE_POLICY_FILE, "rb") as f:
+        data = PPOTorchModelSaveFileFormat(**pickle.load(f))
 
-    print()
-    print(model)
+    model = PPOLSTMModel(
+        obs_space=obs_processor.get_processed_space(),
+        action_space=action_space,
+        trunk_sizes=data.trunk_sizes,
+        lstm_size=data.lstm_size,
+        lstm_layers=data.lstm_layers,
+        head_sizes=data.head_sizes,
+        activation=data.activation,
+        lstm_use_prev_action=data.lstm_use_prev_action,
+        lstm_use_prev_reward=data.lstm_use_prev_reward,
+    )
+    model.load_state_dict(data.weights)
 
     init_state = model.get_initial_state()
     obs, _ = env.reset(seed=42)
@@ -77,21 +86,11 @@ def test_load_discrete_ppo_policy_model():
         obs_processor(obs[agent_id]), init_state, None, None, False
     )
 
-    print(f"{action=}")
-    print(f"{value=}")
-    print(f"{pi=}")
-
 
 def test_load_continuous_ppo_policy_model():
     if not osp.exists(TEST_CONTINUOUS_POLICY_FILE):
         # ensure file is already downloaded
         download.download_from_repo(TEST_CONTINUOUS_POLICY_FILE)
-
-    with open(TEST_CONTINUOUS_POLICY_FILE, "rb") as f:
-        data = pickle.load(f)
-
-    config = data["config"]
-    model_state = data["state"]["weights"] if "state" in data else data["model_weights"]
 
     env = posggym.make(TEST_CONTINUOUS_ENV_ID, **TEST_CONTINUOUS_ENV_ARGS)
     agent_id = env.possible_agents[0]
@@ -100,27 +99,34 @@ def test_load_continuous_ppo_policy_model():
 
     obs_processor = processors.RescaleProcessor(obs_space, -1.0, 1.0)
 
+    with open(TEST_CONTINUOUS_POLICY_FILE, "rb") as f:
+        data = PPOTorchModelSaveFileFormat(**pickle.load(f))
+
     model = PPOLSTMModel(
-        obs_processor.get_processed_space(), action_space, config["model"]
+        obs_space=obs_processor.get_processed_space(),
+        action_space=action_space,
+        trunk_sizes=data.trunk_sizes,
+        lstm_size=data.lstm_size,
+        lstm_layers=data.lstm_layers,
+        head_sizes=data.head_sizes,
+        activation=data.activation,
+        lstm_use_prev_action=data.lstm_use_prev_action,
+        lstm_use_prev_reward=data.lstm_use_prev_reward,
     )
-    print()
-    print(model)
-    model.load_state_dict(model_state)
+    model.load_state_dict(data.weights)
 
     init_state = model.get_initial_state()
     obs, _ = env.reset(seed=42)
     action, lstm_state, value, pi = model.get_action_and_value(
         obs_processor(obs[agent_id]), init_state, None, None, False
     )
-    print(f"{action=}")
-    print(f"{value=}")
-    print(f"{pi=}")
 
 
 def test_discrete_ppo_get_spec_from_path():
     """Test can load PPO policy spec from path for discrete Policy."""
     spec = PPOPolicy.get_spec_from_path(
         env_id=TEST_DISCRETE_ENV_ID,
+        env_args_id=TEST_DISCRETE_ENV_ARGS_ID,
         env_args=TEST_DISCRETE_ENV_ARGS,
         policy_file_path=TEST_DISCRETE_POLICY_FILE,
         version=TEST_DISCRETE_POLICY_VERSION,
@@ -141,6 +147,7 @@ def test_continuous_ppo_get_spec_from_path():
     """Test can load PPO policy spec from path for continuous Policy."""
     spec = PPOPolicy.get_spec_from_path(
         env_id=TEST_CONTINUOUS_ENV_ID,
+        env_args_id=TEST_CONTINUOUS_ENV_ARGS_ID,
         env_args=TEST_CONTINUOUS_ENV_ARGS,
         policy_file_path=TEST_CONTINUOUS_POLICY_FILE,
         version=TEST_CONTINUOUS_POLICY_VERSION,
