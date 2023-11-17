@@ -11,23 +11,23 @@ from posggym.config import AGENT_MODEL_DIR
 agent_model_dir = osp.join(AGENT_MODEL_DIR, "grid_world", "level_based_foraging")
 
 policy_specs = {}
-for i, policy_class in enumerate(
-    [
-        heuristic.LBFHeuristic1,
-        heuristic.LBFHeuristic2,
-        heuristic.LBFHeuristic3,
-        heuristic.LBFHeuristic4,
-        heuristic.LBFHeuristic5,
-    ]
-):
+for policy_class in [
+    heuristic.LBFHeuristic1,
+    heuristic.LBFHeuristic2,
+    heuristic.LBFHeuristic3,
+    heuristic.LBFHeuristic4,
+    heuristic.LBFHeuristic5,
+]:
+    num = policy_class.__name__.replace("LBFHeuristic", "")
     policy_spec = PolicySpec(
-        policy_name=f"Heuristic{i+1}",
+        policy_name=f"H{num}",
         entry_point=policy_class,
         env_id="LevelBasedForaging-v3",
         env_args=None,
         version=0,
         valid_agent_ids=None,
         nondeterministic=False,
+        description=policy_class.__doc__.replace("\n", " "),
     )
     policy_specs[policy_spec.id] = policy_spec
 
@@ -67,6 +67,7 @@ for policy_file_name in [
         obs_processor_config=None,
         action_processor_cls=None,
         action_processor_config=None,
+        description="Deep RL policy trained using PPO and self-play.",
     )
     policy_specs[spec.id] = spec
 
@@ -108,5 +109,6 @@ for policy_file_name in [
         obs_processor_config=None,
         action_processor_cls=None,
         action_processor_config=None,
+        description="Deep RL policy trained using PPO and self-play.",
     )
     policy_specs[spec.id] = spec

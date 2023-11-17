@@ -56,6 +56,7 @@ register(
     env_args=None,
     valid_agent_ids=None,
     nondeterministic=False,
+    description="The uniform random policy",
 )
 
 register(
@@ -66,6 +67,9 @@ register(
     env_args=None,
     valid_agent_ids=None,
     nondeterministic=False,
+    description=(
+        "Random policy that follows a fixed discrete distribution (default is uniform)"
+    ),
 )
 
 # Continuous

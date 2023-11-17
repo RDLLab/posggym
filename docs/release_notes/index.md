@@ -13,17 +13,20 @@ This release adds some more environments and agents, fixes some bugs, and tweaks
 
 Major changes include:
 
-- Added the `CooperativeReaching-v0` grid-world environment along with heuristic policies
 - Added release notes section to the docs
-- Updated and added more heuristic policies for `LevelBasedForaging-v2` grid-world environment
 - Added the `AgentEnvWrapper` class which can be used to incorporate a `posggym.agents` policy as part of an environment
 - Added the `StackEnv` wrapper for converting a `posggym.Env` into accepting and outputting stacked arrays as opposed to dictionaries.
+- Added the `CooperativeReaching-v0` grid-world environment along with heuristic policies
 - Updated the `posggym.agents.Policy` API to make it a bit less confusing
 - Updated the `Driving` and `DrivingGen` envs to `v1` which includes a few bug fixes and adds a number of improvements (`Driving-v0` is no longer supported, including the `Driving-v0` agent policies.)
 - Added shortest path based policies for all `Driving-v1` and `DrivingGen-v1` environments
+- Updated RL policies for `Driving-v1`
 - Updated `LevelBasedForaging` environment to `v3` which includes a number of small improvements, mainly around removing unused parameters (`LevelBasedForaging-v2` is no longer supported, including the `LevelBasedForaging-v2` agent policies.)
+- Updated heuristic policies for `LevelBasedForaging-v2` grid-world environment and added some RL policies for two scenarios
 - Updated `PursuitEvasion` environment to `v1` which removes unused parameters (`PursuitEvasion-v0` is no longer supported, including the `PursuitEvasion-v0` agent policies.)
 - Updated agents for `PursuitEvasion-v1`
+- Update agents for `PredatorPrey-v0` including adding some new RL policies and heuristic policies
+- Tested agent diversity for most of the grid world environments
 - Cleaned up docstrings of a bunch of classes
 
 ---

@@ -15,14 +15,16 @@ for policy_class in [
     heuristic.PPHeuristic2,
     heuristic.PPHeuristic3,
 ]:
+    num = policy_class.__name__.replace("PPHeuristic", "")
     spec = PolicySpec(
-        policy_name=policy_class.__name__,
+        policy_name=f"H{num}",
         entry_point=policy_class,
         env_id="PredatorPrey-v0",
         env_args=None,
         version=0,
         valid_agent_ids=None,
         nondeterministic=False,
+        description=policy_class.__doc__.replace("\n", " "),
     )
     policy_specs[spec.id] = spec
 
@@ -63,5 +65,6 @@ for policy_file_name in [
         obs_processor_config=None,
         action_processor_cls=None,
         action_processor_config=None,
+        description="Deep RL policy trained using PPO and self-play.",
     )
     policy_specs[spec.id] = spec

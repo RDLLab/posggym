@@ -16,17 +16,16 @@ This environment is part of the <a href='..'>Grid World environments</a>. Please
 |---|---|
 | Possible Agents | ('0', '1') |
 | Action Spaces | {'0': Discrete(5), '1': Discrete(5)} |
-| Observation Spaces | {'0': Tuple(Tuple(Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4)), Discrete(4), Tuple(Discrete(14), Discrete(14)), Discrete(2), Discrete(2)), '1': Tuple(Tuple(Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4)), Discrete(4), Tuple(Discrete(14), Discrete(14)), Discrete(2), Discrete(2))} |
+| Observation Spaces | {'0': Tuple(Tuple(Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4)), Discrete(4), Tuple(Discrete(14), Discrete(14)), Tuple(Discrete(14), Discrete(14)), Discrete(2), Discrete(2)), '1': Tuple(Tuple(Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4)), Discrete(4), Tuple(Discrete(14), Discrete(14)), Tuple(Discrete(14), Discrete(14)), Discrete(2), Discrete(2))} |
 | Symmetric | True |
-| Import | `posggym.make("Driving-v0")` |
+| Import | `posggym.make("Driving-v1")` |
 
 
 The Driving Grid World Environment.
 
 A general-sum 2D grid world problem involving multiple agents. Each agent
 controls a vehicle and is tasked with driving the vehicle from it's start
-location to a destination location while avoiding crashing into obstacles
-or other vehicles.
+location to a destination location while avoiding crashing into other vehicles.
 
 This environment requires each agent to navigate in the world while also
 taking care to avoid crashing into other agents. The dynamics and
@@ -47,15 +46,17 @@ State Space
 Each state is made up of the state of each vehicle, which in turn is defined by:
 
 - the `(x, y)` coordinates (x=column, y=row, with origin at the top-left square of
-  the grid) of the vehicle,
+    the grid) of the vehicle,
 - the direction the vehicle is facing `NORTH=0`, `EAST=1`, `SOUTH=2`, `WEST=3`,
 - the speed of the vehicle: `REVERSE=0`, `STOPPED=1`, `FORWARD_SLOW=2`,
-  `FORWARD_FAST=2`,
+    `FORWARD_FAST=2`,
 - the `(x, y)` coordinate of the vehicles destination
 - whether the vehicle has reached it's destination or not: `1` or `0`
 - whether the vehicle has crashed or not: `1` or `0`
 - the minimum distance to the destination achieved by the vehicle in the current
-  episode.
+    episode.
+- the initial distance of the vehicle to the destination at the start of the
+    episode.
 
 Action Space
 ------------
@@ -65,27 +66,28 @@ Each agent has 5 actions: `DO_NOTHING=0`, `ACCELERATE=1`, `DECELERATE=2`,
 Observation Space
 -----------------
 Each agent observes the cells in their local area, as well as their current speed,
-their destination location, whether they've reached their destination, and whether
-they've crashed. The size of the local area observed is controlled by the `obs_dims`
-parameter (default = `(3, 1, 1)`, 3 cells in front, one cell behind, and 1 cell each
-side, giving a observation size of 5x3). For each cell in the observed area the
-agent observes whether the cell contains a `VEHICLE=0`, `WALL=1`, `EMPTY=2`, or it's
-`DESTINATION=3`.
+current location, their destination location, whether they've reached their
+destination, and whether they've crashed. The size of the local area observed is
+controlled by the `obs_dims` parameter (default = `(3, 1, 1)`, 3 cells in front,
+one cell behind, and 1 cell each side, giving a observation size of 5x3).For each
+cell in the observed area the agent observes whether the cell contains a
+`VEHICLE=0`, `WALL=1`, `EMPTY=2`, or it's `DESTINATION=3`.
 
 All together each agent's observation is tuple of the form:
 
-    ((local obs), speed, destination coord, destination reached, crashed)
+    ((local obs), speed, coord, destination coord, destination reached, crashed)
 
 Rewards
 -------
-All agents receive a penalty of `0.0` for each step. They receive a penalty of
-`-1.0` for crashing (i.e. hitting another vehicle), and `-0.05` for moving into a
-wall. A reward of `1.0` is given if the agent reaches it's destination and a reward
-of `0.05` is given if the agent makes progress towards it's destination (i.e. it
-reduces it's minimum distance achieved to the destination for the episode).
-
-If `obstacle_collision=True` then running into a wall is treated as crashing the
-vehicle, and so results in a penalty of `-1.0`.
+If an agent crashes into a vehicle (or is crashed into) they receive a penalty of
+`-1.0`. A reward of `0.5` is given if the agent reaches it's destination.
+Additionally, agents receive a small reward each step they makes progress towards
+their destination (i.e. the agent reduces it's minimum distance achieved to the
+destination for the episode). The total amount of reward and agent receives for
+making progress is `0.5`, and is distributed evenly across all steps the agent
+makes progress. This means if the agent reaches their destination they will receive
+a total reward of `1.0` (`0.5` for reaching their destination, and `0.5` for
+progress).
 
 Dynamics
 --------
@@ -93,15 +95,14 @@ Actions are deterministic and movement is determined by direction the vehicle is
 facing and it's speed:
 
 - Speed=0 (REVERSE) - vehicle moves one cell in the opposite direction to which it
-    is facing
+    is facing (vehicles cannot turn while in reverse)
 - Speed=1 (STOPPED) - vehicle remains in same cell
 - Speed=2 (FORWARD_SLOW) - vehicle move one cell in facing direction
 - Speed=3 (FORWARD_FAST) - vehicle moves two cells in facing direction
 
 Accelerating increases speed by 1, while deceleration decreased speed by 1. If the
 vehicle will hit a wall or another vehicle when moving from one cell to another then
-it remains in it's current cell and it's crashed state variable is updated
-appropriately.
+it remains in it's current cell and it's speed is reduced to 1 (STOPPED).
 
 Starting State
 --------------
@@ -122,15 +123,12 @@ Arguments
 ---------
 
 - `grid` - the grid layout to use. This can either be a string specifying one of
-     the supported grids, or a custom :class:`DrivingGrid` object
-     (default = `"14x14RoundAbout"`).
+    the supported grids, or a custom :class:`DrivingGrid` object
+    (default = `"14x14RoundAbout"`).
 - `num_agents` - the number of agents in the environment (default = `2`).
 - `obs_dim` - the local observation dimensions, specifying how many cells in front,
-     behind, and to each side the agent observes (default = `(3, 1, 1)`, resulting
-     in the agent observing a 5x3 area: 3 in front, 1 behind, 1 to each side.)
-- `obstacle_collisions` -  whether running into a wall results in the agent's
-     vehicle crashing and thus the agent reaching a terminal state. This can make
-     the problem significantly harder (default = "False").
+    behind, and to each side the agent observes (default = `(3, 1, 1)`, resulting
+    in the agent observing a 5x3 area: 3 in front, 1 behind, 1 to each side.)
 
 Available variants
 ------------------
@@ -155,11 +153,20 @@ agents, you would use:
 
 ```python
 import posggym
-env = posggym.make('Driving-v0', grid="7x7RoundAbout", num_agents=2)
+env = posggym.make('Driving-v1', grid="7x7RoundAbout", num_agents=2)
 ```
 
 Version History
 ---------------
+- `v1`: Major update:
+    - Added agent's current location to observation space (to allow for the
+      creation of heuristic policies for the environment and mimics GPS),
+    - made it so vehicles speed is reduced to 0 if they crash or hit a wall (instead
+      of remaining at their current speed),
+    - removed obstacle collisions option entirely (since it wasn't really used, and
+      not core to what the environment is testing),
+    - updated reward so max return is 1.0 (0.5 for reaching destination, and 0.5
+      from progress) and min return is -1.0 (-1.0 for crashing),
 - `v0`: Initial version
 
 References

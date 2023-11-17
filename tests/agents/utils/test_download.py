@@ -3,16 +3,16 @@ import os
 import os.path as osp
 import shutil
 
-import pytest
-
 import posggym.agents.grid_world.driving as driving_agents
+import pytest
 from posggym import error
 from posggym.agents.utils import download
 from posggym.config import AGENT_MODEL_REPO_URL
 
+
 ENV_ID = "Driving-v1"
 ENV_ARGS_ID = "grid=14x14RoundAbout-num_agents=2"
-TEST_POLICY_FILE_NAME = "RL0.pkl"
+TEST_POLICY_FILE_NAME = "RL1.pkl"
 TEST_POLICY_FILE = osp.join(
     driving_agents.agent_model_dir,
     ENV_ARGS_ID,

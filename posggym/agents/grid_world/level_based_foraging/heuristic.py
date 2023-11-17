@@ -18,7 +18,6 @@ from posggym.envs.grid_world.level_based_foraging import (
     LevelBasedForagingModel,
 )
 
-
 if TYPE_CHECKING:
     from posggym.envs.grid_world.core import Coord
 
@@ -165,10 +164,7 @@ class LBFHeuristicPolicy(Policy[LBFAction, LBFObs]):
 
 
 class LBFHeuristic1(LBFHeuristicPolicy):
-    """Level-Based Foraging Heuristic Policy 1.
-
-    H1 always goes to the closest observed food, irrespective of the foods level.
-    """
+    """H1 always goes to the closest observed food, irrespective of the foods level."""
 
     def _get_target_pos(
         self,
@@ -185,9 +181,7 @@ class LBFHeuristic1(LBFHeuristicPolicy):
 
 
 class LBFHeuristic2(LBFHeuristicPolicy):
-    """Level-Based Foraging Heuristic Policy 2.
-
-    H2 goes towards the visible food that is closest to the centre of visible players,
+    """H2 goes towards the visible food closest to the centre of visible players,
     irrespective of food level.
     """
 
@@ -209,10 +203,7 @@ class LBFHeuristic2(LBFHeuristicPolicy):
 
 
 class LBFHeuristic3(LBFHeuristicPolicy):
-    """Level-Based Foraging Heuristic Policy 3.
-
-    H3 goes towards the closest visible food with a compatible level.
-    """
+    """H3 goes towards the closest visible food with a compatible level."""
 
     def _get_target_pos(
         self,
@@ -229,12 +220,8 @@ class LBFHeuristic3(LBFHeuristicPolicy):
 
 
 class LBFHeuristic4(LBFHeuristicPolicy):
-    """Level-Based Foraging Heuristic Policy 4.
-
-    H4 selects and goes towards the visible food that is furthest from the center of
-    visible players and that is compatible with the agents level. At the start of an
-    episode it will select a target food and move towards it. Each time it's current
-    target food is collected it then selects a new target based on the heuristic above.
+    """H4 selects and goes towards the visible food that is furthest from the center of
+    visible players and that is compatible with the agents level.
     """
 
     def _get_target_pos(
@@ -246,6 +233,9 @@ class LBFHeuristic4(LBFHeuristicPolicy):
         target_pos: Optional[Coord],
     ) -> Optional[Coord]:
         if target_pos is not None:
+            # At the start of an episode it will select a target food and move towards
+            # it. Each time it's current target food is collected it then selects a new
+            # target based on the heuristic above.
             new_target_pos = self._get_updated_pos(target_pos, last_action)
             if new_target_pos in (f[:2] for f in food_obs):
                 return new_target_pos
@@ -262,12 +252,8 @@ class LBFHeuristic4(LBFHeuristicPolicy):
 
 
 class LBFHeuristic5(LBFHeuristicPolicy):
-    """Level-Based Foraging Heuristic Policy 5.
-
-    H5 targets a random visible food whose level is compatible with all visible
-    agents. At the start of an episode it will select a target food and move towards it.
-    Each time it's current target food is collected it then selects a new target based
-    on the heuristic above.
+    """H5 targets a random visible food whose level is compatible with all visible
+    agents.
     """
 
     def _get_target_pos(
@@ -279,6 +265,9 @@ class LBFHeuristic5(LBFHeuristicPolicy):
         target_pos: Optional[Coord],
     ) -> Optional[Coord]:
         if target_pos is not None:
+            # At the start of an episode it will select a target food and move towards
+            # it. Each time it's current target food is collected it then selects a new
+            # target based on the heuristic above.
             new_target_pos = self._get_updated_pos(target_pos, last_action)
             if new_target_pos in (f[:2] for f in food_obs):
                 return new_target_pos

@@ -17,12 +17,12 @@ env = posggym.make("PredatorPreyContinuous-v0")
 ```
 
 
-| Policy | ID | Valid Agent IDs |
-|---|---|---|
-| `heuristic0` | `PredatorPreyContinuous-v0/heuristic0-v0` | All |
-| `heuristic1` | `PredatorPreyContinuous-v0/heuristic1-v0` | All |
-| `heuristic2` | `PredatorPreyContinuous-v0/heuristic2-v0` | All |
-| `heuristic3` | `PredatorPreyContinuous-v0/heuristic3-v0` | All |
+| Policy | ID | Valid Agent IDs | Description |
+|---|---|---|---|
+| `heuristic0` | `PredatorPreyContinuous-v0/heuristic0-v0` | All | None |
+| `heuristic1` | `PredatorPreyContinuous-v0/heuristic1-v0` | All | None |
+| `heuristic2` | `PredatorPreyContinuous-v0/heuristic2-v0` | All | None |
+| `heuristic3` | `PredatorPreyContinuous-v0/heuristic3-v0` | All | None |
 ## world=10x10-num_predators=2-num_prey=3-prey_strength=2-cooperative=True-obs_dist=4.0-n_sensors=16
 
 ```
@@ -39,13 +39,13 @@ env = posggym.make(
 ```
 
 
-| Policy | ID | Valid Agent IDs |
-|---|---|---|
-| `sp_seed0` | `PredatorPreyContinuous-v0/world=10x10-num_predators=2-num_prey=3-prey_strength=2-cooperative=True-obs_dist=4.0-n_sensors=16/sp_seed0-v0` | All |
-| `sp_seed1` | `PredatorPreyContinuous-v0/world=10x10-num_predators=2-num_prey=3-prey_strength=2-cooperative=True-obs_dist=4.0-n_sensors=16/sp_seed1-v0` | All |
-| `sp_seed2` | `PredatorPreyContinuous-v0/world=10x10-num_predators=2-num_prey=3-prey_strength=2-cooperative=True-obs_dist=4.0-n_sensors=16/sp_seed2-v0` | All |
-| `sp_seed3` | `PredatorPreyContinuous-v0/world=10x10-num_predators=2-num_prey=3-prey_strength=2-cooperative=True-obs_dist=4.0-n_sensors=16/sp_seed3-v0` | All |
-| `sp_seed4` | `PredatorPreyContinuous-v0/world=10x10-num_predators=2-num_prey=3-prey_strength=2-cooperative=True-obs_dist=4.0-n_sensors=16/sp_seed4-v0` | All |
+| Policy | ID | Valid Agent IDs | Description |
+|---|---|---|---|
+| `sp_seed0` | `PredatorPreyContinuous-v0/world=10x10-num_predators=2-num_prey=3-prey_strength=2-cooperative=True-obs_dist=4.0-n_sensors=16/sp_seed0-v0` | All | None |
+| `sp_seed1` | `PredatorPreyContinuous-v0/world=10x10-num_predators=2-num_prey=3-prey_strength=2-cooperative=True-obs_dist=4.0-n_sensors=16/sp_seed1-v0` | All | None |
+| `sp_seed2` | `PredatorPreyContinuous-v0/world=10x10-num_predators=2-num_prey=3-prey_strength=2-cooperative=True-obs_dist=4.0-n_sensors=16/sp_seed2-v0` | All | None |
+| `sp_seed3` | `PredatorPreyContinuous-v0/world=10x10-num_predators=2-num_prey=3-prey_strength=2-cooperative=True-obs_dist=4.0-n_sensors=16/sp_seed3-v0` | All | None |
+| `sp_seed4` | `PredatorPreyContinuous-v0/world=10x10-num_predators=2-num_prey=3-prey_strength=2-cooperative=True-obs_dist=4.0-n_sensors=16/sp_seed4-v0` | All | None |
 ## world=10x10-num_predators=4-num_prey=3-prey_strength=3-cooperative=True-obs_dist=4.0-n_sensors=16
 
 ```
@@ -62,10 +62,10 @@ env = posggym.make(
 ```
 
 
-| Policy | ID | Valid Agent IDs |
-|---|---|---|
-| `sp_seed0` | `PredatorPreyContinuous-v0/world=10x10-num_predators=4-num_prey=3-prey_strength=3-cooperative=True-obs_dist=4.0-n_sensors=16/sp_seed0-v0` | All |
-| `sp_seed1` | `PredatorPreyContinuous-v0/world=10x10-num_predators=4-num_prey=3-prey_strength=3-cooperative=True-obs_dist=4.0-n_sensors=16/sp_seed1-v0` | All |
-| `sp_seed2` | `PredatorPreyContinuous-v0/world=10x10-num_predators=4-num_prey=3-prey_strength=3-cooperative=True-obs_dist=4.0-n_sensors=16/sp_seed2-v0` | All |
-| `sp_seed3` | `PredatorPreyContinuous-v0/world=10x10-num_predators=4-num_prey=3-prey_strength=3-cooperative=True-obs_dist=4.0-n_sensors=16/sp_seed3-v0` | All |
-| `sp_seed4` | `PredatorPreyContinuous-v0/world=10x10-num_predators=4-num_prey=3-prey_strength=3-cooperative=True-obs_dist=4.0-n_sensors=16/sp_seed4-v0` | All |
+| Policy | ID | Valid Agent IDs | Description |
+|---|---|---|---|
+| `sp_seed0` | `PredatorPreyContinuous-v0/world=10x10-num_predators=4-num_prey=3-prey_strength=3-cooperative=True-obs_dist=4.0-n_sensors=16/sp_seed0-v0` | All | None |
+| `sp_seed1` | `PredatorPreyContinuous-v0/world=10x10-num_predators=4-num_prey=3-prey_strength=3-cooperative=True-obs_dist=4.0-n_sensors=16/sp_seed1-v0` | All | None |
+| `sp_seed2` | `PredatorPreyContinuous-v0/world=10x10-num_predators=4-num_prey=3-prey_strength=3-cooperative=True-obs_dist=4.0-n_sensors=16/sp_seed2-v0` | All | None |
+| `sp_seed3` | `PredatorPreyContinuous-v0/world=10x10-num_predators=4-num_prey=3-prey_strength=3-cooperative=True-obs_dist=4.0-n_sensors=16/sp_seed3-v0` | All | None |
+| `sp_seed4` | `PredatorPreyContinuous-v0/world=10x10-num_predators=4-num_prey=3-prey_strength=3-cooperative=True-obs_dist=4.0-n_sensors=16/sp_seed4-v0` | All | None |

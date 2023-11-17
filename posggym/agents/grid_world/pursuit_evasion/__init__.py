@@ -7,7 +7,6 @@ from posggym.agents.torch_policy import PPOPolicy
 from posggym.agents.utils import processors
 from posggym.config import AGENT_MODEL_DIR
 
-
 agent_model_dir = osp.join(AGENT_MODEL_DIR, "grid_world", "pursuit_evasion")
 policy_specs = {}
 
@@ -19,8 +18,29 @@ spec = PolicySpec(
     env_args=None,
     valid_agent_ids=None,
     nondeterministic=False,
+    description=(
+        "Takes the shortest path to the evader's goal (evader) or the evader's start "
+        "location then the other possible evader start and goal locations (pursuer)."
+    ),
 )
 policy_specs[spec.id] = spec
+
+
+def _get_policy_description(policy_file_name):
+    if policy_file_name.startswith("RL"):
+        return "Deep RL policy trained using PPO and self-play."
+    k = policy_file_name.split("_")[0].replace("KLR", "")
+    if k == "BR":
+        return (
+            "Best-response to K-Level Reasoning policies. This is a deep RL policy "
+            "training"
+            " using PPO and the Synchronous KLR algorithm."
+        )
+    return (
+        f"Level {k} K-Level Reasoning deep RL policy training using PPO and the "
+        "Synchronous KLR algorithm."
+    )
+
 
 # PursuitEvasion 16x16
 # Evader (agent=0)
@@ -62,6 +82,7 @@ for policy_file_name in [
         obs_processor_config=None,
         action_processor_cls=None,
         action_processor_config=None,
+        description=_get_policy_description(policy_file_name),
     )
     policy_specs[spec.id] = spec
 
@@ -105,6 +126,7 @@ for policy_file_name in [
         obs_processor_config=None,
         action_processor_cls=None,
         action_processor_config=None,
+        description=_get_policy_description(policy_file_name),
     )
     policy_specs[spec.id] = spec
 
@@ -144,6 +166,7 @@ for policy_file_name in [
         obs_processor_config=None,
         action_processor_cls=None,
         action_processor_config=None,
+        description=_get_policy_description(policy_file_name),
     )
     policy_specs[spec.id] = spec
 
@@ -183,5 +206,6 @@ for policy_file_name in [
         obs_processor_config=None,
         action_processor_cls=None,
         action_processor_config=None,
+        description=_get_policy_description(policy_file_name),
     )
     policy_specs[spec.id] = spec

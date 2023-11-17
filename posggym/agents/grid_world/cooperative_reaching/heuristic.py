@@ -26,7 +26,6 @@ from posggym.envs.grid_world.cooperative_reaching import (
     CRObs,
 )
 
-
 if TYPE_CHECKING:
     from posggym.envs.grid_world.core import Coord
 
@@ -153,10 +152,7 @@ class CRHeuristicPolicy(Policy[CRAction, CRObs]):
 
 
 class CRHeuristic1(CRHeuristicPolicy):
-    """Cooperative Reaching Heuristic Policy 1.
-
-    H1 always goes to the closest rewarding goal.
-    """
+    """H1 always goes to the closest rewarding goal."""
 
     def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
         if target_goal is None:
@@ -165,10 +161,7 @@ class CRHeuristic1(CRHeuristicPolicy):
 
 
 class CRHeuristic2(CRHeuristicPolicy):
-    """Cooperative Reaching Heuristic Policy 2.
-
-    H2 always goes to the furthest rewarding goal.
-    """
+    """H2 always goes to the furthest rewarding goal."""
 
     def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
         if target_goal is None:
@@ -177,10 +170,7 @@ class CRHeuristic2(CRHeuristicPolicy):
 
 
 class CRHeuristic3(CRHeuristicPolicy):
-    """Cooperative Reaching Heuristic Policy 3
-
-    H3 always goes to the closest optimal goal.
-    """
+    """H3 always goes to the closest optimal goal."""
 
     def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
         if target_goal is None:
@@ -189,10 +179,7 @@ class CRHeuristic3(CRHeuristicPolicy):
 
 
 class CRHeuristic4(CRHeuristicPolicy):
-    """Cooperative Reaching Heuristic Policy 4
-
-    H4 always goes to the furthest optimal goal.
-    """
+    """H4 always goes to the furthest optimal goal."""
 
     def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
         if target_goal is None:
@@ -201,10 +188,7 @@ class CRHeuristic4(CRHeuristicPolicy):
 
 
 class CRHeuristic5(CRHeuristicPolicy):
-    """Cooperative Reaching Heuristic Policy 5
-
-    H5 always goes to the closest suboptimal goal.
-    """
+    """H5 always goes to the closest suboptimal goal."""
 
     def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
         if target_goal is None:
@@ -213,10 +197,7 @@ class CRHeuristic5(CRHeuristicPolicy):
 
 
 class CRHeuristic6(CRHeuristicPolicy):
-    """Cooperative Reaching Heuristic Policy 6
-
-    H6 always goes to the furthest suboptimal goal.
-    """
+    """H6 always goes to the furthest suboptimal goal."""
 
     def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
         if target_goal is None:
@@ -225,10 +206,7 @@ class CRHeuristic6(CRHeuristicPolicy):
 
 
 class CRHeuristic7(CRHeuristicPolicy):
-    """Cooperative Reaching Heuristic Policy 7
-
-    H7 goes to a randomly selected goal.
-    """
+    """H7 goes to a randomly selected goal."""
 
     def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
         if target_goal is None:
@@ -237,10 +215,7 @@ class CRHeuristic7(CRHeuristicPolicy):
 
 
 class CRHeuristic8(CRHeuristicPolicy):
-    """Cooperative Reaching Heuristic Policy 8
-
-    H8 goes to the goal closest to the other agent at each time step.
-    """
+    """H8 goes to the goal closest to the other agent at each time step."""
 
     def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
         other_pos = obs[1]
@@ -260,10 +235,7 @@ class CRHeuristic8(CRHeuristicPolicy):
 
 
 class CRHeuristic9(CRHeuristicPolicy):
-    """Cooperative Reaching Heuristic Policy 9
-
-    H9 goes to the optimal goal closest to the other agent.
-    """
+    """H9 goes to the optimal goal closest to the other agent."""
 
     def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
         other_pos = obs[1]
@@ -289,10 +261,7 @@ class CRHeuristic9(CRHeuristicPolicy):
 
 
 class CRHeuristic10(CRHeuristicPolicy):
-    """Cooperative Reaching Heuristic Policy 10
-
-    H10 goes to the sub-optimal goal closest to the other agent.
-    """
+    """H10 goes to the sub-optimal goal closest to the other agent."""
 
     def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
         other_pos = obs[1]
@@ -318,10 +287,7 @@ class CRHeuristic10(CRHeuristicPolicy):
 
 
 class CRHeuristic11(CRHeuristicPolicy):
-    """Cooperative Reaching Heuristic Policy 11
-
-    H11 follows the other agent.
-    """
+    """H11 follows the other agent."""
 
     def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
         other_pos = obs[1]

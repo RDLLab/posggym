@@ -21,7 +21,6 @@ import posggym.model as M
 from posggym import logger
 from posggym.config import BASE_RESULTS_DIR
 
-
 POLICIES_TO_SKIP = [
     "DiscreteFixedDistributionPolicy-v0",  # this is the same as Random-v0 by default
 ]
@@ -146,22 +145,16 @@ def run_episodes(args) -> Dict[str, Dict[str, float]]:
 
 def get_pairwise_comparison_params(
     env_id: str,
+    output_dir: str,
     env_args_id: str | None = None,
     num_episodes: int = 1000,
     seed: int | None = None,
-    output_dir: str | None = None,
     verbose: bool = False,
 ) -> List[PWCParams]:
     """Get parameters for pairwise comparisons of all of an environment's policies."""
     # attempt to make env to check if it is registered (displays nicer error msg)
     posggym.make(env_id)
 
-    if output_dir is None:
-        output_dir = os.path.join(
-            BASE_RESULTS_DIR,
-            "pairwise_agent_comparison" + datetime.now().strftime("%d-%m-%y_%H-%M-%S"),
-        )
-    os.makedirs(output_dir, exist_ok=True)
     env_output_dir = os.path.join(output_dir, env_id)
     os.makedirs(env_output_dir, exist_ok=True)
 
@@ -305,7 +298,7 @@ def run_pairwise_comparisons(
     if output_dir is None:
         output_dir = os.path.join(
             BASE_RESULTS_DIR,
-            "pairwise_agent_comparison" + datetime.now().strftime("%d-%m-%y_%H-%M-%S"),
+            "return_div" + datetime.now().strftime("%d-%m-%y_%H-%M-%S"),
         )
     os.makedirs(output_dir, exist_ok=True)
 
@@ -313,8 +306,8 @@ def run_pairwise_comparisons(
     for env_id in env_ids:
         all_pairwise_comparisons.extend(
             get_pairwise_comparison_params(
-                env_id,
-                env_args_id,
+                env_id=env_id,
+                env_args_id=env_args_id,
                 output_dir=output_dir,
                 num_episodes=num_episodes,
                 seed=seed,
@@ -477,6 +470,7 @@ def generate_pairwise_returns_plot(
                 xticklabels=co_team_labels,
                 yticklabels=policy_ids,
                 square=True,
+                annot_kws={"fontsize": min(8, 24 / np.sqrt(max(values.shape)))},
             )
             axs[0][idx].set_title(f"agent `{i}`")
 
@@ -496,33 +490,30 @@ def generate_pairwise_returns_plot(
         plt.show()
 
 
-def measure_return_diversity(
+def measure_return_ed_diversity(
     pw_returns: np.ndarray,
     policies: List[str],
     co_teams: List[str],
-    num_bins: int = 10,
     verbose: bool = False,
 ) -> Dict[str, np.ndarray]:
-    """Measure return diversity for a set of pairwise returns.
+    """Measure return Euclidean distance (ED) diversity for a set of pairwise returns.
 
     Returns
     -------
-    bin_dist : np.ndarray
-        The return bin distribution for each policy. That is return niche the policy
-        occupies against each co-team.
-    pw_div : np.ndarray
-        The pairwise MSE between the bin distributions of each policy.
-    policy_div : np.ndarray
-        The total MSE for each policy (the larger the more diverse).
+    pw_ed : np.ndarray
+        The pairwise ED between return distributions of each policy.
+    policy_ed : np.ndarray
+        The total ED for each policy (the larger the more diverse).
     clusters : np.ndarray
         The cluster each policy belongs to. Cluster ordering arbitrary, but all policies
-        in the same cluster are similar.
+        in the same cluster are similar w.r.t ED between their return distributions.
 
     """
     assert (len(policies), len(co_teams)) == pw_returns.shape
 
     # get max and min returns, excluding random policy if it exists
     random_co_team_idxs = []
+    random_idx = None
     if len(policies) > 2 and "Random" in policies:
         random_idx = policies.index("Random")
         pw_returns_excl_random = np.delete(pw_returns, random_idx, axis=0)
@@ -537,70 +528,69 @@ def measure_return_diversity(
     else:
         max_return, min_return = np.max(pw_returns), np.min(pw_returns)
 
-    bin_size = (max_return - min_return) / (num_bins - 1)
-
     if verbose:
         with np.printoptions(precision=2, suppress=True):
             # print(f"{pw_returns=}")
-            print(f"{max_return=:.2f}, {min_return=:.2f}, {bin_size=:.2f}")
+            print(f"{max_return=:.2f}, {min_return=:.2f}")
 
-    # compute the return bin distribution for each policy
-    bin_dist = np.zeros(pw_returns.shape, dtype=int)
-    for pi_idx in range(pw_returns.shape[0]):
-        for co_team_idx, pw_return in enumerate(pw_returns[pi_idx, :]):
-            bin_idx = 0 if bin_size == 0 else int((pw_return - min_return) / bin_size)
-            bin_dist[pi_idx, co_team_idx] += bin_idx
-
+    # normalize pairwise distributions into [0.0, 1.0]
+    pw_returns_norm = (pw_returns - min_return) / (max_return - min_return)
     if verbose:
         with np.printoptions(precision=2, suppress=True):
             for idx, policy_name in enumerate(policies):
-                print(f"{policy_name}:\n{bin_dist[idx]}")
+                print(f"{policy_name}:\n{pw_returns_norm[idx]}")
 
-    # compute MSE between bin distributions of each policy
-    pw_div = np.zeros((len(policies), len(policies)), dtype=int)
+    # compute ED between normalized return distributions of each policy
+    pw_ed = np.zeros((len(policies), len(policies)))
     for pi_idx, pj_idx in product(range(len(policies)), repeat=2):
-        pw_div[pi_idx, pj_idx] = np.sum(
-            (bin_dist[pi_idx] - bin_dist[pj_idx]) ** 2
-        ).mean()
+        pw_ed[pi_idx, pj_idx] = np.sqrt(
+            np.sum((pw_returns[pi_idx] - pw_returns[pj_idx]) ** 2)
+        )
 
     if verbose:
-        print("Pairwise MSE:")
+        print("Pairwise ED:")
         with np.printoptions(precision=2, suppress=True):
-            for row in pw_div:
-                print(row)
+            for pi_idx, row in enumerate(pw_ed):
+                print(policies[pi_idx], row)
 
-    # Compute total MSE for each policy (the larger the more diverse)
-    policy_div = np.zeros(len(policies), dtype=int)
+    # Compute total CE for each policy (the larger the more diverse)
+    policy_ed = np.zeros(len(policies), dtype=float)
     for pi_idx in range(len(policies)):
-        policy_div[pi_idx] = np.sum(pw_div[pi_idx])
+        policy_ed[pi_idx] = np.sum(pw_ed[pi_idx])
 
     if verbose:
         with np.printoptions(precision=2, suppress=True):
-            print(f"{policy_div=}")
+            print(f"{policy_ed=}")
 
     # Group similar policies by relative MSE
     if len(policies) > 2 and "Random" in policies:
         # exclude random policy from calculating bin sizes for grouping
-        pw_div_excl_random = np.delete(pw_div, random_idx, axis=0)
-        pw_div_excl_random = np.delete(pw_div_excl_random, random_idx, axis=1)
-        min_mse, max_mse = np.min(pw_div_excl_random), np.max(pw_div_excl_random)
+        pw_ed_excl_random = np.delete(pw_ed, random_idx, axis=0)
+        pw_ed_excl_random = np.delete(pw_ed_excl_random, random_idx, axis=1)
+        min_ed, max_ed = np.min(pw_ed_excl_random), np.max(pw_ed_excl_random)
     else:
-        min_mse, max_mse = np.min(pw_div), np.max([pw_div])
-    threshold = min_mse + (max_mse - min_mse) * 0.05
+        min_ed, max_ed = np.min(pw_ed), np.max([pw_ed])
+    threshold = min_ed + (max_ed - min_ed) * 0.1
+
     similar_policy_groups = [[policies[0]]]
     for policy_name in policies[1:]:
         pi_idx = policies.index(policy_name)
-        for group in similar_policy_groups:
+        min_div = float("inf")
+        min_div_group_idx = 0
+        for group_idx, group in enumerate(similar_policy_groups):
             pj_idx = policies.index(group[0])
-            if pw_div[pi_idx, pj_idx] < threshold:
-                group.append(policy_name)
-                break
+            if pw_ed[pi_idx, pj_idx] < min_div:
+                min_div = pw_ed[pi_idx, pj_idx]
+                min_div_group_idx = group_idx
+
+        if min_div < threshold:
+            similar_policy_groups[min_div_group_idx].append(policy_name)
         else:
             similar_policy_groups.append([policy_name])
 
     if verbose:
         print("Similar policies:")
-        print(f"{min_mse=} {max_mse=} {threshold=}")
+        print(f"{min_ed=} {max_ed=} {threshold=}")
         for group in similar_policy_groups:
             print(group)
 
@@ -615,10 +605,9 @@ def measure_return_diversity(
             print(f"{clusters=}")
 
     return {
-        "return_bin_distribution": bin_dist,
-        "pairwise_return_mse": pw_div,
-        "policy_mse": policy_div.reshape(-1, 1),
-        "return_div_clusters": clusters.reshape(-1, 1),
+        "pairwise_return_ed": pw_ed,
+        "policy_ed": policy_ed.reshape(-1, 1),
+        "return_ed_clusters": clusters.reshape(-1, 1),
     }
 
 
@@ -626,7 +615,6 @@ def run_return_diversity_analysis(
     output_dir: str,
     env_id: str | None,
     env_args_id: str | None = None,
-    num_bins: int = 10,
     verbose: bool = False,
 ):
     """Run return diversity analysis from pairwise comparison results.
@@ -681,14 +669,13 @@ def run_return_diversity_analysis(
             results = {}
             for i in pw_returns_per_agent:
                 pw_returns, policy_ids, co_teams_ids = pw_returns_per_agent[i]
-                div_results = measure_return_diversity(
+                ce_results = measure_return_ed_diversity(
                     pw_returns[0],
                     policy_ids,
                     co_teams_ids,
-                    num_bins=num_bins,
                     verbose=verbose,
                 )
-                results[i] = (div_results, policy_ids, co_teams_ids)
+                results[i] = (ce_results, policy_ids, co_teams_ids)
 
             for k in list(results.values())[0][0]:
                 fig, axs = plt.subplots(
@@ -712,10 +699,13 @@ def run_return_diversity_analysis(
 
                     if div_results[k].shape[1] == 1:
                         xticklabels = [""]
-                    elif k in ["pairwise_return_mse"]:
+                        annot_fontsize = 8
+                    elif k in ["pairwise_return_ed"]:
                         xticklabels = policy_ids
+                        annot_fontsize = min(8, 24 / np.sqrt(max(div_results[k].shape)))
                     else:
                         xticklabels = co_team_labels
+                        annot_fontsize = min(8, 24 / np.sqrt(max(div_results[k].shape)))
 
                     sns.heatmap(
                         div_results[k],
@@ -725,7 +715,8 @@ def run_return_diversity_analysis(
                         cmap="YlGnBu",
                         xticklabels=xticklabels,
                         yticklabels=policy_ids,
-                        square=True,
+                        square=div_results[k].shape[1] != 1,
+                        annot_kws={"fontsize": annot_fontsize},
                     )
                     axs[0][idx].set_title(f"agent `{i}`")
                 fig.savefig(
@@ -782,12 +773,6 @@ if __name__ == "__main__":
         help="Directory to save results files too.",
     )
     parser.add_argument(
-        "--num_bins",
-        type=int,
-        default=10,
-        help="Number of bins to use for return diversity analysis.",
-    )
-    parser.add_argument(
         "--n_procs",
         type=int,
         default=None,
@@ -815,15 +800,13 @@ if __name__ == "__main__":
             args.output_dir,
             args.env_id,
             args.env_args_id,
-            args.num_bins,
             args.verbose,
         )
     else:
         if args.output_dir is None:
             output_dir = os.path.join(
                 BASE_RESULTS_DIR,
-                "pairwise_agent_comparison"
-                + datetime.now().strftime("%d-%m-%y_%H-%M-%S"),
+                "return_div" + datetime.now().strftime("%d-%m-%y_%H-%M-%S"),
             )
             os.makedirs(output_dir, exist_ok=True)
         else:
@@ -841,6 +824,5 @@ if __name__ == "__main__":
             output_dir,
             args.env_id,
             args.env_args_id,
-            args.num_bins,
             args.verbose,
         )

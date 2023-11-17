@@ -150,7 +150,10 @@ title: {title_env_name}
 
             sorted(policy_specs, key=lambda x: x.policy_name)
 
-            pi_table = "| Policy | ID | Valid Agent IDs |\n|---|---|---|\n"
+            pi_table = (
+                "| Policy | ID | Valid Agent IDs | Description |\n"
+                "|---|---|---|---|\n"
+            )
             for pi_spec in policy_specs:
                 valid_agent_ids = (
                     f"`{pi_spec.valid_agent_ids}`" if pi_spec.valid_agent_ids else "All"
@@ -159,6 +162,7 @@ title: {title_env_name}
                     f"| `{pi_spec.policy_name}` | "
                     f"`{pi_spec.id}` | "
                     f"{valid_agent_ids} |"
+                    f" {pi_spec.description} |"
                     "\n"
                 )
 

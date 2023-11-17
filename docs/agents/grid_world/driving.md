@@ -7,93 +7,39 @@ title: Driving
 
 These policies are for the <a href='../../../environments/grid_world/driving'>Driving environment</a>. Read environment page for detailed information about the environment.
 
-## grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False
+## Generic
+These policies can be used for any version of this environment.
+
+
+
+```
+env = posggym.make("Driving-v1")
+```
+
+
+| Policy | ID | Valid Agent IDs | Description |
+|---|---|---|---|
+| `A0Shortestpath` | `Driving-v1/A0Shortestpath-v0` | All | Follows shortest path to destination, doesn't go full speed, and stops if it observes another a car at any distance (aggressiveness=0.0) |
+| `A40Shortestpath` | `Driving-v1/A40Shortestpath-v0` | All | Follows shortest path to destination, doesn't go full speed, and stops if it observes a car near edge of observation range (aggressiveness=0.40) |
+| `A60Shortestpath` | `Driving-v1/A60Shortestpath-v0` | All | Follows shortest path to destination, goes up to full speed, and stops if it observes a car a medium distance away (aggressiveness=0.60) |
+| `A80Shortestpath` | `Driving-v1/A80Shortestpath-v0` | All | Follows shortest path to destination, goes up to full speed, and stops if it observes a car a very short distance away (aggressiveness=0.80) |
+| `A100Shortestpath` | `Driving-v1/A100Shortestpath-v0` | All | Follows shortest path to destination, goes up to full speed, and ignores other vehicles (aggressiveness=1.0) |
+## grid=14x14RoundAbout-num_agents=2
 
 ```
 env = posggym.make(
-    "Driving-v0",
+    "Driving-v1",
     grid="14x14RoundAbout",
     num_agents=2,
-    obs_dim=(3, 1, 1),
-    obstacle_collisions=False
+    obs_dim=(3, 1, 1)
 )
 ```
 
 
-| Policy | ID | Valid Agent IDs |
-|---|---|---|
-| `klr_k0_seed0` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k0_seed0-v0` | All |
-| `klr_k0_seed1` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k0_seed1-v0` | All |
-| `klr_k0_seed2` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k0_seed2-v0` | All |
-| `klr_k0_seed3` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k0_seed3-v0` | All |
-| `klr_k0_seed4` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k0_seed4-v0` | All |
-| `klr_k1_seed0` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k1_seed0-v0` | All |
-| `klr_k1_seed1` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k1_seed1-v0` | All |
-| `klr_k1_seed2` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k1_seed2-v0` | All |
-| `klr_k1_seed3` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k1_seed3-v0` | All |
-| `klr_k1_seed4` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k1_seed4-v0` | All |
-| `klr_k2_seed0` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k2_seed0-v0` | All |
-| `klr_k2_seed1` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k2_seed1-v0` | All |
-| `klr_k2_seed2` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k2_seed2-v0` | All |
-| `klr_k2_seed3` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k2_seed3-v0` | All |
-| `klr_k2_seed4` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k2_seed4-v0` | All |
-| `klr_k3_seed0` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k3_seed0-v0` | All |
-| `klr_k3_seed1` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k3_seed1-v0` | All |
-| `klr_k3_seed2` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k3_seed2-v0` | All |
-| `klr_k3_seed3` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k3_seed3-v0` | All |
-| `klr_k3_seed4` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k3_seed4-v0` | All |
-| `klr_k4_seed0` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k4_seed0-v0` | All |
-| `klr_k4_seed1` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k4_seed1-v0` | All |
-| `klr_k4_seed2` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k4_seed2-v0` | All |
-| `klr_k4_seed3` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k4_seed3-v0` | All |
-| `klr_k4_seed4` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k4_seed4-v0` | All |
-| `klrbr_k4_seed0` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klrbr_k4_seed0-v0` | All |
-| `klrbr_k4_seed1` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klrbr_k4_seed1-v0` | All |
-| `klrbr_k4_seed2` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klrbr_k4_seed2-v0` | All |
-| `klrbr_k4_seed3` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klrbr_k4_seed3-v0` | All |
-| `klrbr_k4_seed4` | `Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klrbr_k4_seed4-v0` | All |
-## grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False
-
-```
-env = posggym.make(
-    "Driving-v0",
-    grid="7x7RoundAbout",
-    num_agents=2,
-    obs_dim=(3, 1, 1),
-    obstacle_collisions=False
-)
-```
-
-
-| Policy | ID | Valid Agent IDs |
-|---|---|---|
-| `klr_k0_seed0` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k0_seed0-v0` | All |
-| `klr_k0_seed1` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k0_seed1-v0` | All |
-| `klr_k0_seed2` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k0_seed2-v0` | All |
-| `klr_k0_seed3` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k0_seed3-v0` | All |
-| `klr_k0_seed4` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k0_seed4-v0` | All |
-| `klr_k1_seed0` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k1_seed0-v0` | All |
-| `klr_k1_seed1` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k1_seed1-v0` | All |
-| `klr_k1_seed2` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k1_seed2-v0` | All |
-| `klr_k1_seed3` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k1_seed3-v0` | All |
-| `klr_k1_seed4` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k1_seed4-v0` | All |
-| `klr_k2_seed0` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k2_seed0-v0` | All |
-| `klr_k2_seed1` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k2_seed1-v0` | All |
-| `klr_k2_seed2` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k2_seed2-v0` | All |
-| `klr_k2_seed3` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k2_seed3-v0` | All |
-| `klr_k2_seed4` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k2_seed4-v0` | All |
-| `klr_k3_seed0` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k3_seed0-v0` | All |
-| `klr_k3_seed1` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k3_seed1-v0` | All |
-| `klr_k3_seed2` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k3_seed2-v0` | All |
-| `klr_k3_seed3` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k3_seed3-v0` | All |
-| `klr_k3_seed4` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k3_seed4-v0` | All |
-| `klr_k4_seed0` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k4_seed0-v0` | All |
-| `klr_k4_seed1` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k4_seed1-v0` | All |
-| `klr_k4_seed2` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k4_seed2-v0` | All |
-| `klr_k4_seed3` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k4_seed3-v0` | All |
-| `klr_k4_seed4` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klr_k4_seed4-v0` | All |
-| `klrbr_k4_seed0` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klrbr_k4_seed0-v0` | All |
-| `klrbr_k4_seed1` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klrbr_k4_seed1-v0` | All |
-| `klrbr_k4_seed2` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klrbr_k4_seed2-v0` | All |
-| `klrbr_k4_seed3` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klrbr_k4_seed3-v0` | All |
-| `klrbr_k4_seed4` | `Driving-v0/grid=7x7RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/klrbr_k4_seed4-v0` | All |
+| Policy | ID | Valid Agent IDs | Description |
+|---|---|---|---|
+| `RL1` | `Driving-v1/grid=14x14RoundAbout-num_agents=2/RL1-v0` | All | Deep RL policy trained using PPO and self-play. |
+| `RL2` | `Driving-v1/grid=14x14RoundAbout-num_agents=2/RL2-v0` | All | Deep RL policy trained using PPO and self-play. |
+| `RL3` | `Driving-v1/grid=14x14RoundAbout-num_agents=2/RL3-v0` | All | Deep RL policy trained using PPO and self-play. |
+| `RL4` | `Driving-v1/grid=14x14RoundAbout-num_agents=2/RL4-v0` | All | Deep RL policy trained using PPO and self-play. |
+| `RL5` | `Driving-v1/grid=14x14RoundAbout-num_agents=2/RL5-v0` | All | Deep RL policy trained using PPO and self-play. |

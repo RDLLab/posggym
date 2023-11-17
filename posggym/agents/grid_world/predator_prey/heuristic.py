@@ -9,6 +9,7 @@ from posggym.agents.utils import action_distributions
 from posggym.envs.grid_world.core import Direction
 from posggym.utils import seeding
 
+
 if TYPE_CHECKING:
     from posggym.envs.grid_world.core import Coord
     from posggym.model import POSGModel
@@ -200,10 +201,8 @@ class PPHeuristicPolicy(Policy[pp.PPAction, pp.PPObs]):
 
 
 class PPHeuristic1(PPHeuristicPolicy):
-    """Heuristic 1 policy for Predator-Prey environment.
-
-    Predator greedily moves towards closest observed prey, closest observed predator,
-    or explores randomly, in that order.
+    """H1 moves towards closest observed prey, closest observed predator, or explores
+    randomly, in that order.
     """
 
     def __init__(self, model: POSGModel, agent_id: str, policy_id: PolicyID):
@@ -228,10 +227,8 @@ class PPHeuristic1(PPHeuristicPolicy):
 
 
 class PPHeuristic2(PPHeuristicPolicy):
-    """Heuristic  policy for Predator-Prey environment.
-
-    Predator greedily moves towards closest observed prey, closest observed predator,
-    or explores in a clockwise spiral around arena, in that order.
+    """H2 moves towards closest observed prey, closest observed predator, or explores in
+    a clockwise spiral around arena, in that order.
     """
 
     def __init__(self, model: POSGModel, agent_id: str, policy_id: PolicyID):
@@ -256,12 +253,8 @@ class PPHeuristic2(PPHeuristicPolicy):
 
 
 class PPHeuristic3(PPHeuristicPolicy):
-    """Heuristic 3 policy for Predator-Prey environment.
-
-    Predator explores in a clockwise spiral around arena until it observes prey, then
-    it greedily moves towards closest observed prey, or if it observes a prey and
-    predator then it moves towards the closest observed prey to the closest observed
-    predator.
+    """H3 moves towards closest observed prey to the closest observed predator or
+    explores in a clockwise spiral around arena, in that order.
     """
 
     def __init__(self, model: POSGModel, agent_id: str, policy_id: PolicyID):

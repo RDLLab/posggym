@@ -579,6 +579,7 @@ class PPOPolicy(Policy[ActType, ObsType]):
         version: int = 0,
         valid_agent_ids: List[str] | None = None,
         nondeterministic: bool = False,
+        description: str | None = None,
         **kwargs,
     ) -> PolicySpec:
         """Load PPO policy spec from policy file.
@@ -597,7 +598,8 @@ class PPOPolicy(Policy[ActType, ObsType]):
             compatible with. If None then assumes policy can be used for any agent in
             the environment.
         nondeterministic: Whether this policy is non-deterministic even after seeding.
-        kwargs: Additional kwargs, if any, to pass to the agent initializing
+        kwargs: Additional kwargs, if any, to pass to the agent initializing function
+        description: Optional description of the policy.
 
         Returns
         -------
@@ -618,4 +620,5 @@ class PPOPolicy(Policy[ActType, ObsType]):
             valid_agent_ids=valid_agent_ids,
             nondeterministic=nondeterministic,
             kwargs=kwargs,
+            description=description,
         )

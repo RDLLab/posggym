@@ -17,9 +17,9 @@ env = posggym.make("PursuitEvasionContinuous-v0")
 ```
 
 
-| Policy | ID | Valid Agent IDs |
-|---|---|---|
-| `shortest_path` | `PursuitEvasionContinuous-v0/shortest_path-v0` | All |
+| Policy | ID | Valid Agent IDs | Description |
+|---|---|---|---|
+| `shortest_path` | `PursuitEvasionContinuous-v0/shortest_path-v0` | All | None |
 ## world=16x16
 
 ```
@@ -33,18 +33,18 @@ env = posggym.make(
 ```
 
 
-| Policy | ID | Valid Agent IDs |
-|---|---|---|
-| `sp_seed0_i0` | `PursuitEvasionContinuous-v0/world=16x16/sp_seed0_i0-v0` | `['0']` |
-| `sp_seed0_i1` | `PursuitEvasionContinuous-v0/world=16x16/sp_seed0_i1-v0` | `['1']` |
-| `sp_seed1_i0` | `PursuitEvasionContinuous-v0/world=16x16/sp_seed1_i0-v0` | `['0']` |
-| `sp_seed1_i1` | `PursuitEvasionContinuous-v0/world=16x16/sp_seed1_i1-v0` | `['1']` |
-| `sp_seed2_i0` | `PursuitEvasionContinuous-v0/world=16x16/sp_seed2_i0-v0` | `['0']` |
-| `sp_seed2_i1` | `PursuitEvasionContinuous-v0/world=16x16/sp_seed2_i1-v0` | `['1']` |
-| `sp_seed3_i0` | `PursuitEvasionContinuous-v0/world=16x16/sp_seed3_i0-v0` | `['0']` |
-| `sp_seed3_i1` | `PursuitEvasionContinuous-v0/world=16x16/sp_seed3_i1-v0` | `['1']` |
-| `sp_seed4_i0` | `PursuitEvasionContinuous-v0/world=16x16/sp_seed4_i0-v0` | `['0']` |
-| `sp_seed4_i1` | `PursuitEvasionContinuous-v0/world=16x16/sp_seed4_i1-v0` | `['1']` |
+| Policy | ID | Valid Agent IDs | Description |
+|---|---|---|---|
+| `sp_seed0_i0` | `PursuitEvasionContinuous-v0/world=16x16/sp_seed0_i0-v0` | `['0']` | None |
+| `sp_seed0_i1` | `PursuitEvasionContinuous-v0/world=16x16/sp_seed0_i1-v0` | `['1']` | None |
+| `sp_seed1_i0` | `PursuitEvasionContinuous-v0/world=16x16/sp_seed1_i0-v0` | `['0']` | None |
+| `sp_seed1_i1` | `PursuitEvasionContinuous-v0/world=16x16/sp_seed1_i1-v0` | `['1']` | None |
+| `sp_seed2_i0` | `PursuitEvasionContinuous-v0/world=16x16/sp_seed2_i0-v0` | `['0']` | None |
+| `sp_seed2_i1` | `PursuitEvasionContinuous-v0/world=16x16/sp_seed2_i1-v0` | `['1']` | None |
+| `sp_seed3_i0` | `PursuitEvasionContinuous-v0/world=16x16/sp_seed3_i0-v0` | `['0']` | None |
+| `sp_seed3_i1` | `PursuitEvasionContinuous-v0/world=16x16/sp_seed3_i1-v0` | `['1']` | None |
+| `sp_seed4_i0` | `PursuitEvasionContinuous-v0/world=16x16/sp_seed4_i0-v0` | `['0']` | None |
+| `sp_seed4_i1` | `PursuitEvasionContinuous-v0/world=16x16/sp_seed4_i1-v0` | `['1']` | None |
 ## world=8x8
 
 ```
@@ -58,15 +58,15 @@ env = posggym.make(
 ```
 
 
-| Policy | ID | Valid Agent IDs |
-|---|---|---|
-| `sp_seed0_i0` | `PursuitEvasionContinuous-v0/world=8x8/sp_seed0_i0-v0` | `['0']` |
-| `sp_seed0_i1` | `PursuitEvasionContinuous-v0/world=8x8/sp_seed0_i1-v0` | `['1']` |
-| `sp_seed1_i0` | `PursuitEvasionContinuous-v0/world=8x8/sp_seed1_i0-v0` | `['0']` |
-| `sp_seed1_i1` | `PursuitEvasionContinuous-v0/world=8x8/sp_seed1_i1-v0` | `['1']` |
-| `sp_seed2_i0` | `PursuitEvasionContinuous-v0/world=8x8/sp_seed2_i0-v0` | `['0']` |
-| `sp_seed2_i1` | `PursuitEvasionContinuous-v0/world=8x8/sp_seed2_i1-v0` | `['1']` |
-| `sp_seed3_i0` | `PursuitEvasionContinuous-v0/world=8x8/sp_seed3_i0-v0` | `['0']` |
-| `sp_seed3_i1` | `PursuitEvasionContinuous-v0/world=8x8/sp_seed3_i1-v0` | `['1']` |
-| `sp_seed4_i0` | `PursuitEvasionContinuous-v0/world=8x8/sp_seed4_i0-v0` | `['0']` |
-| `sp_seed4_i1` | `PursuitEvasionContinuous-v0/world=8x8/sp_seed4_i1-v0` | `['1']` |
+| Policy | ID | Valid Agent IDs | Description |
+|---|---|---|---|
+| `sp_seed0_i0` | `PursuitEvasionContinuous-v0/world=8x8/sp_seed0_i0-v0` | `['0']` | None |
+| `sp_seed0_i1` | `PursuitEvasionContinuous-v0/world=8x8/sp_seed0_i1-v0` | `['1']` | None |
+| `sp_seed1_i0` | `PursuitEvasionContinuous-v0/world=8x8/sp_seed1_i0-v0` | `['0']` | None |
+| `sp_seed1_i1` | `PursuitEvasionContinuous-v0/world=8x8/sp_seed1_i1-v0` | `['1']` | None |
+| `sp_seed2_i0` | `PursuitEvasionContinuous-v0/world=8x8/sp_seed2_i0-v0` | `['0']` | None |
+| `sp_seed2_i1` | `PursuitEvasionContinuous-v0/world=8x8/sp_seed2_i1-v0` | `['1']` | None |
+| `sp_seed3_i0` | `PursuitEvasionContinuous-v0/world=8x8/sp_seed3_i0-v0` | `['0']` | None |
+| `sp_seed3_i1` | `PursuitEvasionContinuous-v0/world=8x8/sp_seed3_i1-v0` | `['1']` | None |
+| `sp_seed4_i0` | `PursuitEvasionContinuous-v0/world=8x8/sp_seed4_i0-v0` | `['0']` | None |
+| `sp_seed4_i1` | `PursuitEvasionContinuous-v0/world=8x8/sp_seed4_i1-v0` | `['1']` | None |

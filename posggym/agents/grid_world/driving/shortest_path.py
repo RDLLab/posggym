@@ -23,7 +23,6 @@ from posggym.envs.grid_world.driving import (
 )
 from posggym.utils import seeding
 
-
 if TYPE_CHECKING:
     from posggym.model import POSGModel
     from posggym.utils.history import AgentHistory
@@ -36,10 +35,9 @@ Pos = Tuple[Coord, Speed, Direction]
 class DrivingShortestPathPolicy(Policy[DAction, DObs]):
     """Shortest Path Policy for the Driving environment.
 
-    This policy sets the preferred action as the one which is on the shortest
-    path to the agent's goal and which doesn't leave agent in same position. Note,
-    the policy is stochastic and will sample from a distribution over the preferred
-    actions, since there may be multiple actions which are on the shortest path.
+    This policy selects actions that lead it to taking the shortest path to the agent's
+    goal. If there are multiple actions on the shortest path then selects uniformly
+    at random from those actions.
 
     Arguments
     ---------

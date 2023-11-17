@@ -60,7 +60,7 @@ class DrivingGenEnv(DrivingEnv):
     Version History
     ---------------
     - `v1`: Updated to `Driving-v1` (See Version history of `Driving` environment for
-        details.
+        details).
     - `v0`: Initial version
 
     """

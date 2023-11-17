@@ -7,7 +7,22 @@ title: Predator Prey
 
 These policies are for the <a href='../../../environments/grid_world/predator_prey'>Predator Prey environment</a>. Read environment page for detailed information about the environment.
 
-## grid=10x10-num_predators=2-num_prey=3-cooperative=True-prey_strength=2-obs_dim=2
+## Generic
+These policies can be used for any version of this environment.
+
+
+
+```
+env = posggym.make("PredatorPrey-v0")
+```
+
+
+| Policy | ID | Valid Agent IDs | Description |
+|---|---|---|---|
+| `H1` | `PredatorPrey-v0/H1-v0` | All | H1 moves towards closest observed prey, closest observed predator, or explores     randomly, in that order.      |
+| `H2` | `PredatorPrey-v0/H2-v0` | All | H2 moves towards closest observed prey, closest observed predator, or explores in     a clockwise spiral around arena, in that order.      |
+| `H3` | `PredatorPrey-v0/H3-v0` | All | H3 moves towards closest observed prey to the closest observed predator or     explores in a clockwise spiral around arena, in that order.      |
+## grid=10x10-num_predators=2-num_prey=3-cooperative=True
 
 ```
 env = posggym.make(
@@ -22,52 +37,13 @@ env = posggym.make(
 ```
 
 
-| Policy | ID | Valid Agent IDs |
-|---|---|---|
-| `sp_seed0` | `PredatorPrey-v0/grid=10x10-num_predators=2-num_prey=3-cooperative=True-prey_strength=2-obs_dim=2/sp_seed0-v0` | All |
-| `sp_seed1` | `PredatorPrey-v0/grid=10x10-num_predators=2-num_prey=3-cooperative=True-prey_strength=2-obs_dim=2/sp_seed1-v0` | All |
-| `sp_seed2` | `PredatorPrey-v0/grid=10x10-num_predators=2-num_prey=3-cooperative=True-prey_strength=2-obs_dim=2/sp_seed2-v0` | All |
-| `sp_seed3` | `PredatorPrey-v0/grid=10x10-num_predators=2-num_prey=3-cooperative=True-prey_strength=2-obs_dim=2/sp_seed3-v0` | All |
-| `sp_seed4` | `PredatorPrey-v0/grid=10x10-num_predators=2-num_prey=3-cooperative=True-prey_strength=2-obs_dim=2/sp_seed4-v0` | All |
-## grid=10x10-num_predators=3-num_prey=3-cooperative=True-prey_strength=2-obs_dim=2
-
-```
-env = posggym.make(
-    "PredatorPrey-v0",
-    grid="10x10",
-    num_predators=3,
-    num_prey=3,
-    cooperative=True,
-    prey_strength=2,
-    obs_dim=2
-)
-```
-
-
-| Policy | ID | Valid Agent IDs |
-|---|---|---|
-| `sp_seed0` | `PredatorPrey-v0/grid=10x10-num_predators=3-num_prey=3-cooperative=True-prey_strength=2-obs_dim=2/sp_seed0-v0` | All |
-| `sp_seed1` | `PredatorPrey-v0/grid=10x10-num_predators=3-num_prey=3-cooperative=True-prey_strength=2-obs_dim=2/sp_seed1-v0` | All |
-| `sp_seed2` | `PredatorPrey-v0/grid=10x10-num_predators=3-num_prey=3-cooperative=True-prey_strength=2-obs_dim=2/sp_seed2-v0` | All |
-## grid=10x10-num_predators=4-num_prey=3-cooperative=True-prey_strength=3-obs_dim=2
-
-```
-env = posggym.make(
-    "PredatorPrey-v0",
-    grid="10x10",
-    num_predators=4,
-    num_prey=3,
-    cooperative=True,
-    prey_strength=3,
-    obs_dim=2
-)
-```
-
-
-| Policy | ID | Valid Agent IDs |
-|---|---|---|
-| `sp_seed0` | `PredatorPrey-v0/grid=10x10-num_predators=4-num_prey=3-cooperative=True-prey_strength=3-obs_dim=2/sp_seed0-v0` | All |
-| `sp_seed1` | `PredatorPrey-v0/grid=10x10-num_predators=4-num_prey=3-cooperative=True-prey_strength=3-obs_dim=2/sp_seed1-v0` | All |
-| `sp_seed2` | `PredatorPrey-v0/grid=10x10-num_predators=4-num_prey=3-cooperative=True-prey_strength=3-obs_dim=2/sp_seed2-v0` | All |
-| `sp_seed3` | `PredatorPrey-v0/grid=10x10-num_predators=4-num_prey=3-cooperative=True-prey_strength=3-obs_dim=2/sp_seed3-v0` | All |
-| `sp_seed4` | `PredatorPrey-v0/grid=10x10-num_predators=4-num_prey=3-cooperative=True-prey_strength=3-obs_dim=2/sp_seed4-v0` | All |
+| Policy | ID | Valid Agent IDs | Description |
+|---|---|---|---|
+| `RL1` | `PredatorPrey-v0/grid=10x10-num_predators=2-num_prey=3-cooperative=True/RL1-v0` | All | Deep RL policy trained using PPO and self-play. |
+| `RL2` | `PredatorPrey-v0/grid=10x10-num_predators=2-num_prey=3-cooperative=True/RL2-v0` | All | Deep RL policy trained using PPO and self-play. |
+| `RL3` | `PredatorPrey-v0/grid=10x10-num_predators=2-num_prey=3-cooperative=True/RL3-v0` | All | Deep RL policy trained using PPO and self-play. |
+| `RL4` | `PredatorPrey-v0/grid=10x10-num_predators=2-num_prey=3-cooperative=True/RL4-v0` | All | Deep RL policy trained using PPO and self-play. |
+| `RL5` | `PredatorPrey-v0/grid=10x10-num_predators=2-num_prey=3-cooperative=True/RL5-v0` | All | Deep RL policy trained using PPO and self-play. |
+| `RL6` | `PredatorPrey-v0/grid=10x10-num_predators=2-num_prey=3-cooperative=True/RL6-v0` | All | Deep RL policy trained using PPO and self-play. |
+| `RL7` | `PredatorPrey-v0/grid=10x10-num_predators=2-num_prey=3-cooperative=True/RL7-v0` | All | Deep RL policy trained using PPO and self-play. |
+| `RL8` | `PredatorPrey-v0/grid=10x10-num_predators=2-num_prey=3-cooperative=True/RL8-v0` | All | Deep RL policy trained using PPO and self-play. |
