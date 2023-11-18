@@ -23,7 +23,6 @@ from posggym.envs.grid_world.driving import (
 )
 from posggym.utils import seeding
 
-
 if TYPE_CHECKING:
     from posggym.model import POSGModel
     from posggym.utils.history import AgentHistory
@@ -319,7 +318,7 @@ class DrivingShortestPathPolicy(Policy[DAction, DObs]):
                     # agent turned in place
                     next_coord = coord
                     prev_speed = speed
-                    prev_positions.add((prev_coord, prev_speed, prev_dir))
+                    prev_positions.add((coord, prev_speed, prev_dir))
                 elif speed == Speed.FORWARD_FAST:
                     # not possible, since turning reduces speed to FORWARD_SLOW
                     continue

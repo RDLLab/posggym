@@ -1,17 +1,28 @@
-"""Script for running pairwise evaluation of posggym.agents policies.
+"""Script for measuring the diversity of posggym.agents policies.
 
-The script takes an environment ID and optional environment args ID and runs a pairwise
+The script takes an environment ID and optional environment args ID and runs a diversity
 evaluation for each possible pairing of policies that are registered to the environment
 and arguments.
 
 """
 import argparse
 
-from posggym.agents.evaluation import pairwise
+from posggym.agents.evaluation import diversity, pairwise
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        "action",
+        type=str,
+        choices=["run", "plot", "run_and_plot"],
+        help=(
+            "Action to perform. "
+            "`run` - runs pairwise comparisons to generate data. "
+            "`plot` - plots results (expects `--output_dir`). "
+            "`run_and_plot` - run pairwise comparisons then plots results. "
+        ),
     )
     parser.add_argument(
         "--env_id",
@@ -55,26 +66,39 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument("--verbose", action="store_true", help="Run in verbose mode.")
-    parser.add_argument(
-        "--show", action="store_true", help="Show pairwise comparison result plots."
-    )
     args = parser.parse_args()
 
-    output_dir = pairwise.run_pairwise_comparisons(
-        env_id=args.env_id,
-        env_args_id=args.env_args_id,
-        num_episodes=args.num_episodes,
-        seed=args.seed,
-        output_dir=args.output_dir,
-        n_procs=args.n_procs,
-        verbose=args.verbose,
-    )
-
-    pairwise.plot_pairwise_comparison_results(
-        output_dir,
-        env_id=args.env_id,
-        env_args_id=args.env_args_id,
-        show=args.show,
-        save=True,
-        mean_only=True,
-    )
+    if args.action == "run":
+        pairwise.run_pairwise_comparisons(
+            args.env_id,
+            args.env_args_id,
+            args.num_episodes,
+            args.output_dir,
+            args.seed,
+            args.n_procs,
+            args.verbose,
+        )
+    elif args.action == "plot":
+        assert args.output_dir is not None
+        diversity.run_return_diversity_analysis(
+            args.output_dir,
+            args.env_id,
+            args.env_args_id,
+            args.verbose,
+        )
+    else:
+        output_dir = pairwise.run_pairwise_comparisons(
+            args.env_id,
+            args.env_args_id,
+            args.num_episodes,
+            args.output_dir,
+            args.seed,
+            args.n_procs,
+            args.verbose,
+        )
+        diversity.run_return_diversity_analysis(
+            output_dir,
+            args.env_id,
+            args.env_args_id,
+            args.verbose,
+        )

@@ -14,9 +14,7 @@ def test_pprint_custom_registry():
     pp_env_args_id = "grid=10x10-num_predators=2-num_prey=3-cooperative=True"
     a = {
         "Random-v0": pga.registry["Random-v0"],
-        "LevelBasedForaging-v3/Heuristic1-v0": pga.registry[
-            "LevelBasedForaging-v3/Heuristic1-v0"
-        ],
+        "LevelBasedForaging-v3/H1-v0": pga.registry["LevelBasedForaging-v3/H1-v0"],
         f"PredatorPrey-v0/{pp_env_args_id}/RL1-v0": pga.registry[
             f"PredatorPrey-v0/{pp_env_args_id}/RL1-v0"
         ],
@@ -28,7 +26,7 @@ Random-v0
 
 
 ===== LevelBasedForaging-v3 =====
-Heuristic1-v0
+H1-v0
 
 
 ===== PredatorPrey-v0 =====

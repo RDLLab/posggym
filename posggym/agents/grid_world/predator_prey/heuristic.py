@@ -9,7 +9,6 @@ from posggym.agents.utils import action_distributions
 from posggym.envs.grid_world.core import Direction
 from posggym.utils import seeding
 
-
 if TYPE_CHECKING:
     from posggym.envs.grid_world.core import Coord
     from posggym.model import POSGModel
@@ -129,16 +128,15 @@ class PPHeuristicPolicy(Policy[pp.PPAction, pp.PPObs]):
             return pp.ACTIONS[:], None
 
         if self.explore_strategy == "spiral":
-            # N->E E->S S->W  W->N (i.e clockwise,  +1 mod 4)
+            # N->E E->S S->W  W->N (i.e clockwise, +1 mod 4)
             if explore_dir is None:
                 explore_dir = (
                     Direction.EAST if wall_obs[Direction.SOUTH] else Direction.WEST
                 )
-
             for _ in range(4):
                 if not wall_obs[explore_dir]:
                     return [DIR_TO_ACTION[explore_dir]], explore_dir
-                explore_dir = (explore_dir + 1) % 4
+                explore_dir = (1 + explore_dir) % 4
 
             # walls observed in all directions, just move in any direction
             return pp.ACTIONS[:], None
