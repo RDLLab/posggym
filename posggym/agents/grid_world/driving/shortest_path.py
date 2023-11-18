@@ -23,6 +23,7 @@ from posggym.envs.grid_world.driving import (
 )
 from posggym.utils import seeding
 
+
 if TYPE_CHECKING:
     from posggym.model import POSGModel
     from posggym.utils.history import AgentHistory
@@ -57,7 +58,7 @@ class DrivingShortestPathPolicy(Policy[DAction, DObs]):
         agent_id: str,
         policy_id: PolicyID,
         aggressiveness: float = 1.0,
-        precompute_shortest_paths: bool = True,
+        precompute_shortest_paths: bool = False,
     ):
         super().__init__(model, agent_id, policy_id)
         self.model = cast(DrivingModel, model)

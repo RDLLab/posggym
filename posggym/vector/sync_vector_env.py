@@ -255,6 +255,10 @@ class SyncVectorEnv(posggym.Env):
         return tuple(results)
 
     @property
+    def possible_agents(self) -> Tuple[str, ...]:
+        return self.envs[0].possible_agents
+
+    @property
     def agents(self):
         return self.call("agents")
 
