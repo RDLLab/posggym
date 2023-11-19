@@ -8,11 +8,10 @@ import urllib.request
 from setuptools import setup
 from setuptools.command import build_py
 
-
 CWD = pathlib.Path(__file__).absolute().parent
 
 ASSETS_URL = (
-    "https://github.com/RDLLab/posggym-agent-models/archive/refs/tags/v0.5.0.tar.gz"
+    "https://github.com/RDLLab/posggym-agent-models/archive/refs/heads/main.tar.gz"
 )
 
 
