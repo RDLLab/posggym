@@ -11,7 +11,9 @@ from setuptools.command import build_py
 
 CWD = pathlib.Path(__file__).absolute().parent
 
-ASSETS_URL = "https://github.com/RDLLab/posggym-agent-models/tarball/refs/tags/v0.4.0"
+ASSETS_URL = (
+    "https://github.com/RDLLab/posggym-agent-models/archive/refs/tags/v0.5.0.tar.gz"
+)
 
 
 def get_version():

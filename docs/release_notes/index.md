@@ -5,9 +5,9 @@ title: Release Notes
 
 # Release Notes
 
-## 0.5.0 (currently in development)
+## 0.5.0
 
-*Release date TBD*
+*Released on Nov 19 2023*
 
 This release adds some more environments and agents, fixes some bugs, and tweaks some of the existing environments.
 

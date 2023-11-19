@@ -9,7 +9,7 @@ BASE_RESULTS_DIR = osp.join(str(Path.home()), "posggym_results")
 ASSET_DIR = osp.join(PKG_DIR, "assets")
 AGENT_MODEL_DIR = osp.join(ASSET_DIR, "agents")
 
-AGENT_MODEL_REPO_URL = "https://github.com/RDLLab/posggym-agent-models/raw/main/"
+AGENT_MODEL_REPO_URL = "https://github.com/RDLLab/posggym-agent-models/raw/v0.5.0/"
 
 
 if not osp.exists(BASE_RESULTS_DIR):

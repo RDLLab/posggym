@@ -85,7 +85,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("--env_id", type=str, help="ID of environment to run")
+    parser.add_argument(
+        "--env_id", type=str, required=True, help="ID of environment to run"
+    )
     parser.add_argument(
         "--num_episodes",
         type=int,

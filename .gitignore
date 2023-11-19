@@ -1,6 +1,9 @@
 # Custom additions
 tests/wrappers/videos/
 docs/_build~/
+/wandb/
+assets/assets.tar.gz
+posggym/assets/version.txt
 
 # ignore model files, these are stored in posggym-agent-models repo
 *.pkl
@@ -137,5 +140,3 @@ dmypy.json
 
 # Ruff linter
 .ruff_cache/
-/wandb/
-assets/assets.tar.gz
