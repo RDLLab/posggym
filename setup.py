@@ -11,7 +11,7 @@ from setuptools.command import build_py
 CWD = pathlib.Path(__file__).absolute().parent
 
 ASSETS_URL = (
-    "https://github.com/RDLLab/posggym-agent-models/archive/refs/heads/main.tar.gz"
+    "https://github.com/RDLLab/posggym-agent-models/archive/refs/tags/v0.5.1.tar.gz"
 )
 
 
@@ -66,6 +66,7 @@ class BuildPy(build_py.build_py):
             shutil.rmtree(asset_dir)
             print("Deleted existing assets", flush=True)
 
+        os.makedirs(asset_dir, exist_ok=True)
         print("Extracting assets...", flush=True)
 
         def members(tarball):

@@ -5,6 +5,14 @@ title: Release Notes
 
 # Release Notes
 
+## 0.5.1
+
+*Release on Nov 22 2023*
+
+Minor release to fix a bug with `setup.py` and the newer agent models being saved as cuda tensors.
+
+---
+
 ## 0.5.0
 
 *Released on Nov 19 2023*
