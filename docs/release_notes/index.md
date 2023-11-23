@@ -5,6 +5,12 @@ title: Release Notes
 
 # Release Notes
 
+## Next Release
+
+*Release on TBD*
+
+- fixed some awkward behaviour in `Driving-v1` and `DrivingGen-v1` shortest path policies.
+
 ## 0.5.1
 
 *Release on Nov 22 2023*

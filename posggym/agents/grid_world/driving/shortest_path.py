@@ -1,6 +1,7 @@
 """Shortest path policy for Driving envs."""
 from __future__ import annotations
 
+from itertools import product
 from queue import PriorityQueue
 from typing import TYPE_CHECKING, Dict, Set, Tuple, cast
 
@@ -18,10 +19,12 @@ from posggym.envs.grid_world.driving import (
     VEHICLE,
     DAction,
     DObs,
+    DrivingGrid,
     DrivingModel,
     Speed,
 )
 from posggym.utils import seeding
+
 
 if TYPE_CHECKING:
     from posggym.model import POSGModel
@@ -51,13 +54,19 @@ class DrivingShortestPathPolicy(Policy[DAction, DObs]):
 
     """
 
+    # shared shortest paths lookup table for all class instances
+    # this shares shortest path computation and storage between all instances of class
+    # which is useful if running a vectorized environment or with many shortest path
+    # agents
+    # shortest_paths: Dict[Coord, Dict[Pos, Dict[Pos, int]]] = {}
+    shortest_paths: Dict[Coord, Dict[Pos, int]] = {}
+
     def __init__(
         self,
         model: POSGModel,
         agent_id: str,
         policy_id: PolicyID,
         aggressiveness: float = 1.0,
-        precompute_shortest_paths: bool = False,
     ):
         super().__init__(model, agent_id, policy_id)
         self.model = cast(DrivingModel, model)
@@ -74,13 +83,6 @@ class DrivingShortestPathPolicy(Policy[DAction, DObs]):
         self.agent_obs_idx = (obs_front * self.obs_width) + obs_side
         self.agent_obs_coord = (obs_side, obs_front)
         self.max_obs_dist = max(obs_front, obs_back) + obs_side
-
-        self.shortest_paths = {}
-        if precompute_shortest_paths:
-            for dest_coord in set.union(*self._grid.dest_coords):
-                self.shortest_paths[dest_coord] = self.get_all_shortest_paths(
-                    dest_coord
-                )
 
     def reset(self, *, seed: int | None = None):
         super().reset(seed=seed)
@@ -162,7 +164,6 @@ class DrivingShortestPathPolicy(Policy[DAction, DObs]):
                     pi = {DO_NOTHING: 1.0}
                 return action_distributions.DiscreteActionDistribution(pi, self._rng)
 
-        # get distances to dest for each action
         dists = []
         for a in self._action_space:
             if (
@@ -185,13 +186,15 @@ class DrivingShortestPathPolicy(Policy[DAction, DObs]):
                 next_coord = self._grid.get_next_coord(
                     next_coord, a_move_dir, ignore_blocks=False
                 )
+            if next_coord == state["coord"]:
+                # hit a wall
+                a_speed = Speed.STOPPED
 
             d = self.get_dest_shortest_path_dist(
                 state["dest_coord"], (next_coord, a_speed, a_facing_dir)
             )
             dists.append(d)
 
-        # get pi from dists
         min_dist = min(dists)
         num_min = dists.count(min_dist)
         pi = {}
@@ -222,132 +225,93 @@ class DrivingShortestPathPolicy(Policy[DAction, DObs]):
 
     def get_dest_shortest_path_dist(self, dest_coord: Coord, pos: Pos) -> int:
         """Get shortest path distance to destination coord from given position."""
-        if dest_coord not in self.shortest_paths:
-            self.shortest_paths[dest_coord] = self.get_all_shortest_paths(dest_coord)
+        cls = DrivingShortestPathPolicy
+        if dest_coord not in cls.shortest_paths:
+            cls.shortest_paths[dest_coord] = {}
+        return cls.get_shortest_path(
+            pos, dest_coord, self._grid, cls.shortest_paths[dest_coord]
+        )
 
-        min_dist = float("inf")
-        for dists in self.shortest_paths[dest_coord].values():
-            if dists.get(pos, float("inf")) < min_dist:
-                min_dist = dists[pos]
-        return min_dist
-
-    def get_all_shortest_paths(self, origin: Coord) -> Dict[Pos, Dict[Pos, int]]:
-        """Get shortest paths from given origin to all other positions.
+    @staticmethod
+    def get_shortest_path(
+        origin: Pos,
+        dest: Coord,
+        grid: DrivingGrid,
+        lookup_table: Dict[Pos, int],
+    ) -> int:
+        """Get shortest path to given origin to given destination.
 
         Note, this is a search over vehicle configurations, i.e. (coord, speed,
         facing_dir), rather than just vehicle coordinate. This yields a shortest path
         distance in terms of number of actions, rather than number of cells.
+
+        This method modifies the lookup table in place. Adding any new positions
+        encountered to the lookup table.
+
         """
-        src_dists = {}
-        for speed in Speed:
-            for facing_dir in Direction:
-                pos = (origin, speed, facing_dir)
-                src_dists[pos] = self.dijkstra(pos)
-        return src_dists
+        if (dest, INIT_SPEED, INIT_DIR) not in lookup_table:
+            for speed, facing_dir in product(Speed, Direction):
+                lookup_table[(dest, speed, facing_dir)] = 0
 
-    def dijkstra(self, origin: Pos) -> Dict[Pos, int]:
-        """Get shortest path distance to origin from all other positions."""
-        dist = {origin: 0}
-        pq = PriorityQueue()  # type: ignore
-        pq.put((dist[origin], origin))
+        if origin in lookup_table:
+            return lookup_table[origin]
 
+        # Run djikstra from origin till it reaches a position in the lookup table
+        move_dist = {origin: 0}
+        prev_pos = {origin: None}
+        pq = PriorityQueue()
+        pq.put((move_dist[origin], origin))
         visited = {origin}
 
+        last_pos = None
         while not pq.empty():
             _, pos = pq.get()
+            if pos in lookup_table:
+                last_pos = pos
+                break
 
-            for adj_pos in self.get_prev_positions(pos):
-                if dist[pos] + 1 < dist.get(adj_pos, float("inf")):
-                    dist[adj_pos] = dist[pos] + 1
+            for adj_pos in DrivingShortestPathPolicy.get_next_positions(pos, grid):
+                if move_dist[pos] + 1 < move_dist.get(adj_pos, float("inf")):
+                    move_dist[adj_pos] = move_dist[pos] + 1
+                    prev_pos[adj_pos] = pos
 
                     if adj_pos not in visited:
-                        pq.put((dist[adj_pos], adj_pos))
+                        pq.put((move_dist[adj_pos], adj_pos))
                         visited.add(adj_pos)
-        return dist
 
-    def get_prev_positions(self, pos: Pos) -> Set[Pos]:
-        """Get all positions reachable from given position."""
+        if last_pos is None:
+            raise ValueError(
+                f"Could not find shortest path from {origin} to {dest} in grid"
+            )
+
+        # convert move_dist to shortest path dist from origin to dest
+        # by starting at last_pos and working backwards
+        d = lookup_table[last_pos]
+        while last_pos is not None:
+            lookup_table[last_pos] = d
+            last_pos = prev_pos[last_pos]
+            d += 1
+
+        return lookup_table[origin]
+
+    @staticmethod
+    def get_next_positions(pos: Pos, grid: DrivingGrid) -> Set[Pos]:
         coord, speed, facing_dir = pos
-        prev_positions = set()
-        for prev_a in [DO_NOTHING, TURN_LEFT, TURN_RIGHT, ACCELERATE, DECELERATE]:
-            if prev_a in [DO_NOTHING, ACCELERATE, DECELERATE] or speed == Speed.REVERSE:
-                # agent moved in straight line from prev pos
-                if prev_a == DECELERATE:
-                    prev_speed = Speed(min(speed + 1, Speed.FORWARD_FAST))
-                    prev_dir = facing_dir
-                elif prev_a == ACCELERATE:
-                    prev_speed = Speed(max(speed - 1, Speed.REVERSE))
-                    prev_dir = facing_dir
-                else:
-                    # DO_NOTHING or (TURN_LEFT or TURN_RIGHT in REVERSE)
-                    # Agent cannot turn while reversing, so action is same as DO_NOTHING
-                    prev_speed = speed
-                    prev_dir = facing_dir
 
-                if speed == Speed.REVERSE:
-                    move_dir = prev_dir
-                else:
-                    move_dir = Direction((prev_dir + 2) % len(Direction))
+        next_positions = set()
+        for a in [DO_NOTHING, TURN_LEFT, TURN_RIGHT, ACCELERATE, DECELERATE]:
+            next_speed = DrivingModel.get_next_speed(a, speed)
+            move_dir = DrivingModel.get_move_direction(a, next_speed, facing_dir)
+            next_dir = DrivingModel.get_next_direction(a, next_speed, facing_dir)
 
-                next_coord = self._grid.get_next_coord(
-                    coord,
-                    Direction((move_dir + 2) % len(Direction)),
-                    ignore_blocks=False,
+            next_coord = coord
+            for _ in range(abs(next_speed - Speed.STOPPED)):
+                next_coord = grid.get_next_coord(
+                    next_coord, move_dir, ignore_blocks=False
                 )
-                next_coord_blocked = next_coord == coord
 
-                prev_coord = coord
-                for _ in range(abs(prev_speed - Speed.STOPPED)):
-                    if next_coord_blocked:
-                        # if next coord is blocked then may have moved to current
-                        # coord from 0, 1 or 2 cells away
-                        prev_positions.add((prev_coord, prev_speed, prev_dir))
-                    prev_coord = self._grid.get_next_coord(
-                        prev_coord, move_dir, ignore_blocks=False
-                    )
-                prev_positions.add((prev_coord, prev_speed, prev_dir))
-            else:
-                # TURN_RIGHT or TURN_LEFT (and not in REVERSE)
-                # agent turned and maybe moved from prev pos
-                if prev_a == TURN_RIGHT:
-                    prev_dir = Direction((facing_dir - 1) % len(Direction))
-                else:
-                    prev_dir = Direction((facing_dir + 1) % len(Direction))
-
-                if speed == Speed.STOPPED:
-                    # agent turned in place
-                    next_coord = coord
-                    prev_speed = speed
-                    prev_positions.add((coord, prev_speed, prev_dir))
-                elif speed == Speed.FORWARD_FAST:
-                    # not possible, since turning reduces speed to FORWARD_SLOW
-                    continue
-                else:
-                    # agent turned and moved
-                    # if current speed is FORWARD_SLOW, then agent could have
-                    # been moving at FORWARD_FAST or FORWARD_SLOW
-                    prev_speeds = [speed]
-                    if speed == Speed.FORWARD_SLOW:
-                        prev_speeds.append(Speed.FORWARD_FAST)
-
-                    prev_coords = set()
-                    # Need to check if next coord is blocked, since agent may have
-                    # turned into a wall and so stayed at same coord, but changed dir
-                    next_coord = self._grid.get_next_coord(
-                        coord, facing_dir, ignore_blocks=False
-                    )
-                    if next_coord == coord:
-                        prev_coords.add(coord)
-
-                    # agent moved from cell in opposite direction to facing dir
-                    move_dir = Direction((facing_dir + 2) % len(Direction))
-                    prev_coord = self._grid.get_next_coord(
-                        coord, move_dir, ignore_blocks=False
-                    )
-                    prev_coords.add(prev_coord)
-
-                    for prev_coord in prev_coords:
-                        for prev_speed in prev_speeds:
-                            prev_positions.add((prev_coord, prev_speed, prev_dir))
-
-        return prev_positions
+            if next_coord == coord:
+                # hit a wall
+                next_speed = Speed.STOPPED
+            next_positions.add((next_coord, next_speed, next_dir))
+        return next_positions

@@ -3,11 +3,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from posggym.agents.grid_world.driving.shortest_path import DrivingShortestPathPolicy
+from posggym.agents.grid_world.driving.shortest_path import (
+    DrivingShortestPathPolicy,
+    Pos,
+)
 
 
 if TYPE_CHECKING:
     from posggym.agents.policy import PolicyID
+    from posggym.envs.grid_world.core import Coord
     from posggym.model import POSGModel
 
 
@@ -49,10 +53,13 @@ class DrivingGenShortestPathPolicy(DrivingShortestPathPolicy):
             agent_id,
             policy_id,
             aggressiveness=aggressiveness,
-            precompute_shortest_paths=False,
         )
+        self.shortest_paths = {}
 
     def reset(self, *, seed: int | None = None):
         super().reset(seed=seed)
         self._grid = self.model.grid
         self.shortest_paths = {}
+
+    def get_dest_shortest_path_dist(self, dest_coord: Coord, pos: Pos) -> int:
+        return self.get_shortest_path(pos, dest_coord, self._grid, self.shortest_paths)
