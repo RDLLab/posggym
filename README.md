@@ -57,7 +57,7 @@ pip install -e .[all]
 To run tests, install the test dependencies and then run the tests:
 
 ```bash
-pip install -e .[test]
+pip install -e .[testing]
 pytest
 ```
 
