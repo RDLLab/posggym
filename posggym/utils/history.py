@@ -1,5 +1,5 @@
 """Utilities for storing and managing agent action-observation histories."""
-from typing import Generic, List, Optional, Tuple
+from typing import Dict, Generic, List, Optional, Tuple
 
 import posggym.model as M
 
@@ -8,7 +8,7 @@ class AgentHistory(Generic[M.ActType, M.ObsType]):
     """An Action-Observation history for a single agent in a POSG environment.
 
     A History is an ordered Tuple of (Action, Observation) tuples with one
-    entry for each time step in the environment
+    entry for each time step in the environment.
     """
 
     def __init__(
@@ -98,57 +98,52 @@ class _AgentHistoryIterator:
 class JointHistory:
     """A joint history for all agents in the environment."""
 
-    def __init__(self, agent_histories: Tuple[AgentHistory, ...]):
+    def __init__(self, agent_histories: Dict[str, AgentHistory]):
         self.agent_histories = agent_histories
+        self.agent_ids = sorted(agent_histories.keys())
         self.num_agents = len(self.agent_histories)
 
     @classmethod
     def get_init_history(
-        cls, num_agents: int, obs: Optional[Tuple[Optional[M.ObsType], ...]] = None
+        cls, agent_ids: List[str], obs: Optional[Dict[str, M.ObsType]] = None
     ) -> "JointHistory":
         """Get Initial joint history."""
         if obs is None:
-            return cls(
-                tuple(AgentHistory.get_init_history() for _ in range(num_agents))
-            )
-        return cls(
-            tuple(AgentHistory.get_init_history(obs[i]) for i in range(num_agents))
-        )
+            return cls({i: AgentHistory.get_init_history() for i in agent_ids})
+        return cls({i: AgentHistory.get_init_history(obs[i]) for i in agent_ids})
 
-    def get_agent_history(self, agent_id: int) -> AgentHistory:
+    def get_agent_history(self, agent_id: str) -> AgentHistory:
         """Get the history of given agent."""
         return self.agent_histories[agent_id]
 
     def extend(
-        self, action: Tuple[M.ActType, ...], obs: Tuple[M.ObsType, ...]
+        self, action: Dict[str, M.ActType], obs: Dict[str, M.ObsType]
     ) -> "JointHistory":
         """Extend the current history with given action, observation pair."""
-        new_agent_histories = []
-        for i in range(self.num_agents):
-            new_agent_histories.append(
-                self.agent_histories[i].extend(action[i], obs[i])
-            )
-        return JointHistory(tuple(new_agent_histories))
+        new_agent_histories = {
+            i: self.agent_histories[i].extend(action[i], obs[i]) for i in self.agent_ids
+        }
+        return JointHistory(new_agent_histories)
 
     def get_sub_history(self, horizon: int) -> "JointHistory":
         """Get a subset of history up to given horizon."""
-        sub_agent_histories = []
-        for i in range(self.num_agents):
-            sub_agent_histories.append(self.agent_histories[i].get_sub_history(horizon))
-        return JointHistory(tuple(sub_agent_histories))
+        sub_agent_histories = {
+            i: self.agent_histories[i].get_sub_history(horizon) for i in self.agent_ids
+        }
+        return JointHistory(sub_agent_histories)
 
     def get_history_tm1(self) -> "JointHistory":
         """Get history at time t-1."""
-        sub_agent_histories: List[AgentHistory] = []
-        for i in range(self.num_agents):
-            sub_agent_histories.append(AgentHistory(self.agent_histories[i][:-1]))
-        return JointHistory(tuple(sub_agent_histories))
+        sub_agent_histories = {
+            i: AgentHistory(self.agent_histories[i][:-1]) for i in self.agent_ids
+        }
+        return JointHistory(sub_agent_histories)
 
     def __len__(self) -> int:
-        return len(self.agent_histories[0])
+        return len(self.agent_histories[self.agent_ids[0]])
 
     def __hash__(self):
-        return hash(self.agent_histories)
+        return hash(tuple(self.agent_histories[i] for i in self.agent_ids))
 
     def __eq__(self, other):
         if not isinstance(other, JointHistory):
@@ -156,12 +151,13 @@ class JointHistory:
         return self.agent_histories == other.agent_histories
 
     def __getitem__(self, key):
-        actions = tuple(h[key][0] for h in self.agent_histories)
-        obs = tuple(h[key][1] for h in self.agent_histories)
+        # get actions and observations at time step key
+        actions = {i: h[key][0] for i, h in self.agent_histories.items()}
+        obs = {i: h[key][1] for i, h in self.agent_histories.items()}
         return actions, obs
 
     def __str__(self):
-        h_str = [f"{i} {h}" for i, h in enumerate(self.agent_histories)]
+        h_str = [f"{i} {h}" for i, h in self.agent_histories.items()]
         h_str.insert(0, "<JointHistory:")
         h_str.append(">")
         return "\n".join(h_str)
