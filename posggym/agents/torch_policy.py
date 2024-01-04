@@ -30,7 +30,6 @@ from posggym.agents.utils import action_distributions, processors
 from posggym.agents.utils.download import download_from_repo
 from posggym.utils import seeding
 
-
 if TYPE_CHECKING:
     import posggym.model as M
 
@@ -463,7 +462,7 @@ class PPOPolicy(Policy[ActType, ObsType]):
             "prev_reward": None,
             "lstm_state": lstm_state,
             "action_probs": action_probs.numpy().squeeze(),
-            "value": value[0],
+            "value": value[0].item(),
         }
 
     def sample_action(self, state: PolicyState) -> ActType:
