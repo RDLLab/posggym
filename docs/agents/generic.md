@@ -8,7 +8,7 @@ title: Generic
 These are generic policies that can be used for all or multiple environments.
 
 
-| Policy | ID | Valid Agent IDs |
-|---|---|---|
-| `Random` | `Random-v0` | All |
-| `DiscreteFixedDistributionPolicy` | `DiscreteFixedDistributionPolicy-v0` | All |
+| Policy | ID | Valid Agent IDs | Description |
+|---|---|---|---|
+| `Random` | `Random-v0` | All | The uniform random policy |
+| `DiscreteFixedDistributionPolicy` | `DiscreteFixedDistributionPolicy-v0` | All | Random policy that follows a fixed discrete distribution (default is uniform) |

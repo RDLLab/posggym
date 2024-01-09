@@ -11,32 +11,27 @@ import posggym.agents as pga
 
 def test_pprint_custom_registry():
     """Testing a registry different from default."""
-    driving_env_and_args_id = (
-        "Driving-v0/"
-        "grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False"
-    )
+    pp_env_args_id = "grid=10x10-num_predators=2-num_prey=3-cooperative=True"
     a = {
         "Random-v0": pga.registry["Random-v0"],
-        "LevelBasedForaging-v2/Heuristic1-v0": pga.registry[
-            "LevelBasedForaging-v2/Heuristic1-v0"
-        ],
-        f"{driving_env_and_args_id}/klr_k0_seed0-v0": pga.registry[
-            f"{driving_env_and_args_id}/klr_k0_seed0-v0"
+        "LevelBasedForaging-v3/H1-v0": pga.registry["LevelBasedForaging-v3/H1-v0"],
+        f"PredatorPrey-v0/{pp_env_args_id}/RL1-v0": pga.registry[
+            f"PredatorPrey-v0/{pp_env_args_id}/RL1-v0"
         ],
     }
     out = pga.pprint_registry(a, disable_print=True)
 
-    correct_out = """===== Generic =====
+    correct_out = f"""===== Generic =====
 Random-v0
 
 
-===== LevelBasedForaging-v2 =====
-Heuristic1-v0
+===== LevelBasedForaging-v3 =====
+H1-v0
 
 
-===== Driving-v0 =====
------ Driving-v0/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False -----
-klr_k0_seed0-v0
+===== PredatorPrey-v0 =====
+----- PredatorPrey-v0/{pp_env_args_id} -----
+RL1-v0
 
 
 """

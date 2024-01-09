@@ -59,7 +59,6 @@ class PECShortestPathPolicy(Policy[PEAction, PEObs]):
         state = super().get_initial_state()
         state.update(
             {
-                "action": None,
                 "pi": None,
                 "last_obs": None,
                 "update_num": 0,
@@ -73,6 +72,7 @@ class PECShortestPathPolicy(Policy[PEAction, PEObs]):
 
     def get_next_state(
         self,
+        action: PEAction | None,
         obs: PEObs,
         state: PolicyState,
     ) -> PolicyState:
@@ -87,9 +87,7 @@ class PECShortestPathPolicy(Policy[PEAction, PEObs]):
             next_body_state = PMBodyState(next_coord[0], next_coord[1], 0, 0, 0, 0)
         else:
             next_update_num = state["update_num"] + 1
-            next_body_state = self._get_next_body_state(
-                state["body_state"], state["action"]
-            )
+            next_body_state = self._get_next_body_state(state["body_state"], action)
             target_coord = state["target_coord"]
 
         _, pi = self._get_shortest_path_action(
@@ -97,7 +95,6 @@ class PECShortestPathPolicy(Policy[PEAction, PEObs]):
         )
 
         next_state = {
-            "action": pi.sample(),
             "pi": pi,
             "last_obs": obs,
             "update_num": next_update_num,
@@ -133,7 +130,6 @@ class PECShortestPathPolicy(Policy[PEAction, PEObs]):
         # need to get next action given final observation
         _, pi = self._get_shortest_path_action(state["body_state"], target_coord)
 
-        state["action"] = np.array(pi.sample(), dtype=self.action_dtype)
         state["pi"] = pi
         return state
 

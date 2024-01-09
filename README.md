@@ -19,6 +19,8 @@ Any POSGGym environment can be converted into a PettingZoo environment using a s
 
 The documentation for the project is available at [posggym.readthedocs.io/](https://posggym.readthedocs.io/).
 
+For a guide to building the documentation locally see [docs/README.md](docs/README.md).
+
 ## Installation
 
 POSGGym supports and tests for `Python>=3.8`. We recommend using a virtual environment to install POSGGym (e.g. [conda](https://docs.conda.io/projects/conda/en/latest/index.html), [venv](https://docs.python.org/3/library/venv.html)).
@@ -55,7 +57,7 @@ pip install -e .[all]
 To run tests, install the test dependencies and then run the tests:
 
 ```bash
-pip install -e .[test]
+pip install -e .[testing]
 pytest
 ```
 

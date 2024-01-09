@@ -12,10 +12,10 @@ Example 1. To run 10 episodes of every agent for every environment:
     python run_all_agents.py --num_episodes 10
 
 
-Example 2. To run 10 episodes of every agent that is compatible with the `Driving-v0`
+Example 2. To run 10 episodes of every agent that is compatible with the `Driving-v1`
 environment:
 
-    python run_all_agents.py --env_id_prefix Driving-v0 --num_episodes 10
+    python run_all_agents.py --env_id_prefix Driving-v1 --num_episodes 10
 
 
 Example 3. To run 10 episodes of every agent that is compatible with the
@@ -50,7 +50,7 @@ def try_make_policy(
 ) -> Tuple[Optional[posggym.Env], Optional[Dict[str, pga.Policy]]]:
     """Tries to make the policy showing if it is possible."""
     try:
-        env_id = "Driving-v0" if spec.env_id is None else spec.env_id
+        env_id = "Driving-v1" if spec.env_id is None else spec.env_id
         env_args = {} if spec.env_args is None else spec.env_args
         env = posggym.make(env_id, render_mode=render_mode, **env_args)
 
@@ -93,9 +93,10 @@ def run_policy(
     assert env is not None
 
     env.reset(seed=seed)
-    for pi in policies.values():
-        pi.reset(seed=seed)
+    for i, pi in enumerate(policies.values()):
+        pi.reset(seed=seed if seed is None else seed + i)
 
+    episode_rewards = {i: [] for i in env.possible_agents}
     for _ in range(num_episodes):
         obs, _ = env.reset()
         for pi in policies.values():
@@ -103,6 +104,7 @@ def run_policy(
         env.render()
 
         all_done = False
+        rewards = {i: 0.0 for i in env.possible_agents}
         while not all_done:
             joint_action = {}
             for i in env.agents:
@@ -110,12 +112,21 @@ def run_policy(
                 a = pi.step(env.state) if pi.observes_state else pi.step(obs[i])
                 joint_action[i] = a
 
-            obs, _, _, _, all_done, _ = env.step(joint_action)
+            obs, rews, _, _, all_done, _ = env.step(joint_action)
             env.render()
+
+            for agent_id, r_i in rews.items():
+                rewards[agent_id] += r_i
+
+        for j in env.possible_agents:
+            episode_rewards[j].append(rewards[j])
 
     env.close()
     for pi in policies.values():
         pi.close()
+
+    mean_returns = {i: f"{sum(r) / len(r):.2f}" for i, r in episode_rewards.items()}
+    print(f"  Mean Episode returns {mean_returns}")
 
 
 @app.command()

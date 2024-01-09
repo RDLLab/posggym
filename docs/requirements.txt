@@ -1,5 +1,4 @@
-posggym==0.3.2
-sphinx
+posggym
 sphinx-autobuild
 sphinx-rtd-theme
 myst-parser

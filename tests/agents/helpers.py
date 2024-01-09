@@ -90,11 +90,11 @@ def assert_equals(a, b, prefix=None):
         for k in a:
             v_a = a[k]
             v_b = b[k]
-            assert_equals(v_a, v_b, prefix)
+            assert_equals(v_a, v_b, f"{k:}")
     elif isinstance(a, np.ndarray):
         np.testing.assert_array_equal(a, b)
     elif isinstance(a, torch.Tensor):
-        assert torch.equal(a, b)
+        assert torch.equal(a, b), f"{prefix}Tensors differ: {a} and {b}"
     elif isinstance(a, (tuple, list)):
         for elem_from_a, elem_from_b in zip(a, b):
             assert_equals(elem_from_a, elem_from_b, prefix)

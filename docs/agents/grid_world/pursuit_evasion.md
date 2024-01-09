@@ -13,174 +13,98 @@ These policies can be used for any version of this environment.
 
 
 ```
-env = posggym.make("PursuitEvasion-v0")
+env = posggym.make("PursuitEvasion-v1")
 ```
 
 
-| Policy | ID | Valid Agent IDs |
-|---|---|---|
-| `shortestpath` | `PursuitEvasion-v0/shortestpath-v0` | All |
+| Policy | ID | Valid Agent IDs | Description |
+|---|---|---|---|
+| `ShortestPath` | `PursuitEvasion-v1/ShortestPath-v0` | All | Takes the shortest path to the evader's goal (evader) or the evader's start location then the other possible evader start and goal locations (pursuer). |
 ## grid=16x16
 
 ```
 env = posggym.make(
-    "PursuitEvasion-v0",
-    grid="16x16"
+    "PursuitEvasion-v1",
+    grid="16x16",
+    max_obs_distance=12,
+    use_progress_reward=True
 )
 ```
 
 
-| Policy | ID | Valid Agent IDs |
-|---|---|---|
-| `klr_k0_seed0_i0` | `PursuitEvasion-v0/grid=16x16/klr_k0_seed0_i0-v0` | `['0']` |
-| `klr_k0_seed1_i0` | `PursuitEvasion-v0/grid=16x16/klr_k0_seed1_i0-v0` | `['0']` |
-| `klr_k0_seed2_i0` | `PursuitEvasion-v0/grid=16x16/klr_k0_seed2_i0-v0` | `['0']` |
-| `klr_k0_seed3_i0` | `PursuitEvasion-v0/grid=16x16/klr_k0_seed3_i0-v0` | `['0']` |
-| `klr_k0_seed4_i0` | `PursuitEvasion-v0/grid=16x16/klr_k0_seed4_i0-v0` | `['0']` |
-| `klr_k1_seed0_i0` | `PursuitEvasion-v0/grid=16x16/klr_k1_seed0_i0-v0` | `['0']` |
-| `klr_k1_seed1_i0` | `PursuitEvasion-v0/grid=16x16/klr_k1_seed1_i0-v0` | `['0']` |
-| `klr_k1_seed2_i0` | `PursuitEvasion-v0/grid=16x16/klr_k1_seed2_i0-v0` | `['0']` |
-| `klr_k1_seed3_i0` | `PursuitEvasion-v0/grid=16x16/klr_k1_seed3_i0-v0` | `['0']` |
-| `klr_k1_seed4_i0` | `PursuitEvasion-v0/grid=16x16/klr_k1_seed4_i0-v0` | `['0']` |
-| `klr_k2_seed0_i0` | `PursuitEvasion-v0/grid=16x16/klr_k2_seed0_i0-v0` | `['0']` |
-| `klr_k2_seed1_i0` | `PursuitEvasion-v0/grid=16x16/klr_k2_seed1_i0-v0` | `['0']` |
-| `klr_k2_seed2_i0` | `PursuitEvasion-v0/grid=16x16/klr_k2_seed2_i0-v0` | `['0']` |
-| `klr_k2_seed3_i0` | `PursuitEvasion-v0/grid=16x16/klr_k2_seed3_i0-v0` | `['0']` |
-| `klr_k2_seed4_i0` | `PursuitEvasion-v0/grid=16x16/klr_k2_seed4_i0-v0` | `['0']` |
-| `klr_k3_seed0_i0` | `PursuitEvasion-v0/grid=16x16/klr_k3_seed0_i0-v0` | `['0']` |
-| `klr_k3_seed1_i0` | `PursuitEvasion-v0/grid=16x16/klr_k3_seed1_i0-v0` | `['0']` |
-| `klr_k3_seed2_i0` | `PursuitEvasion-v0/grid=16x16/klr_k3_seed2_i0-v0` | `['0']` |
-| `klr_k3_seed3_i0` | `PursuitEvasion-v0/grid=16x16/klr_k3_seed3_i0-v0` | `['0']` |
-| `klr_k3_seed4_i0` | `PursuitEvasion-v0/grid=16x16/klr_k3_seed4_i0-v0` | `['0']` |
-| `klr_k4_seed0_i0` | `PursuitEvasion-v0/grid=16x16/klr_k4_seed0_i0-v0` | `['0']` |
-| `klr_k4_seed1_i0` | `PursuitEvasion-v0/grid=16x16/klr_k4_seed1_i0-v0` | `['0']` |
-| `klr_k4_seed2_i0` | `PursuitEvasion-v0/grid=16x16/klr_k4_seed2_i0-v0` | `['0']` |
-| `klr_k4_seed3_i0` | `PursuitEvasion-v0/grid=16x16/klr_k4_seed3_i0-v0` | `['0']` |
-| `klr_k4_seed4_i0` | `PursuitEvasion-v0/grid=16x16/klr_k4_seed4_i0-v0` | `['0']` |
-| `klrbr_k4_seed0_i0` | `PursuitEvasion-v0/grid=16x16/klrbr_k4_seed0_i0-v0` | `['0']` |
-| `klrbr_k4_seed1_i0` | `PursuitEvasion-v0/grid=16x16/klrbr_k4_seed1_i0-v0` | `['0']` |
-| `klrbr_k4_seed2_i0` | `PursuitEvasion-v0/grid=16x16/klrbr_k4_seed2_i0-v0` | `['0']` |
-| `klrbr_k4_seed3_i0` | `PursuitEvasion-v0/grid=16x16/klrbr_k4_seed3_i0-v0` | `['0']` |
-| `klrbr_k4_seed4_i0` | `PursuitEvasion-v0/grid=16x16/klrbr_k4_seed4_i0-v0` | `['0']` |
-| `sp_seed0_i0` | `PursuitEvasion-v0/grid=16x16/sp_seed0_i0-v0` | `['0']` |
-| `sp_seed1_i0` | `PursuitEvasion-v0/grid=16x16/sp_seed1_i0-v0` | `['0']` |
-| `sp_seed2_i0` | `PursuitEvasion-v0/grid=16x16/sp_seed2_i0-v0` | `['0']` |
-| `sp_seed3_i0` | `PursuitEvasion-v0/grid=16x16/sp_seed3_i0-v0` | `['0']` |
-| `sp_seed4_i0` | `PursuitEvasion-v0/grid=16x16/sp_seed4_i0-v0` | `['0']` |
-| `klr_k0_seed0_i1` | `PursuitEvasion-v0/grid=16x16/klr_k0_seed0_i1-v0` | `['1']` |
-| `klr_k0_seed1_i1` | `PursuitEvasion-v0/grid=16x16/klr_k0_seed1_i1-v0` | `['1']` |
-| `klr_k0_seed2_i1` | `PursuitEvasion-v0/grid=16x16/klr_k0_seed2_i1-v0` | `['1']` |
-| `klr_k0_seed3_i1` | `PursuitEvasion-v0/grid=16x16/klr_k0_seed3_i1-v0` | `['1']` |
-| `klr_k0_seed4_i1` | `PursuitEvasion-v0/grid=16x16/klr_k0_seed4_i1-v0` | `['1']` |
-| `klr_k1_seed0_i1` | `PursuitEvasion-v0/grid=16x16/klr_k1_seed0_i1-v0` | `['1']` |
-| `klr_k1_seed1_i1` | `PursuitEvasion-v0/grid=16x16/klr_k1_seed1_i1-v0` | `['1']` |
-| `klr_k1_seed2_i1` | `PursuitEvasion-v0/grid=16x16/klr_k1_seed2_i1-v0` | `['1']` |
-| `klr_k1_seed3_i1` | `PursuitEvasion-v0/grid=16x16/klr_k1_seed3_i1-v0` | `['1']` |
-| `klr_k1_seed4_i1` | `PursuitEvasion-v0/grid=16x16/klr_k1_seed4_i1-v0` | `['1']` |
-| `klr_k2_seed0_i1` | `PursuitEvasion-v0/grid=16x16/klr_k2_seed0_i1-v0` | `['1']` |
-| `klr_k2_seed1_i1` | `PursuitEvasion-v0/grid=16x16/klr_k2_seed1_i1-v0` | `['1']` |
-| `klr_k2_seed2_i1` | `PursuitEvasion-v0/grid=16x16/klr_k2_seed2_i1-v0` | `['1']` |
-| `klr_k2_seed3_i1` | `PursuitEvasion-v0/grid=16x16/klr_k2_seed3_i1-v0` | `['1']` |
-| `klr_k2_seed4_i1` | `PursuitEvasion-v0/grid=16x16/klr_k2_seed4_i1-v0` | `['1']` |
-| `klr_k3_seed0_i1` | `PursuitEvasion-v0/grid=16x16/klr_k3_seed0_i1-v0` | `['1']` |
-| `klr_k3_seed1_i1` | `PursuitEvasion-v0/grid=16x16/klr_k3_seed1_i1-v0` | `['1']` |
-| `klr_k3_seed2_i1` | `PursuitEvasion-v0/grid=16x16/klr_k3_seed2_i1-v0` | `['1']` |
-| `klr_k3_seed3_i1` | `PursuitEvasion-v0/grid=16x16/klr_k3_seed3_i1-v0` | `['1']` |
-| `klr_k3_seed4_i1` | `PursuitEvasion-v0/grid=16x16/klr_k3_seed4_i1-v0` | `['1']` |
-| `klr_k4_seed0_i1` | `PursuitEvasion-v0/grid=16x16/klr_k4_seed0_i1-v0` | `['1']` |
-| `klr_k4_seed1_i1` | `PursuitEvasion-v0/grid=16x16/klr_k4_seed1_i1-v0` | `['1']` |
-| `klr_k4_seed2_i1` | `PursuitEvasion-v0/grid=16x16/klr_k4_seed2_i1-v0` | `['1']` |
-| `klr_k4_seed3_i1` | `PursuitEvasion-v0/grid=16x16/klr_k4_seed3_i1-v0` | `['1']` |
-| `klr_k4_seed4_i1` | `PursuitEvasion-v0/grid=16x16/klr_k4_seed4_i1-v0` | `['1']` |
-| `klrbr_k4_seed0_i1` | `PursuitEvasion-v0/grid=16x16/klrbr_k4_seed0_i1-v0` | `['1']` |
-| `klrbr_k4_seed1_i1` | `PursuitEvasion-v0/grid=16x16/klrbr_k4_seed1_i1-v0` | `['1']` |
-| `klrbr_k4_seed2_i1` | `PursuitEvasion-v0/grid=16x16/klrbr_k4_seed2_i1-v0` | `['1']` |
-| `klrbr_k4_seed3_i1` | `PursuitEvasion-v0/grid=16x16/klrbr_k4_seed3_i1-v0` | `['1']` |
-| `klrbr_k4_seed4_i1` | `PursuitEvasion-v0/grid=16x16/klrbr_k4_seed4_i1-v0` | `['1']` |
-| `sp_seed0_i1` | `PursuitEvasion-v0/grid=16x16/sp_seed0_i1-v0` | `['1']` |
-| `sp_seed1_i1` | `PursuitEvasion-v0/grid=16x16/sp_seed1_i1-v0` | `['1']` |
-| `sp_seed2_i1` | `PursuitEvasion-v0/grid=16x16/sp_seed2_i1-v0` | `['1']` |
-| `sp_seed3_i1` | `PursuitEvasion-v0/grid=16x16/sp_seed3_i1-v0` | `['1']` |
-| `sp_seed4_i1` | `PursuitEvasion-v0/grid=16x16/sp_seed4_i1-v0` | `['1']` |
+| Policy | ID | Valid Agent IDs | Description |
+|---|---|---|---|
+| `KLR0_i0` | `PursuitEvasion-v1/grid=16x16/KLR0_i0-v0` | `['0']` | Level 0 K-Level Reasoning deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `KLR1_i0` | `PursuitEvasion-v1/grid=16x16/KLR1_i0-v0` | `['0']` | Level 1 K-Level Reasoning deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `KLR2_i0` | `PursuitEvasion-v1/grid=16x16/KLR2_i0-v0` | `['0']` | Level 2 K-Level Reasoning deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `KLR3_i0` | `PursuitEvasion-v1/grid=16x16/KLR3_i0-v0` | `['0']` | Level 3 K-Level Reasoning deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `KLR4_i0` | `PursuitEvasion-v1/grid=16x16/KLR4_i0-v0` | `['0']` | Level 4 K-Level Reasoning deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `KLRBR_i0` | `PursuitEvasion-v1/grid=16x16/KLRBR_i0-v0` | `['0']` | Best-response to K-Level Reasoning policies. This is a deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `RL1_i0` | `PursuitEvasion-v1/grid=16x16/RL1_i0-v0` | `['0']` | Deep RL policy trained using PPO and self-play. |
+| `RL2_i0` | `PursuitEvasion-v1/grid=16x16/RL2_i0-v0` | `['0']` | Deep RL policy trained using PPO and self-play. |
+| `RL3_i0` | `PursuitEvasion-v1/grid=16x16/RL3_i0-v0` | `['0']` | Deep RL policy trained using PPO and self-play. |
+| `RL4_i0` | `PursuitEvasion-v1/grid=16x16/RL4_i0-v0` | `['0']` | Deep RL policy trained using PPO and self-play. |
+| `RL5_i0` | `PursuitEvasion-v1/grid=16x16/RL5_i0-v0` | `['0']` | Deep RL policy trained using PPO and self-play. |
+| `RL6_i0` | `PursuitEvasion-v1/grid=16x16/RL6_i0-v0` | `['0']` | Deep RL policy trained using PPO and self-play. |
+| `RL7_i0` | `PursuitEvasion-v1/grid=16x16/RL7_i0-v0` | `['0']` | Deep RL policy trained using PPO and self-play. |
+| `RL8_i0` | `PursuitEvasion-v1/grid=16x16/RL8_i0-v0` | `['0']` | Deep RL policy trained using PPO and self-play. |
+| `RL9_i0` | `PursuitEvasion-v1/grid=16x16/RL9_i0-v0` | `['0']` | Deep RL policy trained using PPO and self-play. |
+| `RL10_i0` | `PursuitEvasion-v1/grid=16x16/RL10_i0-v0` | `['0']` | Deep RL policy trained using PPO and self-play. |
+| `RL11_i0` | `PursuitEvasion-v1/grid=16x16/RL11_i0-v0` | `['0']` | Deep RL policy trained using PPO and self-play. |
+| `KLR0_i1` | `PursuitEvasion-v1/grid=16x16/KLR0_i1-v0` | `['1']` | Level 0 K-Level Reasoning deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `KLR1_i1` | `PursuitEvasion-v1/grid=16x16/KLR1_i1-v0` | `['1']` | Level 1 K-Level Reasoning deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `KLR2_i1` | `PursuitEvasion-v1/grid=16x16/KLR2_i1-v0` | `['1']` | Level 2 K-Level Reasoning deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `KLR3_i1` | `PursuitEvasion-v1/grid=16x16/KLR3_i1-v0` | `['1']` | Level 3 K-Level Reasoning deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `KLR4_i1` | `PursuitEvasion-v1/grid=16x16/KLR4_i1-v0` | `['1']` | Level 4 K-Level Reasoning deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `KLRBR_i1` | `PursuitEvasion-v1/grid=16x16/KLRBR_i1-v0` | `['1']` | Best-response to K-Level Reasoning policies. This is a deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `RL1_i1` | `PursuitEvasion-v1/grid=16x16/RL1_i1-v0` | `['1']` | Deep RL policy trained using PPO and self-play. |
+| `RL2_i1` | `PursuitEvasion-v1/grid=16x16/RL2_i1-v0` | `['1']` | Deep RL policy trained using PPO and self-play. |
+| `RL3_i1` | `PursuitEvasion-v1/grid=16x16/RL3_i1-v0` | `['1']` | Deep RL policy trained using PPO and self-play. |
+| `RL4_i1` | `PursuitEvasion-v1/grid=16x16/RL4_i1-v0` | `['1']` | Deep RL policy trained using PPO and self-play. |
+| `RL5_i1` | `PursuitEvasion-v1/grid=16x16/RL5_i1-v0` | `['1']` | Deep RL policy trained using PPO and self-play. |
+| `RL6_i1` | `PursuitEvasion-v1/grid=16x16/RL6_i1-v0` | `['1']` | Deep RL policy trained using PPO and self-play. |
+| `RL7_i1` | `PursuitEvasion-v1/grid=16x16/RL7_i1-v0` | `['1']` | Deep RL policy trained using PPO and self-play. |
+| `RL8_i1` | `PursuitEvasion-v1/grid=16x16/RL8_i1-v0` | `['1']` | Deep RL policy trained using PPO and self-play. |
+| `RL9_i1` | `PursuitEvasion-v1/grid=16x16/RL9_i1-v0` | `['1']` | Deep RL policy trained using PPO and self-play. |
+| `RL10_i1` | `PursuitEvasion-v1/grid=16x16/RL10_i1-v0` | `['1']` | Deep RL policy trained using PPO and self-play. |
+| `RL11_i1` | `PursuitEvasion-v1/grid=16x16/RL11_i1-v0` | `['1']` | Deep RL policy trained using PPO and self-play. |
 ## grid=8x8
 
 ```
 env = posggym.make(
-    "PursuitEvasion-v0",
-    grid="8x8"
+    "PursuitEvasion-v1",
+    grid="8x8",
+    max_obs_distance=12,
+    use_progress_reward=True
 )
 ```
 
 
-| Policy | ID | Valid Agent IDs |
-|---|---|---|
-| `klr_k0_seed0_i0` | `PursuitEvasion-v0/grid=8x8/klr_k0_seed0_i0-v0` | `['0']` |
-| `klr_k0_seed1_i0` | `PursuitEvasion-v0/grid=8x8/klr_k0_seed1_i0-v0` | `['0']` |
-| `klr_k0_seed2_i0` | `PursuitEvasion-v0/grid=8x8/klr_k0_seed2_i0-v0` | `['0']` |
-| `klr_k0_seed3_i0` | `PursuitEvasion-v0/grid=8x8/klr_k0_seed3_i0-v0` | `['0']` |
-| `klr_k0_seed4_i0` | `PursuitEvasion-v0/grid=8x8/klr_k0_seed4_i0-v0` | `['0']` |
-| `klr_k1_seed0_i0` | `PursuitEvasion-v0/grid=8x8/klr_k1_seed0_i0-v0` | `['0']` |
-| `klr_k1_seed1_i0` | `PursuitEvasion-v0/grid=8x8/klr_k1_seed1_i0-v0` | `['0']` |
-| `klr_k1_seed2_i0` | `PursuitEvasion-v0/grid=8x8/klr_k1_seed2_i0-v0` | `['0']` |
-| `klr_k1_seed3_i0` | `PursuitEvasion-v0/grid=8x8/klr_k1_seed3_i0-v0` | `['0']` |
-| `klr_k1_seed4_i0` | `PursuitEvasion-v0/grid=8x8/klr_k1_seed4_i0-v0` | `['0']` |
-| `klr_k2_seed0_i0` | `PursuitEvasion-v0/grid=8x8/klr_k2_seed0_i0-v0` | `['0']` |
-| `klr_k2_seed1_i0` | `PursuitEvasion-v0/grid=8x8/klr_k2_seed1_i0-v0` | `['0']` |
-| `klr_k2_seed2_i0` | `PursuitEvasion-v0/grid=8x8/klr_k2_seed2_i0-v0` | `['0']` |
-| `klr_k2_seed3_i0` | `PursuitEvasion-v0/grid=8x8/klr_k2_seed3_i0-v0` | `['0']` |
-| `klr_k2_seed4_i0` | `PursuitEvasion-v0/grid=8x8/klr_k2_seed4_i0-v0` | `['0']` |
-| `klr_k3_seed0_i0` | `PursuitEvasion-v0/grid=8x8/klr_k3_seed0_i0-v0` | `['0']` |
-| `klr_k3_seed1_i0` | `PursuitEvasion-v0/grid=8x8/klr_k3_seed1_i0-v0` | `['0']` |
-| `klr_k3_seed2_i0` | `PursuitEvasion-v0/grid=8x8/klr_k3_seed2_i0-v0` | `['0']` |
-| `klr_k3_seed3_i0` | `PursuitEvasion-v0/grid=8x8/klr_k3_seed3_i0-v0` | `['0']` |
-| `klr_k3_seed4_i0` | `PursuitEvasion-v0/grid=8x8/klr_k3_seed4_i0-v0` | `['0']` |
-| `klr_k4_seed0_i0` | `PursuitEvasion-v0/grid=8x8/klr_k4_seed0_i0-v0` | `['0']` |
-| `klr_k4_seed1_i0` | `PursuitEvasion-v0/grid=8x8/klr_k4_seed1_i0-v0` | `['0']` |
-| `klr_k4_seed2_i0` | `PursuitEvasion-v0/grid=8x8/klr_k4_seed2_i0-v0` | `['0']` |
-| `klr_k4_seed3_i0` | `PursuitEvasion-v0/grid=8x8/klr_k4_seed3_i0-v0` | `['0']` |
-| `klr_k4_seed4_i0` | `PursuitEvasion-v0/grid=8x8/klr_k4_seed4_i0-v0` | `['0']` |
-| `klrbr_k4_seed0_i0` | `PursuitEvasion-v0/grid=8x8/klrbr_k4_seed0_i0-v0` | `['0']` |
-| `klrbr_k4_seed1_i0` | `PursuitEvasion-v0/grid=8x8/klrbr_k4_seed1_i0-v0` | `['0']` |
-| `klrbr_k4_seed2_i0` | `PursuitEvasion-v0/grid=8x8/klrbr_k4_seed2_i0-v0` | `['0']` |
-| `klrbr_k4_seed3_i0` | `PursuitEvasion-v0/grid=8x8/klrbr_k4_seed3_i0-v0` | `['0']` |
-| `klrbr_k4_seed4_i0` | `PursuitEvasion-v0/grid=8x8/klrbr_k4_seed4_i0-v0` | `['0']` |
-| `sp_seed0_i0` | `PursuitEvasion-v0/grid=8x8/sp_seed0_i0-v0` | `['0']` |
-| `sp_seed1_i0` | `PursuitEvasion-v0/grid=8x8/sp_seed1_i0-v0` | `['0']` |
-| `sp_seed2_i0` | `PursuitEvasion-v0/grid=8x8/sp_seed2_i0-v0` | `['0']` |
-| `sp_seed3_i0` | `PursuitEvasion-v0/grid=8x8/sp_seed3_i0-v0` | `['0']` |
-| `sp_seed4_i0` | `PursuitEvasion-v0/grid=8x8/sp_seed4_i0-v0` | `['0']` |
-| `klr_k0_seed0_i1` | `PursuitEvasion-v0/grid=8x8/klr_k0_seed0_i1-v0` | `['1']` |
-| `klr_k0_seed1_i1` | `PursuitEvasion-v0/grid=8x8/klr_k0_seed1_i1-v0` | `['1']` |
-| `klr_k0_seed2_i1` | `PursuitEvasion-v0/grid=8x8/klr_k0_seed2_i1-v0` | `['1']` |
-| `klr_k0_seed3_i1` | `PursuitEvasion-v0/grid=8x8/klr_k0_seed3_i1-v0` | `['1']` |
-| `klr_k0_seed4_i1` | `PursuitEvasion-v0/grid=8x8/klr_k0_seed4_i1-v0` | `['1']` |
-| `klr_k1_seed0_i1` | `PursuitEvasion-v0/grid=8x8/klr_k1_seed0_i1-v0` | `['1']` |
-| `klr_k1_seed1_i1` | `PursuitEvasion-v0/grid=8x8/klr_k1_seed1_i1-v0` | `['1']` |
-| `klr_k1_seed2_i1` | `PursuitEvasion-v0/grid=8x8/klr_k1_seed2_i1-v0` | `['1']` |
-| `klr_k1_seed3_i1` | `PursuitEvasion-v0/grid=8x8/klr_k1_seed3_i1-v0` | `['1']` |
-| `klr_k1_seed4_i1` | `PursuitEvasion-v0/grid=8x8/klr_k1_seed4_i1-v0` | `['1']` |
-| `klr_k2_seed0_i1` | `PursuitEvasion-v0/grid=8x8/klr_k2_seed0_i1-v0` | `['1']` |
-| `klr_k2_seed1_i1` | `PursuitEvasion-v0/grid=8x8/klr_k2_seed1_i1-v0` | `['1']` |
-| `klr_k2_seed2_i1` | `PursuitEvasion-v0/grid=8x8/klr_k2_seed2_i1-v0` | `['1']` |
-| `klr_k2_seed3_i1` | `PursuitEvasion-v0/grid=8x8/klr_k2_seed3_i1-v0` | `['1']` |
-| `klr_k2_seed4_i1` | `PursuitEvasion-v0/grid=8x8/klr_k2_seed4_i1-v0` | `['1']` |
-| `klr_k3_seed0_i1` | `PursuitEvasion-v0/grid=8x8/klr_k3_seed0_i1-v0` | `['1']` |
-| `klr_k3_seed1_i1` | `PursuitEvasion-v0/grid=8x8/klr_k3_seed1_i1-v0` | `['1']` |
-| `klr_k3_seed2_i1` | `PursuitEvasion-v0/grid=8x8/klr_k3_seed2_i1-v0` | `['1']` |
-| `klr_k3_seed3_i1` | `PursuitEvasion-v0/grid=8x8/klr_k3_seed3_i1-v0` | `['1']` |
-| `klr_k3_seed4_i1` | `PursuitEvasion-v0/grid=8x8/klr_k3_seed4_i1-v0` | `['1']` |
-| `klr_k4_seed0_i1` | `PursuitEvasion-v0/grid=8x8/klr_k4_seed0_i1-v0` | `['1']` |
-| `klr_k4_seed1_i1` | `PursuitEvasion-v0/grid=8x8/klr_k4_seed1_i1-v0` | `['1']` |
-| `klr_k4_seed2_i1` | `PursuitEvasion-v0/grid=8x8/klr_k4_seed2_i1-v0` | `['1']` |
-| `klr_k4_seed3_i1` | `PursuitEvasion-v0/grid=8x8/klr_k4_seed3_i1-v0` | `['1']` |
-| `klr_k4_seed4_i1` | `PursuitEvasion-v0/grid=8x8/klr_k4_seed4_i1-v0` | `['1']` |
-| `klrbr_k4_seed0_i1` | `PursuitEvasion-v0/grid=8x8/klrbr_k4_seed0_i1-v0` | `['1']` |
-| `klrbr_k4_seed1_i1` | `PursuitEvasion-v0/grid=8x8/klrbr_k4_seed1_i1-v0` | `['1']` |
-| `klrbr_k4_seed2_i1` | `PursuitEvasion-v0/grid=8x8/klrbr_k4_seed2_i1-v0` | `['1']` |
-| `klrbr_k4_seed3_i1` | `PursuitEvasion-v0/grid=8x8/klrbr_k4_seed3_i1-v0` | `['1']` |
-| `klrbr_k4_seed4_i1` | `PursuitEvasion-v0/grid=8x8/klrbr_k4_seed4_i1-v0` | `['1']` |
-| `sp_seed0_i1` | `PursuitEvasion-v0/grid=8x8/sp_seed0_i1-v0` | `['1']` |
-| `sp_seed1_i1` | `PursuitEvasion-v0/grid=8x8/sp_seed1_i1-v0` | `['1']` |
-| `sp_seed2_i1` | `PursuitEvasion-v0/grid=8x8/sp_seed2_i1-v0` | `['1']` |
-| `sp_seed3_i1` | `PursuitEvasion-v0/grid=8x8/sp_seed3_i1-v0` | `['1']` |
-| `sp_seed4_i1` | `PursuitEvasion-v0/grid=8x8/sp_seed4_i1-v0` | `['1']` |
+| Policy | ID | Valid Agent IDs | Description |
+|---|---|---|---|
+| `KLR0_i0` | `PursuitEvasion-v1/grid=8x8/KLR0_i0-v0` | `['0']` | Level 0 K-Level Reasoning deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `KLR1_i0` | `PursuitEvasion-v1/grid=8x8/KLR1_i0-v0` | `['0']` | Level 1 K-Level Reasoning deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `KLR2_i0` | `PursuitEvasion-v1/grid=8x8/KLR2_i0-v0` | `['0']` | Level 2 K-Level Reasoning deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `KLR3_i0` | `PursuitEvasion-v1/grid=8x8/KLR3_i0-v0` | `['0']` | Level 3 K-Level Reasoning deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `KLR4_i0` | `PursuitEvasion-v1/grid=8x8/KLR4_i0-v0` | `['0']` | Level 4 K-Level Reasoning deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `KLRBR_i0` | `PursuitEvasion-v1/grid=8x8/KLRBR_i0-v0` | `['0']` | Best-response to K-Level Reasoning policies. This is a deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `RL1_i0` | `PursuitEvasion-v1/grid=8x8/RL1_i0-v0` | `['0']` | Deep RL policy trained using PPO and self-play. |
+| `RL2_i0` | `PursuitEvasion-v1/grid=8x8/RL2_i0-v0` | `['0']` | Deep RL policy trained using PPO and self-play. |
+| `RL3_i0` | `PursuitEvasion-v1/grid=8x8/RL3_i0-v0` | `['0']` | Deep RL policy trained using PPO and self-play. |
+| `RL4_i0` | `PursuitEvasion-v1/grid=8x8/RL4_i0-v0` | `['0']` | Deep RL policy trained using PPO and self-play. |
+| `RL5_i0` | `PursuitEvasion-v1/grid=8x8/RL5_i0-v0` | `['0']` | Deep RL policy trained using PPO and self-play. |
+| `RL6_i0` | `PursuitEvasion-v1/grid=8x8/RL6_i0-v0` | `['0']` | Deep RL policy trained using PPO and self-play. |
+| `RL7_i0` | `PursuitEvasion-v1/grid=8x8/RL7_i0-v0` | `['0']` | Deep RL policy trained using PPO and self-play. |
+| `KLR0_i1` | `PursuitEvasion-v1/grid=8x8/KLR0_i1-v0` | `['1']` | Level 0 K-Level Reasoning deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `KLR1_i1` | `PursuitEvasion-v1/grid=8x8/KLR1_i1-v0` | `['1']` | Level 1 K-Level Reasoning deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `KLR2_i1` | `PursuitEvasion-v1/grid=8x8/KLR2_i1-v0` | `['1']` | Level 2 K-Level Reasoning deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `KLR3_i1` | `PursuitEvasion-v1/grid=8x8/KLR3_i1-v0` | `['1']` | Level 3 K-Level Reasoning deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `KLR4_i1` | `PursuitEvasion-v1/grid=8x8/KLR4_i1-v0` | `['1']` | Level 4 K-Level Reasoning deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `KLRBR_i1` | `PursuitEvasion-v1/grid=8x8/KLRBR_i1-v0` | `['1']` | Best-response to K-Level Reasoning policies. This is a deep RL policy training using PPO and the Synchronous KLR algorithm. |
+| `RL1_i1` | `PursuitEvasion-v1/grid=8x8/RL1_i1-v0` | `['1']` | Deep RL policy trained using PPO and self-play. |
+| `RL2_i1` | `PursuitEvasion-v1/grid=8x8/RL2_i1-v0` | `['1']` | Deep RL policy trained using PPO and self-play. |
+| `RL3_i1` | `PursuitEvasion-v1/grid=8x8/RL3_i1-v0` | `['1']` | Deep RL policy trained using PPO and self-play. |
+| `RL4_i1` | `PursuitEvasion-v1/grid=8x8/RL4_i1-v0` | `['1']` | Deep RL policy trained using PPO and self-play. |
+| `RL5_i1` | `PursuitEvasion-v1/grid=8x8/RL5_i1-v0` | `['1']` | Deep RL policy trained using PPO and self-play. |
+| `RL6_i1` | `PursuitEvasion-v1/grid=8x8/RL6_i1-v0` | `['1']` | Deep RL policy trained using PPO and self-play. |
+| `RL7_i1` | `PursuitEvasion-v1/grid=8x8/RL7_i1-v0` | `['1']` | Deep RL policy trained using PPO and self-play. |

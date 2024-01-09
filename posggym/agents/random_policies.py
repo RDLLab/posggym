@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from gymnasium import spaces
 
-from posggym.agents.policy import ObsType, Policy, PolicyID, PolicyState
+from posggym.agents.policy import ActType, ObsType, Policy, PolicyID, PolicyState
 from posggym.agents.utils import action_distributions
 from posggym.utils import seeding
 
@@ -72,6 +72,7 @@ class DiscreteFixedDistributionPolicy(Policy[int, ObsType]):
 
     def get_next_state(
         self,
+        action: int | None,
         obs: ObsType | None,
         state: PolicyState,
     ) -> PolicyState:
@@ -89,7 +90,7 @@ class DiscreteFixedDistributionPolicy(Policy[int, ObsType]):
         )
 
 
-class RandomPolicy(Policy):
+class RandomPolicy(Policy[ActType, ObsType]):
     """The Random policy.
 
     This policy simply samples actions from `model.action_spaces[agent_id]`.
@@ -109,6 +110,7 @@ class RandomPolicy(Policy):
 
     def get_next_state(
         self,
+        action: ActType | None,
         obs: ObsType | None,
         state: PolicyState,
     ) -> PolicyState:

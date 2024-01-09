@@ -5,16 +5,20 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/wrappers/test_
 
 """
 import numpy as np
-from gymnasium import spaces
-
 import posggym
+from gymnasium import spaces
 from posggym.envs.grid_world.driving import CELL_OBS, Speed
 from posggym.wrappers import FlattenObservations
 
 
 def test_flatten_observation():
+    obs_dim = (3, 1, 1)
     env = posggym.make(
-        "Driving-v0", disable_env_checker=True, num_agents=2, grid="7x7RoundAbout"
+        "Driving-v1",
+        disable_env_checker=True,
+        num_agents=2,
+        grid="7x7RoundAbout",
+        obs_dim=obs_dim,
     )
     wrapped_env = FlattenObservations(env)
 
@@ -22,7 +26,7 @@ def test_flatten_observation():
     wrapped_obs, wrapped_obs_info = wrapped_env.reset()
 
     grid_width, grid_height = 7, 7
-    obs_depth, obs_width = 5, 3
+    obs_depth, obs_width = (obs_dim[0] + obs_dim[1] + 1), 2 * obs_dim[2] + 1
     space = spaces.Tuple(
         (
             spaces.Tuple(
@@ -31,6 +35,9 @@ def test_flatten_observation():
                 )
             ),
             spaces.Discrete(len(Speed)),
+            spaces.Tuple(
+                (spaces.Discrete(grid_width), spaces.Discrete(grid_height))
+            ),  # current coord
             spaces.Tuple(
                 (spaces.Discrete(grid_width), spaces.Discrete(grid_height))
             ),  # dest coord,
@@ -44,6 +51,8 @@ def test_flatten_observation():
         [
             len(CELL_OBS) * obs_depth * obs_width
             + len(Speed)
+            + grid_width
+            + grid_height
             + grid_width
             + grid_height
             + 2

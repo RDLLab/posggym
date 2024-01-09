@@ -16,9 +16,9 @@ This environment is part of the <a href='..'>Grid World environments</a>. Please
 |---|---|
 | Possible Agents | ('0', '1') |
 | Action Spaces | {'0': Discrete(5), '1': Discrete(5)} |
-| Observation Spaces | {'0': Tuple(Tuple(Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4)), Discrete(4), Tuple(Discrete(14), Discrete(14)), Discrete(2), Discrete(2)), '1': Tuple(Tuple(Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4)), Discrete(4), Tuple(Discrete(14), Discrete(14)), Discrete(2), Discrete(2))} |
+| Observation Spaces | {'0': Tuple(Tuple(Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4)), Discrete(4), Tuple(Discrete(14), Discrete(14)), Tuple(Discrete(14), Discrete(14)), Discrete(2), Discrete(2)), '1': Tuple(Tuple(Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4), Discrete(4)), Discrete(4), Tuple(Discrete(14), Discrete(14)), Tuple(Discrete(14), Discrete(14)), Discrete(2), Discrete(2))} |
 | Symmetric | True |
-| Import | `posggym.make("DrivingGen-v0")` |
+| Import | `posggym.make("DrivingGen-v1")` |
 
 
 The Generated Driving Grid World Environment.
@@ -36,9 +36,6 @@ Arguments
 - `obs_dim` - the local observation dimensions, specifying how many cells in front,
     behind, and to each side the agent observes (default = `(3, 1, 1)`, resulting
     in the agent observing a 5x3 area: 3 in front, 1 behind, 1 to each side.)
-- `obstacle_collisions` -  whether running into a wall results in the agent's
-    vehicle crashing and thus the agent reaching a terminal state. This can make
-    the problem significantly harder (default = "False").
 - `generator_params` - the parameters to use for generating the grid
     (default = "14x14"). This can either be a string specyfing one of the supported
     sets of params (can be "7x7", "14x14", "28x28") or a dictionary with the
@@ -72,9 +69,11 @@ generation parameters and 2 agents, you would use:
 
 ```python
 import posggym
-env = posggym.make('DrivingGen-v0', generator_params="7x7", num_agents="2")
+env = posggym.make('DrivingGen-v1', generator_params="7x7", num_agents="2")
 ```
 
 Version History
 ---------------
+- `v1`: Updated to `Driving-v1` (See Version history of `Driving` environment for
+    details).
 - `v0`: Initial version

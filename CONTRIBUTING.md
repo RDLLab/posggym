@@ -15,10 +15,6 @@ The following are things we would like to add in future versions:
   - [ ] wild-fire fighting
   - [ ] human-robot repair: https://arxiv.org/pdf/2302.13916.pdf
   - [ ] more from: https://github.com/MADPToolbox/MADP
-- Train/create agents for each supported environment
-  - [ ] predator_prey (continuous and grid world) - handcrafted agents similar to level-based foraging.
-  - [ ] driving (continuous and grid world) - shortest path agent (ideally with different aggressiveness: "aggressive" doesn't consider other cars, "mixed" sometimes aggressive sometimes waits, "timid/not aggressive" will wait till all cars are gone before progressing.)
-  - [ ] continuous/pursuit_evasion - shortest path agent
 - Setup CI checking
 - [ ] documentation of the following:
   - [ ] creating your own agents
@@ -65,8 +61,8 @@ The Git hooks can also be run manually with `pre-commit run --all-files`, and if
 
 ### Type checking
 
-This project uses `mypy` for type checking. For instructions on installation see official [instructions](https://mypy.readthedocs.io/en/latest/getting_started.html#installing-and-running-mypy).
-Once `mypy` is installed it can be run locally by running ``mypy --package posggym`` or using the pre-commit process ``pre-commit run --all-files`` from the root project directory.
+This project uses [pyright](https://github.com/microsoft/pyright) for type checking. For instructions on installation see official [instructions](https://github.com/microsoft/pyright#command-line).
+Once `pyright` is installed it can be run locally by running ``pyright --project pyproject.toml`` or using the pre-commit process ``pre-commit run --all-files`` from the root project directory. Alternatively, pyright is a built-in feature of VSCode that will automatically provide type hinting.
 
 
 ### Code style

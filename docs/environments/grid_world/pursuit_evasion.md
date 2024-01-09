@@ -18,7 +18,7 @@ This environment is part of the <a href='..'>Grid World environments</a>. Please
 | Action Spaces | {'0': Discrete(4), '1': Discrete(4)} |
 | Observation Spaces | {'0': Tuple(Tuple(Discrete(2), Discrete(2), Discrete(2), Discrete(2), Discrete(2), Discrete(2)), Tuple(Discrete(16), Discrete(16)), Tuple(Discrete(16), Discrete(16)), Tuple(Discrete(16), Discrete(16))), '1': Tuple(Tuple(Discrete(2), Discrete(2), Discrete(2), Discrete(2), Discrete(2), Discrete(2)), Tuple(Discrete(16), Discrete(16)), Tuple(Discrete(16), Discrete(16)), Tuple(Discrete(16), Discrete(16)))} |
 | Symmetric | False |
-| Import | `posggym.make("PursuitEvasion-v0")` |
+| Import | `posggym.make("PursuitEvasion-v1")` |
 
 
 The Pursuit-Evasion Grid World Environment.
@@ -83,25 +83,21 @@ episode, but they do change between episodes.
 Rewards
 -------
 The environment is zero-sum with the pursuer receiving the negative of the evader
-reward. Additionally, rewards are by default normalized so that returns are bounded
-between `-1` and `1` (this can be disabled by the `normalize_reward` parameter).
+reward. Rewards are normalized so that returns are bounded between `-1` and `1`.
 
 The evader receives a reward of `1` for reaching it's goal location and a
 reward of `-1` if it gets captured. Additionally, the evader receives a small
 reward of `0.01` each time it's minimum distance achieved to it's goal along the
 shortest path decreases for the current episode. This is to make it so the
 environment is no longer sparesely rewarded and helps with exploration and learning
-(it can be disabled by the `use_progress_reward` parameter.)
+(it can be disabled by the `use_progress_reward` parameter). If progress reward
+is enabled, reward normalization still applies so the returns are bounded between
+`-1` and `1`.
 
 Dynamics
 --------
-By default actions are deterministic and will move the agent one cell in the target
-direction if the cell is empty.
-
-The environment can also be run in stochastic mode by changing the `action_probs`
-parameter at initialization. This controls the probability the agent will move in
-the desired direction each step, otherwise moving randomly in one of the other 3
-possible directions.
+Actions are deterministic and will move the agent one cell in the target direction
+if the cell is empty.
 
 Starting State
 --------------
@@ -124,14 +120,8 @@ Arguments
 
 - `grid` - the grid layout to use. This can either be a string specifying one of
      the supported grids, or a custom :class:`PEGrid` object (default = `"16x16"`).
-- `action_probs` - the action success probability for each agent. This can be a
-    single float (same value for both evader and pursuer agents) or a tuple with
-    separate values for each agent (default = `1.0`).
 - `max_obs_distance` - the maximum number of cells in front each agent's field of
     vision extends (default = `12`).
-- `num_prey` - the number of prey (default = `3`)
-- `normalize_reward` - whether to normalize both agents' rewards to be between `-1`
-    and `1` (default = 'True`)
 - `use_progress_reward` - whether to reward the evader agent for making progress
     towards it's goal. If False the evader will only be rewarded when it reaches
     it's goal, making it a sparse reward problem (default = 'True`).
@@ -160,6 +150,13 @@ env = posggym.make(
     grid="32x32",
 )
 ```
+
+Version History
+---------------
+- `v1`: Minor update, mainly removing unused parameters:
+    - removed `action_probs` parameter (actions are now always deterministic)
+    - removed `normalize_reward` parameter (rewards are now always normalized)
+- `v0`: Initial version
 
 References
 ----------

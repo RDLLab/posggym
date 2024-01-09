@@ -18,7 +18,7 @@ This environment is part of the <a href='..'>Grid World environments</a>. Please
 | Action Spaces | {'0': Discrete(6), '1': Discrete(6)} |
 | Observation Spaces | {'0': Tuple(Discrete(11, start=-1), Discrete(11, start=-1), Discrete(4), Discrete(11, start=-1), Discrete(11, start=-1), Discrete(4), Discrete(12, start=-1), Discrete(12, start=-1), Discrete(7), Discrete(12, start=-1), Discrete(12, start=-1), Discrete(7), Discrete(12, start=-1), Discrete(12, start=-1), Discrete(7), Discrete(12, start=-1), Discrete(12, start=-1), Discrete(7), Discrete(12, start=-1), Discrete(12, start=-1), Discrete(7), Discrete(12, start=-1), Discrete(12, start=-1), Discrete(7), Discrete(12, start=-1), Discrete(12, start=-1), Discrete(7), Discrete(12, start=-1), Discrete(12, start=-1), Discrete(7)), '1': Tuple(Discrete(11, start=-1), Discrete(11, start=-1), Discrete(4), Discrete(11, start=-1), Discrete(11, start=-1), Discrete(4), Discrete(12, start=-1), Discrete(12, start=-1), Discrete(7), Discrete(12, start=-1), Discrete(12, start=-1), Discrete(7), Discrete(12, start=-1), Discrete(12, start=-1), Discrete(7), Discrete(12, start=-1), Discrete(12, start=-1), Discrete(7), Discrete(12, start=-1), Discrete(12, start=-1), Discrete(7), Discrete(12, start=-1), Discrete(12, start=-1), Discrete(7), Discrete(12, start=-1), Discrete(12, start=-1), Discrete(7), Discrete(12, start=-1), Discrete(12, start=-1), Discrete(7))} |
 | Symmetric | True |
-| Import | `posggym.make("LevelBasedForaging-v2")` |
+| Import | `posggym.make("LevelBasedForaging-v3")` |
 
 
 The Level-Based Foraging Environment.
@@ -91,7 +91,9 @@ Rewards
 -------
 Agents receive a reward whenever they successfully pick-up food. The reward received
 by each agent depends on the food's level and how many agents picked up the food and
-their levels. In cooperative mode all agents receive the same reward.
+their levels. In cooperative mode all agents receive the same reward. The reward
+per food item is set so that the max sum of rewards for an episode is 1.0 (minimum
+is 0.0).
 
 Dynamics
 --------
@@ -129,7 +131,7 @@ Arguments
 
 - `num_agents` - the number of agents in the environment (default = `2`).
 - `max_agent_level` - the maximum level of an agent (default = `3`).
-- `field_size` - the width and height of the grid world (default = `(10, 10)`).
+- `size` - the width and height of the square grid world (default = `10`).
 - `max_food` - the maximum number of food that will appear in an episode
     (default = `8`).
 - `sight` - the local observation dimensions, specifying how many cells in each
@@ -141,14 +143,17 @@ Arguments
     number of food will always appear each episode and always in the same locations.
     The level of the food will be random each episode. If false, food location and
     levels is random each episode (default = 'False`)
-- `normalize_reward` - whether to normalize rewards so that the max sum of rewards
-    for an episode is 1.0 (default=`True`).
 - `observation_mode` - the observation mode to use out of `grid`, `vector`, or
     `tuple` (default=`tuple`)
-- `penalty` - the penalty for failing to load food (default=0.0)
 
 Version History
 ---------------
+- `v3`: cleaned up version of `v2` with some minor changes, mostly removing unused
+    parameters:
+    - removed `penalty` option for penalizing failed load actions
+    - removed `normalize_reward` option (always normalize rewards now)
+    - changed `field_size` parameter to `size` and restricted field to be a square
+      (`field_size`/`size` is now a single int)
 - `v2`: Version adapted from <https://github.com/semitable/lb-foraging>
 
 References

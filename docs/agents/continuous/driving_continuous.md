@@ -20,13 +20,13 @@ env = posggym.make(
 ```
 
 
-| Policy | ID | Valid Agent IDs |
-|---|---|---|
-| `sp_seed0` | `DrivingContinuous-v0/world=14x14RoundAbout-num_agents=2-obs_dist=5.0-n_sensors=16/sp_seed0-v0` | All |
-| `sp_seed1` | `DrivingContinuous-v0/world=14x14RoundAbout-num_agents=2-obs_dist=5.0-n_sensors=16/sp_seed1-v0` | All |
-| `sp_seed2` | `DrivingContinuous-v0/world=14x14RoundAbout-num_agents=2-obs_dist=5.0-n_sensors=16/sp_seed2-v0` | All |
-| `sp_seed3` | `DrivingContinuous-v0/world=14x14RoundAbout-num_agents=2-obs_dist=5.0-n_sensors=16/sp_seed3-v0` | All |
-| `sp_seed4` | `DrivingContinuous-v0/world=14x14RoundAbout-num_agents=2-obs_dist=5.0-n_sensors=16/sp_seed4-v0` | All |
+| Policy | ID | Valid Agent IDs | Description |
+|---|---|---|---|
+| `sp_seed0` | `DrivingContinuous-v0/world=14x14RoundAbout-num_agents=2-obs_dist=5.0-n_sensors=16/sp_seed0-v0` | All | None |
+| `sp_seed1` | `DrivingContinuous-v0/world=14x14RoundAbout-num_agents=2-obs_dist=5.0-n_sensors=16/sp_seed1-v0` | All | None |
+| `sp_seed2` | `DrivingContinuous-v0/world=14x14RoundAbout-num_agents=2-obs_dist=5.0-n_sensors=16/sp_seed2-v0` | All | None |
+| `sp_seed3` | `DrivingContinuous-v0/world=14x14RoundAbout-num_agents=2-obs_dist=5.0-n_sensors=16/sp_seed3-v0` | All | None |
+| `sp_seed4` | `DrivingContinuous-v0/world=14x14RoundAbout-num_agents=2-obs_dist=5.0-n_sensors=16/sp_seed4-v0` | All | None |
 ## world=14x14RoundAbout-num_agents=4-obs_dist=5.0-n_sensors=16
 
 ```
@@ -40,10 +40,10 @@ env = posggym.make(
 ```
 
 
-| Policy | ID | Valid Agent IDs |
-|---|---|---|
-| `sp_seed0` | `DrivingContinuous-v0/world=14x14RoundAbout-num_agents=4-obs_dist=5.0-n_sensors=16/sp_seed0-v0` | All |
-| `sp_seed1` | `DrivingContinuous-v0/world=14x14RoundAbout-num_agents=4-obs_dist=5.0-n_sensors=16/sp_seed1-v0` | All |
-| `sp_seed2` | `DrivingContinuous-v0/world=14x14RoundAbout-num_agents=4-obs_dist=5.0-n_sensors=16/sp_seed2-v0` | All |
-| `sp_seed3` | `DrivingContinuous-v0/world=14x14RoundAbout-num_agents=4-obs_dist=5.0-n_sensors=16/sp_seed3-v0` | All |
-| `sp_seed4` | `DrivingContinuous-v0/world=14x14RoundAbout-num_agents=4-obs_dist=5.0-n_sensors=16/sp_seed4-v0` | All |
+| Policy | ID | Valid Agent IDs | Description |
+|---|---|---|---|
+| `sp_seed0` | `DrivingContinuous-v0/world=14x14RoundAbout-num_agents=4-obs_dist=5.0-n_sensors=16/sp_seed0-v0` | All | None |
+| `sp_seed1` | `DrivingContinuous-v0/world=14x14RoundAbout-num_agents=4-obs_dist=5.0-n_sensors=16/sp_seed1-v0` | All | None |
+| `sp_seed2` | `DrivingContinuous-v0/world=14x14RoundAbout-num_agents=4-obs_dist=5.0-n_sensors=16/sp_seed2-v0` | All | None |
+| `sp_seed3` | `DrivingContinuous-v0/world=14x14RoundAbout-num_agents=4-obs_dist=5.0-n_sensors=16/sp_seed3-v0` | All | None |
+| `sp_seed4` | `DrivingContinuous-v0/world=14x14RoundAbout-num_agents=4-obs_dist=5.0-n_sensors=16/sp_seed4-v0` | All | None |

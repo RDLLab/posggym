@@ -3,11 +3,11 @@
 The script takes an environment ID and a list of policy ids as arguments.
 It then runs and (optionally) renders episodes.
 
-Example, to run 10 episodes of the `Driving-v0` environment with two random policies
+Example, to run 10 episodes of the `Driving-v1` environment with two random policies
 and with `human` rendering mode, run:
 
     python scripts/run_agents.py \
-        --env_id Driving-v0 \
+        --env_id Driving-v1 \
         --policy_ids Random-v0 Random-v0 \
         --num_episodes 10 \
         --render_mode human

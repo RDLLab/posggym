@@ -8,11 +8,11 @@ https://github.com/Farama-Foundation/Gymnasium/blob/main/gymnasium/vector/sync_v
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Dict, Iterable, Callable, Any, List, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Tuple
 
 import numpy as np
+from gymnasium.vector.utils import concatenate, create_empty_array
 from gymnasium.vector.utils.spaces import batch_space
-from gymnasium.vector.utils import create_empty_array, concatenate
 
 import posggym
 
@@ -20,21 +20,52 @@ import posggym
 class SyncVectorEnv(posggym.Env):
     """Vectorized environment that serially runs multiple environments.
 
-    A vectorized environment runs multiple independent copiries of the same environment.
+    This implementation is based on the Gymnasium Vectorized Environments, modified to
+    support multiple agents and the POSGGym API.
 
-    This implementation is based on the Gymnasium Vectorized Environments:
+    A vectorized environment runs multiple independent copies of the same environment
+    allowing for batched interactions. To prevent terminated environments waiting until
+    all sub-environments are done (terminated or truncated), the vector environment
+    autoresets sub-environments when they are done. As a result, the final observaiton
+    and info are overwritten by the reset's observation and info. The final observation
+    and info of the previous environment is stored in the info dictionary of each agent
+    under the keys ``final_observation`` and ``final_info``. See :meth:`step` for more
+    information.
+
+    Vector Environments have additional attributes on top of `posggym.Env` as well as,
+    slightly modified :attr:`observation_spaces` and :attr:`action_spaces` attributes:
+
+    - :attr:`num_envs` - The number of sub-environments in the vector environment.
+    - :attr:`observation_spaces` - The batched observation space of each agent of the
+        vector environment.
+    - :attr:`single_observation_spaces` - The observation space of each agent in a
+        single sub-environment.
+    - :attr:`action_spaces` - The batched action space of each agent of the  vector
+        environment.
+    - :attr:`single_action_spaces` - The action space of each agent in a  single
+        sub-environment.
+
+
+    Notes
+    -----
     https://github.com/Farama-Foundation/Gymnasium/blob/main/gymnasium/vector/vector_env.py
     https://github.com/Farama-Foundation/Gymnasium/blob/main/gymnasium/vector/sync_vector_env.py
 
     """
 
-    def __init__(self, env_fns: Iterable[Callable[[], posggym.Env]], copy: bool = True):
+    def __init__(
+        self,
+        env_fns: Iterable[Callable[[], posggym.Env]],
+        copy: bool = True,
+    ):
         """Initialize the vectorized environment.
 
         Arguments
         ---------
-        env_fns: iterable of callable functions that create the environments.
-        copy: If ``True``, then the :meth:`reset` and :meth:`step` methods return a
+        env_fns:
+            iterable of callable functions that create the environments.
+        copy:
+            If ``True``, then the :meth:`reset` and :meth:`step` methods return a
             copy of the observations.
 
         """
@@ -122,13 +153,43 @@ class SyncVectorEnv(posggym.Env):
     def step(self, actions):
         """Take a step in all environments with the given actions.
 
+        If any environment is done, then it is reset before taking the next step. The
+        final observation and info of the previous environment is stored in the info
+        dictionary under the keys ``final_observation`` and ``final_info``.
+
+
         Arguments
         ---------
-        actions: dict mapping agent ID to batch of actions for that agent, with one
-            action for each environment.
+        actions:
+            dict mapping agent ID to batch of actions for that agent, with one action
+            for each environment. So should be a dict of arrays or lists, with each
+            array/list having length equal to the number of environments.
 
         Returns
         -------
+        observations:
+            dict mapping agent ID to batch of observations for that agent, with one
+            observation for each environment. Each array having shape
+            ``(num_envs,) + observation_space.shape``.
+        rewards:
+            dict mapping agent ID to batch of rewards for that agent, with one reward
+            for each environment. Each entry is an array with  shape ``(num_envs,)``.
+        terminateds:
+            dict mapping agent ID to batch of termination signals for that agent, with
+            one termination signal for each environment. Each entry is an array with
+            shape ``(num_envs,)``.
+        truncateds:
+            dict mapping agent ID to batch of truncation signals for that agent, with
+            one truncation signal for each environment. Each entry is an array with
+            shape ``(num_envs,)``.
+        all_dones:
+            array of booleans, with one entry for each environment, indicating whether
+            the environment is done. Shape is ``(num_envs,)``.
+        infos:
+            dict mapping agent ID to batch of info objects for that agent, with one
+            info object for each environment. Each entry is a dict with one entry for
+
+
         The batched environment step results.
 
         """
@@ -194,6 +255,10 @@ class SyncVectorEnv(posggym.Env):
         return tuple(results)
 
     @property
+    def possible_agents(self) -> Tuple[str, ...]:
+        return self.envs[0].possible_agents
+
+    @property
     def agents(self):
         return self.call("agents")
 
@@ -219,13 +284,17 @@ class SyncVectorEnv(posggym.Env):
 
         Arguments:
         ----------
-        infos: the infos of the vectorized environment
-        info: the info coming from the single environment
-        env_num: the index of the single environment
+        infos: dict
+            the infos of the vectorized environment
+        info: dict
+            the info coming from the single environment
+        env_num: int
+            the index of the single environment
 
         Returns
         -------
-        infos: the (updated) infos of the vectorized environment
+        infos: dict
+            the (updated) infos of the vectorized environment
 
         """
         for k in info:
@@ -248,12 +317,15 @@ class SyncVectorEnv(posggym.Env):
 
         Arguments
         ---------
-        dtype: data type of the info coming from the env.
+        dtype: type
+            data type of the info coming from the env.
 
         Returns
         -------
-        array: the initialized info array.
-        array_mask: the initialized boolean array.
+        array: np.ndarray
+            the initialized info array.
+        array_mask: np.ndarray
+            the initialized boolean array.
 
         """
         if dtype in [int, float, bool] or issubclass(dtype, np.number):

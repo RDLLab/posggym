@@ -1,4 +1,4 @@
-"""Root '__init__' of the posggym package."""
+"""Root '__init__' of the posggym.agents package."""
 # isort: skip_file
 from posggym.agents.registration import (
     make,
@@ -20,7 +20,9 @@ from posggym.agents.continuous import (
     predator_prey_continuous,
 )
 from posggym.agents.grid_world import (
+    cooperative_reaching,
     driving,
+    driving_gen,
     level_based_foraging,
     predator_prey,
     pursuit_evasion,
@@ -54,6 +56,7 @@ register(
     env_args=None,
     valid_agent_ids=None,
     nondeterministic=False,
+    description="The uniform random policy",
 )
 
 register(
@@ -64,6 +67,9 @@ register(
     env_args=None,
     valid_agent_ids=None,
     nondeterministic=False,
+    description=(
+        "Random policy that follows a fixed discrete distribution (default is uniform)"
+    ),
 )
 
 # Continuous
@@ -85,9 +91,16 @@ for policy_spec in pursuit_evasion_continuous.policy_specs.values():
 
 # Grid World
 # ----------
+# Cooperative Reaching
+for policy_spec in cooperative_reaching.policy_specs.values():
+    register_spec(policy_spec)
 
 # Driving
 for policy_spec in driving.policy_specs.values():
+    register_spec(policy_spec)
+
+# Driving Gen
+for policy_spec in driving_gen.policy_specs.values():
     register_spec(policy_spec)
 
 

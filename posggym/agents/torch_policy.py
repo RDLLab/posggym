@@ -9,7 +9,7 @@ from typing import (
     Callable,
     Dict,
     List,
-    Mapping,
+    NamedTuple,
     Optional,
     Tuple,
     Type,
@@ -30,9 +30,21 @@ from posggym.agents.utils import action_distributions, processors
 from posggym.agents.utils.download import download_from_repo
 from posggym.utils import seeding
 
-
 if TYPE_CHECKING:
     import posggym.model as M
+
+
+class PPOTorchModelSaveFileFormat(NamedTuple):
+    """Format for saving and loading POSGGym PPOLSTMModel."""
+
+    weights: Dict[str, Any]
+    trunk_sizes: List[int]
+    lstm_size: int
+    lstm_layers: int
+    head_sizes: List[int]
+    activation: str
+    lstm_use_prev_action: bool
+    lstm_use_prev_reward: bool
 
 
 class PPOLSTMModel(nn.Module):
@@ -59,7 +71,13 @@ class PPOLSTMModel(nn.Module):
         self,
         obs_space: spaces.Space,
         action_space: spaces.Space,
-        model_config: Dict[str, Any],
+        trunk_sizes: List[int],
+        lstm_size: int,
+        lstm_layers: int,
+        head_sizes: List[int],
+        activation: str,
+        lstm_use_prev_action: bool,
+        lstm_use_prev_reward: bool,
     ):
         assert isinstance(obs_space, spaces.Box) and len(obs_space.shape) == 1, (
             "Only 1D Box observation spaces are supported for PPO PyTorch Policy "
@@ -68,19 +86,12 @@ class PPOLSTMModel(nn.Module):
             f"`posggym.agents.utils.preprocessors`. Got {obs_space}."
         )
         super().__init__()
-
         self.obs_space = obs_space
-        obs_shape = obs_space.shape
         self.action_space = action_space
 
-        self.fcnet_activation = model_config["fcnet_activation"]
-        self.fcnet_sizes = model_config["fcnet_hiddens"]
-        self.cell_size = model_config["lstm_cell_size"]
-        self.use_prev_action = model_config["lstm_use_prev_action"]
-        self.use_prev_reward = model_config["lstm_use_prev_reward"]
+        self.use_prev_action = lstm_use_prev_action
+        self.use_prev_reward = lstm_use_prev_reward
 
-        # Ref: Line 148-156
-        # https://github.com/ray-project/ray/blob/ray-2.3.0/rllib/models/torch/recurrent_net.py
         if isinstance(action_space, spaces.Discrete):
             self.action_dim = action_space.n
         elif isinstance(action_space, spaces.MultiDiscrete):
@@ -100,20 +111,20 @@ class PPOLSTMModel(nn.Module):
             )
 
         activation_fn: Optional[Callable] = None
-        if self.fcnet_activation == "tanh":
+        if activation == "tanh":
             activation_fn = nn.Tanh
-        elif self.fcnet_activation == "relu":
+        elif activation == "relu":
             activation_fn = nn.ReLU
 
         # Fully connected trunk
-        fcnet_layers = []
-        prev_size = int(np.product(obs_shape))
-        for size in self.fcnet_sizes:
-            fcnet_layers.append(nn.Linear(prev_size, size))
+        prev_size = int(np.product(obs_space.shape))
+        trunk = []
+        for size in trunk_sizes:
+            trunk.append(nn.Linear(prev_size, size))
             if activation_fn:
-                fcnet_layers.append(activation_fn())
+                trunk.append(activation_fn())
             prev_size = size
-        self.fcnet = nn.Sequential(*fcnet_layers)
+        self.trunk = nn.Sequential(*trunk)
 
         # LSTM Layer
         lstm_input_size = prev_size
@@ -123,12 +134,25 @@ class PPOLSTMModel(nn.Module):
             lstm_input_size += 1
 
         self.lstm = nn.LSTM(
-            lstm_input_size, self.cell_size, batch_first=False, num_layers=1
+            lstm_input_size, lstm_size, num_layers=lstm_layers, batch_first=False
         )
+        prev_size = lstm_size
 
-        # Fully connected policy and value heads
-        self.logits_branch = nn.Linear(self.cell_size, self.action_dim)
-        self.value_branch = nn.Linear(self.cell_size, 1)
+        # Fully connected actor and critic heads
+        actor = []
+        critic = []
+        for size in head_sizes:
+            actor.append(nn.Linear(prev_size, size))
+            critic.append(nn.Linear(prev_size, size))
+            if activation_fn:
+                actor.append(activation_fn())
+                critic.append(activation_fn())
+            prev_size = size
+
+        actor.append(nn.Linear(prev_size, self.action_dim))
+        critic.append(nn.Linear(prev_size, 1))
+        self.actor = nn.Sequential(*actor)
+        self.critic = nn.Sequential(*critic)
 
         # Assume model is used for evaluation only
         self.eval()
@@ -176,7 +200,7 @@ class PPOLSTMModel(nn.Module):
             # Add sequence length dimension
             obs = obs.unsqueeze(1)
 
-        hidden = self.fcnet(obs)
+        hidden = self.trunk(obs)
 
         prev_action_reward = []
         if self.use_prev_action:
@@ -228,7 +252,7 @@ class PPOLSTMModel(nn.Module):
 
         """
         hidden_state, _ = self.get_next_state(obs, lstm_state, prev_action, prev_reward)
-        return self.value_branch(hidden_state)
+        return self.critic(hidden_state)
 
     def get_action_and_value(
         self,
@@ -269,8 +293,8 @@ class PPOLSTMModel(nn.Module):
             hidden_state, next_lstm_state = self.get_next_state(
                 obs, lstm_state, prev_action, prev_reward
             )
-            value = self.value_branch(hidden_state)
-            logits = self.logits_branch(hidden_state)
+            value = self.critic(hidden_state)
+            logits = self.actor(hidden_state)
             if isinstance(self.action_space, spaces.Discrete):
                 action_dist = Categorical(logits=logits)
                 if deterministic:
@@ -315,56 +339,6 @@ class PPOLSTMModel(nn.Module):
             torch.zeros((self.lstm.num_layers, batch_size, self.lstm.hidden_size)),
             torch.zeros((self.lstm.num_layers, batch_size, self.lstm.hidden_size)),
         )
-
-    def load_state_dict(self, state_dict: Mapping[str, Any], strict: bool = True):
-        model_state_dict = self.state_dict()
-        if not all([k in model_state_dict for k in state_dict]):
-            # may be using rllib naming conventions
-            state_dict = self.map_rllib_to_torch_model_state(state_dict)
-        return super().load_state_dict(state_dict, strict)
-
-    @staticmethod
-    def map_rllib_to_torch_model_state(
-        rllib_state: Mapping[str, Any]
-    ) -> Dict[str, Any]:
-        """Map Rllib model state to PyTorch model state.
-
-        Arguments
-        ---------
-        rllib_state : Rllib model state.
-
-        Returns
-        -------
-        PyTorch model state.
-
-        """
-        torch_state = {}
-        for k, v in rllib_state.items():
-            if k.startswith("_hidden_layers"):
-                # rllib: _hidden_layers.<layer_idx>._model.0.<layer_type>
-                # torch: fcnet.<layer_idx>.<layer_type>
-                tokens = k.split(".")
-                # x 2 because rllib combines linear and activation in same model layer
-                layer_idx = int(tokens[1]) * 2
-                layer_type = tokens[-1]
-                torch_state[f"fcnet.{layer_idx}.{layer_type}"] = torch.tensor(v)
-            elif k.startswith("_logits_branch"):
-                tokens = k.split(".")
-                layer_type = tokens[-1]
-                torch_state[f"logits_branch.{layer_type}"] = torch.tensor(v)
-            elif k.startswith("_value_branch"):
-                tokens = k.split(".")
-                layer_type = tokens[-1]
-                torch_state[f"value_branch.{layer_type}"] = torch.tensor(v)
-            elif k.startswith("lstm"):
-                tokens = k.split(".")
-                layer_type = tokens[-1]
-                torch_state[f"lstm.{layer_type}"] = torch.tensor(v)
-            else:
-                # Unused layer
-                # E.g. `_value_branch_seperate` which is not used when using LSTM
-                pass
-        return torch_state
 
 
 class PPOPolicy(Policy[ActType, ObsType]):
@@ -418,12 +392,6 @@ class PPOPolicy(Policy[ActType, ObsType]):
         # RNG for sampling actions
         self._rng, _ = seeding.np_random()
 
-    def step(self, obs: ObsType) -> ActType:
-        self._state = self.get_next_state(obs, self._state)
-        action = self.sample_action(self._state)
-        self._state["action"] = action
-        return action
-
     def reset(self, *, seed: int | None = None):
         super().reset(seed=seed)
         if seed is not None:
@@ -464,83 +432,64 @@ class PPOPolicy(Policy[ActType, ObsType]):
         state["prev_reward"] = None
         state["lstm_state"] = self.policy_model.get_initial_state(batch_size=1)
         state["action_probs"] = None
-        state["action"] = None
         state["value"] = 0.0
         return state
 
-    def get_next_state(self, obs: ObsType, state: PolicyState) -> PolicyState:
+    def get_next_state(
+        self, action: ActType | None, obs: ObsType, state: PolicyState
+    ) -> PolicyState:
         obs = self.obs_processor(obs)
 
-        if state["action"] is not None:
-            processed_action = self.action_processor(state["action"])
-        else:
-            processed_action = None
+        if action is not None:
+            action = self.action_processor(action)
+
         (
-            action,
+            _,
             lstm_state,
             value,
             action_probs,
         ) = self.policy_model.get_action_and_value(
             obs,
             state["lstm_state"],
-            processed_action,
+            prev_action=action,
             prev_reward=None,
             deterministic=self.deterministic,
         )
 
-        action = action.numpy().squeeze()
-        if isinstance(self.action_space, spaces.Discrete):
-            action = action.item()
-        elif len(action.shape) == 1 and action.shape[0] == 1:
-            action = action[0]
-
         return {
             "obs": obs,
-            "prev_action": state["action"],
+            "prev_action": action,
             "prev_reward": None,
             "lstm_state": lstm_state,
             "action_probs": action_probs.numpy().squeeze(),
-            "action": self.action_processor.unprocess(action),
-            "value": value[0],
+            "value": value[0].item(),
         }
 
     def sample_action(self, state: PolicyState) -> ActType:
-        if self.deterministic:
-            return state["action"]
-
-        processed_action_space = self.action_processor.input_space
-        if isinstance(processed_action_space, spaces.Discrete):
-            action = self._rng.choice(
-                processed_action_space.n, p=state["action_probs"], size=1
-            )[0]
-        elif isinstance(processed_action_space, spaces.MultiDiscrete):
-            action = [  # type: ignore
-                self._rng.choice(
-                    processed_action_space.nvec[i], p=state["action_probs"][i], size=1
-                )[0]
-                for i in range(len(processed_action_space))
-            ]
-        else:
-            # Box - continuous action space
-            mean, stdev = state["action_probs"]
-            action = self._rng.normal(loc=mean, scale=stdev)
-        # print(f"processed action: {action}")
-        action = self.action_processor.unprocess(action)
-        # print(f"unprocessed action: {action}")
-        return action
+        pi = self.get_pi(state)
+        action = pi.sample()
+        return self.action_processor.unprocess(action)
 
     def get_value(self, state: PolicyState) -> float:
         return state["value"]
 
     def get_pi(self, state: PolicyState) -> action_distributions.ActionDistribution:
-        # TODO handle action processing
-        if isinstance(self.action_space, spaces.Discrete):
-            return action_distributions.DiscreteActionDistribution(
-                state["action_probs"], self._rng
-            )
-        if isinstance(self.action_space, spaces.MultiDiscrete):
+        processed_action_space = self.action_processor.input_space
+        if isinstance(processed_action_space, spaces.Discrete):
+            probs = {
+                a: state["action_probs"][a] for a in range(processed_action_space.n)
+            }
+            return action_distributions.DiscreteActionDistribution(probs, self._rng)
+        if isinstance(processed_action_space, spaces.MultiDiscrete):
+            probs = [
+                {
+                    a: state["action_probs"][i][a]
+                    for a in range(processed_action_space.nvec[i])
+                }
+                for i in range(len(processed_action_space))
+            ]
             return action_distributions.MultiDiscreteActionDistribution(
-                state["action_probs"], self._rng
+                probs, self._rng
             )
         return action_distributions.NormalActionDistribution(
             state["action_probs"][0], state["action_probs"][1], self._rng
@@ -565,15 +514,6 @@ class PPOPolicy(Policy[ActType, ObsType]):
                 "future use."
             )
             download_from_repo(policy_file_path)
-
-        with open(policy_file_path, "rb") as f:
-            data = pickle.load(f)
-
-        config = data["config"]
-        if "state" in data:
-            model_state = data["state"]["weights"]
-        else:
-            model_state = data["model_weights"]
 
         obs_space = model.observation_spaces[agent_id]
         if obs_processor_cls is None:
@@ -603,12 +543,21 @@ class PPOPolicy(Policy[ActType, ObsType]):
         else:
             action_processor = action_processor_cls(action_space)
 
+        with open(policy_file_path, "rb") as f:
+            data = PPOTorchModelSaveFileFormat(**pickle.load(f))
+
         policy_model = PPOLSTMModel(
             obs_space=obs_processor.get_processed_space(),
             action_space=action_processor.get_processed_space(),
-            model_config=config["model"],
+            trunk_sizes=data.trunk_sizes,
+            lstm_size=data.lstm_size,
+            lstm_layers=data.lstm_layers,
+            head_sizes=data.head_sizes,
+            activation=data.activation,
+            lstm_use_prev_action=data.lstm_use_prev_action,
+            lstm_use_prev_reward=data.lstm_use_prev_reward,
         )
-        policy_model.load_state_dict(model_state)
+        policy_model.load_state_dict(data.weights)
 
         return PPOPolicy(
             model=model,
@@ -629,6 +578,7 @@ class PPOPolicy(Policy[ActType, ObsType]):
         version: int = 0,
         valid_agent_ids: List[str] | None = None,
         nondeterministic: bool = False,
+        description: str | None = None,
         **kwargs,
     ) -> PolicySpec:
         """Load PPO policy spec from policy file.
@@ -647,7 +597,8 @@ class PPOPolicy(Policy[ActType, ObsType]):
             compatible with. If None then assumes policy can be used for any agent in
             the environment.
         nondeterministic: Whether this policy is non-deterministic even after seeding.
-        kwargs: Additional kwargs, if any, to pass to the agent initializing
+        kwargs: Additional kwargs, if any, to pass to the agent initializing function
+        description: Optional description of the policy.
 
         Returns
         -------
@@ -668,4 +619,5 @@ class PPOPolicy(Policy[ActType, ObsType]):
             valid_agent_ids=valid_agent_ids,
             nondeterministic=nondeterministic,
             kwargs=kwargs,
+            description=description,
         )

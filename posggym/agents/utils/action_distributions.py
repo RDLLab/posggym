@@ -31,6 +31,13 @@ class DiscreteActionDistribution(ActionDistribution):
         self.probs = probs
         self._rng = rng
 
+        self.probs_np = None
+        if isinstance(rng, np.random.Generator):
+            # convert to numpy array for faster sampling
+            # also normalize to sum to 1, to avoid floating point errors
+            self.probs_np = np.array(list(probs.values()))
+            self.probs_np /= self.probs_np.sum()
+
     def sample(self) -> Any:
         if self._rng is None:
             return random.choices(
@@ -40,7 +47,7 @@ class DiscreteActionDistribution(ActionDistribution):
             return self._rng.choices(
                 list(self.probs.keys()), weights=list(self.probs.values())
             )[0]
-        return self._rng.choice(list(self.probs.keys()), p=list(self.probs.values()))
+        return self._rng.choice(list(self.probs.keys()), p=self.probs_np)
 
     def pdf(self, action: Any) -> float:
         return self.probs[action]

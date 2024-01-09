@@ -169,5 +169,6 @@ statistics/env_speed.md
 :caption: Development
 
 Github <https://github.com/RDLLab/posggym>
+release_notes/index.md
 Contribute to the Docs <https://github.com/RDLLab/posggym/blob/main/docs/README.md>
 ```

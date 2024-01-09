@@ -125,8 +125,8 @@ class PredatorPreyEnv(DefaultEnv[PPState, PPObs, PPAction]):
     ---------
 
     - `grid` - the grid layout to use. This can either be a string specifying one of
-         the supported grids, or a custom :class:`PredatorPreyGrid` object
-         (default = `"10x10"`).
+        the supported grids, or a custom :class:`PredatorPreyGrid` object
+        (default = `"10x10"`).
     - `num_predators` - the number of predator (and thus controlled agents)
         (default = `2`).
     - `num_prey` - the number of prey (default = `3`)
@@ -141,7 +141,6 @@ class PredatorPreyEnv(DefaultEnv[PPState, PPObs, PPAction]):
 
     Available variants
     ------------------
-
     The PredatorPrey environment comes with a number of pre-built grid layouts which can
     be passed as an argument to `posggym.make`, to create different grids. All layouts
     support 2 to 8 agents.
@@ -418,7 +417,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
     @property
     def rng(self) -> seeding.RNG:
         if self._rng is None:
-            self._rng, seed = seeding.std_random()
+            self._rng, _ = seeding.std_random()
         return self._rng
 
     def get_agents(self, state: PPState) -> List[str]:
@@ -629,6 +628,9 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
         next_prey_coords: Tuple[Coord, ...],
     ) -> Tuple[Coord, ...]:
         potential_next_coords = []
+        occupied_prey_coords = {
+            c for i, c in enumerate(next_prey_coords) if not state.prey_caught[i]
+        }
         for i, coord in enumerate(state.predator_coords):
             if actions[str(i)] == 0:
                 next_coord = coord
@@ -637,7 +639,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
                 next_coord = self.grid.get_next_coord(
                     coord, a_dir, ignore_blocks=False  # type: ignore
                 )
-                if next_coord in next_prey_coords:
+                if next_coord in occupied_prey_coords:
                     next_coord = coord
             potential_next_coords.append(next_coord)
 
@@ -645,17 +647,14 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
         next_coords = []
         for i in range(self.num_predators):
             coord_i = potential_next_coords[i]
-            collision = False
             for j in range(self.num_predators):
                 if i == j:
                     continue
                 elif coord_i == potential_next_coords[j]:
-                    collision = True
+                    # collision, stay in current cell
+                    coord_i = state.predator_coords[i]
                     break
-            if collision:
-                next_coords.append(state.predator_coords[i])
-            else:
-                next_coords.append(coord_i)
+            next_coords.append(coord_i)
 
         return tuple(next_coords)
 
@@ -691,7 +690,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
         agent_coord = next_state.predator_coords[agent_idx]
 
         cell_obs = []
-        for col, row in product(range(obs_size), repeat=2):
+        for row, col in product(range(obs_size), repeat=2):
             obs_grid_coord = self._map_obs_to_grid_coord((col, row), agent_coord)
             if obs_grid_coord is None or obs_grid_coord in self.grid.block_coords:
                 cell_obs.append(WALL)
@@ -780,11 +779,11 @@ class PredatorPreyGrid(Grid):
         # predators start in corners or half-way along a side
         if predator_start_coords is None:
             predator_start_coords = [
-                c  # type: ignore
+                c
                 for c in product([0, grid_size // 2, grid_size - 1], repeat=2)
                 if c[0] in (0, grid_size - 1) or c[1] in (0, grid_size - 1)
             ]
-        self.predator_start_coords = predator_start_coords
+        self.predator_start_coords: List[Coord] = predator_start_coords
         self.prey_start_coords = prey_start_coords
 
     def get_ascii_repr(

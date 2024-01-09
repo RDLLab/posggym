@@ -7,9 +7,8 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/wrappers/test_
 import os
 import re
 
-import pytest
-
 import posggym
+import pytest
 from posggym.wrappers.monitoring.video_recorder import VideoRecorder
 
 
@@ -49,7 +48,7 @@ class UnrecordableEnv(posggym.Env):
 
 def test_record_simple():
     env = posggym.make(
-        "Driving-v0",
+        "Driving-v1",
         disable_env_checker=True,
         render_mode="rgb_array",
         num_agents=2,

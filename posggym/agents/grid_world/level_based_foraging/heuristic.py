@@ -2,6 +2,7 @@
 
 Reference:
 https://github.com/uoe-agents/lb-foraging/blob/master/lbforaging/agents/heuristic_agent.py
+https://github.com/uoe-agents/BRDiv/blob/master/envs/lb-foraging/lbforaging/agents/heuristic_agent.py
 
 """
 from __future__ import annotations
@@ -34,7 +35,6 @@ class LBFHeuristicPolicy(Policy[LBFAction, LBFObs]):
         super().__init__(model, agent_id, policy_id)
         assert model.observation_mode in ("vector", "tuple")
         self._rng = random.Random()
-        self.field_width, self.field_height = model.field_size
 
     def reset(self, *, seed: int | None = None):
         super().reset(seed=seed)
@@ -44,45 +44,62 @@ class LBFHeuristicPolicy(Policy[LBFAction, LBFObs]):
     def get_initial_state(self) -> PolicyState:
         state = super().get_initial_state()
         state["last_obs"] = None
+        state["agent_pos"] = None
+        state["target_pos"] = None
         return state
 
     def get_next_state(
         self,
+        action: LBFAction | None,
         obs: LBFObs,
         state: PolicyState,
     ) -> PolicyState:
-        return {"last_obs": obs}
+        model = cast(LevelBasedForagingModel, self.model)
+        agent_obs, food_obs = model.parse_obs(obs)
+        other_agent_obs = [o for o in agent_obs[1:] if o[0] > -1]
+        return {
+            "last_obs": obs,
+            "agent_pos": agent_obs[0][:2],
+            "target_pos": self._get_target_pos(
+                agent_obs[0], food_obs, other_agent_obs, action, state["target_pos"]
+            ),
+        }
 
     def sample_action(self, state: PolicyState) -> LBFAction:
-        return self._get_action_from_obs(state["last_obs"])
+        return self.get_pi(state).sample()
 
     def get_pi(self, state: PolicyState) -> action_distributions.ActionDistribution:
-        pi = self._get_pi_from_obs(state["last_obs"])
-        return action_distributions.DiscreteActionDistribution(pi, self._rng)
+        if state["target_pos"] is None:
+            possible_actions = list(LBFAction)
+        else:
+            possible_actions = self._move_towards(
+                state["agent_pos"], state["target_pos"], load_if_adjacent=True
+            )
+        return action_distributions.DiscreteActionDistribution(
+            {a: 1 / len(possible_actions) for a in possible_actions}, self._rng
+        )
 
     def get_value(self, state: PolicyState) -> float:
         raise NotImplementedError(
             f"`get_value()` no implemented by {self.__class__.__name__} policy"
         )
 
-    def _get_action_from_obs(self, obs: LBFObs) -> LBFAction:
-        """Get action from observation.
-
-        Must be implemented by subclasses.
-        """
+    def _get_target_pos(
+        self,
+        agent_obs: Tuple[int, int, int],
+        food_obs: List[Tuple[int, int, int]],
+        other_agent_obs: List[Tuple[int, int, int]],
+        last_action: LBFAction,
+        target_pos: Optional[Coord],
+    ) -> Optional[Coord]:
+        """Get target position from observations."""
         raise NotImplementedError
 
-    def _get_pi_from_obs(self, obs: LBFObs) -> Dict[LBFAction, float]:
-        """Get action distribution from observation.
-
-        Must be implemented by subclasses.
-        """
-        raise NotImplementedError
-
-    def _closest_food(
+    def _get_food_by_distance(
         self,
         agent_pos: Coord,
         food_obs: List[Tuple[int, int, int]],
+        closest: bool = True,
         max_food_level: Optional[int] = None,
     ) -> Optional[Coord]:
         food_distances: Dict[int, List[Coord]] = {}
@@ -98,219 +115,165 @@ class LBFHeuristicPolicy(Policy[LBFAction, LBFObs]):
             # No food in sight
             return None
 
-        return self._rng.choice(food_distances[min(food_distances)])
+        desired_dist = min(food_distances) if closest else max(food_distances)
+        return self._rng.choice(food_distances[desired_dist])
 
-    def _center_of_agents(self, agent_pos: List[Coord]) -> Coord:
-        y_mean = sum(coord[0] for coord in agent_pos) / len(agent_pos)
-        x_mean = sum(coord[1] for coord in agent_pos) / len(agent_pos)
+    def _center_of_agents(self, agent_obs: List[Tuple[int, int, int]]) -> Coord:
+        y_mean = sum(o[0] for o in agent_obs) / len(agent_obs)
+        x_mean = sum(o[1] for o in agent_obs) / len(agent_obs)
         return round(x_mean), round(y_mean)
 
     def _move_towards(
-        self, agent_pos: Coord, target: Coord, allowed_actions: List[LBFAction]
+        self, agent_pos: Coord, target: Coord, load_if_adjacent: bool = True
     ) -> List[LBFAction]:
-        y, x = agent_pos
-        r, c = target
-
-        valid_actions = []
-        if r < y and LBFAction.NORTH in allowed_actions:
-            valid_actions.append(LBFAction.NORTH)
-        if r > y and LBFAction.SOUTH in allowed_actions:
-            valid_actions.append(LBFAction.SOUTH)
-        if c > x and LBFAction.EAST in allowed_actions:
-            valid_actions.append(LBFAction.EAST)
-        if c < x and LBFAction.WEST in allowed_actions:
-            valid_actions.append(LBFAction.WEST)
-
-        if valid_actions:
-            return valid_actions
-        else:
-            raise ValueError("No simple path found")
-
-    def _get_valid_move_actions(
-        self, agent_obs: List[Tuple[int, int, int]]
-    ) -> List[LBFAction]:
-        y, x = agent_obs[0][:2]
-        other_agent_pos = {o[:2] for o in agent_obs[1:] if o[0] > -1}
-
-        valid_actions = []
-        if y > 0 and (y - 1, x) not in other_agent_pos:
-            valid_actions.append(LBFAction.NORTH)
-        if y < self.field_height - 1 and (y + 1, x) not in other_agent_pos:
-            valid_actions.append(LBFAction.SOUTH)
-        if x < self.field_width - 1 and (y, x + 1) not in other_agent_pos:
-            valid_actions.append(LBFAction.EAST)
-        if x > 0 and (y, x - 1) not in other_agent_pos:
-            valid_actions.append(LBFAction.WEST)
-
-        return valid_actions
-
-    def _get_actions_towards_food(
-        self,
-        agent_obs: List[Tuple[int, int, int]],
-        center_pos: Coord,
-        food_obs: List[Tuple[int, int, int]],
-        max_food_level: Optional[int] = None,
-    ) -> List[LBFAction]:
-        closest_food = self._closest_food(center_pos, food_obs, max_food_level)
-        if closest_food is None:
-            actions = self._get_valid_move_actions(agent_obs)
-            if actions:
-                return actions
-            return [LBFAction.NONE]
-
-        food_y, food_x = closest_food
-        y, x = agent_obs[0][:2]
-        if (abs(food_y - y) + abs(food_x - x)) == 1:
+        if (
+            load_if_adjacent
+            and abs(target[0] - agent_pos[0]) + abs(target[1] - agent_pos[1]) == 1
+        ):
             return [LBFAction.LOAD]
 
-        valid_move_actions = self._get_valid_move_actions(agent_obs)
-        try:
-            return self._move_towards((y, x), (food_y, food_x), valid_move_actions)
-        except ValueError:
-            if valid_move_actions:
-                return valid_move_actions
-            return [LBFAction.NONE]
+        valid_actions = []
+        # Note positioning is relative to observing agents observation grid, not the
+        # global grid. So relative directions are different.
+        if target[0] < agent_pos[0]:
+            valid_actions.append(LBFAction.WEST)
+        elif target[0] > agent_pos[0]:
+            valid_actions.append(LBFAction.EAST)
 
-    def _parse_obs(
-        self, obs: LBFObs
-    ) -> Tuple[List[Tuple[int, int, int]], List[Tuple[int, int, int]]]:
-        model = cast(LevelBasedForagingModel, self.model)
-        return model.parse_obs(obs)
+        if target[1] > agent_pos[1]:
+            valid_actions.append(LBFAction.SOUTH)
+        elif target[1] < agent_pos[1]:
+            valid_actions.append(LBFAction.NORTH)
 
+        if not valid_actions:
+            valid_actions.append(LBFAction.NONE)
+        return valid_actions
 
-class LBFHeuristicPolicy1(LBFHeuristicPolicy):
-    """Level-Based Foraging Heuristic Policy 1.
-
-    This policy always goes to the closest observed food, irrespective of
-    the foods level.
-    """
-
-    def _get_action_from_obs(self, obs: LBFObs) -> LBFAction:
-        agent_obs, food_obs = self._parse_obs(obs)
-        agent_pos = agent_obs[0][:2]
-        actions = self._get_actions_towards_food(agent_obs, agent_pos, food_obs)
-        return self._rng.choice(actions)
-
-    def _get_pi_from_obs(self, obs: LBFObs) -> Dict[LBFAction, float]:
-        agent_obs, food_obs = self._parse_obs(obs)
-        agent_pos = agent_obs[0][:2]
-        actions = self._get_actions_towards_food(agent_obs, agent_pos, food_obs)
-        action_dist = {a: 0.0 for a in LBFAction}
-        for a in actions:
-            action_dist[a] = 1.0 / len(actions)
-        return action_dist
-
-
-class LBFHeuristicPolicy2(LBFHeuristicPolicy):
-    """Level-Based Foraging Heuristic Policy 2.
-
-    This policy goes towards the visible food that is closest to the centre of
-    visible players, irrespective of food level.
-    """
-
-    def _get_action_from_obs(self, obs: LBFObs) -> LBFAction:
-        agent_obs, food_obs = self._parse_obs(obs)
-        other_agent_pos = [o[:2] for o in agent_obs[1:] if o[0] > -1]
-
-        if not other_agent_pos:
-            actions = self._get_valid_move_actions(agent_obs)
-            if actions:
-                return self._rng.choice(actions)
-            return LBFAction.NONE
-
-        center_pos = self._center_of_agents(other_agent_pos)
-        actions = self._get_actions_towards_food(agent_obs, center_pos, food_obs)
-        return self._rng.choice(actions)
-
-    def _get_pi_from_obs(self, obs: LBFObs) -> Dict[LBFAction, float]:
-        agent_obs, food_obs = self._parse_obs(obs)
-        other_agent_pos = [o[:2] for o in agent_obs[1:] if o[0] > -1]
-
-        if not other_agent_pos:
-            # no visible agents
-            actions = self._get_valid_move_actions(agent_obs)
-            if not actions:
-                actions = [LBFAction.NONE]
+    def _get_updated_pos(self, prev_pos: Coord, last_action: LBFAction) -> Coord:
+        # Updates relative position based on last action
+        if last_action == LBFAction.NORTH:
+            return prev_pos[0], prev_pos[1] + 1
+        elif last_action == LBFAction.SOUTH:
+            return prev_pos[0], prev_pos[1] - 1
+        elif last_action == LBFAction.EAST:
+            return prev_pos[0] - 1, prev_pos[1]
+        elif last_action == LBFAction.WEST:
+            return prev_pos[0] + 1, prev_pos[1]
         else:
-            center_pos = self._center_of_agents(other_agent_pos)
-            actions = self._get_actions_towards_food(agent_obs, center_pos, food_obs)
-
-        action_dist = {a: 0.0 for a in LBFAction}
-        for a in actions:
-            action_dist[a] = 1.0 / len(actions)
-        return action_dist
+            return prev_pos
 
 
-class LBFHeuristicPolicy3(LBFHeuristicPolicy):
-    """Level-Based Foraging Heuristic Policy 3.
+class LBFHeuristic1(LBFHeuristicPolicy):
+    """H1 always goes to the closest observed food, irrespective of the foods level."""
 
-    This policy goes towards the closest visible food with a compatible level.
+    def _get_target_pos(
+        self,
+        agent_obs: Tuple[int, int, int],
+        food_obs: List[Tuple[int, int, int]],
+        other_agent_obs: List[Tuple[int, int, int]],
+        last_action: LBFAction,
+        target_pos: Optional[Coord],
+    ) -> Optional[Coord]:
+        agent_pos = agent_obs[:2]
+        return self._get_food_by_distance(
+            agent_pos, food_obs, closest=True, max_food_level=None
+        )
+
+
+class LBFHeuristic2(LBFHeuristicPolicy):
+    """H2 goes towards the visible food closest to the centre of visible players,
+    irrespective of food level.
     """
 
-    def _get_action_from_obs(self, obs: LBFObs) -> LBFAction:
-        agent_obs, food_obs = self._parse_obs(obs)
-        agent_pos = agent_obs[0][:2]
-        agent_level = agent_obs[0][2]
-        actions = self._get_actions_towards_food(
-            agent_obs, agent_pos, food_obs, agent_level
+    def _get_target_pos(
+        self,
+        agent_obs: Tuple[int, int, int],
+        food_obs: List[Tuple[int, int, int]],
+        other_agent_obs: List[Tuple[int, int, int]],
+        last_action: LBFAction,
+        target_pos: Optional[Coord],
+    ) -> Optional[Coord]:
+        if not other_agent_obs:
+            return None
+
+        center_pos = self._center_of_agents(other_agent_obs)
+        return self._get_food_by_distance(
+            center_pos, food_obs, closest=True, max_food_level=None
         )
-        return self._rng.choice(actions)
 
-    def _get_pi_from_obs(self, obs: LBFObs) -> Dict[LBFAction, float]:
-        agent_obs, food_obs = self._parse_obs(obs)
-        agent_pos = agent_obs[0][:2]
-        agent_level = agent_obs[0][2]
-        actions = self._get_actions_towards_food(
-            agent_obs, agent_pos, food_obs, agent_level
+
+class LBFHeuristic3(LBFHeuristicPolicy):
+    """H3 goes towards the closest visible food with a compatible level."""
+
+    def _get_target_pos(
+        self,
+        agent_obs: Tuple[int, int, int],
+        food_obs: List[Tuple[int, int, int]],
+        other_agent_obs: List[Tuple[int, int, int]],
+        last_action: LBFAction,
+        target_pos: Optional[Coord],
+    ) -> Optional[Coord]:
+        agent_pos, agent_level = agent_obs[:2], agent_obs[2]
+        return self._get_food_by_distance(
+            agent_pos, food_obs, closest=True, max_food_level=agent_level
         )
-        action_dist = {a: 0.0 for a in LBFAction}
-        for a in actions:
-            action_dist[a] = 1.0 / len(actions)
-        return action_dist
 
 
-class LBFHeuristicPolicy4(LBFHeuristicPolicy):
-    """Level-Based Foraging Heuristic Policy 4.
-
-    This policy goes towards the visible food which is closest to all visible
-    agents such that the sum of their and the policy agent's level is
-    sufficient to load the food.
+class LBFHeuristic4(LBFHeuristicPolicy):
+    """H4 selects and goes towards the visible food that is furthest from the center of
+    visible players and that is compatible with the agents level.
     """
 
-    def _get_action_from_obs(self, obs: LBFObs) -> LBFAction:
-        agent_obs, food_obs = self._parse_obs(obs)
-        other_agent_pos = [o[:2] for o in agent_obs[1:] if o[0] > -1]
+    def _get_target_pos(
+        self,
+        agent_obs: Tuple[int, int, int],
+        food_obs: List[Tuple[int, int, int]],
+        other_agent_obs: List[Tuple[int, int, int]],
+        last_action: LBFAction,
+        target_pos: Optional[Coord],
+    ) -> Optional[Coord]:
+        if target_pos is not None:
+            # At the start of an episode it will select a target food and move towards
+            # it. Each time it's current target food is collected it then selects a new
+            # target based on the heuristic above.
+            new_target_pos = self._get_updated_pos(target_pos, last_action)
+            if new_target_pos in (f[:2] for f in food_obs):
+                return new_target_pos
 
-        if not other_agent_pos:
-            actions = self._get_valid_move_actions(agent_obs)
-            if actions:
-                return self._rng.choice(actions)
-            return LBFAction.NONE
+        # select new target
+        if not other_agent_obs:
+            # act randomly until we see other agents
+            return None
 
-        agent_level_sum = sum([o[2] for o in agent_obs if o[0] > -1])
-        center_pos = self._center_of_agents(other_agent_pos)
-        actions = self._get_actions_towards_food(
-            agent_obs, center_pos, food_obs, agent_level_sum
+        center_pos = self._center_of_agents(other_agent_obs)
+        return self._get_food_by_distance(
+            center_pos, food_obs, closest=False, max_food_level=agent_obs[2]
         )
-        return self._rng.choice(actions)
 
-    def _get_pi_from_obs(self, obs: LBFObs) -> Dict[LBFAction, float]:
-        agent_obs, food_obs = self._parse_obs(obs)
-        other_agent_pos = [o[:2] for o in agent_obs[1:] if o[0] > -1]
 
-        if not other_agent_pos:
-            # no visible agents
-            actions = self._get_valid_move_actions(agent_obs)
-            if not actions:
-                actions = [LBFAction.NONE]
-        else:
-            agent_level_sum = sum([o[2] for o in agent_obs if o[0] > -1])
-            center_pos = self._center_of_agents(other_agent_pos)
-            actions = self._get_actions_towards_food(
-                agent_obs, center_pos, food_obs, agent_level_sum
-            )
+class LBFHeuristic5(LBFHeuristicPolicy):
+    """H5 targets a random visible food whose level is compatible with all visible
+    agents.
+    """
 
-        action_dist = {a: 0.0 for a in LBFAction}
-        for a in actions:
-            action_dist[a] = 1.0 / len(actions)
-        return action_dist
+    def _get_target_pos(
+        self,
+        agent_obs: Tuple[int, int, int],
+        food_obs: List[Tuple[int, int, int]],
+        other_agent_obs: List[Tuple[int, int, int]],
+        last_action: LBFAction,
+        target_pos: Optional[Coord],
+    ) -> Optional[Coord]:
+        if target_pos is not None:
+            # At the start of an episode it will select a target food and move towards
+            # it. Each time it's current target food is collected it then selects a new
+            # target based on the heuristic above.
+            new_target_pos = self._get_updated_pos(target_pos, last_action)
+            if new_target_pos in (f[:2] for f in food_obs):
+                return new_target_pos
+
+        level_sum = sum([o[2] for o in other_agent_obs]) + agent_obs[2]
+        food_coords = [f[:2] for f in food_obs if f[1] > -1 and f[2] <= level_sum]
+        if not food_coords:
+            return None
+        return self._rng.choice(food_coords)

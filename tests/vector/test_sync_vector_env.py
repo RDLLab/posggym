@@ -5,10 +5,9 @@ https://github.com/Farama-Foundation/Gymnasium/blob/main/tests/vector/test_sync_
 """
 
 import numpy as np
+import posggym
 import pytest
 from gymnasium import spaces
-
-import posggym
 from posggym.vector.sync_vector_env import SyncVectorEnv
 
 
@@ -31,7 +30,7 @@ def test_create_sync_vector_env():
 
 
 def test_discrete_action_space_sync_vector_env():
-    env_fns = [make_env("Driving-v0", i) for i in range(8)]
+    env_fns = [make_env("Driving-v1", i) for i in range(8)]
     env = SyncVectorEnv(env_fns)
     env.close()
 
@@ -135,7 +134,7 @@ def test_step_sync_vector_env(use_single_action_space):
 
 
 def test_call_sync_vector_env():
-    env_fns = [make_env("Driving-v0", i, render_mode="rgb_array") for i in range(4)]
+    env_fns = [make_env("Driving-v1", i, render_mode="rgb_array") for i in range(4)]
 
     env = SyncVectorEnv(env_fns)
     env.reset()

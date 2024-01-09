@@ -10,14 +10,13 @@ __email__ = "sanderschulhoff@gmail.com"
 import os
 import re
 from functools import reduce
-from typing import List, Dict
+from typing import Dict, List
 
 from tqdm import tqdm
+from utils import kill_strs, trim
 
 import posggym
 from posggym.envs.registration import EnvSpec
-from utils import kill_strs, trim
-
 
 pattern = re.compile(r"(?<!^)(?=[A-Z])")
 
@@ -125,7 +124,7 @@ title: {title_env_name}
             gif = (
                 "```{figure}"
                 + f" ../../_static/videos/{env_type}/{snake_env_name}.gif"
-                + f" \n:width: 200px\n:name: {snake_env_name}\n```"
+                + f"\n:width: 200px\n:name: {snake_env_name}\n```"
             )
         else:
             gif = ""

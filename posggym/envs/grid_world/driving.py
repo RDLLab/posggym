@@ -21,14 +21,6 @@ class Speed(enum.IntEnum):
     FORWARD_FAST = 3
 
 
-class CollisionType(enum.IntEnum):
-    """Type of collision for a vehicle."""
-
-    NONE = 0
-    OBSTACLE = 1
-    VEHICLE = 2
-
-
 class VehicleState(NamedTuple):
     """The state of a vehicle in the Driving Environment."""
 
@@ -39,6 +31,7 @@ class VehicleState(NamedTuple):
     dest_reached: int
     crashed: int
     min_dest_dist: int
+    init_dest_dist: int
 
 
 DState = Tuple[VehicleState, ...]
@@ -58,8 +51,13 @@ TURN_LEFT = 4
 ACTIONS = [DO_NOTHING, ACCELERATE, DECELERATE, TURN_RIGHT, TURN_LEFT]
 ACTIONS_STR = ["0", "acc", "dec", "tr", "tl"]
 
-# Obs = (adj_obs, speed, dest_coord, dest_reached, crashed)
-DObs = Tuple[Tuple[int, ...], Speed, Coord, int, int]
+# Obs = [
+# V0 Obs = (adj_obs, speed, dest_coord, dest_reached, crashed)
+# V1 Obs = (adj_obs, speed, Coord, dest_coord, dest_reached, crashed)
+DObs = Union[
+    Tuple[Tuple[int, ...], Speed, Coord, int, int],
+    Tuple[Tuple[int, ...], Speed, Coord, Coord, int, int],
+]
 
 # Cell obs
 VEHICLE = 0
@@ -76,8 +74,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
 
     A general-sum 2D grid world problem involving multiple agents. Each agent
     controls a vehicle and is tasked with driving the vehicle from it's start
-    location to a destination location while avoiding crashing into obstacles
-    or other vehicles.
+    location to a destination location while avoiding crashing into other vehicles.
 
     This environment requires each agent to navigate in the world while also
     taking care to avoid crashing into other agents. The dynamics and
@@ -98,15 +95,17 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
     Each state is made up of the state of each vehicle, which in turn is defined by:
 
     - the `(x, y)` coordinates (x=column, y=row, with origin at the top-left square of
-      the grid) of the vehicle,
+        the grid) of the vehicle,
     - the direction the vehicle is facing `NORTH=0`, `EAST=1`, `SOUTH=2`, `WEST=3`,
     - the speed of the vehicle: `REVERSE=0`, `STOPPED=1`, `FORWARD_SLOW=2`,
-      `FORWARD_FAST=2`,
+        `FORWARD_FAST=2`,
     - the `(x, y)` coordinate of the vehicles destination
     - whether the vehicle has reached it's destination or not: `1` or `0`
     - whether the vehicle has crashed or not: `1` or `0`
     - the minimum distance to the destination achieved by the vehicle in the current
-      episode.
+        episode.
+    - the initial distance of the vehicle to the destination at the start of the
+        episode.
 
     Action Space
     ------------
@@ -116,27 +115,28 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
     Observation Space
     -----------------
     Each agent observes the cells in their local area, as well as their current speed,
-    their destination location, whether they've reached their destination, and whether
-    they've crashed. The size of the local area observed is controlled by the `obs_dims`
-    parameter (default = `(3, 1, 1)`, 3 cells in front, one cell behind, and 1 cell each
-    side, giving a observation size of 5x3). For each cell in the observed area the
-    agent observes whether the cell contains a `VEHICLE=0`, `WALL=1`, `EMPTY=2`, or it's
-    `DESTINATION=3`.
+    current location, their destination location, whether they've reached their
+    destination, and whether they've crashed. The size of the local area observed is
+    controlled by the `obs_dims` parameter (default = `(3, 1, 1)`, 3 cells in front,
+    one cell behind, and 1 cell each side, giving a observation size of 5x3).For each
+    cell in the observed area the agent observes whether the cell contains a
+    `VEHICLE=0`, `WALL=1`, `EMPTY=2`, or it's `DESTINATION=3`.
 
     All together each agent's observation is tuple of the form:
 
-        ((local obs), speed, destination coord, destination reached, crashed)
+        ((local obs), speed, coord, destination coord, destination reached, crashed)
 
     Rewards
     -------
-    All agents receive a penalty of `0.0` for each step. They receive a penalty of
-    `-1.0` for crashing (i.e. hitting another vehicle), and `-0.05` for moving into a
-    wall. A reward of `1.0` is given if the agent reaches it's destination and a reward
-    of `0.05` is given if the agent makes progress towards it's destination (i.e. it
-    reduces it's minimum distance achieved to the destination for the episode).
-
-    If `obstacle_collision=True` then running into a wall is treated as crashing the
-    vehicle, and so results in a penalty of `-1.0`.
+    If an agent crashes into a vehicle (or is crashed into) they receive a penalty of
+    `-1.0`. A reward of `0.5` is given if the agent reaches it's destination.
+    Additionally, agents receive a small reward each step they makes progress towards
+    their destination (i.e. the agent reduces it's minimum distance achieved to the
+    destination for the episode). The total amount of reward and agent receives for
+    making progress is `0.5`, and is distributed evenly across all steps the agent
+    makes progress. This means if the agent reaches their destination they will receive
+    a total reward of `1.0` (`0.5` for reaching their destination, and `0.5` for
+    progress).
 
     Dynamics
     --------
@@ -144,15 +144,14 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
     facing and it's speed:
 
     - Speed=0 (REVERSE) - vehicle moves one cell in the opposite direction to which it
-        is facing
+        is facing (vehicles cannot turn while in reverse)
     - Speed=1 (STOPPED) - vehicle remains in same cell
     - Speed=2 (FORWARD_SLOW) - vehicle move one cell in facing direction
     - Speed=3 (FORWARD_FAST) - vehicle moves two cells in facing direction
 
     Accelerating increases speed by 1, while deceleration decreased speed by 1. If the
     vehicle will hit a wall or another vehicle when moving from one cell to another then
-    it remains in it's current cell and it's crashed state variable is updated
-    appropriately.
+    it remains in it's current cell and it's speed is reduced to 1 (STOPPED).
 
     Starting State
     --------------
@@ -173,15 +172,12 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
     ---------
 
     - `grid` - the grid layout to use. This can either be a string specifying one of
-         the supported grids, or a custom :class:`DrivingGrid` object
-         (default = `"14x14RoundAbout"`).
+        the supported grids, or a custom :class:`DrivingGrid` object
+        (default = `"14x14RoundAbout"`).
     - `num_agents` - the number of agents in the environment (default = `2`).
     - `obs_dim` - the local observation dimensions, specifying how many cells in front,
-         behind, and to each side the agent observes (default = `(3, 1, 1)`, resulting
-         in the agent observing a 5x3 area: 3 in front, 1 behind, 1 to each side.)
-    - `obstacle_collisions` -  whether running into a wall results in the agent's
-         vehicle crashing and thus the agent reaching a terminal state. This can make
-         the problem significantly harder (default = "False").
+        behind, and to each side the agent observes (default = `(3, 1, 1)`, resulting
+        in the agent observing a 5x3 area: 3 in front, 1 behind, 1 to each side.)
 
     Available variants
     ------------------
@@ -206,11 +202,20 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
 
     ```python
     import posggym
-    env = posggym.make('Driving-v0', grid="7x7RoundAbout", num_agents=2)
+    env = posggym.make('Driving-v1', grid="7x7RoundAbout", num_agents=2)
     ```
 
     Version History
     ---------------
+    - `v1`: Major update:
+        - Added agent's current location to observation space (to allow for the
+          creation of heuristic policies for the environment and mimics GPS),
+        - made it so vehicles speed is reduced to 0 if they crash or hit a wall (instead
+          of remaining at their current speed),
+        - removed obstacle collisions option entirely (since it wasn't really used, and
+          not core to what the environment is testing),
+        - updated reward so max return is 1.0 (0.5 for reaching destination, and 0.5
+          from progress) and min return is -1.0 (-1.0 for crashing),
     - `v0`: Initial version
 
     References
@@ -231,14 +236,13 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
 
     def __init__(
         self,
-        grid: Union[str, "DrivingGrid"] = "7x7RoundAbout",
+        grid: Union[str, "DrivingGrid"] = "14x14RoundAbout",
         num_agents: int = 2,
         obs_dim: Tuple[int, int, int] = (3, 1, 1),
-        obstacle_collisions: bool = False,
         render_mode: Optional[str] = None,
     ):
         super().__init__(
-            DrivingModel(grid, num_agents, obs_dim, obstacle_collisions),
+            DrivingModel(grid, num_agents, obs_dim),
             render_mode=render_mode,
         )
         self._obs_dim = obs_dim
@@ -369,24 +373,17 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
     obs_dims : (int, int, int)
         number of cells in front, behind, and to the side that each agent
         can observe
-    obstacle_collisions : bool
-        whether cars can crash into wall and other obstacles, on top of
-        crashing into other vehicles
-
     """
 
-    R_STEP_COST = 0.00
-    R_CRASH_OBJECT = -0.05
     R_CRASH_VEHICLE = -1.0
-    R_DESTINATION_REACHED = 1.0
-    R_PROGRESS = 0.05
+    R_DESTINATION_REACHED = 0.5
+    R_PROGRESS_TOTAL = 0.5
 
     def __init__(
         self,
         grid: Union[str, "DrivingGrid"],
         num_agents: int,
         obs_dim: Tuple[int, int, int],
-        obstacle_collisions: bool,
     ):
         if isinstance(grid, str):
             assert grid in SUPPORTED_GRIDS, (
@@ -411,8 +408,8 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
         assert obs_dim[0] > 0 and obs_dim[1] >= 0 and obs_dim[2] >= 0
         self._grid = grid
+        self.obs_dim = obs_dim
         self._obs_front, self._obs_back, self._obs_side = obs_dim
-        self._obstacle_collisions = obstacle_collisions
 
         def _coord_space():
             return spaces.Tuple(
@@ -430,9 +427,10 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                         _coord_space(),  # destination coord
                         spaces.Discrete(2),  # destination reached
                         spaces.Discrete(2),  # crashed
-                        # min distance to destination
-                        # set this to upper bound of min shortest path distance, so
+                        # min and init distance to destination
+                        # set these to upper bound of min shortest path distance, so
                         # state space works for generated grids as well
+                        spaces.Discrete(self.grid.width * self.grid.height),
                         spaces.Discrete(self.grid.width * self.grid.height),
                     )
                 )
@@ -442,6 +440,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         self.action_spaces = {
             i: spaces.Discrete(len(ACTIONS)) for i in self.possible_agents
         }
+
         obs_depth = self._obs_front + self._obs_back + 1
         obs_width = (2 * self._obs_side) + 1
         self.observation_spaces = {
@@ -454,6 +453,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                         )
                     ),
                     spaces.Discrete(len(Speed)),
+                    _coord_space(),  # current coord
                     _coord_space(),  # dest coord,
                     spaces.Discrete(2),  # dest reached
                     spaces.Discrete(2),  # crashed
@@ -466,14 +466,17 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
     @property
     def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
         return {
-            i: (self.R_CRASH_VEHICLE, self.R_DESTINATION_REACHED)
+            i: (
+                self.R_CRASH_VEHICLE,
+                self.R_DESTINATION_REACHED + self.R_PROGRESS_TOTAL,
+            )
             for i in self.possible_agents
         }
 
     @property
     def rng(self) -> seeding.RNG:
         if self._rng is None:
-            self._rng, seed = seeding.std_random()
+            self._rng, _ = seeding.std_random()
         return self._rng
 
     def get_agents(self, state: DState) -> List[str]:
@@ -516,36 +519,22 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 dest_reached=int(False),
                 crashed=int(False),
                 min_dest_dist=dest_dist,
+                init_dest_dist=dest_dist,
             )
             state.append(state_i)
         return tuple(state)
 
     def sample_agent_initial_state(self, agent_id: str, obs: DObs) -> DState:
         agent_idx = int(agent_id)
-        possible_agent_start_coords = set()
-        agent_dest_coords = obs[2]
-
-        # Need to get start states for agent that are valid given initial obs
-        # Need to handle possible start states for other agents
-        for all_agent_start_coords in product(
-            *[list(s) for s in self.grid.start_coords[: len(self.possible_agents)]]
-        ):
-            if len(set(all_agent_start_coords)) != len(all_agent_start_coords):
-                # skip any sets of start coord that contain duplicates
-                continue
-            local_obs = self._get_local_cell__obs(
-                agent_idx, all_agent_start_coords, INIT_DIR, agent_dest_coords
-            )
-            if local_obs == obs[0]:
-                possible_agent_start_coords.add(all_agent_start_coords[agent_idx])
+        agent_start_coord = obs[2]
+        agent_dest_coord = obs[3]
 
         state = []
         chosen_start_coords: Set[Coord] = set()
         chosen_dest_coords: Set[Coord] = set()
 
-        agent_start_coord = self.rng.choice(list(possible_agent_start_coords))
         chosen_start_coords.add(agent_start_coord)
-        chosen_dest_coords.add(agent_dest_coords)
+        chosen_dest_coords.add(agent_dest_coord)
 
         for i in range(len(self.possible_agents)):
             if i == agent_idx:
@@ -557,7 +546,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 chosen_start_coords.add(start_coord)
 
             if i == agent_idx:
-                dest_coord = agent_dest_coords
+                dest_coord = agent_dest_coord
             else:
                 dest_coords_i = self.grid.dest_coords[i]
                 avail_coords = dest_coords_i.difference(chosen_dest_coords)
@@ -576,6 +565,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 dest_reached=int(False),
                 crashed=int(False),
                 min_dest_dist=dest_dist,
+                init_dest_dist=dest_dist,
             )
             state.append(state_i)
         return tuple(state)
@@ -587,9 +577,9 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         self, state: DState, actions: Dict[str, DAction]
     ) -> M.JointTimestep[DState, DObs]:
         assert all(a_i in ACTIONS for a_i in actions.values())
-        next_state, collision_types = self._get_next_state(state, actions)
+        next_state = self._get_next_state(state, actions)
         obs = self._get_obs(next_state)
-        rewards = self._get_rewards(state, next_state, collision_types)
+        rewards = self._get_rewards(state, next_state)
         terminated = {
             i: bool(next_state[int(i)].dest_reached or next_state[int(i)].crashed)
             for i in self.possible_agents
@@ -613,68 +603,52 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
     def _get_next_state(
         self, state: DState, actions: Dict[str, DAction]
-    ) -> Tuple[DState, List[CollisionType]]:
+    ) -> Tuple[DState, List[bool]]:
         exec_order = list(range(len(self.possible_agents)))
         self.rng.shuffle(exec_order)
 
         next_state = list(state)
-        vehicle_coords = {vs.coord for vs in state}
-        collision_types = [CollisionType.NONE] * len(self.possible_agents)
-
+        vehicle_coords = {vs.coord: idx for idx, vs in enumerate(state)}
         for idx in exec_order:
             state_i = state[idx]
-            agent_id = str(idx)
-            if agent_id not in actions:
-                assert state_i.crashed or state_i.dest_reached
-                action_i = DO_NOTHING
-            else:
-                action_i = actions[agent_id]
-
             next_state_i = next_state[idx]
-            if state_i.dest_reached or next_state_i.crashed:
-                # already at destination or crashed, or was crashed into this
-                # step
+            if state_i.dest_reached or state_i.crashed or next_state_i.crashed:
+                # already in terminal/rewarded state, or was crashed into this step
                 continue
 
-            vehicle_coords.remove(state_i.coord)
+            action_i = actions[str(idx)]
 
-            next_speed = self._get_next_speed(action_i, state_i.speed)
-            move_dir = self._get_move_direction(
-                action_i, next_speed, state_i.facing_dir
-            )
-            next_dir = self._get_next_direction(action_i, state_i.facing_dir)
-            next_speed = self._get_next_speed(action_i, state_i.speed)
-            next_coord, collision_type, hit_vehicle = self._get_next_coord(
+            vehicle_coords.pop(state_i.coord)
+
+            next_speed = self.get_next_speed(action_i, state_i.speed)
+            move_dir = self.get_move_direction(action_i, next_speed, state_i.facing_dir)
+            next_dir = self.get_next_direction(action_i, next_speed, state_i.facing_dir)
+            next_coord, crashed, hit_vehicle = self._get_next_coord(
                 state_i.coord, next_speed, move_dir, vehicle_coords
             )
+            if next_coord == state_i.coord:
+                # crashed or hit a wall
+                next_speed = Speed.STOPPED
 
             min_dest_dist = min(
                 state_i.min_dest_dist,
                 self.grid.get_shortest_path_distance(next_coord, state_i.dest_coord),
             )
 
-            crashed = False
-            if collision_type == CollisionType.VEHICLE:
+            if crashed:
                 # update state of vehicle that was hit
-                crashed = True
-                collision_types[idx] = collision_type
-                for jdx in range(len(self.possible_agents)):
-                    next_state_j = next_state[jdx]
-                    if next_state_j.coord == hit_vehicle:
-                        collision_types[jdx] = CollisionType.VEHICLE
-                        next_state[jdx] = VehicleState(
-                            coord=next_state_j.coord,
-                            facing_dir=next_state_j.facing_dir,
-                            speed=next_state_j.speed,
-                            dest_coord=next_state_j.dest_coord,
-                            dest_reached=next_state_j.dest_reached,
-                            crashed=int(True),
-                            min_dest_dist=next_state_j.min_dest_dist,
-                        )
-                        break
-            elif collision_type == CollisionType.OBSTACLE:
-                crashed = self._obstacle_collisions
-                collision_types[idx] = collision_type
+                jdx = vehicle_coords[hit_vehicle]
+                next_state_j = next_state[jdx]
+                next_state[jdx] = VehicleState(
+                    coord=next_state_j.coord,
+                    facing_dir=next_state_j.facing_dir,
+                    speed=next_state_j.speed,
+                    dest_coord=next_state_j.dest_coord,
+                    dest_reached=next_state_j.dest_reached,
+                    crashed=int(True),
+                    min_dest_dist=next_state_j.min_dest_dist,
+                    init_dest_dist=next_state_j.init_dest_dist,
+                )
 
             next_state[idx] = VehicleState(
                 coord=next_coord,
@@ -684,59 +658,35 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 dest_reached=int(next_coord == state_i.dest_coord),
                 crashed=int(crashed),
                 min_dest_dist=min_dest_dist,
+                init_dest_dist=state_i.init_dest_dist,
             )
 
-            vehicle_coords.add(next_coord)
+            vehicle_coords[next_coord] = idx
 
-        return tuple(next_state), collision_types
+        return tuple(next_state)
 
-    def _reset_vehicle(
-        self, v_idx: int, vs_i: VehicleState, vehicle_coords: Set[Coord]
-    ) -> VehicleState:
-        if not (vs_i.dest_reached or vs_i.crashed):
-            return vs_i
-
-        start_coords_i = self.grid.start_coords[v_idx]
-        avail_start_coords = start_coords_i.difference(vehicle_coords)
-
-        if vs_i.coord in start_coords_i:
-            # add it back in since it will be remove during difference op
-            avail_start_coords.add(vs_i.coord)
-
-        new_coord = self.rng.choice(list(avail_start_coords))
-
-        min_dest_dist = self.grid.manhattan_dist(new_coord, vs_i.dest_coord)
-
-        new_vs_i = VehicleState(
-            coord=new_coord,
-            facing_dir=INIT_DIR,
-            speed=INIT_SPEED,
-            dest_coord=vs_i.dest_coord,
-            dest_reached=int(False),
-            crashed=int(False),
-            min_dest_dist=min_dest_dist,
-        )
-        return new_vs_i
-
-    def _get_move_direction(
-        self, action: DAction, speed: Speed, curr_dir: Direction
+    @staticmethod
+    def get_move_direction(
+        action: DAction, speed: Speed, curr_dir: Direction
     ) -> Direction:
         if speed == Speed.REVERSE:
             # No turning while in reverse,
-            # so movement dir is just the opposite of current direction
+            # so movement dir is always just the opposite of current direction
             return Direction((curr_dir + 2) % len(Direction))
-        return self._get_next_direction(action, curr_dir)
+        return DrivingModel.get_next_direction(action, speed, curr_dir)
 
     @staticmethod
-    def _get_next_direction(action: DAction, curr_dir: Direction) -> Direction:
-        if action == TURN_RIGHT:
+    def get_next_direction(
+        action: DAction, speed: Speed, curr_dir: Direction
+    ) -> Direction:
+        if action == TURN_RIGHT and speed != Speed.REVERSE:
             return Direction((curr_dir + 1) % len(Direction))
-        if action == TURN_LEFT:
+        if action == TURN_LEFT and speed != Speed.REVERSE:
             return Direction((curr_dir - 1) % len(Direction))
         return curr_dir
 
     @staticmethod
-    def _get_next_speed(action: DAction, curr_speed: Speed) -> Speed:
+    def get_next_speed(action: DAction, curr_speed: Speed) -> Speed:
         if action == DO_NOTHING:
             return curr_speed
         if action in (TURN_LEFT, TURN_RIGHT):
@@ -753,26 +703,23 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         speed: Speed,
         move_dir: Direction,
         vehicle_coords: Set[Coord],
-    ) -> Tuple[Coord, CollisionType, Optional[Coord]]:
+    ) -> Tuple[Coord, bool, Optional[Coord]]:
         # assumes curr_coord isn't in vehicle coords
         next_coord = curr_coord
-        collision = CollisionType.NONE
+        crashed = False
         hit_vehicle_coord = None
-        for i in range(abs(speed - Speed.STOPPED)):
+        for _ in range(abs(speed - Speed.STOPPED)):
             next_coord = self.grid.get_next_coord(
                 curr_coord, move_dir, ignore_blocks=False
             )
-            if next_coord == curr_coord:
-                collision = CollisionType.OBSTACLE
-                break
-            elif next_coord in vehicle_coords:
-                collision = CollisionType.VEHICLE
+            if next_coord in vehicle_coords:
+                crashed = True
                 hit_vehicle_coord = next_coord
                 next_coord = curr_coord
                 break
             curr_coord = next_coord
 
-        return (next_coord, collision, hit_vehicle_coord)
+        return (next_coord, crashed, hit_vehicle_coord)
 
     def _get_obs(self, state: DState) -> Dict[str, DObs]:
         obs: Dict[str, DObs] = {}
@@ -787,6 +734,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             obs[i] = (
                 local_cell_obs,
                 state[idx].speed,
+                state[idx].coord,
                 state[idx].dest_coord,
                 state[idx].dest_reached,
                 state[idx].crashed,
@@ -805,7 +753,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         agent_coord = vehicle_coords[agent_idx]
 
         cell_obs = []
-        for col, row in product(range(obs_width), range(obs_depth)):
+        for row, col in product(range(obs_depth), range(obs_width)):
             obs_grid_coord = self._map_obs_to_grid_coord(
                 (col, row), agent_coord, facing_dir
             )
@@ -840,7 +788,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         return None
 
     def get_obs_coords(self, origin: Coord, facing_dir: Direction) -> List[Coord]:
-        """Get the list of coords observed from agent at origin."""
+        """Get the list of coords observed by agent at origin."""
         obs_depth = self._obs_front + self._obs_back + 1
         obs_width = (2 * self._obs_side) + 1
         obs_coords: List[Coord] = []
@@ -850,34 +798,24 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 obs_coords.append(obs_grid_coord)
         return obs_coords
 
-    def _get_rewards(
-        self, state: DState, next_state: DState, collision_types: List[CollisionType]
-    ) -> Dict[str, float]:
+    def _get_rewards(self, state: DState, next_state: DState) -> Dict[str, float]:
         rewards: Dict[str, float] = {}
         for i in self.possible_agents:
             idx = int(i)
             if state[idx].crashed or state[idx].dest_reached:
                 # already in terminal/rewarded state
                 r_i = 0.0
-            elif (
-                self._obstacle_collisions
-                and collision_types[idx] == CollisionType.OBSTACLE
-            ) or collision_types[idx] == CollisionType.VEHICLE:
-                # Treat as if crashed into a vehicle
+            elif next_state[idx].crashed:
+                # crashed into a vehicle this step
                 r_i = self.R_CRASH_VEHICLE
             elif next_state[idx].dest_reached:
                 r_i = self.R_DESTINATION_REACHED
             else:
-                r_i = self.R_STEP_COST
+                r_i = 0.0
 
             progress = state[idx].min_dest_dist - next_state[idx].min_dest_dist
-            r_i += max(0, progress) * self.R_PROGRESS
+            r_i += self.R_PROGRESS_TOTAL * max(0, progress / state[idx].init_dest_dist)
 
-            if (
-                not self._obstacle_collisions
-                and collision_types[idx] == CollisionType.OBSTACLE
-            ):
-                r_i += self.R_CRASH_OBJECT
             rewards[i] = r_i
         return rewards
 

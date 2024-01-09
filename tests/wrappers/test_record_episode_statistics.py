@@ -5,14 +5,13 @@ https://github.com/Farama-Foundation/Gymnasium/blob/main/tests/wrappers/test_rec
 
 """
 import numpy as np
-import pytest
-
 import posggym
-from posggym.wrappers import RecordEpisodeStatistics
+import pytest
 from posggym.vector.sync_vector_env import SyncVectorEnv
+from posggym.wrappers import RecordEpisodeStatistics
 
 
-@pytest.mark.parametrize("env_id", ["MultiAccessBroadcastChannel-v0", "Driving-v0"])
+@pytest.mark.parametrize("env_id", ["MultiAccessBroadcastChannel-v0", "Driving-v1"])
 @pytest.mark.parametrize("deque_size", [2, 5])
 def test_record_episode_statistics(env_id, deque_size):
     env = posggym.make(env_id, max_episode_steps=10, disable_env_checker=True)

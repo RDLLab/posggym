@@ -3,27 +3,26 @@ import os
 import os.path as osp
 import shutil
 
-import pytest
-
-from posggym import error
 import posggym.agents.grid_world.driving as driving_agents
-from posggym.config import AGENT_MODEL_REPO_URL
+import pytest
+from posggym import error
 from posggym.agents.utils import download
+from posggym.config import AGENT_MODEL_REPO_URL
 
 
-TEST_POLICY_FILE_NAME = "klr_k0_seed0.pkl"
+ENV_ID = "Driving-v1"
+ENV_ARGS_ID = "grid=14x14RoundAbout-num_agents=2"
+TEST_POLICY_FILE_NAME = "RL1.pkl"
 TEST_POLICY_FILE = osp.join(
     driving_agents.agent_model_dir,
-    "grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False",
+    ENV_ARGS_ID,
     TEST_POLICY_FILE_NAME,
 )
 TEST_POLICY_FILE_URL = AGENT_MODEL_REPO_URL + (
-    "posggym/agents/grid_world/driving/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/"
-    f"{TEST_POLICY_FILE_NAME}"
+    f"posggym/agents/grid_world/driving/{ENV_ARGS_ID}/{TEST_POLICY_FILE_NAME}"
 )
 TEST_BAD_POLICY_FILE_URL = AGENT_MODEL_REPO_URL + (
-    "posggym/agents/grid_world/not_agents_dir/grid=14x14RoundAbout-num_agents=2-obs_dim=(3,1,1)-obstacle_collisions=False/"
-    f"{TEST_POLICY_FILE_NAME}"
+    f"posggym/agents/grid_world/not_agents_dir/{ENV_ARGS_ID}/{TEST_POLICY_FILE_NAME}"
 )
 TEST_OUTPUT_DIR = osp.join(osp.dirname(osp.abspath(__file__)), "output")
 TEST_FILE_DEST = osp.join(TEST_OUTPUT_DIR, TEST_POLICY_FILE_NAME)

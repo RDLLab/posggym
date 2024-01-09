@@ -101,8 +101,8 @@ Arguments
 ---------
 
 - `grid` - the grid layout to use. This can either be a string specifying one of
-     the supported grids, or a custom :class:`PredatorPreyGrid` object
-     (default = `"10x10"`).
+    the supported grids, or a custom :class:`PredatorPreyGrid` object
+    (default = `"10x10"`).
 - `num_predators` - the number of predator (and thus controlled agents)
     (default = `2`).
 - `num_prey` - the number of prey (default = `3`)
@@ -117,7 +117,6 @@ Arguments
 
 Available variants
 ------------------
-
 The PredatorPrey environment comes with a number of pre-built grid layouts which can
 be passed as an argument to `posggym.make`, to create different grids. All layouts
 support 2 to 8 agents.

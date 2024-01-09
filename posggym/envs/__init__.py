@@ -8,7 +8,6 @@ import math
 
 from posggym.envs.registration import make, pprint_registry, register, registry, spec
 
-
 # Classic
 # -------------------------------------------
 
@@ -86,54 +85,62 @@ register(
 # Grid World
 # -------------------------------------------
 
+# Cooperative Reaching
+register(
+    id="CooperativeReaching-v0",
+    entry_point="posggym.envs.grid_world.cooperative_reaching:CooperativeReachingEnv",
+    max_episode_steps=50,
+    kwargs={
+        "size": 5,
+        "num_goals": 4,
+        "mode": "original",
+        "obs_distance": None,
+    },
+)
+
+
 # Driving
 register(
-    id="Driving-v0",
+    id="Driving-v1",
     entry_point="posggym.envs.grid_world.driving:DrivingEnv",
     max_episode_steps=50,
     kwargs={
         "grid": "14x14RoundAbout",
         "num_agents": 2,
         "obs_dim": (3, 1, 1),
-        "obstacle_collisions": False,
     },
 )
 
 
 # Driving Gen
-# Default grid generator params is "14x14"
 register(
-    id="DrivingGen-v0",
+    id="DrivingGen-v1",
     entry_point="posggym.envs.grid_world.driving_gen:DrivingGenEnv",
     max_episode_steps=50,
     kwargs={
         "num_agents": 2,
         "obs_dim": (3, 1, 1),
-        "obstacle_collisions": False,
         "generator_params": "14x14",
         "n_grids": None,
         "shuffle_grid_order": True,
     },
 )
 
-
 # Level-Based Foraging
 # Based on github.com/semitable/lb-foraging/
 register(
-    id="LevelBasedForaging-v2",
+    id="LevelBasedForaging-v3",
     entry_point="posggym.envs.grid_world.level_based_foraging:LevelBasedForagingEnv",
     max_episode_steps=50,
     kwargs={
         "num_agents": 2,
         "max_agent_level": 3,
-        "field_size": (10, 10),
+        "size": 10,
         "max_food": 8,
         "sight": 2,
         "force_coop": False,
         "static_layout": False,
-        "normalize_reward": True,
         "observation_mode": "tuple",
-        "penalty": 0.0,
     },
 )
 
@@ -156,14 +163,12 @@ register(
 
 # Pursuit-Evasion
 register(
-    id="PursuitEvasion-v0",
+    id="PursuitEvasion-v1",
     entry_point="posggym.envs.grid_world.pursuit_evasion:PursuitEvasionEnv",
     max_episode_steps=100,
     kwargs={
         "grid": "16x16",
-        "action_probs": 1.0,
         "max_obs_distance": 12,
-        "normalize_reward": True,
         "use_progress_reward": True,
     },
 )
