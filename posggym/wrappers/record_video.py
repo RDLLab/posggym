@@ -4,8 +4,8 @@ Ref
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/wrappers/record_video.py
 
 """
-import os
 from typing import Callable, Optional
+from pathlib import Path
 
 from posggym import logger
 from posggym.core import Env, Wrapper
@@ -70,7 +70,7 @@ class RecordVideo(Wrapper):
     def __init__(
         self,
         env: Env,
-        video_folder: str,
+        video_folder: Path,
         episode_trigger: Optional[Callable[[int], bool]] = None,
         step_trigger: Optional[Callable[[int], bool]] = None,
         video_length: int = 0,
@@ -90,15 +90,15 @@ class RecordVideo(Wrapper):
         self.video_recorder: Optional[VideoRecorder] = None
         self.disable_logger = disable_logger
 
-        self.video_folder = os.path.abspath(video_folder)
+        self.video_folder = video_folder
         # Create output folder if needed
-        if os.path.isdir(self.video_folder):
+        if self.video_folder.is_dir():
             logger.warn(
                 f"Overwriting existing videos at {self.video_folder} folder (try "
                 "specifying a different `video_folder` for the `RecordVideo` wrapper "
                 "if this is not desired)"
             )
-        os.makedirs(self.video_folder, exist_ok=True)
+        self.video_folder.mkdir(exist_ok=True)
 
         self.name_prefix = name_prefix
         self.video_length = video_length
@@ -186,7 +186,7 @@ class RecordVideo(Wrapper):
         if self.episode_trigger:
             video_name = f"{self.name_prefix}-episode-{self.episode_id}"
 
-        base_path = os.path.join(self.video_folder, video_name)
+        base_path = self.video_folder / video_name
         self.video_recorder = VideoRecorder(
             env=self.env,
             base_path=base_path,

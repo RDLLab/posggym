@@ -1,7 +1,6 @@
 """Utility functions for downloading agent files."""
 import os
-import os.path as osp
-import pathlib
+from pathlib import Path
 
 import requests
 from clint.textui import progress  # type: ignore
@@ -13,7 +12,7 @@ from posggym.config import AGENT_MODEL_REPO_URL
 LARGEST_FILE_SIZE = int(1.5 * 1024 * 1024)
 
 
-def download_to_file(url: str, dest_file_path: str):
+def download_to_file(url: str, dest_file_path: Path):
     """Download file from URL and store at specified destination.
 
     Arguments
@@ -26,10 +25,8 @@ def download_to_file(url: str, dest_file_path: str):
     posggym.error.DownloadError: if error occurred while trying to download file.
 
     """
-    dest_dir = osp.dirname(dest_file_path)
-    if not osp.exists(dest_dir):
-        # create dir if it does not exist
-        os.makedirs(dest_dir)
+    dest_dir = dest_file_path.parent
+    dest_dir.mkdir(exist_ok=True)
 
     r = requests.get(url, stream=True)
     if r.ok:
@@ -62,7 +59,7 @@ def download_to_file(url: str, dest_file_path: str):
             ) from e
 
 
-def download_from_repo(file_path: str, rewrite_existing: bool = False):
+def download_from_repo(file_path: Path, rewrite_existing: bool = False):
     """Download file from the posggym-agent-models github repo.
 
     Arguments
@@ -76,19 +73,20 @@ def download_from_repo(file_path: str, rewrite_existing: bool = False):
     posggym.error.DownloadError: if error occurred while trying to download file.
 
     """
-    if osp.exists(file_path) and not rewrite_existing:
+    if file_path.exists() and not rewrite_existing:
         return
 
-    path = pathlib.Path(file_path)
-    if "agents" not in path.parts:
+    if "agents" not in file_path.parts:
         raise error.InvalidFile(
             f"Invalid posggym.agents file path '{file_path}'. Path must contain the "
             "`agents` directory."
         )
 
-    base_repo_dir_index = path.parts.index("agents")
+    base_repo_dir_index = file_path.parts.index("agents")
     file_repo_url = (
-        AGENT_MODEL_REPO_URL + "posggym/" + "/".join(path.parts[base_repo_dir_index:])
+        AGENT_MODEL_REPO_URL
+        + "posggym/"
+        + "/".join(file_path.parts[base_repo_dir_index:])
     )
 
     logger.info(

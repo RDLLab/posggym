@@ -4,11 +4,10 @@ Copied and adapted from Gymnasium:
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/docs/scripts/gen_gifs.py
 
 """
-import os
-import os.path as osp
 import re
 from typing import List
 from typing_extensions import Annotated
+from pathlib import Path
 
 import typer
 from PIL import Image
@@ -17,7 +16,7 @@ from tqdm import tqdm
 import posggym
 from utils import kill_strs
 
-DOCS_DIR = osp.abspath(osp.join(osp.dirname(osp.abspath(__file__)), os.pardir))
+DOCS_DIR = Path(__file__).resolve().parent.parent
 
 # snake to camel case:
 # https://stackoverflow.com/questions/1175208/elegant-python-function-to-convert-camelcase-to-snake-case
@@ -84,12 +83,12 @@ def gen_gif(
     env_name = pattern.sub("_", env_name).lower()
 
     # path for saving video
-    v_dir_path = os.path.join(DOCS_DIR, "_static", "videos", env_type)
+    v_dir_path = DOCS_DIR / "_static" / "videos" / env_type
     # create dir if it doesn't exist
-    os.makedirs(v_dir_path, exist_ok=True)
-    v_file_path = os.path.join(v_dir_path, env_name + ".gif")
+    v_dir_path.mkdir(exist_ok=True)
+    v_file_path = v_dir_path / env_name + ".gif"
 
-    if os.path.exists(v_file_path) and not ignore_existing:
+    if v_file_path.exist() and not ignore_existing:
         # don't overwrite existing video
         print(
             f"GIF already exists for {env_name} so skipping (Use `--ignore-existing` "
@@ -125,7 +124,7 @@ def gen_gif(
             frames[i] = resized_img
 
     frames[0].save(
-        os.path.join(v_file_path),
+        v_file_path,
         save_all=True,
         append_images=frames[1:],
         duration=50,

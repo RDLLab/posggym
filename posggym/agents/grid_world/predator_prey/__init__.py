@@ -1,5 +1,4 @@
 """Policies for the PredatorPrey-v0 environment."""
-import os.path as osp
 
 from posggym.agents.grid_world.predator_prey import heuristic
 from posggym.agents.registration import PolicySpec
@@ -7,7 +6,7 @@ from posggym.agents.torch_policy import PPOPolicy
 from posggym.agents.utils import processors
 from posggym.config import AGENT_MODEL_DIR
 
-agent_model_dir = osp.join(AGENT_MODEL_DIR, "grid_world", "predator_prey")
+agent_model_dir = AGENT_MODEL_DIR / "grid_world" / "predator_prey"
 policy_specs = {}
 
 for policy_class in [
@@ -50,11 +49,9 @@ for policy_file_name in [
             "obs_dim": 2,
         },
         env_args_id="grid=10x10-num_predators=2-num_prey=3-cooperative=True",
-        policy_file_path=osp.join(
-            agent_model_dir,
-            "grid=10x10-num_predators=2-num_prey=3-cooperative=True",
-            policy_file_name,
-        ),
+        policy_file_path=agent_model_dir
+        / "grid=10x10-num_predators=2-num_prey=3-cooperative=True"
+        / policy_file_name,
         version=0,
         valid_agent_ids=None,
         # policy is deterministic given random seed

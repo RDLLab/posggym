@@ -4,12 +4,10 @@ Copied and adapted from Gymnasium:
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/docs/scripts/gen_envs_display.py
 
 """
-import os
-import os.path as osp
 import sys
+from pathlib import Path
 
-
-DOCS_DIR = osp.abspath(osp.join(osp.dirname(osp.abspath(__file__)), os.pardir))
+DOCS_DIR = Path(__file__).resolve().parent.parent
 
 all_envs = [
     {
@@ -37,9 +35,8 @@ all_envs = [
 
 def create_grid_cell(type_id, env_id, base_path):
     """Gen page cell for specific env ID."""
-    if os.path.exists(
-        os.path.join(DOCS_DIR, "_static", "videos", type_id, env_id + ".gif")
-    ):
+    video_path = Path(DOCS_DIR) / "_static" / "videos" / type_id / (env_id + ".gif")
+    if video_path.exists():
         return f"""
             <a href="{base_path}{env_id}">
                 <div class="env-grid__cell">
@@ -108,24 +105,22 @@ if __name__ == "__main__":
 
     for type_dict in type_dict_arr:
         type_id: str = type_dict["id"]  # type: ignore
-        envs_path = osp.join(DOCS_DIR, "environments", type_id)
+        envs_path = DOCS_DIR / "environments" / type_id
         if len(type_dict["list"]) > 20:
             page = generate_page(type_dict, limit=8)
-            with open(
-                os.path.join(envs_path, "list.html"), "w", encoding="utf-8"
-            ) as fp:
+            with open(envs_path / "list.html", "w", encoding="utf-8") as fp:
                 fp.write(page)
 
             page = generate_page(type_dict, base_path="../")
             with open(
-                os.path.join(envs_path, "complete_list.html"),
+                envs_path / "complete_list.html",
                 "w",
                 encoding="utf-8",
             ) as fp:
                 fp.write(page)
 
             with open(
-                os.path.join(envs_path, "complete_list.md"),
+                envs_path / "complete_list.md",
                 "w",
                 encoding="utf-8",
             ) as fp:
@@ -137,7 +132,7 @@ if __name__ == "__main__":
         else:
             page = generate_page(type_dict)
             with open(
-                os.path.join(envs_path, "list.html"),
+                envs_path / "list.html",
                 "w",
                 encoding="utf-8",
             ) as fp:

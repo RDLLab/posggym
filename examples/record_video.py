@@ -15,7 +15,7 @@ Example, to record 10 episodes of the `Driving-v1` environment run,
         --env_id Driving-v1 \
         --num_episodes 10
 """
-import os.path as osp
+from pathlib import Path
 from typing import Dict, List, Optional
 from typing_extensions import Annotated
 
@@ -51,7 +51,7 @@ def record_env(
 
     env_id = env.spec.id if env.spec is not None else str(env)
 
-    video_save_dir = osp.join(osp.expanduser("~"), "posggym_video")
+    video_save_dir = Path.home() / "posggym_video"
     print(f"Saving video to {video_save_dir}")
     name_prefix = f"{env_id}"
     env = posggym.wrappers.RecordVideo(env, video_save_dir, name_prefix=name_prefix)

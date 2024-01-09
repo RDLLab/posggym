@@ -1,6 +1,5 @@
 """Policies for the PursuitEvasionContinuous-v0 environment."""
 import math
-import os.path as osp
 
 from posggym.agents.continuous.pursuit_evasion_continuous import shortest_path
 from posggym.agents.registration import PolicySpec
@@ -9,7 +8,7 @@ from posggym.agents.utils import processors
 from posggym.config import AGENT_MODEL_DIR
 
 ENV_ID = "PursuitEvasionContinuous-v0"
-agent_model_dir = osp.join(AGENT_MODEL_DIR, "continuous", "pursuit_evasion_continuous")
+agent_model_dir = AGENT_MODEL_DIR / "continuous" / "pursuit_evasion_continuous"
 policy_specs = {}
 
 _sp_spec = PolicySpec(
@@ -37,11 +36,7 @@ for policy_file_name in [
     "sp_seed4_i1.pkl",
 ]:
     spec = PPOPolicy.get_spec_from_path(
-        policy_file_path=osp.join(
-            agent_model_dir,
-            "world=8x8",
-            policy_file_name,
-        ),
+        policy_file_path=agent_model_dir / "world=8x8" / policy_file_name,
         env_id=ENV_ID,
         env_args={
             "world": "8x8",
@@ -77,11 +72,7 @@ for policy_file_name in [
     "sp_seed4_i1.pkl",
 ]:
     spec = PPOPolicy.get_spec_from_path(
-        policy_file_path=osp.join(
-            agent_model_dir,
-            "world=16x16",
-            policy_file_name,
-        ),
+        policy_file_path=agent_model_dir / "world=16x16" / policy_file_name,
         env_id=ENV_ID,
         env_args={
             "world": "16x16",

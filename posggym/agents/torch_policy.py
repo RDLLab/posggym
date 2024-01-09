@@ -15,6 +15,7 @@ from typing import (
     Type,
     Union,
 )
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -500,14 +501,14 @@ class PPOPolicy(Policy[ActType, ObsType]):
         model: M.POSGModel,
         agent_id: str,
         policy_id: str,
-        policy_file_path: str,
+        policy_file_path: Path,
         deterministic: bool = False,
         obs_processor_cls: Type[processors.Processor] | None = None,
         obs_processor_config: Dict[str, Any] | None = None,
         action_processor_cls: Type[processors.Processor] | None = None,
         action_processor_config: Dict[str, Any] | None = None,
     ) -> PPOPolicy:
-        if not os.path.exists(policy_file_path):
+        if not policy_file_path.exists():
             logger.info(
                 f"Local copy of policy file for policy `{policy_id}` not found, so "
                 "downloading it from posggym-agents repo and storing local copy for "
@@ -571,7 +572,7 @@ class PPOPolicy(Policy[ActType, ObsType]):
 
     @staticmethod
     def get_spec_from_path(
-        policy_file_path: str,
+        policy_file_path: Path,
         env_id: str,
         env_args: Dict[str, Any] | None,
         env_args_id: str | None = None,
@@ -606,7 +607,8 @@ class PPOPolicy(Policy[ActType, ObsType]):
 
         """
         # remove file extension
-        policy_name = os.path.basename(policy_file_path).split(".")[0]
+        policy_name = Path(policy_file_path).stem
+
         kwargs = kwargs.copy()
         kwargs["policy_file_path"] = policy_file_path
         return PolicySpec(

@@ -4,7 +4,6 @@ Ref:
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/wrappers/test_video_recorder.py
 
 """
-import os
 import re
 
 import posggym
@@ -60,9 +59,8 @@ def test_record_simple():
     rec.close()
 
     assert not rec.broken
-    assert os.path.exists(rec.path)
-    with open(rec.path) as f:
-        assert os.fstat(f.fileno()).st_size > 100
+    assert rec.path.exists()
+    assert rec.path.stat().st_size > 100
 
 
 def test_no_frames():
@@ -70,7 +68,7 @@ def test_no_frames():
     rec = VideoRecorder(env)
     rec.close()
     assert rec.functional
-    assert not os.path.exists(rec.path)
+    assert not rec.path.exists()
 
 
 def test_record_unrecordable_method():
@@ -101,7 +99,7 @@ def test_record_breaking_render_method():
         rec.capture_frame()
         rec.close()
         assert rec.broken
-        assert not os.path.exists(rec.path)
+        assert not rec.path.exists()
 
 
 # def test_text_envs():

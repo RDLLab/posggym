@@ -1,15 +1,11 @@
-import os
-import os.path as osp
 from pathlib import Path
 
-PKG_DIR = osp.dirname(osp.abspath(__file__))
-REPO_DIR = osp.abspath(osp.join(PKG_DIR, os.pardir))
-BASE_RESULTS_DIR = osp.join(str(Path.home()), "posggym_results")
-ASSET_DIR = osp.join(PKG_DIR, "assets")
-AGENT_MODEL_DIR = osp.join(ASSET_DIR, "agents")
+PKG_DIR = Path(__file__).resolve().parent
+REPO_DIR = PKG_DIR.parent
+BASE_RESULTS_DIR = Path.home() / "posggym_results"
+ASSET_DIR = PKG_DIR / "assets"
+AGENT_MODEL_DIR = ASSET_DIR / "agents"
 
 AGENT_MODEL_REPO_URL = "https://github.com/RDLLab/posggym-agent-models/raw/main/"
 
-
-if not osp.exists(BASE_RESULTS_DIR):
-    os.makedirs(BASE_RESULTS_DIR)
+BASE_RESULTS_DIR.mkdir(parents=True, exist_ok=True)

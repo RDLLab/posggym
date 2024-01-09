@@ -1,5 +1,4 @@
 """Policies for the LevelBasedForaging-v2 environment."""
-import os.path as osp
 
 from posggym.agents.grid_world.level_based_foraging import heuristic
 from posggym.agents.registration import PolicySpec
@@ -8,7 +7,7 @@ from posggym.agents.utils import processors
 from posggym.config import AGENT_MODEL_DIR
 
 
-agent_model_dir = osp.join(AGENT_MODEL_DIR, "grid_world", "level_based_foraging")
+agent_model_dir = AGENT_MODEL_DIR / "grid_world" / "level_based_foraging"
 
 policy_specs = {}
 for policy_class in [
@@ -52,11 +51,9 @@ for policy_file_name in [
             "observation_mode": "tuple",
         },
         env_args_id="num_agents=2-size=10-static_layout=False",
-        policy_file_path=osp.join(
-            agent_model_dir,
-            "num_agents=2-size=10-static_layout=False",
-            policy_file_name,
-        ),
+        policy_file_path=agent_model_dir
+        / "num_agents=2-size=10-static_layout=False"
+        / policy_file_name,
         version=0,
         valid_agent_ids=None,
         # policy is deterministic given random seed
@@ -94,11 +91,9 @@ for policy_file_name in [
             "observation_mode": "tuple",
         },
         env_args_id="num_agents=2-size=10-static_layout=True",
-        policy_file_path=osp.join(
-            agent_model_dir,
-            "num_agents=2-size=10-static_layout=True",
-            policy_file_name,
-        ),
+        policy_file_path=agent_model_dir
+        / "num_agents=2-size=10-static_layout=True"
+        / policy_file_name,
         version=0,
         valid_agent_ids=None,
         # policy is deterministic given random seed

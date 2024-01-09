@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import csv
 import multiprocessing as mp
-import os
 from datetime import datetime
 from itertools import product
-from typing import Dict, List, NamedTuple, Tuple
+from typing import Dict, List, NamedTuple, Tuple, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -143,7 +145,7 @@ def run_episodes(args) -> Dict[str, Dict[str, float]]:
 
 def get_pairwise_comparison_params(
     env_id: str,
-    output_dir: str,
+    output_dir: Path,
     env_args_id: str | None = None,
     num_episodes: int = 1000,
     seed: int | None = None,
@@ -153,8 +155,8 @@ def get_pairwise_comparison_params(
     # attempt to make env to check if it is registered (displays nicer error msg)
     posggym.make(env_id)
 
-    env_output_dir = os.path.join(output_dir, env_id)
-    os.makedirs(env_output_dir, exist_ok=True)
+    env_output_dir = output_dir / env_id
+    env_output_dir.mkdir(exist_ok=True)
 
     # construct list of all possible policy pairings for the environment
     env_args_map = pga.get_all_envs()[env_id]
@@ -177,8 +179,8 @@ def get_pairwise_comparison_params(
         if verbose:
             print(f"  - {len(agent_ids)} agents")
 
-        output_file = os.path.join(env_output_dir, f"{args_id}.csv")
-        if os.path.exists(output_file):
+        output_file = env_output_dir / f"{args_id}.csv"
+        if output_file.exists():
             logger.warn(f"{output_file} exists. Rewriting.")
 
         headers = [
@@ -280,7 +282,7 @@ def run_pairwise_comparisons(
     env_id: str | None,
     env_args_id: str | None = None,
     num_episodes: int = 1000,
-    output_dir: str | None = None,
+    output_dir: Path | None = None,
     seed: int | None = None,
     n_procs: int | None = None,
     verbose: bool = False,
@@ -297,11 +299,11 @@ def run_pairwise_comparisons(
         env_args_id = env_args_id
 
     if output_dir is None:
-        output_dir = os.path.join(
-            BASE_RESULTS_DIR,
-            "pairwise_comparison" + datetime.now().strftime("%d-%m-%y_%H-%M-%S"),
+        output_dir = BASE_RESULTS_DIR / (
+            "pairwise_comparison" + datetime.now().strftime("%d-%m-%y_%H-%M-%S")
         )
-    os.makedirs(output_dir, exist_ok=True)
+
+    output_dir.mkdir(exist_ok=True)
 
     all_pairwise_comparisons = []
     for env_id in env_ids:
@@ -341,13 +343,13 @@ def run_pairwise_comparisons(
 
 def load_pairwise_comparison_results(
     env_id: str,
-    output_dir: str,
+    output_dir: Path,
     env_args_id: str | None = None,
 ) -> pd.DataFrame:
     """Load pairwise comparison results for an environment."""
-    env_output_dir = os.path.join(output_dir, env_id)
-    output_file = os.path.join(env_output_dir, f"{env_args_id}.csv")
-    if not os.path.exists(output_file):
+    env_output_dir = output_dir / env_id
+    output_file = env_output_dir / f"{env_args_id}.csv"
+    if not output_file.exists():
         raise ValueError(
             f"Results do not exist for {env_id=}, {env_args_id=} in {output_dir=}."
         )
@@ -482,13 +484,12 @@ def generate_pairwise_returns_plot(
 
         if save:
             if env_id in output_dir:
-                output_file = os.path.join(
-                    output_dir, f"{env_args_id}_pairwise_returns_{stat}.svg"
-                )
+                output_file = output_dir / f"{env_args_id}_pairwise_returns_{stat}.svg"
             else:
-                output_file = os.path.join(
-                    output_dir, f"{env_id}_{env_args_id}_pairwise_returns_{stat}.svg"
+                output_file = (
+                    output_dir / f"{env_id}_{env_args_id}_pairwise_returns_{stat}.svg"
                 )
+
             fig.savefig(output_file, bbox_inches="tight")
 
     if show:
@@ -496,7 +497,7 @@ def generate_pairwise_returns_plot(
 
 
 def plot_pairwise_comparison_results(
-    output_dir: str,
+    output_dir: Path,
     env_id: str | None,
     env_args_id: str | None = None,
     show: bool = True,
@@ -515,16 +516,15 @@ def plot_pairwise_comparison_results(
         env_ids = [env_id]
         env_args_id = env_args_id
 
-    for env_id in os.listdir(output_dir):
+    for env_results_dir in output_dir.glob("*"):
+        env_id = env_results_dir.name
         if env_id not in env_ids:
             continue
+
         print(f"Plotting pairwise comparison results for {env_id=}")
-        env_results_dir = os.path.join(output_dir, env_id)
         print(f"  results saved to {env_results_dir=}")
 
-        env_result_files = [
-            fname for fname in os.listdir(env_results_dir) if fname.endswith(".csv")
-        ]
+        env_result_files = [x.name for x in env_results_dir.glob("*.csv")]
 
         env_args_map = pga.get_all_envs()[env_id]
         for args_id in env_args_map:

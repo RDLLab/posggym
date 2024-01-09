@@ -1,10 +1,11 @@
 """Functionality for measuring return based diversity of posggym.agents policies."""
 from __future__ import annotations
 
-import os
 from itertools import product
-from typing import Dict, List
+from typing import Dict, List, TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
@@ -138,7 +139,7 @@ def measure_return_diversity(
 
 
 def run_return_diversity_analysis(
-    output_dir: str,
+    output_dir: Path,
     env_id: str | None,
     env_args_id: str | None = None,
     verbose: bool = False,
@@ -155,16 +156,14 @@ def run_return_diversity_analysis(
         env_ids = [env_id]
         env_args_id = env_args_id
 
-    for env_id in os.listdir(output_dir):
+    for env_results_dir in output_dir.glob("*"):
+        env_id = env_results_dir.name
         if env_id not in env_ids:
             continue
         print(f"Running return diversity analysis for {env_id=}")
-        env_results_dir = os.path.join(output_dir, env_id)
         print(f"  results saved to {env_results_dir=}")
 
-        env_result_files = [
-            fname for fname in os.listdir(env_results_dir) if fname.endswith(".csv")
-        ]
+        env_result_files = [x.name for x in env_results_dir.glob("*.csv")]
 
         env_args_map = pga.get_all_envs()[env_id]
         for args_id in env_args_map:
@@ -246,6 +245,6 @@ def run_return_diversity_analysis(
                     )
                     axs[0][idx].set_title(f"agent `{i}`")
                 fig.savefig(
-                    os.path.join(env_results_dir, f"{args_id}_{k}.svg"),
+                    env_results_dir / f"{args_id}_{k}.svg",
                     bbox_inches="tight",
                 )
