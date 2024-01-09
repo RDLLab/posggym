@@ -432,7 +432,7 @@ def get_pairwise_returns_matrix(
 
 def generate_pairwise_returns_plot(
     env_id: str,
-    output_dir: str,
+    output_dir: Path,
     env_args_id: str | None,
     pw_returns_per_agent: Dict[str, Tuple[np.ndarray, List[str], List[str]]],
     show: bool = True,

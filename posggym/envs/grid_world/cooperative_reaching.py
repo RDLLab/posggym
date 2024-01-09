@@ -1,6 +1,6 @@
 """The Cooperative Reaching Grid World Environment."""
 from itertools import product
-from os import path
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from gymnasium import spaces
@@ -219,7 +219,7 @@ class CooperativeReachingEnv(DefaultEnv[CRState, CRObs, CRAction]):
             )
 
         if self._agent_imgs is None:
-            img_path = path.join(path.dirname(__file__), "img", "robot.png")
+            img_path = Path(__file__).parent / "img" / "robot.png"
             agent_img = render_lib.load_img_file(img_path, self.renderer.cell_size)
             self._agent_imgs = {
                 i: render_lib.GWImage((0, 0), self.renderer.cell_size, agent_img)

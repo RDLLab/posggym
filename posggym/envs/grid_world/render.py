@@ -2,6 +2,7 @@
 import abc
 from typing import Dict, List, Optional, Tuple, Union
 
+from pathlib import Path
 import numpy as np
 
 from posggym.envs.grid_world.core import Coord, Direction, Grid
@@ -40,7 +41,7 @@ def get_color(color_name: str) -> ColorTuple:
     return pygame.colordict.THECOLORS[color_name]
 
 
-def load_img_file(img_path: str, cell_size: Tuple[int, int]):
+def load_img_file(img_path: Path, cell_size: Tuple[int, int]):
     """Load an image from file and scale it to cell size."""
     return pygame.transform.scale(pygame.image.load(img_path), cell_size)
 
