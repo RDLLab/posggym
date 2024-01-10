@@ -54,7 +54,8 @@ for policy_file_name in [
         / (
             "world=10x10-num_predators=2-num_prey=3-prey_strength=2_cooperative=True-"
             "obs_dist=4-n_sensors=16"
-        ) / policy_file_name,
+        )
+        / policy_file_name,
         version=0,
         valid_agent_ids=None,
         # policy is deterministic given random seed

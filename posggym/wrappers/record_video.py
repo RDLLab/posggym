@@ -89,7 +89,7 @@ class RecordVideo(Wrapper):
         self.step_trigger = step_trigger
         self.video_recorder: Optional[VideoRecorder] = None
         self.disable_logger = disable_logger
-        
+
         if isinstance(video_folder, str):
             video_folder = Path(video_folder)
 
