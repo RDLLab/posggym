@@ -192,7 +192,7 @@ class VideoRecorder:
 
             clip = ImageSequenceClip(self.recorded_frames, fps=self.frames_per_sec)
             moviepy_logger = None if self.disable_logger else "bar"
-            clip.write_videofile(self.path, logger=moviepy_logger)
+            clip.write_videofile(str(self.path), logger=moviepy_logger)
         else:
             # No frames captured. Set metadata.
             if self.metadata is None:

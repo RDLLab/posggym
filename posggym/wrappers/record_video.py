@@ -4,7 +4,7 @@ Ref
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/wrappers/record_video.py
 
 """
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 from pathlib import Path
 
 from posggym import logger
@@ -70,7 +70,7 @@ class RecordVideo(Wrapper):
     def __init__(
         self,
         env: Env,
-        video_folder: Path,
+        video_folder: Union[Path, str],
         episode_trigger: Optional[Callable[[int], bool]] = None,
         step_trigger: Optional[Callable[[int], bool]] = None,
         video_length: int = 0,
@@ -89,6 +89,9 @@ class RecordVideo(Wrapper):
         self.step_trigger = step_trigger
         self.video_recorder: Optional[VideoRecorder] = None
         self.disable_logger = disable_logger
+        
+        if isinstance(video_folder, str):
+            video_folder = Path(video_folder)
 
         self.video_folder = video_folder
         # Create output folder if needed

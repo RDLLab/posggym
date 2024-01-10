@@ -118,7 +118,7 @@ class PPOLSTMModel(nn.Module):
             activation_fn = nn.ReLU
 
         # Fully connected trunk
-        prev_size = int(np.product(obs_space.shape))
+        prev_size = int(np.prod(obs_space.shape))
         trunk = []
         for size in trunk_sizes:
             trunk.append(nn.Linear(prev_size, size))
