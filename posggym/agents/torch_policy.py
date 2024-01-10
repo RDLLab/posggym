@@ -157,6 +157,7 @@ class PPOLSTMModel(nn.Module):
 
         # Assume model is used for evaluation only
         self.eval()
+        self.requires_grad_(False)
 
     @property
     def device(self) -> torch.device:
