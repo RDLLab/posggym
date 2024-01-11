@@ -3,7 +3,7 @@ import enum
 import math
 from collections import defaultdict
 from itertools import product
-from os import path
+from pathlib import Path
 from typing import Dict, List, NamedTuple, Optional, Tuple, Union
 
 import numpy as np
@@ -292,7 +292,7 @@ class LevelBasedForagingEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
             )
 
         if self.agent_imgs is None:
-            img_path = path.join(path.dirname(__file__), "img", "robot.png")
+            img_path = Path(__file__).parent / "img" / "robot.png"
             agent_img = render_lib.load_img_file(img_path, self.renderer.cell_size)
             font = render_lib.load_font(
                 "Comic Sans MC",
@@ -306,7 +306,7 @@ class LevelBasedForagingEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
             }
 
         if self.food_imgs is None:
-            img_path = path.join(path.dirname(__file__), "img", "apple.png")
+            img_path = Path(__file__).parent / "img" / "apple.png"
             food_img = render_lib.load_img_file(img_path, self.renderer.cell_size)
             font = render_lib.load_font(
                 "Comic Sans MC",

@@ -1,24 +1,28 @@
 """Script for generating pairwise payoff figures from results."""
 from __future__ import annotations
 
-import argparse
-import os
-import os.path as osp
 import sys
 from datetime import datetime
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing_extensions import Annotated
+    from pathlib import Path
 
 from posggym.config import BASE_RESULTS_DIR, REPO_DIR
+import typer
 
-sys.path.append(osp.join(REPO_DIR, "notebooks"))
+sys.path.append(str(REPO_DIR / "notebooks"))
 import plot_utils  # noqa: E402
 
-results_dir = osp.join(REPO_DIR, "notebooks", "results", "pairwise_agent_comparison")
+results_dir = REPO_DIR / "notebooks" / "results" / "pairwise_agent_comparison"
+app = typer.Typer()
 
 
 def generate_fig(
     df,
-    env_output_dir: str,
-    result_file: str,
+    env_output_dir: Path,
+    result_file: Path,
     policy_key: str,
     coplayer_policy_key: str,
 ):
@@ -39,10 +43,7 @@ def generate_fig(
             valfmt="{x:.2f}",
         )
         fig.savefig(
-            osp.join(
-                env_output_dir,
-                result_file.replace(".csv", "") + f"_{policy_key}.pdf",
-            ),
+            (env_output_dir / result_file.with_suffix("")) + f"_{policy_key}.pdf",
             format="pdf",
             bbox_inches="tight",
         )
@@ -67,41 +68,45 @@ def generate_fig(
             axs[0][0].set_xlabel(f"AgentID={i}")
 
             fig.savefig(
-                osp.join(
-                    env_output_dir,
-                    result_file.replace(".csv", "") + f"_agent{i}_{policy_key}.pdf",
-                ),
+                env_output_dir
+                / (result_file.with_suffix("") + f"_agent{i}_{policy_key}.pdf"),
                 format="pdf",
                 bbox_inches="tight",
             )
 
 
-def main(env_id: str | None, output_dir: str | None = None):
-    available_env_result_dirs = os.listdir(results_dir)
+@app.command()
+def main(
+    env_id: Annotated[Optional[str], typer.Option(help="ID of the environment.")],
+    output_dir: Annotated[
+        Optional[Path], typer.Option(help="Path to directory to save figures.")
+    ] = None,
+):
+    available_env_result_dirs = [x.name for x in results_dir.glob("*")]
     available_env_result_dirs.sort()
 
     if output_dir is None:
-        output_dir = osp.join(
-            BASE_RESULTS_DIR,
-            "parwise_agent_payoff_figs" + datetime.now().strftime("%d-%m-%y_%H-%M-%S"),
+        output_dir = BASE_RESULTS_DIR / (
+            "parwise_agent_payoff_figs" + datetime.now().strftime("%d-%m-%y_%H-%M-%S")
         )
+
     print(f"Saving figures to {output_dir}")
-    os.makedirs(output_dir, exist_ok=True)
+    output_dir.mkdir(exist_ok=True)
 
     env_ids = available_env_result_dirs if env_id is None else [env_id]
 
     for env_id in env_ids:
         print(f"Generating figures for {env_id}")
-        env_output_dir = osp.join(output_dir, env_id)
-        os.makedirs(env_output_dir, exist_ok=True)
+        env_output_dir = output_dir / env_id
+        env_output_dir.mkdir(exist_ok=True)
         print(f"Saving {env_id} figures to {env_output_dir}")
 
-        env_result_dir = osp.join(results_dir, env_id)
-        env_result_files = os.listdir(env_result_dir)
-        env_result_files.sort()
+        env_result_dir = results_dir / env_id
+        env_result_files = env_result_dir.glob("*")
+        env_result_files.sort(key=lambda x: x.name)
 
-        for result_file in env_result_files:
-            result_path = osp.join(env_result_dir, result_file)
+        for result_path in env_result_files:
+            result_file = result_path.name
             print(f"Generating figures for {result_file}")
 
             df = plot_utils.import_results(result_path)
@@ -124,21 +129,4 @@ def main(env_id: str | None, output_dir: str | None = None):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Generate pairwise payoff figures from results.",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument(
-        "--env_id",
-        type=str,
-        default=None,
-        help="ID of the environment.",
-    )
-    parser.add_argument(
-        "--output_dir",
-        type=str,
-        default=None,
-        help="Path to directory to save figures.",
-    )
-    main(**vars(parser.parse_args()))
-    main(**vars(parser.parse_args()))
+    app()

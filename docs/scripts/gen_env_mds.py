@@ -7,11 +7,10 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/docs/scripts/gen_mds
 __author__ = "Sander Schulhoff"
 __email__ = "sanderschulhoff@gmail.com"
 
-import os
 import re
 from functools import reduce
 from typing import Dict, List
-
+from pathlib import Path
 from tqdm import tqdm
 from utils import kill_strs, trim
 
@@ -104,13 +103,11 @@ for i, env_spec in tqdm(enumerate(filtered_envs)):
         ):
             related_pages_meta = "lastpage:\n"
 
-        # path for saving video
-        v_path = os.path.join(
-            os.path.dirname(__file__),
-            "..",
-            "environments",
-            env_type,
-            snake_env_name + ".md",
+        v_path = (
+            Path(__file__).resolve().parent.parent
+            / "environments"
+            / env_type
+            / (snake_env_name + ".md")
         )
 
         front_matter = f"""---

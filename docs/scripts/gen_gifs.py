@@ -4,19 +4,19 @@ Copied and adapted from Gymnasium:
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/docs/scripts/gen_gifs.py
 
 """
-import os
-import os.path as osp
 import re
-import argparse
 from typing import List
+from typing_extensions import Annotated
+from pathlib import Path
 
+import typer
 from PIL import Image
 from tqdm import tqdm
 
 import posggym
 from utils import kill_strs
 
-DOCS_DIR = osp.abspath(osp.join(osp.dirname(osp.abspath(__file__)), os.pardir))
+DOCS_DIR = Path(__file__).resolve().parent.parent
 
 # snake to camel case:
 # https://stackoverflow.com/questions/1175208/elegant-python-function-to-convert-camelcase-to-snake-case
@@ -26,12 +26,47 @@ LENGTH = 300
 # height of GIF in pixels, width will be scaled to ensure correct aspec ratio
 HEIGHT = 256
 
+app = typer.Typer()
 
+
+@app.command()
+def generate_all_gifs(
+    ignore_existing: Annotated[
+        bool, typer.Option(help="Overwrite existing GIF if it exists.")
+    ] = False,
+    custom_env: Annotated[bool, typer.Option()] = False,
+    resize: Annotated[bool, typer.Option()] = False,
+):
+    "Generate gif for every environment with an RGB render mode"
+    # iterate through all envspecs
+    for env_spec in tqdm(posggym.envs.registry.values()):
+        if any(x in str(env_spec.id) for x in kill_strs):
+            continue
+        # try catch in case missing some installs
+        try:
+            env = posggym.make(env_spec.id, disable_env_checker=True)
+            # the gymnasium needs to be rgb renderable
+            if "rgb_array" not in env.metadata["render_modes"]:
+                continue
+            gen_gif(env_spec.id, ignore_existing, custom_env, resize)
+        except BaseException as e:
+            print(f"{env_spec.id} ERROR", e)
+            continue
+
+
+@app.command()
 def gen_gif(
-    env_id: str,
-    ignore_existing: bool = False,
-    custom_env: bool = False,
-    resize: bool = False,
+    env_id: Annotated[
+        str,
+        typer.Option(
+            help="ID of environment to run, if None then runs all registered envs."
+        ),
+    ],
+    ignore_existing: Annotated[
+        bool, typer.Option(help="Overwrite existing GIF if it exists.")
+    ] = False,
+    custom_env: Annotated[bool, typer.Option()] = False,
+    resize: Annotated[bool, typer.Option()] = False,
 ):
     """Gen gif for env."""
     print(env_id)
@@ -48,12 +83,12 @@ def gen_gif(
     env_name = pattern.sub("_", env_name).lower()
 
     # path for saving video
-    v_dir_path = os.path.join(DOCS_DIR, "_static", "videos", env_type)
+    v_dir_path = DOCS_DIR / "_static" / "videos" / env_type
     # create dir if it doesn't exist
-    os.makedirs(v_dir_path, exist_ok=True)
-    v_file_path = os.path.join(v_dir_path, env_name + ".gif")
+    v_dir_path.mkdir(exist_ok=True)
+    v_file_path = v_dir_path / env_name + ".gif"
 
-    if os.path.exists(v_file_path) and not ignore_existing:
+    if v_file_path.exist() and not ignore_existing:
         # don't overwrite existing video
         print(
             f"GIF already exists for {env_name} so skipping (Use `--ignore-existing` "
@@ -89,7 +124,7 @@ def gen_gif(
             frames[i] = resized_img
 
     frames[0].save(
-        os.path.join(v_file_path),
+        v_file_path,
         save_all=True,
         append_images=frames[1:],
         duration=50,
@@ -99,36 +134,4 @@ def gen_gif(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    parser.add_argument(
-        "--env-id",
-        type=str,
-        default=None,
-        help="ID of environment to run, if None then runs all registered envs.",
-    )
-    parser.add_argument(
-        "--ignore-existing",
-        action="store_true",
-        help="Overwrite existing GIF if it exists.",
-    )
-    args = parser.parse_args()
-
-    if args.env_id is None:
-        # iterate through all envspecs
-        for env_spec in tqdm(posggym.envs.registry.values()):
-            if any(x in str(env_spec.id) for x in kill_strs):
-                continue
-            # try catch in case missing some installs
-            try:
-                env = posggym.make(env_spec.id, disable_env_checker=True)
-                # the gymnasium needs to be rgb renderable
-                if "rgb_array" not in env.metadata["render_modes"]:
-                    continue
-                gen_gif(env_spec.id, args.ignore_existing)
-            except BaseException as e:
-                print(f"{env_spec.id} ERROR", e)
-                continue
-    else:
-        gen_gif(args.env_id, args.ignore_existing)
+    app()

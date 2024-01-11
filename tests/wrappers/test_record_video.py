@@ -4,9 +4,8 @@ Ref:
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/wrappers/test_record_video.py
 
 """
-import os
 import shutil
-
+from pathlib import Path
 import posggym
 from posggym.wrappers.record_video import RecordVideo, capped_cubic_video_schedule
 
@@ -28,9 +27,9 @@ def test_record_video_using_default_trigger():
         if all_done:
             env.reset()
     env.close()
-
-    assert os.path.isdir("videos")
-    mp4_files = [file for file in os.listdir("videos") if file.endswith(".mp4")]
+    video_path = Path("videos")
+    assert video_path.is_dir()
+    mp4_files = [f.name for f in Path("videos").glob("*.mp4")]
     assert len(mp4_files) == sum(
         capped_cubic_video_schedule(i) for i in range(env.episode_id + 1)
     )
@@ -49,7 +48,7 @@ def test_record_video_reset():
 
     obs, info = env.reset()
     env.close()
-    assert os.path.isdir("videos")
+    assert Path("videos").is_dir()
     shutil.rmtree("videos")
     for i, obs_i in obs.items():
         assert env.observation_spaces[i].contains(obs_i)
@@ -75,7 +74,8 @@ def test_record_video_step_trigger():
             env.reset()
     env.close()
 
-    assert os.path.isdir("videos")
-    mp4_files = [file for file in os.listdir("videos") if file.endswith(".mp4")]
+    video_path = Path("videos")
+    assert video_path.is_dir()
+    mp4_files = [f.name for f in Path("videos").glob("*.mp4")]
     assert len(mp4_files) == 2
     shutil.rmtree("videos")

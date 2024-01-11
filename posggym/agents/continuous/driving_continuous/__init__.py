@@ -1,12 +1,10 @@
 """Policies for the DrivingContinuous-v0 environment."""
-import os.path as osp
-
 from posggym.agents.torch_policy import PPOPolicy
 from posggym.agents.utils import processors
 from posggym.config import AGENT_MODEL_DIR
 
 ENV_ID = "DrivingContinuous-v0"
-agent_model_dir = osp.join(AGENT_MODEL_DIR, "continuous", "driving_continuous")
+agent_model_dir = AGENT_MODEL_DIR / "continuous" / "driving_continuous"
 policy_specs = {}
 
 # 14x14RoundAbout, 2 agents
@@ -25,11 +23,9 @@ for policy_file_name in [
             "obs_dist": 5.0,
             "n_sensors": 16,
         },
-        policy_file_path=osp.join(
-            agent_model_dir,
-            "world=14x14RoundAbout-num_agents=2-obs_dist=5-n_sensors=16",
-            policy_file_name,
-        ),
+        policy_file_path=agent_model_dir
+        / "world=14x14RoundAbout-num_agents=2-obs_dist=5-n_sensors=16"
+        / policy_file_name,
         version=0,
         valid_agent_ids=None,
         # policy is deterministic given random seed
@@ -60,11 +56,9 @@ for policy_file_name in [
             "obs_dist": 5.0,
             "n_sensors": 16,
         },
-        policy_file_path=osp.join(
-            agent_model_dir,
-            "world=14x14RoundAbout-num_agents=4-obs_dist=5-n_sensors=16",
-            policy_file_name,
-        ),
+        policy_file_path=agent_model_dir
+        / "world=14x14RoundAbout-num_agents=4-obs_dist=5-n_sensors=16"
+        / policy_file_name,
         version=0,
         valid_agent_ids=None,
         # policy is deterministic given random seed

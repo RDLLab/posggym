@@ -1,7 +1,7 @@
 """The Predator-Prey Grid World Environment."""
 import math
 from itertools import product
-from os import path
+from pathlib import Path
 from typing import Dict, List, NamedTuple, Optional, Sequence, Set, Tuple, Union
 
 from gymnasium import spaces
@@ -269,7 +269,7 @@ class PredatorPreyEnv(DefaultEnv[PPState, PPObs, PPAction]):
             )
 
         if self._predator_imgs is None:
-            img_path = path.join(path.dirname(__file__), "img", "robot.png")
+            img_path = Path(__file__).parent / "img" / "robot.png"
             agent_img = render_lib.load_img_file(img_path, self.renderer.cell_size)
             self._predator_imgs = {
                 i: render_lib.GWImage((0, 0), self.renderer.cell_size, agent_img)

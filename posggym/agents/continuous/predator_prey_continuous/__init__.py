@@ -1,5 +1,4 @@
 """Policies for the PredatorPreyContinuous-v0 environment."""
-import os.path as osp
 
 from posggym.agents.registration import PolicySpec
 from posggym.agents.continuous.predator_prey_continuous import heuristic
@@ -9,7 +8,7 @@ from posggym.agents.utils import processors
 
 
 ENV_ID = "PredatorPreyContinuous-v0"
-agent_model_dir = osp.join(AGENT_MODEL_DIR, "continuous", "predator_prey_continuous")
+agent_model_dir = AGENT_MODEL_DIR / "continuous" / "predator_prey_continuous"
 policy_specs = {}
 
 
@@ -51,11 +50,12 @@ for policy_file_name in [
             "obs_dist": 4.0,
             "n_sensors": 16,
         },
-        policy_file_path=osp.join(
-            agent_model_dir,
-            "world=10x10-num_predators=2-num_prey=3-prey_strength=2_cooperative=True-obs_dist=4-n_sensors=16",
-            policy_file_name,
-        ),
+        policy_file_path=agent_model_dir
+        / (
+            "world=10x10-num_predators=2-num_prey=3-prey_strength=2_cooperative=True-"
+            "obs_dist=4-n_sensors=16"
+        )
+        / policy_file_name,
         version=0,
         valid_agent_ids=None,
         # policy is deterministic given random seed
@@ -89,10 +89,13 @@ for policy_file_name in [
             "obs_dist": 4.0,
             "n_sensors": 16,
         },
-        policy_file_path=osp.join(
-            agent_model_dir,
-            "world=10x10-num_predators=4-num_prey=3-prey_strength=3_cooperative=True-obs_dist=4-n_sensors=16",
-            policy_file_name,
+        policy_file_path=(
+            agent_model_dir
+            / (
+                "world=10x10-num_predators=4-num_prey=3-prey_strength=3_cooperative=True-"
+                "obs_dist=4-n_sensors=16"
+            )
+            / policy_file_name
         ),
         version=0,
         valid_agent_ids=None,

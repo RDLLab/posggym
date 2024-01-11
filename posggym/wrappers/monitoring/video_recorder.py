@@ -5,9 +5,8 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/wrappers/m
 
 """
 import json
-import os
-import os.path
 import tempfile
+from pathlib import Path
 from typing import Dict, Optional, List
 
 from posggym import Env, error, logger
@@ -35,10 +34,10 @@ class VideoRecorder:
     def __init__(
         self,
         env: Env,
-        path: Optional[str] = None,
+        path: Optional[Path] = None,
         metadata: Optional[Dict] = None,
         enabled: bool = True,
-        base_path: Optional[str] = None,
+        base_path: Optional[Path] = None,
         disable_logger: bool = False,
     ):
         """Video recorder renders a nice movie of a rollout, frame by frame.
@@ -95,14 +94,16 @@ class VideoRecorder:
         if path is None:
             if base_path is not None:
                 # Base path given, append ext
-                path = base_path + required_ext
+                path = base_path.with_suffix(required_ext)
             else:
                 # Otherwise, just generate a unique filename
                 with tempfile.NamedTemporaryFile(suffix=required_ext) as f:
-                    path = f.name
+                    path = Path(f.name)
+
         self.path = path
 
-        path_base, actual_ext = os.path.splitext(self.path)
+        path_base = self.path.with_suffix("")
+        actual_ext = self.path.suffix
 
         if actual_ext != required_ext:
             raise error.Error(
@@ -191,7 +192,7 @@ class VideoRecorder:
 
             clip = ImageSequenceClip(self.recorded_frames, fps=self.frames_per_sec)
             moviepy_logger = None if self.disable_logger else "bar"
-            clip.write_videofile(self.path, logger=moviepy_logger)
+            clip.write_videofile(str(self.path), logger=moviepy_logger)
         else:
             # No frames captured. Set metadata.
             if self.metadata is None:

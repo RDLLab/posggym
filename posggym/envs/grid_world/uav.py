@@ -1,6 +1,6 @@
 """The Unmanned Aerial Vehicle Grid World Environment."""
 import random
-from os import path
+from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Union
 
 from gymnasium import spaces
@@ -182,7 +182,7 @@ class UAVEnv(DefaultEnv[UAVState, UAVObs, UAVAction]):
             )
 
             # add house to static objects list
-            img_path = path.join(path.dirname(__file__), "img", "house.png")
+            img_path = Path(__file__).parent / "img" / "house.png"
             img = render_lib.load_img_file(img_path, self.renderer.cell_size)
             house_img = render_lib.GWImage(
                 grid.safe_house_coord, self.renderer.cell_size, img
@@ -190,12 +190,12 @@ class UAVEnv(DefaultEnv[UAVState, UAVObs, UAVAction]):
             self.renderer.static_objects.append(house_img)
 
         if self.uav_img is None:
-            img_path = path.join(path.dirname(__file__), "img", "drone.png")
+            img_path = Path(__file__).parent / "img" / "drone.png"
             img = render_lib.load_img_file(img_path, self.renderer.cell_size)
             self.uav_img = render_lib.GWImage((0, 0), self.renderer.cell_size, img)
 
         if self.fug_img is None:
-            img_path = path.join(path.dirname(__file__), "img", "robber.png")
+            img_path = Path(__file__).parent / "img" / "robber.png"
             img = render_lib.load_img_file(img_path, self.renderer.cell_size)
             self.fug_img = render_lib.GWImage((0, 0), self.renderer.cell_size, img)
 

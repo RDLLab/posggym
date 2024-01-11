@@ -1,5 +1,4 @@
 """Policies for the PursuitEvasion environment."""
-import os.path as osp
 
 from posggym.agents.grid_world.pursuit_evasion.shortest_path import PEShortestPathPolicy
 from posggym.agents.registration import PolicySpec
@@ -7,7 +6,7 @@ from posggym.agents.torch_policy import PPOPolicy
 from posggym.agents.utils import processors
 from posggym.config import AGENT_MODEL_DIR
 
-agent_model_dir = osp.join(AGENT_MODEL_DIR, "grid_world", "pursuit_evasion")
+agent_model_dir = AGENT_MODEL_DIR / "grid_world" / "pursuit_evasion"
 policy_specs = {}
 
 spec = PolicySpec(
@@ -71,7 +70,7 @@ for policy_file_name in [
             "use_progress_reward": True,
         },
         env_args_id="grid=16x16",
-        policy_file_path=osp.join(agent_model_dir, "grid=16x16", policy_file_name),
+        policy_file_path=agent_model_dir / "grid=16x16" / policy_file_name,
         version=0,
         valid_agent_ids=["0"],
         # policy is deterministic given random seed
@@ -115,7 +114,7 @@ for policy_file_name in [
             "use_progress_reward": True,
         },
         env_args_id="grid=16x16",
-        policy_file_path=osp.join(agent_model_dir, "grid=16x16", policy_file_name),
+        policy_file_path=agent_model_dir / "grid=16x16" / policy_file_name,
         version=0,
         valid_agent_ids=["1"],
         # policy is deterministic given random seed
@@ -155,7 +154,7 @@ for policy_file_name in [
             "use_progress_reward": True,
         },
         env_args_id="grid=8x8",
-        policy_file_path=osp.join(agent_model_dir, "grid=8x8", policy_file_name),
+        policy_file_path=agent_model_dir / "grid=8x8" / policy_file_name,
         version=0,
         valid_agent_ids=["0"],
         # policy is deterministic given random seed
@@ -195,7 +194,7 @@ for policy_file_name in [
             "use_progress_reward": True,
         },
         env_args_id="grid=8x8",
-        policy_file_path=osp.join(agent_model_dir, "grid=8x8", policy_file_name),
+        policy_file_path=agent_model_dir / "grid=8x8" / policy_file_name,
         version=0,
         valid_agent_ids=["1"],
         # policy is deterministic given random seed

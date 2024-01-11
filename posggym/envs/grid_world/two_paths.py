@@ -1,6 +1,6 @@
 """The Two-Paths Grid World Environment."""
 import itertools
-from os import path
+from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Union
 
 from gymnasium import spaces
@@ -188,12 +188,12 @@ class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
             self.renderer.static_objects.extend(goal_imgs)
 
         if self.runner_img is None:
-            img_path = path.join(path.dirname(__file__), "img", "robot.png")
+            img_path = Path(__file__).parent / "img" / "robot.png"
             img = render_lib.load_img_file(img_path, self.renderer.cell_size)
             self.runner_img = render_lib.GWImage((0, 0), self.renderer.cell_size, img)
 
         if self.chaser_img is None:
-            img_path = path.join(path.dirname(__file__), "img", "robot.png")
+            img_path = Path(__file__).parent / "img" / "robot.png"
             img = render_lib.load_img_file(img_path, self.renderer.cell_size)
             self.chaser_img = render_lib.GWImage((0, 0), self.renderer.cell_size, img)
 

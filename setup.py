@@ -1,6 +1,5 @@
 """Setup for the posggym package."""
-import os
-import pathlib
+from pathlib import Path
 import shutil
 import tarfile
 import urllib.request
@@ -8,7 +7,7 @@ import urllib.request
 from setuptools import setup
 from setuptools.command import build_py
 
-CWD = pathlib.Path(__file__).absolute().parent
+CWD = Path(__file__).absolute().parent
 
 ASSETS_URL = (
     "https://github.com/RDLLab/posggym-agent-models/archive/refs/heads/main.tar.gz"
@@ -48,25 +47,24 @@ class BuildPy(build_py.build_py):
     def download_and_extract_assets(self):
         """Downloads and extracts the assets."""
         print("Downloading and extracting assets...", flush=True)
-        tar_file_path = os.path.join(self.get_package_dir("assets"), "assets.tar.gz")
-        if os.path.exists(tar_file_path):
+        tar_file_path = self.get_package_dir("assets") / "assets.tar.gz"
+        if tar_file_path.exists():
             print(f"Found cached assets {tar_file_path}", flush=True)
         else:
-            os.makedirs(os.path.dirname(tar_file_path), exist_ok=True)
+            tar_file_path.parent.mkdir(exist_ok=True)
             print("Downloading assets...", flush=True)
             urllib.request.urlretrieve(
                 ASSETS_URL, filename=tar_file_path, reporthook=show_progress
             )
             print(f"Downloaded assets to {tar_file_path}", flush=True)
 
-        root_dir = os.path.join(self.get_package_dir(""), "posggym")
-        asset_dir = os.path.join(root_dir, "assets")
-        os.makedirs(root_dir, exist_ok=True)
-        if os.path.exists(asset_dir):
+        root_dir = self.get_package_dir("") / "posggym"
+        asset_dir = root_dir / "assets"
+        root_dir.mkdir(exist_ok=True)
+        if asset_dir.exists():
             shutil.rmtree(asset_dir)
             print("Deleted existing assets", flush=True)
-
-        os.makedirs(asset_dir, exist_ok=True)
+        asset_dir.mkdir(exist_ok=True)
         print("Extracting assets...", flush=True)
 
         def members(tarball):
@@ -83,18 +81,22 @@ class BuildPy(build_py.build_py):
             tarball.extractall(asset_dir, members=members(tarball))
         print(f"Extracted assets from {tar_file_path} to {asset_dir}", flush=True)
 
+    def get_package_dir(self, package: str) -> Path:
+        """Gets the package directory."""
+        return Path(super().get_package_dir(package))
+
     def build_assets(self):
         """Copies assets from package to build directory."""
         print("Building assets...", flush=True)
-        package_root = os.path.join(self.get_package_dir(""), "posggym")
-        os.makedirs(package_root, exist_ok=True)
-        build_root = os.path.join(self.build_lib, "posggym")
+        package_root = self.get_package_dir("") / "posggym"
+        package_root.mkdir(exist_ok=True)
+        build_root = Path(self.build_lib) / "posggym"
 
-        if os.path.exists(f"{build_root}/assets"):
-            shutil.rmtree(f"{build_root}/assets")
+        if (build_root / "assets").exists():
+            shutil.rmtree(build_root / "assets")
             print("deleted existing assets", flush=True)
 
-        shutil.copytree(f"{package_root}/assets", f"{build_root}/assets")
+        shutil.copytree(package_root / "assets", build_root / "assets")
         print(
             f"copied assets from {package_root}/assets to {build_root}/assets",
             flush=True,

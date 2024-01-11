@@ -1,5 +1,4 @@
 """Tests for posggym.agent.torch_policy module."""
-import os.path as osp
 import pickle
 
 import posggym
@@ -25,10 +24,10 @@ TEST_DISCRETE_ENV_ARGS = {
 TEST_DISCRETE_POLICY_FILE_NAME = "RL1.pkl"
 TEST_DISCRETE_POLICY_NAME = TEST_DISCRETE_POLICY_FILE_NAME.split(".")[0]
 TEST_DISCRETE_POLICY_VERSION = 0
-TEST_DISCRETE_POLICY_FILE = osp.join(
-    driving_agents.agent_model_dir,
-    TEST_DISCRETE_ENV_ARGS_ID,
-    TEST_DISCRETE_POLICY_FILE_NAME,
+TEST_DISCRETE_POLICY_FILE = (
+    driving_agents.agent_model_dir
+    / TEST_DISCRETE_ENV_ARGS_ID
+    / TEST_DISCRETE_POLICY_FILE_NAME
 )
 
 # Continuous test policy
@@ -45,15 +44,15 @@ TEST_CONTINUOUS_ENV_ARGS = {
 TEST_CONTINUOUS_POLICY_FILE_NAME = "sp_seed0.pkl"
 TEST_CONTINUOUS_POLICY_NAME = TEST_CONTINUOUS_POLICY_FILE_NAME.split(".")[0]
 TEST_CONTINUOUS_POLICY_VERSION = 0
-TEST_CONTINUOUS_POLICY_FILE = osp.join(
-    driving_continuous_agents.agent_model_dir,
-    TEST_CONTINUOUS_ENV_ARGS_ID,
-    TEST_CONTINUOUS_POLICY_FILE_NAME,
+TEST_CONTINUOUS_POLICY_FILE = (
+    driving_continuous_agents.agent_model_dir
+    / TEST_CONTINUOUS_ENV_ARGS_ID
+    / TEST_CONTINUOUS_POLICY_FILE_NAME
 )
 
 
 def test_load_discrete_ppo_policy_model():
-    if not osp.exists(TEST_DISCRETE_POLICY_FILE):
+    if not TEST_DISCRETE_POLICY_FILE.exists():
         # ensure file is already downloaded
         download.download_from_repo(TEST_DISCRETE_POLICY_FILE)
 
@@ -88,7 +87,7 @@ def test_load_discrete_ppo_policy_model():
 
 
 def test_load_continuous_ppo_policy_model():
-    if not osp.exists(TEST_CONTINUOUS_POLICY_FILE):
+    if not TEST_CONTINUOUS_POLICY_FILE.exists():
         # ensure file is already downloaded
         download.download_from_repo(TEST_CONTINUOUS_POLICY_FILE)
 
