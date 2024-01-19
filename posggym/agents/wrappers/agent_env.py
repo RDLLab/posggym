@@ -83,7 +83,7 @@ class AgentEnvWrapper(posggym.Wrapper):
         for policy in self.policies.values():
             policy.reset()
 
-        self.last_actions = {i: None for i in self.controlled_agents}
+        self.last_actions = {i: None for i in self.controlled_agents if i in obs}
         self.last_obs = {i: obs[i] for i in self.controlled_agents if i in obs}
         self.last_terminateds = {i: False for i in self.controlled_agents}
         return {i: o for i, o in obs.items() if i not in self.controlled_agents}, {
@@ -91,13 +91,16 @@ class AgentEnvWrapper(posggym.Wrapper):
         }
 
     def step(self, actions):
+        joint_action = {**actions}
         for i, policy in self.policies.items():
             assert i not in actions, f"Agent {i} is controlled by the environment."
             if not self.last_terminateds[i]:
-                actions[i] = policy.step(self.last_obs[i])
+                joint_action[i] = policy.step(self.last_obs[i])
 
-        obs, rewards, terminated, truncated, dones, infos = super().step(actions)
-        self.last_actions = {i: actions[i] for i in self.controlled_agents}
+        obs, rewards, terminated, truncated, dones, infos = super().step(joint_action)
+        self.last_actions = {
+            i: joint_action[i] for i in self.controlled_agents if i in joint_action
+        }
         self.last_obs = {i: obs[i] for i in self.controlled_agents if i in obs}
         self.last_terminateds = {
             i: terminated[i] for i in self.controlled_agents if i in terminated
