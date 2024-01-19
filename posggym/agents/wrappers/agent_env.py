@@ -34,6 +34,7 @@ class AgentEnvWrapper(posggym.Wrapper):
         self.agent_fn = agent_fn
         self.policies = agent_fn(self.model)
         self.controlled_agents = list(self.policies)
+        self.last_actions = {}
         self.last_obs = {}
         self.last_terminateds = {}
 
@@ -82,6 +83,7 @@ class AgentEnvWrapper(posggym.Wrapper):
         for policy in self.policies.values():
             policy.reset()
 
+        self.last_actions = {i: None for i in self.controlled_agents}
         self.last_obs = {i: obs[i] for i in self.controlled_agents if i in obs}
         self.last_terminateds = {i: False for i in self.controlled_agents}
         return {i: o for i, o in obs.items() if i not in self.controlled_agents}, {
@@ -95,6 +97,7 @@ class AgentEnvWrapper(posggym.Wrapper):
                 actions[i] = policy.step(self.last_obs[i])
 
         obs, rewards, terminated, truncated, dones, infos = super().step(actions)
+        self.last_actions = {i: actions[i] for i in self.controlled_agents}
         self.last_obs = {i: obs[i] for i in self.controlled_agents if i in obs}
         self.last_terminateds = {
             i: terminated[i] for i in self.controlled_agents if i in terminated
