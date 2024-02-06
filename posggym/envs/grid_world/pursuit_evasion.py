@@ -1,4 +1,5 @@
 """The Pursuit-Evasion Grid World Environment."""
+
 from collections import deque
 from typing import Any, Deque, Dict, List, NamedTuple, Optional, Set, Tuple, Union, cast
 
@@ -9,7 +10,6 @@ from posggym import logger
 from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import Coord, Direction, Grid
 from posggym.utils import seeding
-
 
 # State = (e_coord, e_dir, p_coord, p_dir, e_0_coord, p_0_coord, e_goal_coord)
 INITIAL_DIR = Direction.NORTH
@@ -445,7 +445,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         return self._sample_initial_state(None, None, None)
 
     def sample_agent_initial_state(self, agent_id: str, obs: PEObs) -> PEState:
-        if agent_id == self.EVADER_IDX:
+        if agent_id == str(self.EVADER_IDX):
             return self._sample_initial_state(
                 evader_coord=obs[1], pursuer_coord=obs[2], goal_coord=obs[3]
             )
