@@ -1,7 +1,18 @@
 """The Driving Grid World Environment."""
 import enum
 from itertools import product
-from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Set, Tuple, Union
+from typing import (
+    Any,
+    Dict,
+    List,
+    NamedTuple,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+    Type,
+)
 
 from gymnasium import spaces
 
@@ -12,13 +23,25 @@ from posggym.envs.grid_world.core import DIRECTION_ASCII_REPR, Coord, Direction,
 from posggym.utils import seeding
 
 
+def max_enum_value(enum_cls: Type[enum.Enum]):
+    return max(enum_member.value for enum_member in enum_cls)
+
+
+def min_enum_value(enum_cls: Type[enum.Enum]):
+    return min(enum_member.value for enum_member in enum_cls)
+
+
 class Speed(enum.IntEnum):
     """A speed setting for a vehicle."""
 
+    REVERSEFAST = -1
     REVERSE = 0
     STOPPED = 1
     FORWARD_SLOW = 2
     FORWARD_FAST = 3
+    FORWARD_FASTFAST = 4
+    FORWARD_FASTFASTFAST = 5
+    FORWARD_FASTFASTFASTFAST = 6
 
 
 class VehicleState(NamedTuple):
@@ -239,10 +262,17 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
         grid: Union[str, "DrivingGrid"] = "14x14RoundAbout",
         num_agents: int = 2,
         obs_dim: Tuple[int, int, int] = (3, 1, 1),
+        max_speeds: Optional[List[Speed]] = None,
+        min_speeds: Optional[List[Speed]] = None,
+        allow_reverse_turn: Optional[List[bool]] = None,
         render_mode: Optional[str] = None,
     ):
+        assert max_speeds is None or len(max_speeds) == num_agents
+        assert min_speeds is None or len(min_speeds) == num_agents
         super().__init__(
-            DrivingModel(grid, num_agents, obs_dim),
+            DrivingModel(
+                grid, num_agents, obs_dim, max_speeds, min_speeds, allow_reverse_turn
+            ),
             render_mode=render_mode,
         )
         self._obs_dim = obs_dim
@@ -384,6 +414,9 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         grid: Union[str, "DrivingGrid"],
         num_agents: int,
         obs_dim: Tuple[int, int, int],
+        max_speeds: Optional[List[Speed]] = None,
+        min_speeds: Optional[List[Speed]] = None,
+        allow_reverse_turn: Optional[List[bool]] = None,
     ):
         if isinstance(grid, str):
             assert grid in SUPPORTED_GRIDS, (
@@ -410,6 +443,25 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         self._grid = grid
         self.obs_dim = obs_dim
         self._obs_front, self._obs_back, self._obs_side = obs_dim
+
+        self.max_speeds = (
+            max_speeds
+            if max_speeds is not None
+            else [max_enum_value(Speed)] * num_agents
+        )
+        self.min_speeds = (
+            min_speeds
+            if min_speeds is not None
+            else [min_enum_value(Speed)] * num_agents
+        )
+        self.allow_reverse_turn = (
+            allow_reverse_turn
+            if allow_reverse_turn is not None
+            else [False] * num_agents
+        )
+
+        if self.min_speeds is None:
+            self.min_speeds = [min_enum_value(Speed)] * num_agents
 
         def _coord_space():
             return spaces.Tuple(
@@ -620,11 +672,15 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
             vehicle_coords.pop(state_i.coord)
 
-            next_speed = self.get_next_speed(action_i, state_i.speed)
-            move_dir = self.get_move_direction(action_i, next_speed, state_i.facing_dir)
-            next_dir = self.get_next_direction(action_i, next_speed, state_i.facing_dir)
+            next_speed = self.get_next_speed(action_i, state_i.speed, idx)
+            move_dir = self.get_move_direction(
+                action_i, next_speed, state_i.facing_dir, self.allow_reverse_turn[idx]
+            )
+            next_dir = self.get_next_direction(
+                action_i, next_speed, state_i.facing_dir, self.allow_reverse_turn[idx]
+            )
             next_coord, crashed, hit_vehicle = self._get_next_coord(
-                state_i.coord, next_speed, move_dir, vehicle_coords
+                state_i.coord, next_speed, move_dir, set(vehicle_coords.keys())
             )
             if next_coord == state_i.coord:
                 # crashed or hit a wall
@@ -635,7 +691,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
                 self.grid.get_shortest_path_distance(next_coord, state_i.dest_coord),
             )
 
-            if crashed:
+            if crashed and hit_vehicle is not None:
                 # update state of vehicle that was hit
                 jdx = vehicle_coords[hit_vehicle]
                 next_state_j = next_state[jdx]
@@ -667,35 +723,50 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
     @staticmethod
     def get_move_direction(
-        action: DAction, speed: Speed, curr_dir: Direction
+        action: DAction,
+        speed: Speed,
+        curr_dir: Direction,
+        allow_reverse_turn: bool = False,
     ) -> Direction:
-        if speed == Speed.REVERSE:
+        if speed < Speed.STOPPED and not allow_reverse_turn:
             # No turning while in reverse,
             # so movement dir is always just the opposite of current direction
             return Direction((curr_dir + 2) % len(Direction))
-        return DrivingModel.get_next_direction(action, speed, curr_dir)
+        return DrivingModel.get_next_direction(
+            action, speed, curr_dir, allow_reverse_turn
+        )
 
     @staticmethod
     def get_next_direction(
-        action: DAction, speed: Speed, curr_dir: Direction
+        action: DAction,
+        speed: Speed,
+        curr_dir: Direction,
+        allow_reverse_turn: bool = False,
     ) -> Direction:
-        if action == TURN_RIGHT and speed != Speed.REVERSE:
+        if action == TURN_RIGHT and (speed >= Speed.STOPPED and not allow_reverse_turn):
             return Direction((curr_dir + 1) % len(Direction))
-        if action == TURN_LEFT and speed != Speed.REVERSE:
+        if action == TURN_LEFT and (speed >= Speed.STOPPED and not allow_reverse_turn):
             return Direction((curr_dir - 1) % len(Direction))
         return curr_dir
 
-    @staticmethod
-    def get_next_speed(action: DAction, curr_speed: Speed) -> Speed:
+    def get_next_speed(
+        self, action: DAction, curr_speed: Speed, agent_idx: int
+    ) -> Speed:
         if action == DO_NOTHING:
             return curr_speed
+
         if action in (TURN_LEFT, TURN_RIGHT):
-            if curr_speed == Speed.FORWARD_FAST:
-                return Speed.FORWARD_SLOW
+            if curr_speed > Speed.STOPPED:
+                return Speed(curr_speed - 1)
+
             return curr_speed
+
         if action == ACCELERATE:
-            return Speed(min(curr_speed + 1, Speed.FORWARD_FAST))
-        return Speed(max(curr_speed - 1, Speed.REVERSE))
+            return Speed(min(curr_speed + 1, self.max_speeds[agent_idx]))
+        if action == DECELERATE:
+            return Speed(max(curr_speed - 1, self.min_speeds[agent_idx]))
+
+        raise ValueError("Invalid Action!")
 
     def _get_next_coord(
         self,
