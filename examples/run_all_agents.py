@@ -9,28 +9,28 @@ To see available arguments, run:
 
 Example 1. To run 10 episodes of every agent for every environment:
 
-    python run_all_agents.py --num_episodes 10
+    python run_all_agents.py --num-episodes 10
 
 
 Example 2. To run 10 episodes of every agent that is compatible with the `Driving-v1`
 environment:
 
-    python run_all_agents.py --env_id_prefix Driving-v1 --num_episodes 10
+    python run_all_agents.py --env-id-prefix Driving-v1 --num-episodes 10
 
 
 Example 3. To run 10 episodes of every agent that is compatible with the
 `PursuitEvasion-v0` environment with specific argument, e.g. grid="8x8" run:
 
     python run_all_agents.py \
-        --env_id_prefix PursuitEvasion-v0/grid=8x8 \
-        --num_episodes 10
+        --env-id-prefix PursuitEvasion-v0/grid=8x8 \
+        --num-episodes 10
 
     # Note: the argument `env_id_prefix` is a prefix of the environment id, so the
     # following would also work to show all agents for the 8x8 version of
     # the PursuitEvasion-v0 environment
     python run_all_agents.py \
-        --env_id_prefix PursuitEvasion-v0/grid=8 \
-        --num_episodes 10
+        --env-id-prefix PursuitEvasion-v0/grid=8 \
+        --num-episodes 10
 
 """
 from typing import Dict, Optional, Tuple

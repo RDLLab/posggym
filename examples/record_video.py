@@ -11,9 +11,9 @@ To see all available arguments, run:
 
 Example, to record 10 episodes of the `Driving-v1` environment run,
 
-    python run_random_agents.py \
-        --env_id Driving-v1 \
-        --num_episodes 10
+    python record_video.py \
+        --env-id Driving-v1 \
+        --num-episodes 10
 """
 from pathlib import Path
 from typing import Dict, List, Optional

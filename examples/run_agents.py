@@ -7,10 +7,10 @@ Example, to run 10 episodes of the `Driving-v1` environment with two random poli
 and with `human` rendering mode, run:
 
     python scripts/run_agents.py \
-        --env_id Driving-v1 \
-        --policy_ids Random-v0 Random-v0 \
-        --num_episodes 10 \
-        --render_mode human
+        --env-id Driving-v1 \
+        --policy-ids Random-v0 Random-v0 \
+        --num-episodes 10 \
+        --render-mode human
 
 """
 from typing import Dict, List, Optional

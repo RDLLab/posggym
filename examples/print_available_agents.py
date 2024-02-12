@@ -2,7 +2,7 @@
 
 Example, print all available agents for PursuitEvasion-v0 environment:
 
-    python print_available_agents.py --env_id PursuitEvasion-v0
+    python print_available_agents.py --env-id PursuitEvasion-v0
 
 
 Example, print all available agents for all environments:

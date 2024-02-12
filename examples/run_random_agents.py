@@ -10,9 +10,9 @@ mode, etc.). To see all available arguments, run:
 Example, to run 10 episodes of the `Driving-v1` environment with `human` rendering mode,
 
     python run_random_agents.py \
-        --env_id Driving-v1 \
-        --num_episodes 10 \
-        --render_mode human
+        --env-id Driving-v1 \
+        --num-episodes 10 \
+        --render-mode human
 """
 from typing import Dict, List, Optional
 from typing_extensions import Annotated
