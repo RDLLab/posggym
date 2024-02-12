@@ -10,9 +10,9 @@ Example, to run a keyboard agent in the `Driving-v1` environment while controlli
 agent '0' for 10 episodes, run:
 
     python run_keyboard_agent.py \
-        --env_id Driving-v1 \
-        --keyboard_agent_ids 0 \
-        --num_episodes 10
+        --env-id Driving-v1 \
+        --keyboard-agent-ids 0 \
+        --num-episodes 10
 
 """
 import math
@@ -351,7 +351,7 @@ def run_keyboard_agent(
             "-kids",
             help=(
                 "IDs of agents to run as keyboard agents. Controlling multiple agents"
-                "only supported when running with `--manual_input`"
+                "only supported when running with `--manual-input`"
             ),
         ),
     ] = ["0"],
