@@ -300,7 +300,7 @@ class DrivingShortestPathPolicy(Policy[DAction, DObs]):
 
         next_positions = set()
         for a in [DO_NOTHING, TURN_LEFT, TURN_RIGHT, ACCELERATE, DECELERATE]:
-            next_speed = DrivingModel.get_next_speed(a, speed)
+            next_speed = DrivingModel.get_next_speed_static(a, speed)
             move_dir = DrivingModel.get_move_direction(a, next_speed, facing_dir)
             next_dir = DrivingModel.get_next_direction(a, next_speed, facing_dir)
 

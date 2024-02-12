@@ -389,19 +389,19 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
         if self.renderer is not None:
             self.renderer.close()
             self.renderer = None
-            
-            
+
     def reset(
-        self, *, seed: int | None = None, options: Dict[str, Any] | None = None,
+        self,
+        *,
+        seed: int | None = None,
+        options: Dict[str, Any] | None = None,
     ) -> Tuple[Dict[str, DObs], Dict[str, Dict]]:
-        
         max_speeds, min_speeds, allow_reverse_turn = None, None, None
-        
+
         if options is not None:
             max_speeds = options.get("max_speeds")
             min_speeds = options.get("min_speeds")
             allow_reverse_turn = options.get("allow_reverse_turn")
-            
 
         model: DrivingModel = self.model  # type: ignore
         model.reset(max_speeds, min_speeds, allow_reverse_turn)
@@ -535,10 +535,12 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
     def get_agents(self, state: DState) -> List[str]:
         return list(self.possible_agents)
 
-    def reset(self, max_speeds: Optional[List[Speed]] = None,
+    def reset(
+        self,
+        max_speeds: Optional[List[Speed]] = None,
         min_speeds: Optional[List[Speed]] = None,
-        allow_reverse_turn: Optional[List[bool]] = None):
-        
+        allow_reverse_turn: Optional[List[bool]] = None,
+    ):
         self.max_speeds = (
             max_speeds
             if max_speeds is not None
@@ -771,7 +773,18 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         return curr_dir
 
     def get_next_speed(
-        self, action: DAction, curr_speed: Speed, agent_idx: int
+        self, action: DAction, curr_speed: Speed, agent_idx: int = 0
+    ) -> Speed:
+        return DrivingModel.get_next_speed_static(
+            action, curr_speed, self.max_speeds[agent_idx], self.min_speeds[agent_idx]
+        )
+
+    @staticmethod
+    def get_next_speed_static(
+        action: DAction,
+        curr_speed: Speed,
+        max_speed=max_enum_value(Speed),
+        min_speed=min_enum_value(Speed),
     ) -> Speed:
         if action == DO_NOTHING:
             return curr_speed
@@ -783,9 +796,9 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             return curr_speed
 
         if action == ACCELERATE:
-            return Speed(min(curr_speed + 1, self.max_speeds[agent_idx]))
+            return Speed(min(curr_speed + 1, max_speed))
         if action == DECELERATE:
-            return Speed(max(curr_speed - 1, self.min_speeds[agent_idx]))
+            return Speed(max(curr_speed - 1, min_speed))
 
         raise ValueError("Invalid Action!")
 
