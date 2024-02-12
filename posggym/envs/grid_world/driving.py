@@ -389,6 +389,24 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
         if self.renderer is not None:
             self.renderer.close()
             self.renderer = None
+            
+            
+    def reset(
+        self, *, seed: int | None = None, options: Dict[str, Any] | None = None,
+    ) -> Tuple[Dict[str, DObs], Dict[str, Dict]]:
+        
+        max_speeds, min_speeds, allow_reverse_turn = None, None, None
+        
+        if options is not None:
+            max_speeds = options.get("max_speeds")
+            min_speeds = options.get("min_speeds")
+            allow_reverse_turn = options.get("allow_reverse_turn")
+            
+
+        model: DrivingModel = self.model  # type: ignore
+        model.reset(max_speeds, min_speeds, allow_reverse_turn)
+
+        return super().reset(seed=seed)
 
 
 class DrivingModel(M.POSGModel[DState, DObs, DAction]):
@@ -443,25 +461,8 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         self._grid = grid
         self.obs_dim = obs_dim
         self._obs_front, self._obs_back, self._obs_side = obs_dim
-
-        self.max_speeds = (
-            max_speeds
-            if max_speeds is not None
-            else [max_enum_value(Speed)] * num_agents
-        )
-        self.min_speeds = (
-            min_speeds
-            if min_speeds is not None
-            else [min_enum_value(Speed)] * num_agents
-        )
-        self.allow_reverse_turn = (
-            allow_reverse_turn
-            if allow_reverse_turn is not None
-            else [False] * num_agents
-        )
-
-        if self.min_speeds is None:
-            self.min_speeds = [min_enum_value(Speed)] * num_agents
+        self.num_agents = num_agents
+        self.reset(max_speeds, min_speeds, allow_reverse_turn)
 
         def _coord_space():
             return spaces.Tuple(
@@ -533,6 +534,26 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
     def get_agents(self, state: DState) -> List[str]:
         return list(self.possible_agents)
+
+    def reset(self, max_speeds: Optional[List[Speed]] = None,
+        min_speeds: Optional[List[Speed]] = None,
+        allow_reverse_turn: Optional[List[bool]] = None):
+        
+        self.max_speeds = (
+            max_speeds
+            if max_speeds is not None
+            else [max_enum_value(Speed)] * self.num_agents
+        )
+        self.min_speeds = (
+            min_speeds
+            if min_speeds is not None
+            else [min_enum_value(Speed)] * self.num_agents
+        )
+        self.allow_reverse_turn = (
+            allow_reverse_turn
+            if allow_reverse_turn is not None
+            else [False] * self.num_agents
+        )
 
     @property
     def grid(self) -> "DrivingGrid":
