@@ -21,6 +21,7 @@ from posggym import logger
 from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import DIRECTION_ASCII_REPR, Coord, Direction, Grid
 from posggym.utils import seeding
+import random
 
 
 def max_enum_value(enum_cls: Type[enum.Enum]):
@@ -262,19 +263,15 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
         grid: Union[str, "DrivingGrid"] = "14x14RoundAbout",
         num_agents: int = 2,
         obs_dim: Tuple[int, int, int] = (3, 1, 1),
-        max_speeds: Optional[List[Speed]] = None,
-        min_speeds: Optional[List[Speed]] = None,
-        allow_reverse_turn: Optional[List[bool]] = None,
+        should_randomze_dyn=False,
         render_mode: Optional[str] = None,
     ):
-        assert max_speeds is None or len(max_speeds) == num_agents
-        assert min_speeds is None or len(min_speeds) == num_agents
         super().__init__(
-            DrivingModel(
-                grid, num_agents, obs_dim, max_speeds, min_speeds, allow_reverse_turn
-            ),
+            DrivingModel(grid, num_agents, obs_dim),
             render_mode=render_mode,
+            should_randomze_dyn=should_randomze_dyn,
         )
+
         self._obs_dim = obs_dim
         self.renderer = None
         self._agent_imgs = None
@@ -390,24 +387,6 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
             self.renderer.close()
             self.renderer = None
 
-    def reset(
-        self,
-        *,
-        seed: int | None = None,
-        options: Dict[str, Any] | None = None,
-    ) -> Tuple[Dict[str, DObs], Dict[str, Dict]]:
-        max_speeds, min_speeds, allow_reverse_turn = None, None, None
-
-        if options is not None:
-            max_speeds = options.get("max_speeds")
-            min_speeds = options.get("min_speeds")
-            allow_reverse_turn = options.get("allow_reverse_turn")
-
-        model: DrivingModel = self.model  # type: ignore
-        model.reset(max_speeds, min_speeds, allow_reverse_turn)
-
-        return super().reset(seed=seed)
-
 
 class DrivingModel(M.POSGModel[DState, DObs, DAction]):
     """Driving Problem Model.
@@ -432,9 +411,6 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         grid: Union[str, "DrivingGrid"],
         num_agents: int,
         obs_dim: Tuple[int, int, int],
-        max_speeds: Optional[List[Speed]] = None,
-        min_speeds: Optional[List[Speed]] = None,
-        allow_reverse_turn: Optional[List[bool]] = None,
     ):
         if isinstance(grid, str):
             assert grid in SUPPORTED_GRIDS, (
@@ -462,7 +438,9 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         self.obs_dim = obs_dim
         self._obs_front, self._obs_back, self._obs_side = obs_dim
         self.num_agents = num_agents
-        self.reset(max_speeds, min_speeds, allow_reverse_turn)
+        self.max_speeds = [max_enum_value(Speed)] * self.num_agents
+        self.min_speeds = [min_enum_value(Speed)] * self.num_agents
+        self.allow_reverse_turn = [False] * self.num_agents
 
         def _coord_space():
             return spaces.Tuple(
@@ -535,27 +513,14 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
     def get_agents(self, state: DState) -> List[str]:
         return list(self.possible_agents)
 
-    def reset(
+    def randomize_dynamics(
         self,
-        max_speeds: Optional[List[Speed]] = None,
-        min_speeds: Optional[List[Speed]] = None,
-        allow_reverse_turn: Optional[List[bool]] = None,
     ):
-        self.max_speeds = (
-            max_speeds
-            if max_speeds is not None
-            else [max_enum_value(Speed)] * self.num_agents
-        )
-        self.min_speeds = (
-            min_speeds
-            if min_speeds is not None
-            else [min_enum_value(Speed)] * self.num_agents
-        )
-        self.allow_reverse_turn = (
-            allow_reverse_turn
-            if allow_reverse_turn is not None
-            else [False] * self.num_agents
-        )
+        self.max_speeds = [random.randint(2, 6) for _ in range(self.num_agents)]
+        self.min_speeds = [random.randint(-1, 0) for _ in range(self.num_agents)]
+        self.allow_reverse_turn = [
+            bool(random.randint(0, 1)) for _ in range(self.num_agents)
+        ]
 
     @property
     def grid(self) -> "DrivingGrid":

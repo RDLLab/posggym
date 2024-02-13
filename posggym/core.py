@@ -370,16 +370,24 @@ class DefaultEnv(Env[StateType, ObsType, ActType]):
 
     """
 
-    def __init__(self, model: POSGModel, render_mode: Optional[str] = None):
+    def __init__(
+        self,
+        model: POSGModel,
+        render_mode: Optional[str] = None,
+        should_randomze_dyn: Optional[bool] = False,
+    ):
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.model = model
         self.render_mode = render_mode
+        if self.should_randomze_dyn:
+            self.randomize_dynamics()
 
         self._state = self.model.sample_initial_state()
         self._last_obs = self.model.sample_initial_obs(self._state)
         self._step_num = 0
         self._last_actions: Dict[str, ActType] | None = None
         self._last_rewards: Dict[str, float] | None = None
+        self.should_randomze_dyn = should_randomze_dyn
 
     def step(
         self, actions: Dict[str, ActType]
@@ -410,6 +418,10 @@ class DefaultEnv(Env[StateType, ObsType, ActType]):
         self, *, seed: int | None = None, options: Dict[str, Any] | None = None
     ) -> Tuple[Dict[str, ObsType], Dict[str, Dict]]:
         super().reset(seed=seed)
+
+        if self.should_randomze_dyn:
+            self.randomize_dynamics()
+
         self._state = self.model.sample_initial_state()
         self._last_obs = self.model.sample_initial_obs(self._state)
         self._last_actions = None
@@ -420,6 +432,9 @@ class DefaultEnv(Env[StateType, ObsType, ActType]):
     @property
     def state(self) -> StateType:
         return copy.copy(self._state)
+
+    def randomize_dynamics(self):
+        self.model.randomize_dynamics()
 
 
 WrapperStateType = TypeVar("WrapperStateType")
