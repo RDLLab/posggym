@@ -15,6 +15,7 @@ from gymnasium.vector.utils import concatenate, create_empty_array
 from gymnasium.vector.utils.spaces import batch_space
 
 import posggym
+import random
 
 
 class SyncVectorEnv(posggym.Env):
@@ -205,7 +206,16 @@ class SyncVectorEnv(posggym.Env):
 
             if all_done:
                 old_observation, old_info = observation, info
-                observation, info = env.reset()
+                n_agents = env.unwrapped.model.num_agents
+                options = {
+                    "max_speeds": [random.randint(2, 6) for _ in range(n_agents)],
+                    "min_speeds": [random.randint(-1, 0) for _ in range(n_agents)],
+                    "allow_reverse_turn": [
+                        bool(random.randint(0, 1)) for _ in range(n_agents)
+                    ],
+                }
+
+                observation, info = env.reset(options=options)
                 for i in old_observation:
                     info[i]["final_observation"] = old_observation[i]
                     info[i]["final_info"] = old_info[i]
