@@ -379,6 +379,7 @@ class DefaultEnv(Env[StateType, ObsType, ActType]):
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.model = model
         self.render_mode = render_mode
+        self.should_randomze_dyn = should_randomze_dyn
         if self.should_randomze_dyn:
             self.randomize_dynamics()
 
@@ -387,7 +388,6 @@ class DefaultEnv(Env[StateType, ObsType, ActType]):
         self._step_num = 0
         self._last_actions: Dict[str, ActType] | None = None
         self._last_rewards: Dict[str, float] | None = None
-        self.should_randomze_dyn = should_randomze_dyn
 
     def step(
         self, actions: Dict[str, ActType]
