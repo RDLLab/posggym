@@ -167,10 +167,12 @@ class CooperativeReachingEnv(DefaultEnv[CRState, CRObs, CRAction]):
         mode: str = "original",
         obs_distance: Optional[int] = None,
         render_mode: Optional[str] = None,
+        should_randomze_dyn=False,
     ):
         super().__init__(
             CooperativeReachingModel(size, num_goals, mode, obs_distance),
             render_mode=render_mode,
+            should_randomze_dyn=should_randomze_dyn,
         )
         self.renderer = None
         self._agent_imgs = None

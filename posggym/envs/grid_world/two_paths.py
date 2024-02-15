@@ -127,10 +127,12 @@ class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
         grid_size: int = 7,
         action_probs: Union[float, Tuple[float, float]] = 1.0,
         render_mode: Optional[str] = None,
+        should_randomze_dyn=False,
     ):
         super().__init__(
             TwoPathsModel(grid_size, action_probs),
             render_mode=render_mode,
+            should_randomze_dyn=should_randomze_dyn,
         )
         self.renderer = None
         self.chaser_img = None

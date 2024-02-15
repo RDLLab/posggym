@@ -21,6 +21,7 @@ from posggym.envs.continuous.core import (
     generate_interior_walls,
 )
 from posggym.utils import seeding
+import enum
 
 
 class VehicleState(NamedTuple):
@@ -30,6 +31,13 @@ class VehicleState(NamedTuple):
     dest_coord: np.ndarray
     status: np.ndarray
     min_dest_dist: np.ndarray
+
+
+class ControlType(enum.Enum, str):
+    VelocityHolonomoic = "VelocityHolonomoic"
+    ForceHolonomoic = "ForceHolonomoic"
+    VelocityNonHolonomoic = "VelocityNonHolonomoic"
+    ForceNonHolonomoic = "ForceNonHolonomoic"
 
 
 DState = Tuple[VehicleState, ...]
@@ -207,9 +215,12 @@ class DrivingContinuousEnv(DefaultEnv[DState, DObs, DAction]):
         obs_dist: float = 5.0,
         n_sensors: int = 16,
         render_mode: Optional[str] = None,
+        control_type: ControlType = ControlType.VelocityNonHolonomoic,
     ):
         super().__init__(
-            DrivingContinuousModel(world, num_agents, obs_dist, n_sensors),
+            DrivingContinuousModel(
+                world, num_agents, obs_dist, n_sensors, control_type
+            ),
             render_mode=render_mode,
         )
         self.window_surface = None
@@ -385,6 +396,7 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
         num_agents: int,
         obs_dist: float,
         n_sensors: int,
+        control_type: ControlType,
     ):
         if isinstance(world, str):
             assert world in SUPPORTED_WORLDS, (
@@ -405,6 +417,7 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
         self.n_sensors = n_sensors
         self.obs_dist = obs_dist
         self.vehicle_collision_dist = 2.1 * self.world.agent_radius
+        self.control_type = control_type
 
         self.possible_agents = tuple(str(i) for i in range(num_agents))
         self.state_space = spaces.Tuple(
@@ -432,15 +445,52 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
 
         self.dyaw_limit = math.pi / 4
         self.dvel_limit = 0.25
+
+        self.fyaw_limit = math.pi
+        self.fvel_limit = 1
+
         self.vel_limit_norm = 1.0
-        # dyaw, dvel
-        self.action_spaces = {
-            i: spaces.Box(
-                low=np.array([-self.dyaw_limit, -self.dvel_limit], dtype=np.float32),
-                high=np.array([self.dyaw_limit, self.dvel_limit], dtype=np.float32),
-            )
-            for i in self.possible_agents
-        }
+        if self.control_type == ControlType.VelocityNonHolonomoic:
+            # dyaw, dvel
+            self.action_spaces = {
+                i: spaces.Box(
+                    low=np.array(
+                        [-self.dyaw_limit, -self.dvel_limit], dtype=np.float32
+                    ),
+                    high=np.array([self.dyaw_limit, self.dvel_limit], dtype=np.float32),
+                )
+                for i in self.possible_agents
+            }
+        elif self.control_type == ControlType.VelocityHolonomoic:
+            self.action_spaces = {
+                i: spaces.Box(
+                    low=np.array(
+                        [-self.dvel_limit, -self.dvel_limit], dtype=np.float32
+                    ),
+                    high=np.array([self.dvel_limit, self.dvel_limit], dtype=np.float32),
+                )
+                for i in self.possible_agents
+            }
+        elif self.control_type == ControlType.ForceNonHolonomoic:
+            self.action_spaces = {
+                i: spaces.Box(
+                    low=np.array(
+                        [-self.fyaw_limit, -self.fvel_limit], dtype=np.float32
+                    ),
+                    high=np.array([self.fyaw_limit, self.fvel_limit], dtype=np.float32),
+                )
+                for i in self.possible_agents
+            }
+        elif self.control_type == ControlType.ForceHolonomoic:
+            self.action_spaces = {
+                i: spaces.Box(
+                    low=np.array(
+                        [-self.fvel_limit, -self.fvel_limit], dtype=np.float32
+                    ),
+                    high=np.array([self.fvel_limit, self.fvel_limit], dtype=np.float32),
+                )
+                for i in self.possible_agents
+            }
 
         # Observes entity and distance to entity along a n_sensors rays from the agent
         # 0 to n_sensors = wall distance obs
@@ -563,9 +613,12 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
 
             action_i = actions[str(i)]
             v_angle = state_i.body[2] + action_i[0]
-            v_vel = Vec2d(*state_i.body[3:5]).rotated(action_i[0]) + (
-                action_i[1] * Vec2d(1, 0).rotated(v_angle)
-            )
+            if self.control_type == ControlType.VelocityNonHolonomoic:
+                v_vel = Vec2d(*state_i.body[3:5]).rotated(action_i[0]) + (
+                    action_i[1] * Vec2d(1, 0).rotated(v_angle)
+                )
+            # elif sel;
+
             self.world.update_entity_state(
                 f"vehicle_{i}",
                 angle=v_angle,

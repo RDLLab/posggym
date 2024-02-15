@@ -202,6 +202,7 @@ class PredatorPreyEnv(DefaultEnv[PPState, PPObs, PPAction]):
         prey_strength: Optional[int] = None,
         obs_dim: int = 2,
         render_mode: Optional[str] = None,
+        should_randomze_dyn=False,
     ):
         super().__init__(
             PredatorPreyModel(
@@ -213,6 +214,7 @@ class PredatorPreyEnv(DefaultEnv[PPState, PPObs, PPAction]):
                 obs_dim,
             ),
             render_mode=render_mode,
+            should_randomze_dyn=should_randomze_dyn,
         )
         self._obs_dim = obs_dim
         self.renderer = None

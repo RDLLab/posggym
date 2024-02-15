@@ -307,6 +307,7 @@ class AbstractContinuousWorld(ABC):
         angle: float | None = None,
         vel: FloatCoord | List[float] | np.ndarray | Vec2d | None = None,
         vangle: float | None = None,
+        force: Tuple[float, float] | None = None,
     ):
         """Update the state of an entity.
 
@@ -326,6 +327,9 @@ class AbstractContinuousWorld(ABC):
 
         if vangle is not None:
             body.angular_velocity = vangle
+
+        if force is not None:
+            body.apply_force_at_local_point(force)
 
     def get_bounds(self) -> Tuple[FloatCoord, FloatCoord]:
         """Get  (min x, max_x), (min y, max y) bounds of the world."""
