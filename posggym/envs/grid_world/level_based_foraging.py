@@ -334,7 +334,7 @@ class LevelBasedForagingEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
             img_obj.text = str(food.level)
             render_objects.append(img_obj)
 
-        agent_coords_and_dirs = {
+        agent_coords_and_dirs: Dict[str, Tuple[Coord, Direction]] = {
             str(i): (player.coord, Direction.NORTH)
             for i, player in enumerate(self._state.players)
         }

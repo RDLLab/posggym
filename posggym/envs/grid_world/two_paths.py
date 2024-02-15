@@ -150,8 +150,8 @@ class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
         return self._render_img()
 
     def _render_ansi(self):
-        grid = self.model.grid  # type: ignore
-        grid_str = grid.get_ascii_repr(self._state[0], self._state[1])
+        model: TwoPathsModel = self.model  # type: ignore
+        grid_str = model.grid.get_ascii_repr(self._state[0], self._state[1])
 
         output = [
             f"Step: {self._step_num}",
@@ -167,14 +167,15 @@ class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
         return "\n".join(output) + "\n"
 
     def _render_img(self):
-        grid: Grid = self.model.grid  # type: ignore
+        assert self.render_mode in ["human", "rgb", "rgb_array_dict"]
+        model: TwoPathsModel = self.model  # type: ignore
 
         import posggym.envs.grid_world.render as render_lib
 
         if self.renderer is None:
             self.renderer = render_lib.GWRenderer(
                 self.render_mode,
-                grid,
+                model.grid,
                 render_fps=self.metadata["render_fps"],
                 env_name="Two Paths",
             )
@@ -183,7 +184,7 @@ class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
                 render_lib.GWRectangle(
                     coord, self.renderer.cell_size, render_lib.get_color("green")
                 )
-                for coord in grid.goal_coords
+                for coord in model.grid.goal_coords
             ]
             self.renderer.static_objects.extend(goal_imgs)
 
@@ -199,10 +200,10 @@ class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
 
         self.runner_img.coord = self._state[0]
         self.chaser_img.coord = self._state[1]
-        render_objects = [self.runner_img, self.chaser_img]
+        render_objects: List[render_lib.GWObject] = [self.runner_img, self.chaser_img]
 
-        observed_coords = grid.get_neighbours(self._state[0])
-        observed_coords.extend(grid.get_neighbours(self._state[1]))
+        observed_coords = model.grid.get_neighbours(self._state[0])
+        observed_coords.extend(model.grid.get_neighbours(self._state[1]))
 
         if self.render_mode in ("human", "rgb_array"):
             return self.renderer.render(render_objects, observed_coords)
@@ -261,7 +262,8 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
 
         if isinstance(action_probs, float):
             action_probs = (action_probs, action_probs)
-        self._action_probs = action_probs
+
+        self._action_probs: Tuple[float, float] = action_probs  # type: ignore
 
         self.possible_agents = tuple(str(i) for i in range(self.NUM_AGENTS))
         self.state_space = spaces.Tuple(
@@ -424,6 +426,9 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
             return True
         neighbour_coords = self.grid.get_neighbours(chaser_coords, True)
         return runner_coords in neighbour_coords
+
+    def randomize_dynamics(self):
+        self.action_probs = (self.rng.random(), self.rng.random())
 
 
 class TPGrid(Grid):

@@ -311,6 +311,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
         return "\n".join(output) + "\n"
 
     def _render_img(self):
+        assert self.render_mode in ["human", "rgb"]
         model: DrivingModel = self.model  # type: ignore
 
         import posggym.envs.grid_world.render as render_lib
@@ -347,7 +348,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
                 render_lib.GWRectangle(
                     vs.dest_coord,
                     self.renderer.cell_size,
-                    render_lib.get_agent_color(i)[1],
+                    render_lib.get_agent_color(str(i))[1],
                 )
             )
 
@@ -565,6 +566,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         return tuple(state)
 
     def sample_agent_initial_state(self, agent_id: str, obs: DObs) -> DState:
+        assert isinstance(obs[3], tuple)
         agent_idx = int(agent_id)
         agent_start_coord = obs[2]
         agent_dest_coord = obs[3]

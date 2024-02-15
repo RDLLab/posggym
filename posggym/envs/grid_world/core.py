@@ -3,7 +3,7 @@ import enum
 import itertools
 import random
 from queue import PriorityQueue, Queue
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Callable, TypeVar
 
 # (x, y) coord = (col, row) coord
 Coord = Tuple[int, int]
@@ -558,3 +558,7 @@ class GridCycler:
         grid = self.grids[self._next_idx]
         self._next_idx += 1
         return grid
+
+
+GridSubClass = TypeVar("GridSubClass", bound=Grid)
+SupportedGridTypes = Dict[str, Tuple[Callable[[], GridSubClass], int]]

@@ -1,15 +1,27 @@
 """The Pursuit-Evasion Grid World Environment."""
 
 from collections import deque
-from typing import Any, Deque, Dict, List, NamedTuple, Optional, Set, Tuple, Union, cast
+from typing import (
+    Any,
+    Deque,
+    Dict,
+    List,
+    NamedTuple,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+    cast,
+)
 
 from gymnasium import spaces
 
 import posggym.model as M
 from posggym import logger
 from posggym.core import DefaultEnv
-from posggym.envs.grid_world.core import Coord, Direction, Grid
+from posggym.envs.grid_world.core import Coord, Direction, Grid, SupportedGridTypes
 from posggym.utils import seeding
+import random
 
 # State = (e_coord, e_dir, p_coord, p_dir, e_0_coord, p_0_coord, e_goal_coord)
 INITIAL_DIR = Direction.NORTH
@@ -279,6 +291,7 @@ class PursuitEvasionEnv(DefaultEnv):
         return "\n".join(output) + "\n"
 
     def _render_img(self):
+        assert self.render_mode in ["human", "rgb_array"]
         evader_coord = self._state[0]
         pursuer_coord = self._state[2]
         goal_coord = self._state[6]
@@ -311,12 +324,12 @@ class PursuitEvasionEnv(DefaultEnv):
                 model.grid.get_fov(
                     self._state[2 * i],
                     self._state[2 * i + 1],
-                    self.model.FOV_EXPANSION_INCR,
+                    model.FOV_EXPANSION_INCR,
                     self.max_obs_distance,
                 )
             )
 
-        render_objects = [
+        render_objects: List[render_lib.GWObject] = [
             render_lib.GWRectangle(
                 goal_coord, self.renderer.cell_size, render_lib.get_color("green")
             )
@@ -374,6 +387,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         self._grid = grid
         self.max_obs_distance = max_obs_distance
         self.use_progress_reward = use_progress_reward
+        self.action_mask = [-1] * self.NUM_AGENTS
 
         self._max_sp_distance = self._grid.get_max_shortest_path_distance()
         self._max_raw_return = self.R_EVASION
@@ -500,17 +514,25 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
     def _get_next_state(self, state: PEState, actions: Dict[str, PEAction]) -> PEState:
         evader_a = actions[str(self.EVADER_IDX)]
         pursuer_a = actions[str(self.PURSUER_IDX)]
-        pursuer_next_dir = Direction(ACTION_TO_DIR[pursuer_a][state.pursuer_dir])
-        pursuer_next_coord = self.grid.get_next_coord(
-            state.pursuer_coord, pursuer_next_dir, ignore_blocks=False
-        )
+        if pursuer_a == self.action_mask[self.PURSUER_IDX]:
+            pursuer_next_dir = state.pursuer_dir
+            pursuer_next_coord = state.pursuer_coord
+        else:
+            pursuer_next_dir = Direction(ACTION_TO_DIR[pursuer_a][state.pursuer_dir])
+            pursuer_next_coord = self.grid.get_next_coord(
+                state.pursuer_coord, pursuer_next_dir, ignore_blocks=False
+            )
 
         evader_next_coord = state.evader_coord
-        evader_next_dir = Direction(ACTION_TO_DIR[evader_a][state.evader_dir])
-        if pursuer_next_coord != state.evader_coord:
-            evader_next_coord = self.grid.get_next_coord(
-                state.evader_coord, evader_next_dir, ignore_blocks=False
-            )
+        if evader_a == self.action_mask[self.EVADER_IDX]:
+            # Action is masked out!
+            evader_next_dir = state.evader_dir
+        else:
+            evader_next_dir = Direction(ACTION_TO_DIR[evader_a][state.evader_dir])
+            if pursuer_next_coord != state.evader_coord:
+                evader_next_coord = self.grid.get_next_coord(
+                    state.evader_coord, evader_next_dir, ignore_blocks=False
+                )
 
         min_sp_distance = min(
             state.min_goal_dist,
@@ -630,6 +652,9 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         """Normalize reward in [-1, 1] interval."""
         diff = self._max_raw_return - self._min_raw_return
         return 2 * (reward - self._min_raw_return) / diff - 1
+
+    def randomize_dynamics(self):
+        self.action_mask = [random.randint(0, 3) for _ in range(self.NUM_AGENTS)]
 
 
 class PEGrid(Grid):
@@ -1012,7 +1037,7 @@ def _convert_map_to_grid(
 
 
 # grid_name: (grid_make_fn, step_limit)
-SUPPORTED_GRIDS = {
+SUPPORTED_GRIDS: SupportedGridTypes[PEGrid] = {
     "8x8": (get_8x8_grid, 50),
     "16x16": (get_16x16_grid, 100),
     "32x32": (get_32x32_grid, 200),

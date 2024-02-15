@@ -9,8 +9,9 @@ from gymnasium import spaces
 import posggym.model as M
 from posggym import logger
 from posggym.core import DefaultEnv
-from posggym.envs.grid_world.core import Coord, Direction, Grid
+from posggym.envs.grid_world.core import Coord, Direction, Grid, SupportedGridTypes
 from posggym.utils import seeding
+import random
 
 
 class PPState(NamedTuple):
@@ -236,7 +237,7 @@ class PredatorPreyEnv(DefaultEnv[PPState, PPObs, PPAction]):
         grid = model.grid
         uncaught_prey_coords = [
             self._state.prey_coords[i]
-            for i in range(self.model.num_prey)
+            for i in range(model.num_prey)
             if not self._state.prey_caught[i]
         ]
         grid_str = grid.get_ascii_repr(
@@ -256,6 +257,7 @@ class PredatorPreyEnv(DefaultEnv[PPState, PPObs, PPAction]):
         return "\n".join(output) + "\n"
 
     def _render_img(self):
+        assert self.render_mode in ["human", "rgb"]
         model: PredatorPreyModel = self.model  # type: ignore
 
         import posggym.envs.grid_world.render as render_lib
@@ -297,7 +299,7 @@ class PredatorPreyEnv(DefaultEnv[PPState, PPObs, PPAction]):
             agent_obj.coord = coord
             render_objects.append(agent_obj)
 
-        agent_coords_and_dirs = {
+        agent_coords_and_dirs: Dict[str, Tuple[Coord, Direction]] = {
             str(i): (coord, Direction.NORTH)
             for i, coord in enumerate(self._state.predator_coords)
         }
@@ -361,6 +363,8 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         if prey_strength is None:
             prey_strength = min(4, num_predators)
+
+        self.action_mask = [DO_NOTHING] * self.num_predators
 
         assert 1 < num_predators <= 8
         assert num_prey > 0
@@ -632,7 +636,9 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
             c for i, c in enumerate(next_prey_coords) if not state.prey_caught[i]
         }
         for i, coord in enumerate(state.predator_coords):
-            if actions[str(i)] == 0:
+            if actions[str(i)] == self.action_mask[i] or actions[str(i)] == DO_NOTHING:
+                # Current action is `masked` out, e.g., impossible
+                # `or` do nothing
                 next_coord = coord
             else:
                 a_dir = ACTION_TO_DIR[actions[str(i)]]
@@ -762,6 +768,12 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
                 rewards[str(i)] += predator_reward
         return rewards  # type: ignore
 
+    def randomize_dynamics(self):
+        self.action_mask = [
+            random.randint(DO_NOTHING + 1, max(ACTIONS))
+            for _ in range(self.num_predators)
+        ]
+
 
 class PredatorPreyGrid(Grid):
     """A grid for the Predator-Prey Problem."""
@@ -779,7 +791,7 @@ class PredatorPreyGrid(Grid):
         # predators start in corners or half-way along a side
         if predator_start_coords is None:
             predator_start_coords = [
-                c
+                (c[0], c[1])
                 for c in product([0, grid_size // 2, grid_size - 1], repeat=2)
                 if c[0] in (0, grid_size - 1) or c[1] in (0, grid_size - 1)
             ]
@@ -1012,7 +1024,7 @@ def get_20x20_blocks_grid() -> PredatorPreyGrid:
 
 
 #  (grid_make_fn, step_limit)
-SUPPORTED_GRIDS = {
+SUPPORTED_GRIDS: SupportedGridTypes[PredatorPreyGrid] = {
     "5x5": (get_5x5_grid, 25),
     "5x5Blocks": (get_5x5_blocks_grid, 50),
     "10x10": (get_10x10_grid, 50),

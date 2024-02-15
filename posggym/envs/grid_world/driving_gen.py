@@ -82,7 +82,7 @@ class DrivingGenEnv(DrivingEnv):
             )
             generator_params = SUPPORTED_GEN_PARAMS[generator_params][0]
 
-        self._generator_params = generator_params
+        self._generator_params: Dict[str, int] = generator_params  # type: ignore
         self._n_grids = n_grids
         self._shuffle_grid_order = shuffle_grid_order
         self._gen = DrivingGridGenerator(**self._generator_params)
