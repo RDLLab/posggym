@@ -366,8 +366,6 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
         if prey_strength is None:
             prey_strength = min(4, num_predators)
 
-        self.action_mask = [DO_NOTHING] * self.num_predators
-
         assert 1 < num_predators <= 8
         assert num_prey > 0
         assert obs_dim > 0
@@ -381,6 +379,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
         self.cooperative = cooperative
         self.prey_strength = prey_strength
         self._per_prey_reward = self.R_MAX / self.num_prey
+        self.action_mask = [DO_NOTHING] * self.num_predators
 
         if self.grid.prey_start_coords is None:
             center_coords = self.grid.get_unblocked_center_coords(num_prey)
@@ -772,8 +771,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
 
     def randomize_dynamics(self):
         self.action_mask = [
-            random.randint(DO_NOTHING + 1, max(ACTIONS))
-            for _ in range(self.num_predators)
+            random.randint(DO_NOTHING, max(ACTIONS)) for _ in range(self.num_predators)
         ]
 
 
