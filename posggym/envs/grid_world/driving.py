@@ -311,18 +311,20 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
         return "\n".join(output) + "\n"
 
     def _render_img(self):
-        assert self.render_mode in ["human", "rgb"]
+        # assert self.render_mode in ["human", "rgb", "rgb_array"]
         model: DrivingModel = self.model  # type: ignore
 
         import posggym.envs.grid_world.render as render_lib
 
-        if self.renderer is None:
+        if self.renderer is None and self.render_mode is not None:
             self.renderer = render_lib.GWRenderer(
                 self.render_mode,
                 model.grid,
                 render_fps=self.metadata["render_fps"],
                 env_name="Driving",
             )
+        if self.renderer is None:
+            return
 
         if self._agent_imgs is None:
             self._agent_imgs = {

@@ -48,6 +48,10 @@ AGENT_COLORS = [
 ]
 
 
+def clamp(x, lower, upper):
+    return lower if x < lower else upper if x > upper else x
+
+
 class CollisionType(Enum):
     """Type of collision in world."""
 
@@ -244,6 +248,7 @@ class AbstractContinuousWorld(ABC):
         shape.collision_type = self.get_collision_id()
 
         shape.elasticity = 0.0  # no bouncing
+        shape.friction = 0.05
         shape.collision_type = self.get_collision_id()
         if color is not None:
             shape.color = color
@@ -257,6 +262,24 @@ class AbstractContinuousWorld(ABC):
         body, shape = self.entities[id]
         self.space.remove(body, shape)
         del self.entities[id]
+
+    def change_entity_dynamics(
+        self,
+        id: str,
+        mass: float | None = None,
+        friction: float | None = None,
+        elasticity: float | None = None,
+    ):
+        body, shape = self.entities[id]
+        if mass is not None:
+            body.mass = mass
+
+        if friction is not None:
+            shape.friction = friction
+
+        if elasticity is not None:
+            elasticity = clamp(elasticity, 0, 0.99)
+            shape.elasticity = elasticity
 
     def add_interior_walls_to_space(self, walls: List[Line]):
         """Adds interior walls to the world physics space."""
@@ -307,7 +330,9 @@ class AbstractContinuousWorld(ABC):
         angle: float | None = None,
         vel: FloatCoord | List[float] | np.ndarray | Vec2d | None = None,
         vangle: float | None = None,
-        force: Tuple[float, float] | None = None,
+        local_force: Tuple[float, float] | None = None,
+        global_force: Tuple[float, float] | None = None,
+        torque: float | None = None,
     ):
         """Update the state of an entity.
 
@@ -328,8 +353,16 @@ class AbstractContinuousWorld(ABC):
         if vangle is not None:
             body.angular_velocity = vangle
 
-        if force is not None:
-            body.apply_force_at_local_point(force)
+        if local_force is not None:
+            body.apply_force_at_local_point(local_force, (0, 0))
+
+        if global_force is not None:
+            body.apply_force_at_world_point(
+                global_force, (body.position[0], body.position[1])
+            )
+
+        if torque is not None:
+            body.torque = torque
 
     def get_bounds(self) -> Tuple[FloatCoord, FloatCoord]:
         """Get  (min x, max_x), (min y, max y) bounds of the world."""

@@ -194,6 +194,8 @@ def run_continuous_env_manual_keyboard_agent(
                     if action_str == "q":
                         env.close()
                         sys.exit()
+                    if action_str == "r":
+                        env.model.randomize_dynamics()
                     try:
                         action_i = np.array(
                             [float(x) for x in action_str.split()],
@@ -314,14 +316,16 @@ def run_continuous_env_keyboard_agent(
             action_i[0] = +angle_inc
 
         if keys[pygame.K_UP]:
-            action_i[1] = vel_inc if use_linear_acc else action_i[1] + vel_inc
+            action_i[1] = vel_inc  # if use_linear_acc else action_i[1] + vel_inc
         elif keys[pygame.K_DOWN]:
-            action_i[1] = -vel_inc if use_linear_acc else action_i[1] - vel_inc
+            action_i[1] = -vel_inc  # if use_linear_acc else action_i[1] - vel_inc
 
         if keys[pygame.K_c] and pygame.key.get_mods() & pygame.KMOD_CTRL:
             # exit on control-c
             env.close()
             sys.exit()
+        if keys[pygame.K_r]:
+            env.model.randomize_dynamics()
 
         actions = {}
         for i in env.agents:
@@ -379,7 +383,10 @@ def run_keyboard_agent(
     """Run keyboard agents."""
     if max_episode_steps is not None:
         env = posggym.make(
-            env_id, render_mode="human", max_episode_steps=max_episode_steps
+            env_id,
+            render_mode="human",
+            max_episode_steps=max_episode_steps,
+            control_type="ForceNonHolonomoic",
         )
     else:
         env = posggym.make(env_id, render_mode="human")

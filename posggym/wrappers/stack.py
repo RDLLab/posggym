@@ -123,10 +123,15 @@ class StackEnv(posggym.Wrapper):
     def step(self, actions):
         # input shape (num_envs * num_agents, *single_action_space.shape)
         # convert to dict of actions, shape (num_envs, *single_action_space.shape)
-        action_map = {
-            i: actions[idx :: len(self.possible_agents)]
-            for idx, i in enumerate(self.possible_agents)
-        }
+        if self.env.action_spaces["0"].shape[1] > 1:
+            action_map = {
+                i: actions[:, idx, :] for idx, i in enumerate(self.possible_agents)
+            }
+        else:
+            action_map = {
+                i: actions[idx :: len(self.possible_agents)]
+                for idx, i in enumerate(self.possible_agents)
+            }
         obs, rewards, terminated, truncated, dones, infos = self.env.step(action_map)
         return (
             self._stack_output(obs),

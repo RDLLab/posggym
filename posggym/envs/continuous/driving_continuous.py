@@ -33,7 +33,7 @@ class VehicleState(NamedTuple):
     min_dest_dist: np.ndarray
 
 
-class ControlType(enum.Enum, str):
+class ControlType(str, enum.Enum):
     VelocityHolonomoic = "VelocityHolonomoic"
     ForceHolonomoic = "ForceHolonomoic"
     VelocityNonHolonomoic = "VelocityNonHolonomoic"
@@ -215,13 +215,22 @@ class DrivingContinuousEnv(DefaultEnv[DState, DObs, DAction]):
         obs_dist: float = 5.0,
         n_sensors: int = 16,
         render_mode: Optional[str] = None,
-        control_type: ControlType = ControlType.VelocityNonHolonomoic,
+        control_type: Union[ControlType, str] = ControlType.VelocityNonHolonomoic,
+        should_randomze_dyn: bool = False,
     ):
+        if isinstance(control_type, str):
+            try:
+                control_type = ControlType[control_type]
+            except ValueError:
+                logger.warn("Invalid control type, defaulting to VelocityNonHolonomoic")
+                control_type = ControlType.VelocityNonHolonomoic
+
         super().__init__(
             DrivingContinuousModel(
                 world, num_agents, obs_dist, n_sensors, control_type
             ),
             render_mode=render_mode,
+            should_randomze_dyn=should_randomze_dyn,
         )
         self.window_surface = None
         self.clock = None
@@ -600,6 +609,15 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
             next_state, obs, rewards, terminated, truncated, all_done, info
         )
 
+    def randomize_dynamics(self):
+        for i in range(len(self.possible_agents)):
+            friction = self.rng.random()
+            elasticity = self.rng.random() * 0.1
+            mass = self.rng.random() * 10
+            self.world.change_entity_dynamics(
+                f"vehicle_{i}", friction=friction, mass=mass, elasticity=elasticity
+            )
+
     def _get_next_state(
         self, state: DState, actions: Dict[str, DAction]
     ) -> Tuple[DState, List[CollisionType]]:
@@ -612,17 +630,38 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
                 continue
 
             action_i = actions[str(i)]
-            v_angle = state_i.body[2] + action_i[0]
+            v_angle, vel, torque, local_force, global_force = (
+                None,
+                None,
+                None,
+                None,
+                None,
+            )
             if self.control_type == ControlType.VelocityNonHolonomoic:
-                v_vel = Vec2d(*state_i.body[3:5]).rotated(action_i[0]) + (
+                v_angle = state_i.body[2] + action_i[0]
+                vel = Vec2d(*state_i.body[3:5]).rotated(action_i[0]) + (
                     action_i[1] * Vec2d(1, 0).rotated(v_angle)
                 )
-            # elif sel;
-
+                vel = self.world.clamp_norm(vel[0], vel[1], self.vel_limit_norm)
+            elif self.control_type == ControlType.VelocityHolonomoic:
+                v_angle = 0
+                vel = (state_i.body[3] + action_i[0], state_i.body[4] + action_i[1])
+                vel = self.world.clamp_norm(vel[0], vel[1], self.vel_limit_norm)
+            elif self.control_type == ControlType.ForceHolonomoic:
+                local_force = (action_i[0], 0)
+                torque = action_i[1]
+            elif ControlType.ForceNonHolonomoic:
+                global_force = (action_i[0], action_i[1])
+                v_angle = 0
+            else:
+                raise RuntimeError("Invalid Control Type!")
             self.world.update_entity_state(
                 f"vehicle_{i}",
                 angle=v_angle,
-                vel=self.world.clamp_norm(v_vel[0], v_vel[1], self.vel_limit_norm),
+                vel=vel,
+                torque=torque,
+                local_force=local_force,
+                global_force=global_force,
             )
 
         self.world.simulate(1.0 / 10, 10)
