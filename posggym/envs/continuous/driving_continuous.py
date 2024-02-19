@@ -1,11 +1,20 @@
 """The Driving Continuous Environment."""
 import math
 from itertools import product
-from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple, Union, cast
+from typing import (
+    Any,
+    Dict,
+    List,
+    NamedTuple,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+    cast,
+)
 
 import numpy as np
 from gymnasium import spaces
-from pymunk import Vec2d
 
 import posggym.model as M
 from posggym import logger
@@ -19,9 +28,14 @@ from posggym.envs.continuous.core import (
     SquareContinuousWorld,
     clip_actions,
     generate_interior_walls,
+    ControlType,
+    X_IDX,
+    Y_IDX,
+    ANGLE_IDX,
+    VX_IDX,
+    VY_IDX,
 )
 from posggym.utils import seeding
-import enum
 
 
 class VehicleState(NamedTuple):
@@ -31,13 +45,6 @@ class VehicleState(NamedTuple):
     dest_coord: np.ndarray
     status: np.ndarray
     min_dest_dist: np.ndarray
-
-
-class ControlType(str, enum.Enum):
-    VelocityHolonomoic = "VelocityHolonomoic"
-    ForceHolonomoic = "ForceHolonomoic"
-    VelocityNonHolonomoic = "VelocityNonHolonomoic"
-    ForceNonHolonomoic = "ForceNonHolonomoic"
 
 
 DState = Tuple[VehicleState, ...]
@@ -322,7 +329,11 @@ class DrivingContinuousEnv(DefaultEnv[DState, DObs, DAction]):
         n_sensors = model.n_sensors
         for i, obs_i in self._last_obs.items():
             line_obs = obs_i[: model.sensor_obs_dim]
-            x, y, agent_angle = state[int(i)].body[:3]
+            x, y, agent_angle = (
+                state[int(i)].body[VX_IDX],
+                state[int(i)].body[VY_IDX],
+                state[int(i)].body[ANGLE_IDX],
+            )
             angle_inc = 2 * math.pi / n_sensors
             for k in range(n_sensors):
                 values = [
@@ -630,31 +641,20 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
                 continue
 
             action_i = actions[str(i)]
-            v_angle, vel, torque, local_force, global_force = (
-                None,
-                None,
-                None,
-                None,
-                None,
+
+            (
+                v_angle,
+                vel,
+                torque,
+                local_force,
+                global_force,
+            ) = self.world.compute_vel_force(
+                self.control_type,
+                state_i.body[ANGLE_IDX],
+                (state_i.body[VX_IDX], state_i.body[VY_IDX]),
+                action_i,
+                self.vel_limit_norm,
             )
-            if self.control_type == ControlType.VelocityNonHolonomoic:
-                v_angle = state_i.body[2] + action_i[0]
-                vel = Vec2d(*state_i.body[3:5]).rotated(action_i[0]) + (
-                    action_i[1] * Vec2d(1, 0).rotated(v_angle)
-                )
-                vel = self.world.clamp_norm(vel[0], vel[1], self.vel_limit_norm)
-            elif self.control_type == ControlType.VelocityHolonomoic:
-                v_angle = 0
-                vel = (state_i.body[3] + action_i[0], state_i.body[4] + action_i[1])
-                vel = self.world.clamp_norm(vel[0], vel[1], self.vel_limit_norm)
-            elif self.control_type == ControlType.ForceHolonomoic:
-                local_force = (action_i[0], 0)
-                torque = action_i[1]
-            elif ControlType.ForceNonHolonomoic:
-                global_force = (action_i[0], action_i[1])
-                v_angle = 0
-            else:
-                raise RuntimeError("Invalid Control Type!")
             self.world.update_entity_state(
                 f"vehicle_{i}",
                 angle=v_angle,
@@ -690,7 +690,9 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
             for other_idx, other_v_state in enumerate(new_state):
                 if other_v_state is None:
                     continue
-                dist = np.linalg.norm(other_v_state.body[:2] - next_v_coords)
+                dist = np.linalg.norm(
+                    other_v_state.body[[X_IDX, Y_IDX]] - next_v_coords
+                )
                 if dist <= self.vehicle_collision_dist:
                     crashed = True
                     collision_types[idx] = CollisionType.AGENT
@@ -733,9 +735,13 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
         if state_i.status[0] or state_i.status[1]:
             return np.zeros((self.obs_dim,), dtype=np.float32)
 
-        pos_i = (state_i.body[0], state_i.body[1], state_i.body[2])
+        pos_i = (state_i.body[X_IDX], state_i.body[Y_IDX], state_i.body[ANGLE_IDX])
         vehicle_coords = np.array(
-            [[s.body[0], s.body[1]] for i, s in enumerate(state) if i != int(agent_id)]
+            [
+                [s.body[X_IDX], s.body[Y_IDX]]
+                for i, s in enumerate(state)
+                if i != int(agent_id)
+            ]
         )
 
         ray_dists, ray_col_type = self.world.check_collision_circular_rays(
@@ -758,9 +764,9 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
         obs[flat_obs_idx] = ray_dists
 
         d = self.sensor_obs_dim
-        obs[d] = self.world.convert_angle_to_0_2pi_interval(state_i.body[2])
-        obs[d + 1] = max(-1.0, min(1.0, state_i.body[3]))
-        obs[d + 2] = max(-1.0, min(1.0, state_i.body[4]))
+        obs[d] = self.world.convert_angle_to_0_2pi_interval(state_i.body[ANGLE_IDX])
+        obs[d + 1] = max(-1.0, min(1.0, state_i.body[VX_IDX]))
+        obs[d + 2] = max(-1.0, min(1.0, state_i.body[VY_IDX]))
         obs[d + 3] = abs(state_i.dest_coord[0] - pos_i[0])
         obs[d + 4] = abs(state_i.dest_coord[1] - pos_i[1])
 

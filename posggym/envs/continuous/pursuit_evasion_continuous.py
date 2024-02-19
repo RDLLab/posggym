@@ -28,6 +28,9 @@ from posggym.envs.continuous.core import (
     SquareContinuousWorld,
     clip_actions,
     generate_interior_walls,
+    X_IDX,
+    Y_IDX,
+    ANGLE_IDX,
 )
 from posggym.utils import seeding
 
@@ -348,7 +351,7 @@ class PursuitEvasionContinuousEnv(DefaultEnv):
             (model.PURSUER_IDX, state.pursuer_state),
         ]:
             obs_i = self._last_obs[str(idx)]
-            x, y, agent_angle = p_state[:3]
+            x, y, agent_angle = p_state[[X_IDX, Y_IDX, ANGLE_IDX]]
 
             angles = np.linspace(
                 -self.fov / 2, self.fov / 2, n_sensors, endpoint=False, dtype=np.float32
@@ -549,18 +552,18 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
     def sample_initial_state(self) -> PEState:
         evader_coord = self.rng.choice(self.world.evader_start_coords)
         evader_state = np.zeros(PMBodyState.num_features(), dtype=np.float32)
-        evader_state[:2] = evader_coord
+        evader_state[[X_IDX, Y_IDX]] = evader_coord
 
         pursuer_coord = self.rng.choice(self.world.pursuer_start_coords)
         pursuer_state = np.zeros(PMBodyState.num_features(), dtype=np.float32)
-        pursuer_state[:2] = pursuer_coord
+        pursuer_state[[X_IDX, Y_IDX]] = pursuer_coord
 
         goal_coord = self.rng.choice(self.world.get_goal_coords(evader_coord))
         return PEState(
             evader_state,
             pursuer_state,
-            evader_state[:2],
-            pursuer_state[:2],
+            evader_state[[X_IDX, Y_IDX]],
+            pursuer_state[[X_IDX, Y_IDX]],
             np.array(goal_coord, dtype=np.float32),
             self.world.get_shortest_path_distance(evader_coord, goal_coord),
         )
@@ -595,11 +598,11 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
         self.world.set_entity_state("pursuer", state.pursuer_state)
         self.world.set_entity_state("evader", state.evader_state)
 
-        pursuer_angle = state.pursuer_state[2] + pursuer_a[0]
+        pursuer_angle = state.pursuer_state[ANGLE_IDX] + pursuer_a[0]
         pursuer_vel = self.world.linear_to_xy_velocity(pursuer_a[1], pursuer_angle)
         self.world.update_entity_state("pursuer", angle=pursuer_angle, vel=pursuer_vel)
 
-        evader_angle = state.evader_state[2] + evader_a[0]
+        evader_angle = state.evader_state[ANGLE_IDX] + evader_a[0]
         evader_vel = self.world.linear_to_xy_velocity(evader_a[1], evader_angle)
         self.world.update_entity_state("evader", angle=evader_angle, vel=evader_vel)
 
@@ -614,8 +617,8 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
             self.world.get_entity_state("evader"),
             dtype=np.float32,
         )
-        evader_coord = (evader_next_state[0], evader_next_state[1])
-        goal_coord = (state.evader_goal_coord[0], state.evader_goal_coord[1])
+        evader_coord = (evader_next_state[X_IDX], evader_next_state[Y_IDX])
+        goal_coord = (state.evader_goal_coord[X_IDX], state.evader_goal_coord[Y_IDX])
         min_sp_distance = min(
             state.min_goal_dist,
             self.world.get_shortest_path_distance(evader_coord, goal_coord),
@@ -646,18 +649,18 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
     ) -> Tuple[np.ndarray, bool]:
         if evader:
             agent_pos = (
-                state.evader_state[0],
-                state.evader_state[1],
-                state.evader_state[2],
+                state.evader_state[X_IDX],
+                state.evader_state[Y_IDX],
+                state.evader_state[ANGLE_IDX],
             )
-            opp_coord = (state.pursuer_state[0], state.pursuer_state[1])
+            opp_coord = (state.pursuer_state[X_IDX], state.pursuer_state[Y_IDX])
         else:
             agent_pos = (
-                state.pursuer_state[0],
-                state.pursuer_state[1],
-                state.pursuer_state[2],
+                state.pursuer_state[X_IDX],
+                state.pursuer_state[Y_IDX],
+                state.pursuer_state[ANGLE_IDX],
             )
-            opp_coord = (state.evader_state[0], state.evader_state[1])
+            opp_coord = (state.evader_state[X_IDX], state.evader_state[Y_IDX])
 
         ray_dists, ray_col_type = self.world.check_collision_circular_rays(
             agent_pos,

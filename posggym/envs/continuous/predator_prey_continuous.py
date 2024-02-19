@@ -15,6 +15,9 @@ from posggym.envs.continuous.core import (
     Position,
     SquareContinuousWorld,
     clip_actions,
+    X_IDX,
+    Y_IDX,
+    ANGLE_IDX,
 )
 from posggym.utils import seeding
 
@@ -303,7 +306,7 @@ class PredatorPreyContinuousEnv(DefaultEnv[PPState, PPObs, PPAction]):
         n_sensors = model.n_sensors
         for i, obs_i in self._last_obs.items():
             p_state = state.predator_states[int(i)]
-            x, y, agent_angle = p_state[:3]
+            x, y, agent_angle = p_state[[X_IDX, Y_IDX, ANGLE_IDX]]
             angle_inc = 2 * math.pi / n_sensors
             for k in range(n_sensors):
                 dist = min(obs_i[k], obs_i[n_sensors + k], obs_i[2 * n_sensors + k])
@@ -584,7 +587,9 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
                 next_prey_states[i] = [-1.0, -1.0, 0.0, 0.0, 0.0, 0.0]
                 continue
             pred_dists = np.linalg.norm(
-                next_prey_states[i][:2] - next_pred_states[:, :2], axis=1
+                next_prey_states[i][[X_IDX, Y_IDX]]
+                - next_pred_states[:, [X_IDX, Y_IDX]],
+                axis=1,
             )
             if (
                 np.where(pred_dists <= self.prey_capture_dist, 1, 0).sum()
@@ -607,14 +612,17 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
             prey_state = state.prey_states[i]
             # try move away from predators
             pred_states = state.predator_states
-            pred_dists = np.linalg.norm(prey_state[:2] - pred_states[:, :2], axis=1)
+            pred_dists = np.linalg.norm(
+                prey_state[[X_IDX, Y_IDX]] - pred_states[:, [X_IDX, Y_IDX]], axis=1
+            )
             min_pred_dist = pred_dists.min()
             if min_pred_dist <= self.prey_obs_dist:
                 # get any predators within obs distance
                 pred_idx = self.rng.choice(np.where(pred_dists == min_pred_dist)[0])
                 pred_state = state.predator_states[pred_idx]
                 angle = math.atan2(
-                    prey_state[1] - pred_state[1], prey_state[0] - pred_state[0]
+                    prey_state[Y_IDX] - pred_state[Y_IDX],
+                    prey_state[X_IDX] - pred_state[X_IDX],
                 )
                 prey_actions.append(angle)
                 continue
@@ -627,7 +635,7 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
 
             # try move away from prey
             prey_dists = [
-                np.linalg.norm(prey_state[:2] - p[:2])
+                np.linalg.norm(prey_state[[X_IDX, Y_IDX]] - p[[X_IDX, Y_IDX]])
                 for j, p in enumerate(state.prey_states)
                 if not state.prey_caught[j] and j != i
             ]
@@ -638,8 +646,8 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
                 )
                 other_prey_state = state.prey_states[other_prey_idx]
                 angle = math.atan2(
-                    prey_state[1] - other_prey_state[1],
-                    prey_state[0] - other_prey_state[0],
+                    prey_state[Y_IDX] - other_prey_state[Y_IDX],
+                    prey_state[X_IDX] - other_prey_state[X_IDX],
                 )
                 prey_actions.append(angle)
                 continue
@@ -655,9 +663,8 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
 
     def _get_local_obs(self, agent_id: str, state: PPState) -> np.ndarray:
         state_i = state.predator_states[int(agent_id)]
-        pos_i = (state_i[0], state_i[1], state_i[2])
-
-        prey_coords = state.prey_states[state.prey_caught == 0, :2]
+        pos_i = (state_i[X_IDX], state_i[Y_IDX], state_i[ANGLE_IDX])
+        prey_coords = state.prey_states[state.prey_caught == 0][:, [X_IDX, Y_IDX]]
         prey_obs, _ = self.world.check_collision_circular_rays(
             pos_i,
             self.obs_dist,
@@ -670,7 +677,7 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         mask = np.ones(len(state.predator_states), dtype=bool)
         mask[int(agent_id)] = False
-        pred_coords = state.predator_states[mask, :2]
+        pred_coords = state.predator_states[mask][:, [X_IDX, Y_IDX]]
         pred_obs, _ = self.world.check_collision_circular_rays(
             pos_i,
             self.obs_dist,
@@ -720,7 +727,9 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
         rewards = {i: 0.0 for i in self.possible_agents}
         pred_states = next_state.predator_states
         for prey_state in new_caught_prey:
-            pred_dists = np.linalg.norm(prey_state[:2] - pred_states[:, :2], axis=1)
+            pred_dists = np.linalg.norm(
+                prey_state[[X_IDX, Y_IDX]] - pred_states[:, [X_IDX, Y_IDX]], axis=1
+            )
             involved_predators = np.where(pred_dists <= self.prey_capture_dist)[0]
             predator_reward = self.per_prey_reward / len(involved_predators)
             for i in involved_predators:

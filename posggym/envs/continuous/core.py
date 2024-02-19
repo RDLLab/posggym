@@ -52,6 +52,13 @@ def clamp(x, lower, upper):
     return lower if x < lower else upper if x > upper else x
 
 
+class ControlType(str, Enum):
+    VelocityHolonomoic = "VelocityHolonomoic"
+    ForceHolonomoic = "ForceHolonomoic"
+    VelocityNonHolonomoic = "VelocityNonHolonomoic"
+    ForceNonHolonomoic = "ForceNonHolonomoic"
+
+
 class CollisionType(Enum):
     """Type of collision in world."""
 
@@ -89,6 +96,14 @@ class PMBodyState(NamedTuple):
             dtype=np.float32,
         )
         return spaces.Box(low=low, high=high)
+
+
+X_IDX = PMBodyState._fields.index("x")
+Y_IDX = PMBodyState._fields.index("y")
+ANGLE_IDX = PMBodyState._fields.index("angle")
+VX_IDX = PMBodyState._fields.index("vx")
+VY_IDX = PMBodyState._fields.index("vy")
+VANGLE_IDX = PMBodyState._fields.index("vangle")
 
 
 # This function needs to be in global scope or we get pickle errors
@@ -215,6 +230,43 @@ class AbstractContinuousWorld(ABC):
                 body.angular_velocity = self.convert_angle_to_0_2pi_interval(
                     body.angular_velocity
                 )
+
+    def compute_vel_force(
+        self,
+        control_type: ControlType,
+        current_ang: float,
+        current_vel: Tuple[float, float],
+        action_i: np.ndarray,
+        vel_limit_norm: float,
+    ):
+        v_angle, vel, torque, local_force, global_force = (
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+
+        if control_type == ControlType.VelocityNonHolonomoic:
+            v_angle = current_ang + action_i[0]
+            vel = Vec2d(*current_vel).rotated(action_i[0]) + (
+                action_i[1] * Vec2d(1, 0).rotated(v_angle)
+            )
+            vel = self.clamp_norm(vel[0], vel[1], vel_limit_norm)
+        elif control_type == ControlType.VelocityHolonomoic:
+            v_angle = 0
+            vel = (current_vel[0] + action_i[0], current_vel[1] + action_i[1])
+            vel = self.clamp_norm(vel[0], vel[1], vel_limit_norm)
+        elif control_type == ControlType.ForceHolonomoic:
+            local_force = (action_i[0], 0)
+            torque = action_i[1]
+        elif control_type == ControlType.ForceNonHolonomoic:
+            global_force = (action_i[0], action_i[1])
+            v_angle = 0
+        else:
+            raise RuntimeError("Invalid Control Type!")
+
+        return v_angle, vel, torque, local_force, global_force
 
     def add_entity(
         self,
