@@ -21,16 +21,18 @@ import posggym.model as M
 from posggym import logger
 from posggym.core import DefaultEnv
 from posggym.envs.continuous.core import (
-    CollisionType,
-    Coord,
-    FloatCoord,
     PMBodyState,
     SquareContinuousWorld,
     clip_actions,
-    generate_interior_walls,
     X_IDX,
     Y_IDX,
     ANGLE_IDX,
+    generate_action_space,
+    ControlType,
+    CollisionType,
+    FloatCoord,
+    Coord,
+    generate_interior_walls,
 )
 from posggym.utils import seeding
 
@@ -499,13 +501,12 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
 
         # can turn by up to 45 degrees per timestep
         self.dyaw_limit = math.pi / 4
-        self.action_spaces = {
-            i: spaces.Box(
-                low=np.array([-self.dyaw_limit, 0.0], dtype=np.float32),
-                high=np.array([self.dyaw_limit, 1.0], dtype=np.float32),
-            )
-            for i in self.possible_agents
-        }
+        self.action_spaces = generate_action_space(
+            ControlType.VelocityNonHolonomoic,
+            self.possible_agents,
+            dyaw_limit=self.dyaw_limit,
+            dvel_limit=(0.0, 1.0),
+        )
 
         self.obs_dist = self.max_obs_distance
         self.n_sensors = n_sensors
@@ -598,13 +599,51 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
         self.world.set_entity_state("pursuer", state.pursuer_state)
         self.world.set_entity_state("evader", state.evader_state)
 
-        pursuer_angle = state.pursuer_state[ANGLE_IDX] + pursuer_a[0]
-        pursuer_vel = self.world.linear_to_xy_velocity(pursuer_a[1], pursuer_angle)
-        self.world.update_entity_state("pursuer", angle=pursuer_angle, vel=pursuer_vel)
+        (
+            v_angle,
+            vel,
+            torque,
+            local_force,
+            global_force,
+        ) = self.world.compute_vel_force(
+            ControlType.VelocityNonHolonomoic,
+            state.pursuer_state[ANGLE_IDX],
+            current_vel=None,
+            action_i=pursuer_a,
+            vel_limit_norm=None,
+        )
 
-        evader_angle = state.evader_state[ANGLE_IDX] + evader_a[0]
-        evader_vel = self.world.linear_to_xy_velocity(evader_a[1], evader_angle)
-        self.world.update_entity_state("evader", angle=evader_angle, vel=evader_vel)
+        self.world.update_entity_state(
+            "pursuer",
+            angle=v_angle,
+            vel=vel,
+            torque=torque,
+            local_force=local_force,
+            global_force=global_force,
+        )
+
+        (
+            v_angle,
+            vel,
+            torque,
+            local_force,
+            global_force,
+        ) = self.world.compute_vel_force(
+            ControlType.VelocityNonHolonomoic,
+            state.pursuer_state[ANGLE_IDX],
+            current_vel=None,
+            action_i=evader_a,
+            vel_limit_norm=None,
+        )
+
+        self.world.update_entity_state(
+            "evader",
+            angle=v_angle,
+            vel=vel,
+            torque=torque,
+            local_force=local_force,
+            global_force=global_force,
+        )
 
         # simulate
         self.world.simulate(1.0 / 10, 10)

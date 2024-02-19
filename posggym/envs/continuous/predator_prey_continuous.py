@@ -18,6 +18,8 @@ from posggym.envs.continuous.core import (
     X_IDX,
     Y_IDX,
     ANGLE_IDX,
+    generate_action_space,
+    ControlType,
 )
 from posggym.utils import seeding
 
@@ -449,13 +451,12 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         # can turn up to 45 degrees per step
         self.dyaw_limit = math.pi / 4
-        self.action_spaces = {
-            i: spaces.Box(
-                low=np.array([-self.dyaw_limit, 0.0], dtype=np.float32),
-                high=np.array([self.dyaw_limit, 1.0], dtype=np.float32),
-            )
-            for i in self.possible_agents
-        }
+        self.action_spaces = generate_action_space(
+            ControlType.VelocityNonHolonomoic,
+            self.possible_agents,
+            dyaw_limit=self.dyaw_limit,
+            dvel_limit=(0.0, 1.0),
+        )
 
         self.obs_dim = self.n_sensors * 3
         self.observation_spaces = {
@@ -556,12 +557,29 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
         # apply predator actions
         for i in range(self.num_predators):
             action = actions[str(i)]
+
             self.world.set_entity_state(f"pred_{i}", state.predator_states[i])
-            angle = state.predator_states[i][2] + action[0]
+            (
+                v_angle,
+                vel,
+                torque,
+                local_force,
+                global_force,
+            ) = self.world.compute_vel_force(
+                ControlType.VelocityNonHolonomoic,
+                state.predator_states[i][ANGLE_IDX],
+                current_vel=None,
+                action_i=action,
+                vel_limit_norm=None,
+            )
+
             self.world.update_entity_state(
                 f"pred_{i}",
-                angle=angle,
-                vel=self.world.linear_to_xy_velocity(action[1], angle),
+                angle=v_angle,
+                vel=vel,
+                torque=torque,
+                local_force=local_force,
+                global_force=global_force,
             )
 
         # simulate

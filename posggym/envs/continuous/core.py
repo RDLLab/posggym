@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from itertools import product
 from queue import PriorityQueue
-from typing import Dict, Iterable, List, NamedTuple, Set, Tuple, Union
+from typing import Dict, Iterable, List, NamedTuple, Set, Tuple, Union, Optional
 
 import numpy as np
 from gymnasium import spaces
@@ -104,6 +104,67 @@ ANGLE_IDX = PMBodyState._fields.index("angle")
 VX_IDX = PMBodyState._fields.index("vx")
 VY_IDX = PMBodyState._fields.index("vy")
 VANGLE_IDX = PMBodyState._fields.index("vangle")
+
+
+def generate_action_space(
+    control_type: ControlType,
+    possible_agents: Tuple[str, ...],
+    dyaw_limit: Optional[Union[float, Tuple[float, float]]] = None,
+    dvel_limit: Optional[Union[float, Tuple[float, float]]] = None,
+    fyaw_limit: Optional[Union[float, Tuple[float, float]]] = None,
+    fvel_limit: Optional[Union[float, Tuple[float, float]]] = None,
+) -> Dict[str, spaces.Space]:
+    if isinstance(dyaw_limit, float):
+        dyaw_limit = (-dyaw_limit, dyaw_limit)
+    if isinstance(dvel_limit, float):
+        dvel_limit = (-dvel_limit, dvel_limit)
+    if isinstance(fyaw_limit, float):
+        fyaw_limit = (-fyaw_limit, fyaw_limit)
+    if isinstance(fvel_limit, float):
+        fvel_limit = (-fvel_limit, fvel_limit)
+
+    if control_type == ControlType.VelocityNonHolonomoic:
+        assert dyaw_limit is not None and dvel_limit is not None
+        neg_limits = np.array(
+            [dyaw_limit[0], dvel_limit[0]], dtype=np.float32  # type: ignore
+        )
+        pos_limits = np.array(
+            [dyaw_limit[1], dvel_limit[1]], dtype=np.float32  # type: ignore
+        )
+    elif control_type == ControlType.VelocityHolonomoic:
+        assert dvel_limit is not None
+        neg_limits = np.array(
+            [dvel_limit[0], dvel_limit[0]], dtype=np.float32  # type: ignore
+        )
+        pos_limits = np.array(
+            [dvel_limit[1], dvel_limit[1]], dtype=np.float32  # type: ignore
+        )
+    elif control_type == ControlType.ForceNonHolonomoic:
+        assert fyaw_limit is not None and fvel_limit is not None
+        neg_limits = np.array(
+            [fyaw_limit[0], fvel_limit[0]], dtype=np.float32  # type: ignore
+        )
+        pos_limits = np.array(
+            [fyaw_limit[1], fvel_limit[1]], dtype=np.float32  # type: ignore
+        )
+    elif control_type == ControlType.ForceHolonomoic:
+        assert fvel_limit is not None
+        neg_limits = np.array(
+            [fvel_limit[0], fvel_limit[0]], dtype=np.float32  # type: ignore
+        )
+        pos_limits = np.array(
+            [fvel_limit[1], fvel_limit[1]], dtype=np.float32  # type: ignore
+        )
+    else:
+        raise RuntimeError("Invalid Control Type")
+
+    return {
+        i: spaces.Box(
+            low=neg_limits,
+            high=pos_limits,
+        )
+        for i in possible_agents
+    }
 
 
 # This function needs to be in global scope or we get pickle errors
@@ -235,10 +296,24 @@ class AbstractContinuousWorld(ABC):
         self,
         control_type: ControlType,
         current_ang: float,
-        current_vel: Tuple[float, float],
+        current_vel: Optional[Tuple[float, float]],
         action_i: np.ndarray,
-        vel_limit_norm: float,
+        vel_limit_norm: Optional[float],
     ):
+        """
+        Compute appropriate velocity, force, and torque based on the
+        given control type and action.
+
+        Parameters:
+        - control_type (ControlType): The type of control being used.
+        - current_ang (float): The current angle of the agent.
+        - current_vel (Optional[Tuple[float, float]]): The current vel of the agent,
+                      if given, velcoity will be relative to the current agent
+        - action_i (np.ndarray): The action input for the agent.
+        - vel_limit_norm (Optional[float]): The limit of velocity norm
+                      if given, velcoity will be relative to the current agent
+        """
+
         v_angle, vel, torque, local_force, global_force = (
             None,
             None,
@@ -249,14 +324,19 @@ class AbstractContinuousWorld(ABC):
 
         if control_type == ControlType.VelocityNonHolonomoic:
             v_angle = current_ang + action_i[0]
-            vel = Vec2d(*current_vel).rotated(action_i[0]) + (
-                action_i[1] * Vec2d(1, 0).rotated(v_angle)
-            )
-            vel = self.clamp_norm(vel[0], vel[1], vel_limit_norm)
+            vel = self.linear_to_xy_velocity(action_i[1], v_angle)
+            if current_vel is not None and vel_limit_norm is not None:
+                vel += Vec2d(*current_vel).rotated(action_i[0])
+                vel = self.clamp_norm(vel[0], vel[1], vel_limit_norm)
+
         elif control_type == ControlType.VelocityHolonomoic:
             v_angle = 0
-            vel = (current_vel[0] + action_i[0], current_vel[1] + action_i[1])
-            vel = self.clamp_norm(vel[0], vel[1], vel_limit_norm)
+            if current_vel is not None and vel_limit_norm is not None:
+                vel = (current_vel[0] + action_i[0], current_vel[1] + action_i[1])
+                vel = self.clamp_norm(vel[0], vel[1], vel_limit_norm)
+            else:
+                vel = (action_i[0], action_i[1])
+
         elif control_type == ControlType.ForceHolonomoic:
             local_force = (action_i[0], 0)
             torque = action_i[1]

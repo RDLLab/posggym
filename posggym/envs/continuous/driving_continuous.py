@@ -34,6 +34,8 @@ from posggym.envs.continuous.core import (
     ANGLE_IDX,
     VX_IDX,
     VY_IDX,
+    generate_action_space,
+    clamp,
 )
 from posggym.utils import seeding
 
@@ -469,49 +471,16 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
         self.fyaw_limit = math.pi
         self.fvel_limit = 1
 
-        self.vel_limit_norm = 1.0
-        if self.control_type == ControlType.VelocityNonHolonomoic:
-            # dyaw, dvel
-            self.action_spaces = {
-                i: spaces.Box(
-                    low=np.array(
-                        [-self.dyaw_limit, -self.dvel_limit], dtype=np.float32
-                    ),
-                    high=np.array([self.dyaw_limit, self.dvel_limit], dtype=np.float32),
-                )
-                for i in self.possible_agents
-            }
-        elif self.control_type == ControlType.VelocityHolonomoic:
-            self.action_spaces = {
-                i: spaces.Box(
-                    low=np.array(
-                        [-self.dvel_limit, -self.dvel_limit], dtype=np.float32
-                    ),
-                    high=np.array([self.dvel_limit, self.dvel_limit], dtype=np.float32),
-                )
-                for i in self.possible_agents
-            }
-        elif self.control_type == ControlType.ForceNonHolonomoic:
-            self.action_spaces = {
-                i: spaces.Box(
-                    low=np.array(
-                        [-self.fyaw_limit, -self.fvel_limit], dtype=np.float32
-                    ),
-                    high=np.array([self.fyaw_limit, self.fvel_limit], dtype=np.float32),
-                )
-                for i in self.possible_agents
-            }
-        elif self.control_type == ControlType.ForceHolonomoic:
-            self.action_spaces = {
-                i: spaces.Box(
-                    low=np.array(
-                        [-self.fvel_limit, -self.fvel_limit], dtype=np.float32
-                    ),
-                    high=np.array([self.fvel_limit, self.fvel_limit], dtype=np.float32),
-                )
-                for i in self.possible_agents
-            }
+        self.action_spaces = generate_action_space(
+            self.control_type,
+            self.possible_agents,
+            self.dyaw_limit,
+            self.dvel_limit,
+            self.fyaw_limit,
+            self.fvel_limit,
+        )
 
+        self.vel_limit_norm = 1.0
         # Observes entity and distance to entity along a n_sensors rays from the agent
         # 0 to n_sensors = wall distance obs
         # n_sensors to (2 * n_sensors) = other vehicle dist
@@ -673,17 +642,17 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
                 self.world.get_entity_state(f"vehicle_{idx}"), dtype=np.float32
             )
 
-            next_v_body_state[2] = self.world.convert_angle_to_0_2pi_interval(
-                next_v_body_state[2]
+            next_v_body_state[ANGLE_IDX] = self.world.convert_angle_to_0_2pi_interval(
+                next_v_body_state[ANGLE_IDX]
             )
 
             # ensure vx, vy is in [-1, 1]
             # with collisions, etc pymunk can sometime push it over this limit
-            next_v_body_state[3] = max(-1.0, min(1.0, next_v_body_state[3]))
-            next_v_body_state[4] = max(-1.0, min(1.0, next_v_body_state[4]))
+            next_v_body_state[VX_IDX] = clamp(next_v_body_state[VX_IDX], -1.0, 1.0)
+            next_v_body_state[VY_IDX] = clamp(next_v_body_state[VY_IDX], -1.0, 1.0)
 
             state_i = state[idx]
-            next_v_coords = next_v_body_state[:2]
+            next_v_coords = next_v_body_state[[X_IDX, Y_IDX]]
             dest_distance = np.linalg.norm(state_i.dest_coord - next_v_coords)
             crashed = False
 
@@ -707,8 +676,8 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
             min_dest_dist = min(
                 state_i.min_dest_dist[0],
                 self.world.get_shortest_path_distance(
-                    (next_v_body_state[0], next_v_body_state[1]),
-                    (state_i.dest_coord[0], state_i.dest_coord[1]),
+                    (next_v_body_state[X_IDX], next_v_body_state[Y_IDX]),
+                    (state_i.dest_coord[X_IDX], state_i.dest_coord[Y_IDX]),
                 ),
             )
 
@@ -765,10 +734,10 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
 
         d = self.sensor_obs_dim
         obs[d] = self.world.convert_angle_to_0_2pi_interval(state_i.body[ANGLE_IDX])
-        obs[d + 1] = max(-1.0, min(1.0, state_i.body[VX_IDX]))
-        obs[d + 2] = max(-1.0, min(1.0, state_i.body[VY_IDX]))
-        obs[d + 3] = abs(state_i.dest_coord[0] - pos_i[0])
-        obs[d + 4] = abs(state_i.dest_coord[1] - pos_i[1])
+        obs[d + 1] = clamp(state_i.body[VX_IDX], -1.0, 1.0)
+        obs[d + 2] = clamp(state_i.body[VY_IDX], -1.0, 1.0)
+        obs[d + 3] = abs(state_i.dest_coord[X_IDX] - pos_i[X_IDX])
+        obs[d + 4] = abs(state_i.dest_coord[Y_IDX] - pos_i[Y_IDX])
 
         return obs
 
