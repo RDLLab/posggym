@@ -332,8 +332,8 @@ class DrivingContinuousEnv(DefaultEnv[DState, DObs, DAction]):
         for i, obs_i in self._last_obs.items():
             line_obs = obs_i[: model.sensor_obs_dim]
             x, y, agent_angle = (
-                state[int(i)].body[VX_IDX],
-                state[int(i)].body[VY_IDX],
+                state[int(i)].body[X_IDX],
+                state[int(i)].body[Y_IDX],
                 state[int(i)].body[ANGLE_IDX],
             )
             angle_inc = 2 * math.pi / n_sensors
@@ -469,7 +469,7 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
         self.dvel_limit = 0.25
 
         self.fyaw_limit = math.pi
-        self.fvel_limit = 1
+        self.fvel_limit = 1.0
 
         self.action_spaces = generate_action_space(
             self.control_type,
@@ -818,7 +818,10 @@ class DrivingWorld(SquareContinuousWorld):
         """Get the shortest path distance from coord to destination."""
         coord_c = self.convert_to_coord(coord)
         dest_c = self.convert_to_coord(dest)
-        return int(self.shortest_paths[dest_c][coord_c])
+        try:
+            return int(self.shortest_paths[dest_c][coord_c])
+        except KeyError:
+            return max(self.shortest_paths[dest_c].values()) * 100
 
     def get_max_shortest_path_distance(self) -> int:
         """Get the longest shortest path distance to any destination."""
@@ -1031,5 +1034,25 @@ SUPPORTED_WORLDS: Dict[str, Dict[str, Any]] = {
         ),
         "supported_num_agents": 4,
         "max_episode_steps": 50,
+    },
+    "14x14Empty": {
+        "world_str": (
+            ".-..........-.\n"
+            "-............+\n"
+            "..............\n"
+            "..............\n"
+            "..............\n"
+            "..............\n"
+            "..............\n"
+            "..............\n"
+            "..............\n"
+            "..............\n"
+            "..............\n"
+            "..............\n"
+            "-............+\n"
+            ".+..........+.\n"
+        ),
+        "supported_num_agents": 4,
+        "max_episode_steps": 100,
     },
 }
