@@ -466,26 +466,6 @@ def env_reset_passive_checker(env, **kwargs):
         )
     return result
 
-def _check_info_dict(
-    agent_dict,
-    possible_agents: Sequence[str],
-    dict_type: str,
-    expected_agents: Optional[Sequence[str]] = None,    
-):
-    assert isinstance(agent_dict, dict), (
-        f"Agent {dict_type} dictionary  must be a dictionary mapping agentID to values."
-        f"Actual type: {type(agent_dict)}."
-    )
-    
-
-    if expected_agents is not None:
-        for i in expected_agents:
-            assert (
-                i in agent_dict
-            ), f"Expected agent ID `{i}` missing from {dict_type} dictionary."
-
-
-    
 
 def _check_agent_dict(
     agent_dict,
