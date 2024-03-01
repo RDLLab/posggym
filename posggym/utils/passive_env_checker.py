@@ -466,10 +466,30 @@ def env_reset_passive_checker(env, **kwargs):
         )
     return result
 
+def _check_info_dict(
+    agent_dict,
+    possible_agents: Sequence[str],
+    dict_type: str,
+    expected_agents: Optional[Sequence[str]] = None,    
+):
+    assert isinstance(agent_dict, dict), (
+        f"Agent {dict_type} dictionary  must be a dictionary mapping agentID to values."
+        f"Actual type: {type(agent_dict)}."
+    )
+    
+
+    if expected_agents is not None:
+        for i in expected_agents:
+            assert (
+                i in agent_dict
+            ), f"Expected agent ID `{i}` missing from {dict_type} dictionary."
+
+
+    
 
 def _check_agent_dict(
     agent_dict,
-    possible_agents: Sequence[str],
+    possible_agents: Optional[Sequence[str]],
     dict_type: str,
     expected_agents: Optional[Sequence[str]] = None,
 ):
@@ -477,11 +497,13 @@ def _check_agent_dict(
         f"Agent {dict_type} dictionary  must be a dictionary mapping agentID to values."
         f"Actual type: {type(agent_dict)}."
     )
-    for i in agent_dict:
-        assert i in possible_agents, (
-            f"Agent {dict_type} dictionary must only contain valid agent IDs: "
-            f"invalid ID `{i}`."
-        )
+    if possible_agents is not None:
+        for i in agent_dict:
+            assert i in possible_agents, (
+                f"Agent {dict_type} dictionary must only contain valid agent IDs: "
+                f"invalid ID `{i}`."
+            )
+
     if expected_agents is not None:
         for i in expected_agents:
             assert (
@@ -518,7 +540,8 @@ def model_step_passive_checker(
     _check_agent_dict(truncated, model.possible_agents, "truncated", step_agents)
     # Less strict on checking there are entries for all agents in info values
     # as these are not functionally critical and are more for record keeping
-    _check_agent_dict(info, model.possible_agents, "info")
+    # Also less strict on possible agents and allow extra information in the dictionary.
+    _check_agent_dict(info, None, "info", None)
 
     check_state(next_state, model)
     check_agent_obs(obs, model.observation_spaces, "step")
