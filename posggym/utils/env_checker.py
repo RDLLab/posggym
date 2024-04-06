@@ -13,18 +13,19 @@ Which in turn is based on work from:
 These projects are covered by the MIT License.
 
 """
+
 import inspect
 from copy import deepcopy
 
 import posggym
 from posggym import error, logger
 from posggym.utils.passive_env_checker import (
-    check_rng_equality,
-    data_equivalence,
     check_agent_action_spaces,
     check_agent_observation_spaces,
     check_agent_space_limits,
     check_reset_obs,
+    check_rng_equality,
+    data_equivalence,
     env_render_passive_checker,
     env_reset_passive_checker,
     env_step_passive_checker,
@@ -36,12 +37,14 @@ def check_reset_seed(env: posggym.Env):
 
     Arguments
     ---------
-    env: The environment to check
+    env
+        The environment to check
 
     Raises
     ------
-    AssertionError: The environment cannot be reset with a random seed,
-        even though `seed` or `kwargs` appear in the signature.
+    AssertionError
+        The environment cannot be reset with a random seed, even though `seed` or
+        `kwargs` appear in the signature.
 
     """
     signature = inspect.signature(env.reset)
@@ -127,12 +130,14 @@ def check_reset_options(env: posggym.Env):
 
     Arguments
     ---------
-    env: The environment to check
+    env
+        The environment to check
 
     Raises
     ------
-    AssertionError: The environment cannot be reset with options, even though
-        `options` or `kwargs` appear in the signature.
+    AssertionError
+        The environment cannot be reset with options, even though `options` or `kwargs`
+        appear in the signature.
 
     """
     signature = inspect.signature(env.reset)
@@ -160,11 +165,13 @@ def check_reset_return_type(env: posggym.Env):
 
     Arguments
     ---------
-    env: The environment to check
+    env
+        The environment to check
 
     Raises
     ------
-    AssertionError depending on spec violation
+    AssertionError
+        depending on spec violation
 
     """
     result = env.reset()
@@ -192,16 +199,13 @@ def check_env(env: posggym.Env, skip_render_check: bool = False):
 
     This is particularly useful when using a custom environment.
 
-    TODO Update links
-
-    Please take a look at https://gymnasium.farama.org/content/environment_creation/
-    for more information about the API.
-
     Arguments
     ---------
-    env: The posggym environment that will be checked
-    skip_render_check: Whether to skip the checks for the render method.
-        True by default (useful for the CI)
+    env
+        The posggym environment that will be checked
+    skip_render_check
+        Whether to skip the checks for the render method. True by default (useful for
+        the CI)
 
     """
     more_info_msg = "See COMING SOON for more info."

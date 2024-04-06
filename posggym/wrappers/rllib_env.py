@@ -1,4 +1,5 @@
 """Wrapper for converting a posggym environment into rllib multi-agent environment."""
+
 import warnings
 from typing import Optional, Set, Tuple
 
@@ -86,15 +87,25 @@ class RllibMultiAgentEnv(MultiAgentEnv):
         The returns are dicts mapping from agent_id strings to values. The
         number of agents in the env can vary over time.
 
+        Arguments
+        ---------
+        action_dict : MultiAgentDict
+            action for each agent
+
         Returns
         -------
-        observations: new observations for each ready agent
-        rewards: reward values for each ready agent. If the episode is just started, the
+        observations : MultiAgentDict
+            new observations for each ready agent
+        rewards : MultiAgentDict
+            reward values for each ready agent. If the episode is just started, the
             value will be None.
-        terminateds: terminated values for each ready agent. The special key "__all__"
+        terminateds : MultiAgentDict
+            terminated values for each ready agent. The special key "__all__"
             (required) is used to indicate env termination.
-        truncateds: truncated values for each ready agent.
-        infos: info values for each agent id (may be empty dicts).
+        truncateds : MultiAgentDict
+            truncated values for each ready agent.
+        infos : MultiAgentDict
+            info values for each agent id (may be empty dicts).
 
         """
         obs, rewards, terminated, truncated, all_done, info = self.env.step(action_dict)

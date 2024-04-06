@@ -4,8 +4,9 @@ Ref
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/wrappers/record_video.py
 
 """
-from typing import Callable, Optional, Union
+
 from pathlib import Path
+from typing import Callable, Optional, Union
 
 from posggym import logger
 from posggym.core import Env, Wrapper
@@ -22,12 +23,12 @@ def capped_cubic_video_schedule(episode_id: int) -> bool:
     Arguments
     ---------
     episode_id: int
-      The episode number
+        The episode number
 
     Returns
     -------
     bool
-      Whether to record episode or not.
+        Whether to record episode or not.
 
     """
     if episode_id < 1000:

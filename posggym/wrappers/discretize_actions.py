@@ -1,4 +1,5 @@
 """Wrapper to discretize continuous actions."""
+
 from typing import Dict, Sequence, Union, cast
 
 import numpy as np
@@ -23,8 +24,8 @@ class DiscretizeActions(ActionWrapper):
         The number of actions to discretize space into. For multi-dimensional
         continuous spaces each dimension will be discretized into this many actions.
     flatten : bool
-       Whether to flatten action space into one-dimensional discrete space, or keep
-       number of dimensions of the original action space.
+        Whether to flatten action space into one-dimensional discrete space, or keep
+        number of dimensions of the original action space.
 
     """
 

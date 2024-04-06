@@ -4,6 +4,7 @@ Ref:
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/utils/seeding.py
 
 """
+
 import random
 from typing import Optional, Tuple, Union
 
@@ -20,16 +21,20 @@ def np_random(seed: Optional[int] = None) -> Tuple[np.random.Generator, int]:
 
     Arguments
     ---------
-    seed : the seed used to create the generator.
+    seed : int, optional
+        the seed used to create the generator.
 
     Returns
     -------
-    rng : the random number generator
-    seed : the seed used for the rng (will equal argument seed if one is provided.)
+    rng : np.random.Generator
+        the random number generator
+    seed : int
+        the seed used for the rng (will equal argument seed if one is provided.)
 
     Raises
     ------
-    Error: if seed is not None or a non-negative integer.
+    Error
+        if seed is not None or a non-negative integer.
 
     """
     if seed is not None and not (isinstance(seed, int) and seed >= 0):
@@ -55,16 +60,20 @@ def std_random(seed: Optional[int] = None) -> Tuple[random.Random, int]:
 
     Arguments
     ---------
-    seed : the seed used to create the generator.
+    seed : int, optional
+        the seed used to create the generator.
 
     Returns
     -------
-    rng : the random number generator
-    seed : the seed used for the rng (will equal argument seed if one is provided.)
+    rng : random.Random
+        the random number generator
+    seed : int
+        the seed used for the rng (will equal argument seed if one is provided.)
 
     Raises
     ------
-    Error: if seed is not None or a non-negative integer.
+    Error
+        if seed is not None or a non-negative integer.
 
     """
     if seed is not None and not (isinstance(seed, int) and seed >= 0):

@@ -1,4 +1,5 @@
 """General grid world problem utility functions and classes."""
+
 import enum
 import itertools
 import random
@@ -245,21 +246,27 @@ class Grid:
 
         Arguments
         ---------
-        rel_coord: the relative coordinate. This is the coordinate relative to the
-            origin coordinate.
-        origin: the origin coordinate. This is the coordinate in the actual grid that
+        rel_coord
+            the relative coordinate. This is the coordinate relative to the origin
+            coordinate.
+        origin
+            the origin coordinate. This is the coordinate in the actual grid that
             the relative coordinate is based on.
-        facing_dir: the direction the relative grid is oriented.
-        forward_dim: the distance from the origin in the facing dir that the relative
-            grid reaches. Defines where the zeroth row of the relative grid is relative
+        facing_dir
+            the direction the relative grid is oriented.
+        forward_dim
+            the distance from the origin in the facing dir that the relative grid
+            reaches. Defines where the zeroth row of the relative grid is relative
             to the origin.
-        side_dim: the distance from the origin perpendicular to the facing dir that the
+        side_dim
+            the distance from the origin perpendicular to the facing dir that the
             relative grid reaches. Defines where the zeroth column of the grid is
             relative to the origin.
 
         Returns
         -------
-        The relative coord mapped to the actual grid.
+        Coord
+            The relative coord mapped to the actual grid.
 
         """
         grid_col, grid_row = origin
@@ -285,17 +292,21 @@ class Grid:
 
         Arguments
         ---------
-        origin: the origin coordinate for the rectangle
-        facing_dir: which direction the rectangle is oriented
-        rect_size: the size of the rectangle relative to the origin. Specifically,
-            rect_size[0] = number of cells in front
-            rect_size[1] = number of cells behind
-            rect_size[2] = number of cells left
-            rect_size[3] = number of cells right
+        origin
+            the origin coordinate for the rectangle
+        facing_dir
+            which direction the rectangle is oriented
+        rect_size
+            the size of the rectangle relative to the origin. Specifically,
+                rect_size[0] = number of cells in front
+                rect_size[1] = number of cells behind
+                rect_size[2] = number of cells left
+                rect_size[3] = number of cells right
 
         Returns
         -------
-        min_col, max_col, min_row, max_row of rectangle that is within the grid's
+        Tuple[int, int, int, int]
+            min_col, max_col, min_row, max_row of rectangle that is within the grid's
             bounds. Note that this may be smaller than the rectangle as specified by the
             rect_size.
 
@@ -330,17 +341,21 @@ class Grid:
 
         Arguments
         ---------
-        origin: the origin coordinate for the rectangle
-        facing_dir: which direction the rectangle is oriented
-        rect_size: the size of the rectangle relative to the origin. Specifically,
-            rect_size[0] = number of cells in front
-            rect_size[1] = number of cells behind
-            rect_size[2] = number of cells left
-            rect_size[3] = number of cells right
+        origin
+            the origin coordinate for the rectangle
+        facing_dir
+            which direction the rectangle is oriented
+        rect_size
+            the size of the rectangle relative to the origin. Specifically,
+                rect_size[0] = number of cells in front
+                rect_size[1] = number of cells behind
+                rect_size[2] = number of cells left
+                rect_size[3] = number of cells right
 
         Returns
         -------
-        (before_col, after_col), (before_row, after_row padding)
+        Tuple[Tuple[int, int], Tuple[int, int]]
+            (before_col, after_col), (before_row, after_row padding)
 
         """
         assert 0 <= origin[0] < self.width and 0 <= origin[1] < self.height

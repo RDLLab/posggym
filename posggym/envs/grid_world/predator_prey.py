@@ -1,4 +1,5 @@
 """The Predator-Prey Grid World Environment."""
+
 import math
 from itertools import product
 from pathlib import Path
@@ -331,7 +332,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
     cooperative : bool
         whether environment rewards are fully shared (True) or only awarded to
         capturing predators (i.e. mixed) (False)
-    prey_strenth : int
+    prey_strenth : int, optional
         how many predators are required to capture each prey, minimum is `1` and maximum
         is `min(4, num_predators)`. If `None` this is set to `min(4, num_predators)`
     obs_dims : int
@@ -577,9 +578,11 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
         self, prey_coord: Coord, state: PPState, occupied_coords: Set[Coord]
     ) -> Optional[Coord]:
         prey_dists = [
-            self.grid.manhattan_dist(prey_coord, c)
-            if (c != prey_coord and not state.prey_caught[i])
-            else float("inf")
+            (
+                self.grid.manhattan_dist(prey_coord, c)
+                if (c != prey_coord and not state.prey_caught[i])
+                else float("inf")
+            )
             for i, c in enumerate(state.prey_coords)
         ]
         min_prey_dist = min(prey_dists)

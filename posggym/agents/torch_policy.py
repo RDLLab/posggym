@@ -1,8 +1,10 @@
 """PyTorch Policies."""
+
 from __future__ import annotations
 
 import os
 import pickle
+from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -15,7 +17,6 @@ from typing import (
     Type,
     Union,
 )
-from pathlib import Path
 
 import numpy as np
 import torch
@@ -53,8 +54,8 @@ class PPOLSTMModel(nn.Module):
 
     Follows architecture used by Rllib, namely:
 
-      Fully Connected Layers -> LSTM Layer -> policy head (Fully connected layer)
-                                           -> value head (Fully connected layer)
+        Fully Connected Layers -> LSTM Layer -> policy head (Fully connected layer)
+                                             -> value head (Fully connected layer)
 
     Note, this model is designed for the intended use of having it's weights loaded
     from a file, and not for training. Thus it makes no effort to do things like using
@@ -177,17 +178,22 @@ class PPOLSTMModel(nn.Module):
 
         Arguments
         ---------
-        obs: the observation, shape=(batch_size, obs_size) | (obs_size, )
-        lstm_state: the lstm state, this is a tuple of two tensors, each with
+        obs
+            the observation, shape=(batch_size, obs_size) | (obs_size, )
+        lstm_state
+            the lstm state, this is a tuple of two tensors, each with
             shape=(num_layers, batch_size, cell_size)
-        prev_action: the previous actions, shape=(batch_size, action_size) |
-            (action_size, )
-        prev_reward: the previous reward, shape=(batch_size, 1) | (1, )
+        prev_action
+            the previous actions, shape=(batch_size, action_size) | (action_size, )
+        prev_reward
+            the previous reward, shape=(batch_size, 1) | (1, )
 
         Returns
         -------
-        lstm_output: the lstm output, shape=(batch_size, cell_size)
-        next_lstm_state: the next lstm state, this is a tuple of two tensors, each with
+        lstm_output
+            the lstm output, shape=(batch_size, cell_size)
+        next_lstm_state
+            the next lstm state, this is a tuple of two tensors, each with
             shape=(num_layers, batch_size, cell_size)
         """
         if isinstance(obs, np.ndarray):
@@ -241,16 +247,20 @@ class PPOLSTMModel(nn.Module):
 
         Arguments
         ---------
-        obs: the observation, shape=(batch_size, obs_size) | (obs_size, )
-        lstm_state: the lstm state, this is a tuple of two tensors, each with
+        obs
+            the observation, shape=(batch_size, obs_size) | (obs_size, )
+        lstm_state
+            the lstm state, this is a tuple of two tensors, each with
             shape=(num_layers, batch_size, cell_size)
-        prev_action: the previous actions, shape=(batch_size, action_size) |
-            (action_size, )
-        prev_reward: the previous reward, shape=(batch_size, 1) | (1, )
+        prev_action
+            the previous actions, shape=(batch_size, action_size) | (action_size, )
+        prev_reward
+            the previous reward, shape=(batch_size, 1) | (1, )
 
         Returns
         -------
-        value: output of value function, shape=(batch_size, 1)
+        value
+            output of value function, shape=(batch_size, 1)
 
         """
         hidden_state, _ = self.get_next_state(obs, lstm_state, prev_action, prev_reward)
@@ -272,23 +282,31 @@ class PPOLSTMModel(nn.Module):
 
         Arguments
         ---------
-        obs: the observation, shape=(batch_size, obs_size) | (obs_size, )
-        lstm_state: the lstm state, this is a tuple of two tensors, each
-            with shape=(num_layers, batch_size, cell_size)
-        prev_action: the previous actions, shape=(batch_size, action_size) |
-            (action_size, )
-        prev_reward: the previous reward, shape=(batch_size, 1) | (1, )
-        deterministic: whether to sample action from action distribution or
-            deterministicly select action with highest probability.
+        obs
+            the observation, shape=(batch_size, obs_size) | (obs_size, )
+        lstm_state
+            the lstm state, this is a tuple of two tensors, each with
+            shape=(num_layers, batch_size, cell_size)
+        prev_action
+            the previous actions, shape=(batch_size, action_size) | (action_size, )
+        prev_reward
+            the previous reward, shape=(batch_size, 1) | (1, )
+        deterministic
+            whether to sample action from action distribution or deterministicly select
+            action with highest probability.
 
         Returns
         -------
-        action: next action, shape=(batch_size, action_size)
-        next_lstm_state: state of LSTM layer after processing input, this is a tuple of
-            two tensors, each with shape=(num_layers, batch_size, cell_size)
-        value: output of value function, shape=(batch_size, 1)
-        action_dist: the policy action distribution, shape will differ depending on
-            the action space.
+        action
+            next action, shape=(batch_size, action_size)
+        next_lstm_state
+            state of LSTM layer after processing input, this is a tuple of two tensors,
+            each with shape=(num_layers, batch_size, cell_size)
+        value
+            output of value function, shape=(batch_size, 1)
+        action_dist
+            the policy action distribution, shape will differ depending on the action
+            space.
 
         """
         with torch.no_grad():
@@ -329,12 +347,14 @@ class PPOLSTMModel(nn.Module):
 
         Arguments
         ---------
-        batch_size: the batch size of the LSTM state
+        batch_size
+            the batch size of the LSTM state
 
         Returns
         -------
-        initial_state: the initial LSTM state, this is a tuple of two tensors, each
-            with shape=(num_layers, batch_size, cell_size)
+        initial_state
+            the initial LSTM state, this is a tuple of two tensors, each with
+            shape=(num_layers, batch_size, cell_size)
 
         """
         return (
@@ -348,17 +368,23 @@ class PPOPolicy(Policy[ActType, ObsType]):
 
     Arguments
     ---------
-    model: the model of the environment
-    agent_id: ID of the agent in the environment the policy is for
-    policy_id: ID of the policy
-    policy_model: the underlying PyTorch policy model
-    obs_processor: the observation processor to use for processing observations before
-        they are passed into the policy model. If None, then an identity processor is
-        used.
-    action_processor: the action processor to use for processing actions before they
-        are passed into the policy model, and for unprocessing actions sampled from the
-        policy model. If None, then an identity processor is used.
-    deterministic: whether to sample actions from the policy model stochastically or
+    model
+        the model of the environment
+    agent_id
+        ID of the agent in the environment the policy is for
+    policy_id
+        ID of the policy
+    policy_model
+        the underlying PyTorch policy model
+    obs_processor
+        the observation processor to use for processing observations before they are
+        passed into the policy model. If None, then an identity processor is used.
+    action_processor
+        the action processor to use for processing actions before they are passed into
+        the policy model, and for unprocessing actions sampled from the policy model.
+        If None, then an identity processor is used.
+    deterministic
+        whether to sample actions from the policy model stochastically or
         deterministically. If True, then actions are sampled deterministically.
 
     """
@@ -587,24 +613,34 @@ class PPOPolicy(Policy[ActType, ObsType]):
 
         Arguments
         ---------
-        policy_file_path: path to the policy file.
-        env_id: ID of the posggym environment that the policy is for.
-        env_args: Optional keywords arguments for the environment that the policy is
+        policy_file_path
+            Path to the policy file.
+        env_id
+            ID of the posggym environment that the policy is for.
+        env_args
+            Optional keywords arguments for the environment that the policy is
             for (if it is a environment specific policy). If None then assumes policy
             can be used for the environment with any arguments.
-        env_args_id: Optional ID for the environment arguments. If None then an ID will
-            be generated automatically from the env_args.
-        version: the policy version
-        valid_agent_ids: Optional AgentIDs for agents in environment that policy is
-            compatible with. If None then assumes policy can be used for any agent in
-            the environment.
-        nondeterministic: Whether this policy is non-deterministic even after seeding.
-        kwargs: Additional kwargs, if any, to pass to the agent initializing function
-        description: Optional description of the policy.
+        env_args_id
+            Optional ID for the environment arguments. If None then an ID will be
+            generated automatically from the env_args.
+        version
+            The policy version.
+        valid_agent_ids
+            Optional AgentIDs for agents in environment that policy is compatible with.
+            If None then assumes policy can be used for any agent in the environment.
+        nondeterministic
+            Whether this policy is non-deterministic even after seeding.
+        description
+            Optional description of the policy.
+        **kwargs
+            Additional kwargs, if any, to pass to the agent initializing function.
+
 
         Returns
         -------
-        spec: Policy specs for PPO Policy loaded from policy file.
+        spec
+            Policy specs for PPO Policy loaded from policy file.
 
         """
         # remove file extension

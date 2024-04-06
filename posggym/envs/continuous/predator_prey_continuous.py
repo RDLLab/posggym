@@ -1,4 +1,5 @@
 """The Continuous Predator-Prey Environment."""
+
 import math
 from itertools import product
 from typing import Dict, List, NamedTuple, Optional, Set, Tuple, Union, cast
@@ -351,7 +352,7 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
     cooperative : bool
         whether environment rewards are fully shared (True) or only awarded to
         capturing predators (i.e. mixed) (False)
-    prey_strenth : int
+    prey_strenth : int, optional
         the minimum number of predators needed to capture a prey
     obs_dists : float
         number of cells in each direction around the agent that the agent can
@@ -882,9 +883,9 @@ def parse_world_str(world_str: str) -> PPWorld:
     return PPWorld(
         size,
         blocks=list(blocks),
-        predator_start_positions=None
-        if len(predator_coords) == 0
-        else list(predator_coords),
+        predator_start_positions=(
+            None if len(predator_coords) == 0 else list(predator_coords)
+        ),
         prey_start_positions=None if len(prey_coords) == 0 else list(prey_coords),
     )
 

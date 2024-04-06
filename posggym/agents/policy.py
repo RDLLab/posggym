@@ -1,4 +1,5 @@
 """The Policy class defining the core API for posggym.agents policies."""
+
 from __future__ import annotations
 
 import abc
@@ -70,7 +71,6 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
     :meth:`reset` method is called. It is used to update the policy's internal state
     each time the :meth:`step` method is called.
 
-
     """
 
     # PolicySpec used to initialize policy instance
@@ -96,12 +96,12 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
         Arguments
         ---------
         obs : ObsType
-            the latest observation.
+            The latest observation.
 
         Returns
         -------
         action : ActType
-            the next action
+            The next action
 
         """
         self._state = self.get_next_state(self._last_action, obs, self._state)
@@ -122,7 +122,7 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
         Arguments
         ---------
         seed : int, optional
-            seed for random number generator.
+            Seed for random number generator.
 
         """
         self._state = self.get_initial_state()
@@ -145,7 +145,7 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
         Returns
         -------
         initial_state : PolicyState
-            the initial policy state
+            The initial policy state
 
         """
         return {}
@@ -164,16 +164,16 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
         Arguments
         ---------
         action : ActType, optional
-            the action performed. May be None if this is the first observation.
+            The action performed. May be None if this is the first observation.
         obs : ObsType
-            the observation received
+            The observation received
         state : PolicyState
-            the policy's state before action was performed and obs received
+            The policy's state before action was performed and obs received
 
         Returns
         -------
         next_state : PolicyState
-            the next policy state
+            The next policy state
 
         """
 
@@ -190,12 +190,12 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
         Arguments
         ---------
         state : PolicyState
-            the policy's current state
+            The policy's current state.
 
         Returns
         -------
         action : ActType
-            the sampled action
+            The sampled action.
 
         """
 
@@ -211,12 +211,12 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
         Arguments
         ---------
         state : PolicyState
-            the policy's current state
+            The policy's current state.
 
         Returns
         -------
         pi : ActionDistribution
-            the policy's distribution over actions
+            The policy's distribution over actions.
 
         """
 
@@ -230,12 +230,12 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
         Arguments
         ---------
         state : PolicyState
-            the policy's current state
+            The policy's current state.
 
         Returns
         -------
         value : float
-            the value estimate
+            The value estimate.
 
         """
 
@@ -249,15 +249,15 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
         Arguments
         ---------
         state : PolicyState
-            the new policy state
+            The new policy state.
         last_action : ActType, optional
-            the last action taken by the policy. If not provided then the last action
+            The last action taken by the policy. If not provided then the last action
             will be set to None.
 
         Raises
         ------
-        AssertionError :
-            if new policy state is not valid.
+        AssertionError
+            If new policy state is not valid.
 
         """
         if self._state is not None and state is not None:
@@ -271,7 +271,7 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
         Returns
         -------
         state : PolicyState
-            policy's current internal state.
+            Policy's current internal state.
 
         """
         return copy.deepcopy(self._state)
@@ -285,16 +285,15 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
         Note, this function will return None for the action in the final output state,
         as this would correspond to the action that was selected by the policy to action
 
-
         Arguments
         ---------
         history : AgentHistory
-            the agent's action-observation history
+            The agent's action-observation history.
 
         Returns
         -------
         state : PolicyState
-            policy state given history
+            Policy state given history.
 
         """
         state = self.get_initial_state()

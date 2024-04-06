@@ -5,6 +5,7 @@ gymnasiums global registry and difference in naming format.
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/envs/registration.py
 
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -15,16 +16,13 @@ import re
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterable, List, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Tuple
 
 from posggym import error, logger
 from posggym.wrappers import OrderEnforcing, PassiveEnvChecker, TimeLimit
 
-
 if sys.version_info < (3, 10):
     import importlib_metadata as metadata  # type: ignore
-else:
-    import importlib.metadata as metadata
 
 
 if TYPE_CHECKING:
@@ -42,11 +40,13 @@ def load(name: str) -> Callable:
 
     Arguments
     ---------
-    name: The environment name
+    name : str
+        The environment name
 
     Returns
     -------
-    entry_point: Environment creation function.
+    entry_point : Callable
+        Environment creation function.
 
     """
     mod_name, attr_name = name.split(":")
@@ -62,17 +62,22 @@ def parse_env_id(env_id: str) -> Tuple[str | None, str, int | None]:
 
     Arguments
     ---------
-    env_id: The environment id to parse
+    env_id : str
+        The environment id to parse
 
     Returns
     -------
-    ns: The environment namespace
-    name: The environment name
-    version: The environment version
+    ns : str | None
+        The environment namespace
+    name : str
+        The environment name
+    version : int | None
+        The environment version
 
     Raises
     ------
-    Error: If the environment id does not a valid environment regex
+    Error
+        If the environment id does not a valid environment regex
 
     """
     match = ENV_ID_RE.fullmatch(env_id)
@@ -95,13 +100,17 @@ def get_env_id(ns: str | None, name: str, version: int | None) -> str:
 
     Arguments
     ---------
-    ns: The environment namespace
-    name: The environment name
-    version: The environment version
+    ns : str | None
+        The environment namespace.
+    name : str
+        The environment name.
+    version : int | None
+        The environment version.
 
     Returns
     -------
-    env_id: The environment id
+    str
+        The environment id.
 
     """
     full_name = name
@@ -118,17 +127,24 @@ class EnvSpec:
 
     Attributes
     ----------
-    id: The official environment ID.
-    entry_point: Python entrypoint of the environment class (e.g. module.name:Class).
-    reward_threshold: The reward threshold before the task is considered solved.
-    nondeterministic: Whether this environment is non-deterministic even after seeding.
-    max_episode_steps: The maximum number of steps that an episode can take before.
-        truncation.
-    order_enforce: Whether to wrap the environment in an orderEnforcing wrapper, that
-        enforces the order of of `reset` before `step` and `render` functions.
-    disable_env_checker: Whether to disable the environment checker wrapper in
-        `posggym.make`, by default False (runs the environment checker)
-    kwargs: Additional kwargs to pass to the environment class
+    id
+        The official environment ID.
+    entry_point
+        Python entrypoint of the environment class (e.g. module.name:Class).
+    reward_threshold
+        The reward threshold before the task is considered solved.
+    nondeterministic
+        Whether this environment is non-deterministic even after seeding.
+    max_episode_steps
+        The maximum number of steps that an episode can take before truncation.
+    order_enforce
+        Whether to wrap the environment in an orderEnforcing wrapper, that enforces the
+        order of of `reset` before `step` and `render` functions.
+    disable_env_checker
+        Whether to disable the environment checker wrapper in `posggym.make`, by default
+        False (runs the environment checker).
+    kwargs
+        Additional kwargs to pass to the environment class.
 
     """
 
@@ -217,15 +233,20 @@ def _check_version_exists(ns: str | None, name: str, version: int | None):
 
     Arguments
     ---------
-    ns: The environment namespace
-    name: The environment space
-    version: The environment version
+    ns : str | None
+        The environment namespace.
+    name : str
+        The environment space.
+    version : int | None
+        The environment version.
 
     Raises
     ------
-    DeprecatedEnv: The environment doesn't exist but a default version does or the
-        environment version is deprecated
-    VersionNotFound: The ``version`` used doesn't exist
+    DeprecatedEnv
+        The environment doesn't exist but a default version does or the environment
+        version is deprecated.
+    VersionNotFound
+        The ``version`` used doesn't exist.
 
     """
     if get_env_id(ns, name, version) in registry:
@@ -390,19 +411,26 @@ def register(
 
     Arguments
     ---------
-    id: The environment id
-    entry_point: The entry point for creating the environment
-    reward_threshold: The reward threshold considered to have learnt an environment
-    nondeterministic: If the environment is nondeterministic (even with knowledge of
-        the initial seed and all actions)
-    max_episode_steps: The maximum number of episodes steps before truncation. Used
-        by the Time Limit wrapper.
-    order_enforce: If to enable the order enforcer wrapper to ensure users run
-        functions in the correct order
-    disable_env_checker: Whether to disable the environment checker for the environment.
-        Recommended to False.
-    **kwargs: arbitrary keyword arguments which are passed to the environment
-        constructor
+    id : str
+        The environment id.
+    entry_point : Callable | str
+        The entry point for creating the environment.
+    reward_threshold : float | None
+        The reward threshold considered to have learnt an environment.
+    nondeterministic : bool
+        If the environment is nondeterministic (even with knowledge of the initial seed
+        and all actions).
+    max_episode_steps : int | None
+        The maximum number of episodes steps before truncation. Used by the Time Limit
+        wrapper.
+    order_enforce : bool
+        If to enable the order enforcer wrapper to ensure users run functions in the
+        correct order.
+    disable_env_checker : bool
+        Whether to disable the environment checker for the environment. Recommended to
+        False.
+    **kwargs
+        Arbitrary keyword arguments which are passed to the environment constructor.
 
     """
     global registry, current_namespace
@@ -453,22 +481,28 @@ def make(
 
     Arguments
     ---------
-    id: Name of the environment. Optionally, a module to import can be included,
-        eg. 'module:Env-v0'
-    max_episode_steps: Maximum length of an episode (TimeLimit wrapper).
-    disable_env_checker: Whether to run the env checker, None will default to the
-            environment specification `disable_env_checker` (which is by default False,
-            running the environment checker), otherwise will run according to this
-            parameter (`True` = not run, `False` = run)
-    kwargs: Additional arguments to pass to the environment constructor.
+    id : str | EnvSpec
+        Name of the environment. Optionally, a module to import can be included,
+        eg. 'module:Env-v0'.
+    max_episode_steps : int | None
+        Maximum length of an episode (TimeLimit wrapper).
+    disable_env_checker : bool | None
+        Whether to run the env checker, None will default to the environment
+        specification `disable_env_checker` (which is by default False, running the
+        environment checker), otherwise will run according to this parameter
+        (`True` = not run, `False` = run).
+    **kwargs
+        Additional arguments to pass to the environment constructor.
 
     Returns
     -------
-    env: An instance of the environment.
+    Env
+        An instance of the environment.
 
     Raises
     ------
-    Error: If the ``id`` doesn't exist then an error is raised
+    Error
+        If the ``id`` doesn't exist then an error is raised
 
     """
     if isinstance(id, EnvSpec):
@@ -529,9 +563,6 @@ def make(
         render_modes = env_creator.metadata.get("render_modes")
     mode = _kwargs.get("render_mode")
 
-    # TODO Johnny
-    # Add support for attempting to apply applying HumanRendering/RenderCollection
-    # wrappers (see gymnasium.envs.registration:make function)
     if mode is not None and render_modes is not None and mode not in render_modes:
         raise error.UnsupportedMode(
             f"The environment is being initialised with render_mode={mode} "
@@ -574,15 +605,18 @@ def spec(env_id: str) -> EnvSpec:
 
     Arguments
     ---------
-    env_id: the environment id.
+    env_id : str
+        The environment id.
 
     Returns
     -------
-    spec: the environment spec from the global registry.
+    EnvSpec
+        The environment spec from the global registry.
 
     Raises
     ------
-    Error: if environment with given ``env_id`` doesn't exist in global registry.
+    Error
+        If environment with given ``env_id`` doesn't exist in global registry.
 
     """
     spec_ = registry.get(env_id)
@@ -596,7 +630,7 @@ def spec(env_id: str) -> EnvSpec:
 
 
 def pprint_registry(
-    _registry: dict = registry,
+    _registry: Dict = registry,
     num_cols: int = 3,
     exclude_namespaces: List[str] | None = None,
     disable_print: bool = False,
@@ -605,16 +639,21 @@ def pprint_registry(
 
     Arguments
     ---------
-    _registry: Environment registry to be printed.
-    num_cols: Number of columns to arrange environments in, for display.
-    exclude_namespaces: Exclude any namespaces from being printed.
-    disable_print: Whether to return a string of all the namespaces and environment IDs
-        instead of printing it to console.
+    _registry : Dict
+        Environment registry to be printed.
+    num_cols : int
+        Number of columns to arrange environments in, for display.
+    exclude_namespaces : List[str] | None
+        Exclude any namespaces from being printed.
+    disable_print : bool
+        Whether to return a string of all the namespaces and environment IDs instead of
+        printing it to console.
 
     Returns
     -------
-    return_str: formatted str representation of registry, if ``disable_print=True``,
-        otherwise returns ``None``.
+    str | None
+        Formatted str representation of registry, if ``disable_print=True``, otherwise
+        returns ``None``.
 
     """
     # Defaultdict to store environment names according to namespace.

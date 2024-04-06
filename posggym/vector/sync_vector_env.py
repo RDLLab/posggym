@@ -5,6 +5,7 @@ https://github.com/Farama-Foundation/Gymnasium/blob/main/gymnasium/vector/vector
 https://github.com/Farama-Foundation/Gymnasium/blob/main/gymnasium/vector/sync_vector_env.py
 
 """
+
 from __future__ import annotations
 
 from copy import deepcopy
@@ -62,9 +63,9 @@ class SyncVectorEnv(posggym.Env):
 
         Arguments
         ---------
-        env_fns:
+        env_fns
             iterable of callable functions that create the environments.
-        copy:
+        copy
             If ``True``, then the :meth:`reset` and :meth:`step` methods return a
             copy of the observations.
 
@@ -160,32 +161,32 @@ class SyncVectorEnv(posggym.Env):
 
         Arguments
         ---------
-        actions:
+        actions
             dict mapping agent ID to batch of actions for that agent, with one action
             for each environment. So should be a dict of arrays or lists, with each
             array/list having length equal to the number of environments.
 
         Returns
         -------
-        observations:
+        observations
             dict mapping agent ID to batch of observations for that agent, with one
             observation for each environment. Each array having shape
             ``(num_envs,) + observation_space.shape``.
-        rewards:
+        rewards
             dict mapping agent ID to batch of rewards for that agent, with one reward
             for each environment. Each entry is an array with  shape ``(num_envs,)``.
-        terminateds:
+        terminateds
             dict mapping agent ID to batch of termination signals for that agent, with
             one termination signal for each environment. Each entry is an array with
             shape ``(num_envs,)``.
-        truncateds:
+        truncateds
             dict mapping agent ID to batch of truncation signals for that agent, with
             one truncation signal for each environment. Each entry is an array with
             shape ``(num_envs,)``.
-        all_dones:
+        all_dones
             array of booleans, with one entry for each environment, indicating whether
             the environment is done. Shape is ``(num_envs,)``.
-        infos:
+        infos
             dict mapping agent ID to batch of info objects for that agent, with one
             info object for each environment. Each entry is a dict with one entry for
 
@@ -284,16 +285,16 @@ class SyncVectorEnv(posggym.Env):
 
         Arguments:
         ----------
-        infos: dict
+        infos
             the infos of the vectorized environment
-        info: dict
+        info
             the info coming from the single environment
-        env_num: int
+        env_num
             the index of the single environment
 
         Returns
         -------
-        infos: dict
+        infos
             the (updated) infos of the vectorized environment
 
         """
@@ -317,14 +318,14 @@ class SyncVectorEnv(posggym.Env):
 
         Arguments
         ---------
-        dtype: type
+        dtype
             data type of the info coming from the env.
 
         Returns
         -------
-        array: np.ndarray
+        array
             the initialized info array.
-        array_mask: np.ndarray
+        array_mask
             the initialized boolean array.
 
         """

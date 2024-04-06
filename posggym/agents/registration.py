@@ -4,6 +4,7 @@ Based on Farama Foundation Gymnasium,
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/envs/registration.py
 
 """
+
 from __future__ import annotations
 
 import copy
@@ -45,12 +46,12 @@ def load(name: str) -> PolicyEntryPoint:
 
     Arguments
     ---------
-    name
-        The policy name
+    name : str
+        The policy name.
 
     Returns
     -------
-    entry_point
+    entry_point : PolicyEntryPoint
         Policy creation function.
 
     """
@@ -69,24 +70,24 @@ def parse_policy_id(policy_id: str) -> Tuple[str | None, str | None, str, int | 
 
     Arguments
     ---------
-    policy_id
-        The policy id to parse
+    policy_id : str
+        The policy id to parse.
 
     Returns
     -------
-    env_id
-        The environment ID
-    env_args_id
-        ID string of environment arguments
-    pi_name
-        The policy name
-    version
-        The policy version
+    env_id : str | None
+        The environment ID.
+    env_args_id : str | None
+        ID string of environment arguments.
+    pi_name : str
+        The policy name.
+    version : int | None
+        The policy version.
 
     Raises
     ------
     Error
-        If the policy id does not a valid environment regex
+        If the policy id does not a valid environment regex.
 
     """
     match = POLICY_ID_RE.fullmatch(policy_id)
@@ -121,19 +122,19 @@ def get_policy_id(
 
     Arguments
     ---------
-    env_id
-        The environment ID
-    env_args_id
-        ID string of environment arguments
-    policy_name
-        The policy name
-    version
-        The policy version
+    env_id : str | None
+        The environment ID.
+    env_args_id : str | None
+        ID string of environment arguments.
+    policy_name : str
+        The policy name.
+    version : int | None
+        The policy version.
 
     Returns
     -------
-    policy_id
-        The policy id
+    policy_id : str
+        The policy id.
 
     """
     if env_args_id is not None and env_id is None:
@@ -164,13 +165,13 @@ def get_env_args_id(env_args: Dict[str, Any]) -> str:
 
     Arguments
     ---------
-    env_args
-        environment keyword arguments
+    env_args : Dict[str, Any]
+        Environment keyword arguments.
 
     Returns
     -------
-    env_args_id
-        string representation of the envrinment keyword arguments.
+    env_args_id : str
+        String representation of the envrinment keyword arguments.
 
     """
     return ("-".join(f"{k}={v}" for k, v in env_args.items())).replace(" ", "")
@@ -186,14 +187,14 @@ class PolicySpec:
     Arguments
     ---------
     policy_name
-        The name of the policy
+        The name of the policy.
     entry_point
         The Python entrypoint for initializing an instance of the agent policy.
         Must be a Callable with signature matching `PolicyEntryPoint` or a string
         defining where the entry point function can be imported
         (e.g. module.name:Class).
     version
-        the policy version
+        The policy version.
     env_id
         Optional ID of the posggym environment that the policy is for.
     env_args
@@ -351,14 +352,14 @@ def _check_version_exists(
 
     Arguments
     ---------
-    env_id
-        The environment ID
-    env_args_ud
-        The ID of the environment keyword arguments
-    policy_name
-        The policy name
-    version
-        The policy version
+    env_id : str | None
+        The environment ID.
+    env_args_id : str | None
+        The ID of the environment keyword arguments.
+    policy_name : str
+        The policy name.
+    version : int | None
+        The policy version.
 
     Raises
     ------
@@ -511,26 +512,26 @@ def register(
 
     Arguments
     ---------
-    policy_name
+    policy_name : str
         The name of the policy
-    entry_point
+    entry_point : PolicyEntryPoint | str
         The entry point for creating the policy
-    env_id
-        Optional ID of the posggym environment that the policy is for.
-    version
+    version : int | None
         the policy version
-    env_args
+    env_id : str | None
+        Optional ID of the posggym environment that the policy is for.
+    env_args : Dict[str, Any] | None
         Optional keywords arguments for the environment that the policy is for (if
         it is a environment specific policy). If None then assumes policy can be used
         for the environment with any arguments.
-    valid_agent_ids
+    valid_agent_ids : List[str] | None
         Optional AgentIDs in environment that policy is compatible with. If
         None then assumes policy can be used for any agent in the environment.
-    nondeterministic
+    nondeterministic : bool
         Whether this policy is non-deterministic even after seeding.
-    description
+    description : str | none
         Optional description of the policy.
-    kwargs
+    **kwargs
         Additional kwargs, if any, to pass to the agent initializing
 
     """
@@ -554,8 +555,8 @@ def register_spec(spec: PolicySpec):
 
     Arguments
     ---------
-    spec
-        The policy spec
+    spec : PolicySpec
+        The policy spec.
 
     """
     global registry
@@ -573,24 +574,24 @@ def make(id: str | PolicySpec, model: M.POSGModel, agent_id: str, **kwargs) -> P
 
     Arguments
     ---------
-    id
-      Unique identifier of the policy or a policy spec.
-    model
-      The model for the environment the policy will be interacting with.
-    agent_id
-      The ID of the agent the policy will be used for.
-    kwargs
-      Additional arguments to pass to the policy constructor.
+    id : str | PolicySpec
+        Unique identifier of the policy or a policy spec.
+    model : POSGModel
+        The model for the environment the policy will be interacting with.
+    agent_id : str
+        The ID of the agent the policy will be used for.
+    **kwargs
+        Additional arguments to pass to the policy constructor.
 
     Returns
     -------
-    policy
-      An instance of the policy.
+    Policy
+        An instance of the policy.
 
     Raises
     ------
     Error
-      If the ``id`` doesn't exist then an error is raised
+        If the ``id`` doesn't exist then an error is raised
 
     """
     if isinstance(id, PolicySpec):
@@ -669,18 +670,18 @@ def spec(id: str) -> PolicySpec:
 
     Arguments
     ---------
-    id
-        the policy id.
+    id : str
+        The policy id.
 
     Returns
     -------
-    spec
-        the policy spec from the global registry.
+    PolicySpec
+        The policy spec from the global registry.
 
     Raises
     ------
     Error
-        if policy with given ``id`` doesn't exist in global registry.
+        If policy with given ``id`` doesn't exist in global registry.
 
     """
     spec_ = registry.get(id)
@@ -701,7 +702,7 @@ def spec(id: str) -> PolicySpec:
 
 
 def pprint_registry(
-    _registry: dict = registry,
+    _registry: Dict = registry,
     num_cols: int = 3,
     include_env_ids: List[str] | None = None,
     exclude_env_ids: List[str] | None = None,
@@ -711,23 +712,23 @@ def pprint_registry(
 
     Arguments
     ---------
-    _registry
+    _registry : Dict
         Policy registry to be printed.
-    num_cols
+    num_cols : int
         Number of columns to arrange policies in, for display.
-    include_env_ids
+    include_env_ids : List[str] | None
         Print only policies for environments with these IDs. If None then all
         environments are included.
-    exclude_env_ids
+    exclude_env_ids : List[str] | None
         Exclude any policies for environments with thee IDs from being printed.
-    disable_print
+    disable_print : bool
         Whether to return a string of all the policy IDs instead of printing it to
         console.
 
     Returns
     -------
-    return_str
-        formatted str representation of registry, if ``disable_print=True``, otherwise
+    str | None
+        Formatted str representation of registry, if ``disable_print=True``, otherwise
         returns ``None``.
 
     """
@@ -781,21 +782,21 @@ def get_all_env_policies(
 
     Arguments
     ---------
-    env_id
-        The ID of the environment
-    env_args
+    env_id : str
+        The ID of the environment.
+    env_args : Dict[str, Any] | str | None
         Optional environment arguments or ID string of environment arguments. If
         None, will return all policies for given environment.
-    _registry
-        The policy registry
-    include_generic_policies
-        whether to also return policies that are valid for all environments (e.g. the
-        random-v0 policy)
+    _registry : Dict
+        The policy registry.
+    include_generic_policies : bool
+        Whether to also return policies that are valid for all environments (e.g. the
+        random-v0 policy).
 
     Returns
     -------
-    policy_specs
-        list of specs for policies associated with given environment.
+    List[PolicySpec]
+        List of specs for policies associated with given environment.
 
     """
     return [
@@ -826,21 +827,21 @@ def get_env_agent_policies(
 
     Arguments
     ---------
-    env_id
-        The ID of the environment
-    env_args
+    env_id : str
+        The ID of the environment.
+    env_args : Dict[str, Any] | None
         Optional environment arguments. If None, will return all policies for
         given environment.
-    _registry
-        The policy registry
-    include_generic_policies
-        whether to also return policies that are valid for all environments (e.g. the
-        random-v0 policy) and environment args
+    _registry : Dict
+        The policy registry.
+    include_generic_policies : bool
+        Whether to also return policies that are valid for all environments (e.g. the
+        random-v0 policy) and environment args.
 
     Returns
     -------
-    policy_specs
-        list of specs for policies associated with given environment.
+    Dict[str, List[PolicySpec]]
+        List of specs for policies associated with given environment.
 
     """
     env = posggym.make(env_id) if env_args is None else posggym.make(env_id, **env_args)
@@ -865,13 +866,13 @@ def get_all_envs(
 
     Arguments
     ---------
-    _registry
-        The policy registry
+    _registry : Dict
+        The policy registry.
 
     Returns
     -------
-    envs
-        a dictionary with env IDs as keys as list of (env_args, env_args_id) tuples as
+    Dict[str, Dict[str | None, Dict[str, Any] | None]]
+        A dictionary with env IDs as keys as list of (env_args, env_args_id) tuples as
         the values.
 
     """

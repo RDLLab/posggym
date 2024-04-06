@@ -1,4 +1,5 @@
 """Wrapper for limiting the time steps of an environment."""
+
 from typing import Optional, Set
 
 import posggym
@@ -15,10 +16,10 @@ class TimeLimit(posggym.Wrapper):
     Arguments
     ---------
     env : posggym.Env
-      The environment to apply the wrapper
+        The environment to apply the wrapper
     max_episode_steps : int, optional
-      The maximum length of episode before it is truncated. If None then will not
-      truncate episodes.
+        The maximum length of episode before it is truncated. If None then will not
+        truncate episodes.
 
     Note
     ----

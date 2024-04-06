@@ -4,10 +4,11 @@ Ref:
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/wrappers/monitoring/video_recorder.py
 
 """
+
 import json
 import tempfile
 from pathlib import Path
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
 
 from posggym import Env, error, logger
 
@@ -44,13 +45,19 @@ class VideoRecorder:
 
         Arguments
         ---------
-        env: Environment to take video of.
-        path: Path to the video file; will be randomly chosen if omitted.
-        metadata: Contents to save to the metadata file.
-        enabled: Whether to actually record video, or just no-op (for convenience)
-        base_path: Alternatively, path to the video file without extension, which will
+        env : posggym.Env
+            Environment to take video of.
+        path : Path, optional
+            Path to the video file; will be randomly chosen if omitted.
+        metadata : Dict, optional
+            Contents to save to the metadata file.
+        enabled : bool
+            Whether to actually record video, or just no-op (for convenience)
+        base_path : Path, optional
+            Alternatively, path to the video file without extension, which will
             be added.
-        disable_logger: Whether to disable moviepy logger or not.
+        disable_logger : bool
+            Whether to disable moviepy logger or not.
 
         """
         try:

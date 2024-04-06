@@ -1,4 +1,5 @@
 """Utility functions for downloading agent files."""
+
 import os
 from pathlib import Path
 
@@ -7,6 +8,7 @@ from clint.textui import progress  # type: ignore
 
 from posggym import error, logger
 from posggym.config import AGENT_MODEL_REPO_URL
+
 
 # largest policy file is ~ 1.3-4 MB
 LARGEST_FILE_SIZE = int(1.5 * 1024 * 1024)
@@ -17,12 +19,15 @@ def download_to_file(url: str, dest_file_path: Path):
 
     Arguments
     ---------
-    url: full url to download file from
-    dest_file_path: file path to write downloaded file to.
+    url
+        Full url to download file from.
+    dest_file_path
+        File path to write downloaded file to.
 
     Raises
     ------
-    posggym.error.DownloadError: if error occurred while trying to download file.
+    posggym.error.DownloadError
+        If error occurred while trying to download file.
 
     """
     dest_dir = dest_file_path.parent
@@ -64,13 +69,17 @@ def download_from_repo(file_path: Path, rewrite_existing: bool = False):
 
     Arguments
     ---------
-    file_path: local path to posgym package file.
-    rewrite_existing: whether to re-download and rewrite an existing copy of the file.
+    file_path
+        Local path to posgym package file.
+    rewrite_existing
+        Whether to re-download and rewrite an existing copy of the file.
 
     Raises
     ------
-    posggym.error.InvalidFile: if file_path is not a valid posggym-agents package file.
-    posggym.error.DownloadError: if error occurred while trying to download file.
+    posggym.error.InvalidFile
+        If file_path is not a valid posggym-agents package file.
+    posggym.error.DownloadError
+        If error occurred while trying to download file.
 
     """
     if file_path.exists() and not rewrite_existing:

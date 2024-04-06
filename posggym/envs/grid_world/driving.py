@@ -1,4 +1,5 @@
 """The Driving Grid World Environment."""
+
 import enum
 from itertools import product
 from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Set, Tuple, Union
@@ -371,8 +372,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
     num_agents : int
         the number of agents in the model scenario
     obs_dims : (int, int, int)
-        number of cells in front, behind, and to the side that each agent
-        can observe
+        number of cells in front, behind, and to the side that each agent can observe
     """
 
     R_CRASH_VEHICLE = -1.0

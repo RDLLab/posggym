@@ -1,4 +1,5 @@
 """The model data structure."""
+
 from __future__ import annotations
 
 import abc
@@ -11,7 +12,6 @@ import numpy as np
 
 from posggym import error
 from posggym.utils import seeding
-
 
 if TYPE_CHECKING:
     from gymnasium import spaces
@@ -131,10 +131,15 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
         For any environment where the number of agents remains constant during AND
         across episodes. This will be :attr:`possible_agents`, independent of state.
 
+        Arguments
+        ---------
+        state : StateType
+            The environment state
+
         Returns
         -------
         List[str]
-          List of IDs for all agents that active in given state,
+            List of IDs for all agents that active in given state,
 
         """
 
@@ -145,7 +150,7 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
         Returns
         -------
         StateType
-          An initial state.
+            An initial state.
 
         """
 
@@ -156,12 +161,12 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
         Arguments
         ---------
         state : StateType
-          The initial state.
+            The initial state.
 
         Returns
         -------
         Dict[str, ObsType]
-          A mapping from agent ID to their initial observation.
+            A mapping from agent ID to their initial observation.
 
         """
 
@@ -186,15 +191,15 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
         Arguments
         ---------
         state : StateType
-          The state.
+            The state.
         actions : Dict[str, ActType]
-          a joint action containing one action per active agent in the environment.
+            a joint action containing one action per active agent in the environment.
 
         Returns
         -------
-        JointTimestep :
-          joint timestep result of performing actions in given state, including next
-          state, observations, rewards, terminations, truncations, all done, infos.
+        JointTimestep
+            joint timestep result of performing actions in given state, including next
+            state, observations, rewards, terminations, truncations, all done, infos.
 
         """
 
@@ -207,10 +212,10 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
         Arguments
         ---------
         seed : int, optional
-          The seed that is used to initialize the models's RNG. If the
-          ``seed=None`` is passed, the RNG will *not* be reset. If you pass an
-          integer, the RNG will be reset even if it already exists. Usually, you want
-          to pass a seed when you first initialize the model.
+            The seed that is used to initialize the models's RNG. If the
+            ``seed=None`` is passed, the RNG will *not* be reset. If you pass an
+            integer, the RNG will be reset even if it already exists. Usually, you want
+            to pass a seed when you first initialize the model.
 
         """
         if isinstance(self.rng, random.Random):
@@ -247,19 +252,19 @@ class POSGModel(abc.ABC, Generic[StateType, ObsType, ActType]):
         Arguments
         ---------
         agent_id : Union[int, str]
-          The ID of the agent to get initial state for.
+            The ID of the agent to get initial state for.
         obs : ObsType
-          The initial observation of the agent.
+            The initial observation of the agent.
 
         Returns
         -------
         StateType
-          An initial state for the agent conditioned on their initial observation.
+            An initial state for the agent conditioned on their initial observation.
 
         Raises
         ------
         NotImplementedError
-          If this method is not implemented.
+            If this method is not implemented.
 
         """
         raise NotImplementedError
@@ -331,9 +336,9 @@ class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
         Returns
         -------
         Dict[StateType, float]
-           :math:`Pr(s_{0}=s)` the initial probability of each state. If a state is not
-           included in the initial distribution object, it should be assumed to have
-           probability 0.
+            :math:`Pr(s_{0}=s)` the initial probability of each state. If a state is not
+            included in the initial distribution object, it should be assumed to have
+            probability 0.
 
         """
 
@@ -350,17 +355,17 @@ class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
         Arguments
         ---------
         state : StateType
-          the state the environment was in
+            the state the environment was in
         actions : Dict[str, ActType]
-          the joint action performed
+            the joint action performed
         next_state : StateType
-          the state of the environment after actions were performed
+            the state of the environment after actions were performed
 
         Returns
         -------
         float
-          :math:`Pr(s'|s, a)`, the probability of getting next state `s'` given the
-          environment was in state `s` and joint action `a` was performed.
+            :math:`Pr(s'|s, a)`, the probability of getting next state `s'` given the
+            environment was in state `s` and joint action `a` was performed.
 
         """
 
@@ -380,17 +385,17 @@ class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
         Arguments
         ---------
         obs : Dict[str, ObsType]
-          the observation received
+            the observation received
         actions : Dict[str, ActType]
-          the joint action performed
+            the joint action performed
         next_state : StateType
-          the state of the environment after actions were performed
+            the state of the environment after actions were performed
 
         Returns
         -------
         float
-          :math:`Pr(o|s', a)`, the probability of joint observation `o` given the joint
-          action `a` was performed and the environment ended up in state `s'`.
+            :math:`Pr(o|s', a)`, the probability of joint observation `o` given the
+            joint action `a` was performed and the environment ended up in state `s'`.
 
         """
 
@@ -407,15 +412,15 @@ class POSGFullModel(POSGModel[StateType, ObsType, ActType], abc.ABC):
         Arguments
         ---------
         state : StateType
-          the state the environment was in
+            the state the environment was in
         actions : Dict[str, ActType]
-          the joint action performed
+            the joint action performed
 
         Returns
         -------
         Dict[str, float]
-          The reward each agent receives given joint action `a` was performed in state
-          `s`.
+            The reward each agent receives given joint action `a` was performed in
+            state `s`.
 
         """
 
@@ -442,5 +447,4 @@ class Outcome(enum.Enum):
     NA = None
 
     def __str__(self):
-        return self.name
         return self.name

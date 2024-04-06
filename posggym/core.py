@@ -7,6 +7,7 @@ And, the more recent, Farama Foundation Gymnasium
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/core.py
 
 """
+
 from __future__ import annotations
 
 import abc
@@ -100,33 +101,34 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
         Arguments
         ---------
         actions : Dict[str, ActType]
-          a joint action containing one action per active agent in the environment.
+            a joint action containing one action per active agent in the environment.
 
         Returns
         -------
         observations : Dict[str, ObsType]
-          the joint observation containing one observation per agent.
+            the joint observation containing one observation per agent.
         rewards : Dict[str, float]
-          the joint rewards containing one reward per agent.
+            the joint rewards containing one reward per agent.
         terminations : Dict[str, bool]
-          whether each agent has reached a terminal state in the environment.
-          Contains one value for each agent in the environment. It's possible,
-          depending on the environment, for only some of the agents to be in a
-          terminal during a given step.
+            whether each agent has reached a terminal state in the environment.
+            Contains one value for each agent in the environment. It's possible,
+            depending on the environment, for only some of the agents to be in a
+            terminal during a given step.
         truncations : Dict[str, bool]
-          whether the episode has been truncated for each agent in the
-          environment. Contains one value for each agent in the environment. Truncation
-          for an agent signifies that the episode was ended for that agent (e.g. due to
-          reaching the time limit) before the agent reached a terminal state.
+            whether the episode has been truncated for each agent in the
+            environment. Contains one value for each agent in the environment.
+            Truncation for an agent signifies that the episode was ended for that agent
+            (e.g. due to reaching the time limit) before the agent reached a terminal
+            state.
         all_done : bool
-          whether the episode is finished. Provided for convenience and to handle
-          the case where agents may be added and removed during an episode. For
-          environments where the active agents remains constant during each episode,
-          this is equivalent to checking if all agents are either in a terminated or
-          truncated state. If true, the user needs to call :py:func:`reset()`.
+            whether the episode is finished. Provided for convenience and to handle
+            the case where agents may be added and removed during an episode. For
+            environments where the active agents remains constant during each episode,
+            this is equivalent to checking if all agents are either in a terminated or
+            truncated state. If true, the user needs to call :py:func:`reset()`.
         infos : Dict[str, Dict[str, Any]]
-          contains auxiliary diagnostic information (helpful for debugging, learning,
-          and logging) for each agent.
+            contains auxiliary diagnostic information (helpful for debugging, learning,
+            and logging) for each agent.
 
         """
 
@@ -150,22 +152,23 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
         Arguments
         ---------
         seed : int,  optional
-          The seed that is used to initialize the environment's RNG. If the
-          ``seed=None`` is passed, the RNG will *not* be reset. If you pass an
-          integer, the RNG will be reset even if it already exists. Usually, you want
-          to pass an integer *right after the environment has been initialized and
-          then never again*.
+            The seed that is used to initialize the environment's RNG. If the
+            ``seed=None`` is passed, the RNG will *not* be reset. If you pass an
+            integer, the RNG will be reset even if it already exists. Usually, you want
+            to pass an integer *right after the environment has been initialized and
+            then never again*.
         options: dict, optional
-          Additional information to specify how the environment is reset (optional,
-          depending on the specific environment)
+            Additional information to specify how the environment is reset (optional,
+            depending on the specific environment)
 
         Returns
         -------
-        observations : Dict[str, ObsType], optional
-          The joint observation containing one observation per agent in the environment.
+        observations : Dict[str, ObsType]
+            The joint observation containing one observation per agent in the
+            environment.
         infos : Dict[str, Dict]
-          Auxiliary information for each agent. It should be analogous to the ``info``
-          returned by :meth:`step()` and can be empty.
+            Auxiliary information for each agent. It should be analogous to the ``info``
+            returned by :meth:`step()` and can be empty.
 
         """
         # initialize the RNG if the seed is manually passed
@@ -310,7 +313,8 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
         Returns
         -------
         bool
-          ``True`` if environment is symmetric, ``False`` if environment is asymmetric.
+            ``True`` if environment is symmetric, ``False`` if environment is
+            asymmetric.
 
         """
         return self.model.is_symmetric

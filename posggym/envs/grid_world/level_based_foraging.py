@@ -1,4 +1,5 @@
 """The Level-Based Foraging Environment."""
+
 import enum
 import math
 from collections import defaultdict
@@ -371,7 +372,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         observation size of each agent
     force_coop : bool
         whether to force cooperation or not
-    observation_mode : str, optional
+    observation_mode : str
         The observation mode for agent (default='tuple')
           - 'grid' - observations are multiple 2D grids (3D np.ndarray)
           - 'vector' - observations are vector (1D np.ndarray)
@@ -849,8 +850,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         Agent obs are ordered so the observing agent is first, then the
         remaining observations are by agent order.
 
-        On triplet of [-1, -1, 0] means no observation for the given agent or
-        food.
+        On triplet of [-1, -1, 0] means no observation for the given agent or food.
         """
         if self.observation_mode == "tuple":
             assert isinstance(obs, tuple)
@@ -870,8 +870,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         Agent obs are ordered so the observing agent is first, then the
         remaining observations are by agent order.
 
-        On triplet of [-1, -1, 0] means no observation for the given agent or
-        food.
+        On triplet of [-1, -1, 0] means no observation for the given agent or food.
         """
         raise NotImplementedError
 
@@ -883,8 +882,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         Agent obs are ordered so the observing agent is first, then the
         remaining observations are by agent order.
 
-        On triplet of [-1, -1, 0] means no observation for the given agent or
-        food.
+        On triplet of [-1, -1, 0] means no observation for the given agent or food.
         """
         assert obs.shape[0] == 3 * (len(self.possible_agents) + self.max_food)
         agent_obs = []
@@ -905,8 +903,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         Agent obs are ordered so the observing agent is first, then the
         remaining observations are by agent order.
 
-        On triplet of [-1, -1, 0] means no observation for the given agent or
-        food.
+        On triplet of [-1, -1, 0] means no observation for the given agent or food.
         """
         assert len(obs) == 3 * (len(self.possible_agents) + self.max_food)
         agent_obs = []

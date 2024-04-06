@@ -1,4 +1,5 @@
 """A passive environment checker wrapper for an environment."""
+
 from typing import Dict
 
 import posggym

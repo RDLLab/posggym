@@ -1,4 +1,5 @@
 """The Cooperative Reaching Grid World Environment."""
+
 from itertools import product
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -10,7 +11,6 @@ from posggym import logger
 from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import Coord, Direction, Grid
 from posggym.utils import seeding
-
 
 # State = (coord_0, coord_1)
 CRState = Tuple[Coord, Coord]
@@ -285,7 +285,7 @@ class CooperativeReachingModel(M.POSGModel[CRState, CRObs, CRAction]):
         the mode of the environment, which determines the layout of goals in the
         grid as well as their values. The available modes are: ["square", "line",
         "original"]
-    obs_distance : int or None
+    obs_distance : int, optional
         the number of cells in each direction that each agent can observe. This
         determines how close agents need to be to each other to be able to observe each
         other's location. Setting this to be `2*size` will make the environment fully

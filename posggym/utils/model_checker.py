@@ -13,6 +13,7 @@ Which in turn is based on work from:
 These projects are covered by the MIT License.
 
 """
+
 import inspect
 from copy import deepcopy
 from typing import Optional
@@ -32,20 +33,23 @@ from posggym.utils.passive_env_checker import (
 )
 
 
-def check_initial_state_type(model: M.POSGModel):
+def check_initial_state_type(model: M.POSGModel) -> M.StateType:
     """Checks that :meth:`sample_initial_state` correctly returns a valid state.
 
     Arguments
     ---------
-    model: The model to check
+    model
+        The model to check
 
     Returns
     -------
-    state: sampled initial state
+    state
+        sampled initial state
 
     Raises
     ------
-    AssertionError depending on spec violation
+    AssertionError
+        depending on spec violation
 
     """
     state = model.sample_initial_state()
@@ -60,13 +64,16 @@ def check_initial_obs_type(model: M.POSGModel, state: Optional[M.StateType] = No
 
     Arguments
     ---------
-    model: the model to check
-    state: the state to use for check, default is None in which case a new state is
-           sampled from the model.
+    model
+        the model to check
+    state
+        the state to use for check, default is None in which case a new state is
+        sampled from the model.
 
     Raises
     ------
-    AssertionError depending on spec violation
+    AssertionError
+        depending on spec violation
 
     """
     if state is None:
@@ -86,11 +93,13 @@ def check_initial_sampling_seed(model: M.POSGModel):
 
     Arguments
     ---------
-    model: The environment model to check
+    model
+        The environment model to check
 
     Raises
     ------
-    AssertionError: The model random seeding doesn't work as expected.
+    AssertionError
+        The model random seeding doesn't work as expected.
 
     """
     signature = inspect.signature(model.seed)
@@ -184,14 +193,10 @@ def check_model(model: M.POSGModel):
 
     This is particularly useful when using a custom environment.
 
-    TODO Update links
-
-    Please take a look at https://gymnasium.farama.org/content/environment_creation/
-    for more information about the API.
-
     Arguments
     ---------
-    model: The posggym environment model that will be checked
+    model
+        The posggym environment model that will be checked
 
     """
     more_info_msg = (

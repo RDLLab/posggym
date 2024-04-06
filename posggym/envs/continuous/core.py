@@ -1,4 +1,5 @@
 """Core functionality for continuous environments."""
+
 from __future__ import annotations
 
 import math
@@ -13,6 +14,7 @@ import numpy as np
 from gymnasium import spaces
 
 from posggym.error import DependencyNotInstalled
+
 
 try:
     import pymunk
@@ -192,10 +194,13 @@ class AbstractContinuousWorld(ABC):
 
         Arguments
         ---------
-        dt: the step size
-        t: the number of steps
-        normalize_angles: whether to normalize angle of each entity to be in [0, 2*pi]
-            at the end of the simulation.
+        dt : float
+            the step size
+        t : int
+            the number of steps
+        normalize_angles : bool
+            whether to normalize angle of each entity to be in [0, 2*pi] at the end of
+            the simulation.
 
         Reference
         ---------
@@ -223,14 +228,19 @@ class AbstractContinuousWorld(ABC):
 
         Arguments
         ---------
-        id: the unique ID of the entity
-        radius: the radius of the entity. If none uses `self.agent_radius`
-        color: optional color for the entity. This only impacts rendering of the world.
+        id : str
+            the unique ID of the entity
+        radius : float | None
+            the radius of the entity. If none uses `self.agent_radius`
+        color : Tuple[int, int, int, int] | None
+            optional color for the entity. This only impacts rendering of the world.
 
         Returns
         -------
-        body: underlying physics Body of the entity
-        shape: the shape of the entity
+        body : pymunk.Body
+            underlying physics Body of the entity
+        shape : pymunk.Circle
+            the shape of the entity
 
         """
         if radius is None:
@@ -312,7 +322,6 @@ class AbstractContinuousWorld(ABC):
 
         Can be used to update specific parts of the entity state, while leaving the
         other components unchanged.
-
         """
         body, _ = self.entities[id]
         if coord is not None:
@@ -448,18 +457,22 @@ class AbstractContinuousWorld(ABC):
 
         Arguments
         ---------
-        circle_coords: array containing the `(x, y)` of the center of each circle.
-            Should have shape `(n_circles, 2)`
-        circle_radii: array containing the radius of each circle. Should have shape
-            `(n_circles,)`
-        lines_start_coords: array containing the `(x, y)` coords of the start of each of
-            the lines. Should have shape `(n_lines, 2)`
-        lines_end_coords: array containing the `(x, y)` coords of the end of of each of
-            the lines. Should have shape `(n_lines, 2)`
+        circle_coords
+            array containing the `(x, y)` of the center of each circle. Should have
+            shape `(n_circles, 2)`
+        circle_radii
+            array containing the radius of each circle. Should have shape `(n_circles,)`
+        lines_start_coords
+            array containing the `(x, y)` coords of the start of each of the lines.
+            Should have shape `(n_lines, 2)`
+        lines_end_coords
+            array containing the `(x, y)` coords of the end of of each of the lines.
+            Should have shape `(n_lines, 2)`
 
         Returns
         -------
-        distances: An array containing the euclidean distance from each lines start to
+        distances
+            An array containing the euclidean distance from each lines start to
             the first point of intersection with the corresponding circle. If the line
             does not intersect the circle, its distance will be `np.nan`.
             Should have shape `(n_circles, n_lines)`
@@ -501,23 +514,29 @@ class AbstractContinuousWorld(ABC):
 
         Arguments
         ---------
-        l1_start_coords: array with shape `(n_lines1, 2)` containing the (x, y) coord
-          for the start of each of the first set of lines.
-        l1_end_coords: array with shape `(n_lines1, 2)` containing the (x, y) coord
-          for the end of each of the first set of lines.
-        l2_start_coords: array with shape `(n_lines2, 2)` containing the (x, y) coord
-          for the start of each of the second set of lines.
-        l2_end_coords: array with shape `(n_lines2, 2)` containing the (x, y) coord
-          for the end of each of the second set of lines.
+        l1_start_coords
+            array with shape `(n_lines1, 2)` containing the (x, y) coord for the start
+            of each of the first set of lines.
+        l1_end_coords
+            array with shape `(n_lines1, 2)` containing the (x, y) coord for the end of
+            each of the first set of lines.
+        l2_start_coords
+            array with shape `(n_lines2, 2)` containing the (x, y) coord for the start
+            of each of the second set of lines.
+        l2_end_coords
+            array with shape `(n_lines2, 2)` containing the (x, y) coord for the end of
+            each of the second set of lines.
 
         Returns
         -------
-        intersection_coords: array with shape `(n_lines1, n_lines2, 2)` containing the
-           (x, y) coords for the point of intersection between each pair of line
-           segments from `l1` and `l2`. If a pair of lines does not intersect, the
-           x and y coordinate values will be `np.nan`.
-        distances: array with shape `(n_lines1, n_lines2)` containing the distances
-            between the intersection point (if exists) and the corresponding point in
+        intersection_coords
+            array with shape `(n_lines1, n_lines2, 2)` containing the (x, y) coords for
+            the point of intersection between each pair of line segments from `l1` and
+            `l2`. If a pair of lines does not intersect, the x and y coordinate values
+            will be `np.nan`.
+        distances
+            array with shape `(n_lines1, n_lines2)` containing the distances between
+            the intersection point (if exists) and the corresponding point in
             l1_start_cooords.  If a pair of lines does not intersect, the distance value
             will be `np.nan`.
 
@@ -591,22 +610,28 @@ class AbstractContinuousWorld(ABC):
 
         Arguments
         ---------
-        ray_start_coords: start coords of rays. Should be 2D array with shape
-           `(n_rays, 2`),
-        ray_end_coords: end coords of rays. Should be 2D array with shape
-           `(n_rays, 2`),
-        max_ray_distance: maximum ray distance
-        other_agents: `(x, y)` coordinates of any other agents to check for collisions
-           with. Should be a 2D array with shape `(n_agents, 2)`.
-        include_blocks: whether to check for collisions with blocks in the world
-        check_walls: whether to check for collisions with the world border.
+        ray_start_coords
+            start coords of rays. Should be 2D array with shape `(n_rays, 2`),
+        ray_end_coords
+            end coords of rays. Should be 2D array with shape `(n_rays, 2`),
+        max_ray_distance
+            maximum ray distance
+        other_agents
+            `(x, y)` coordinates of any other agents to check for collisions with.
+            Should be a 2D array with shape `(n_agents, 2)`.
+        include_blocks
+            whether to check for collisions with blocks in the world
+        check_walls
+            whether to check for collisions with the world border.
 
         Returns
         -------
-        distances: the distance each ray extends sway from the origin, up to a max of
+        distances
+            the distance each ray extends sway from the origin, up to a max of
             `max_ray_distance`. Array will have shape `(n_rays,)`.
-        collision_types: the type of collision for each ray (see CollisionType), if any.
-            Will have shape `(n_rays,)`.
+        collision_types
+            the type of collision for each ray (see CollisionType), if any. Will have
+            shape `(n_rays,)`.
 
         """
         n_rays = len(ray_start_coords)
@@ -697,24 +722,32 @@ class AbstractContinuousWorld(ABC):
 
         Arguments
         ---------
-        origin: the origin position
-        ray_distance: how far each ray extends from the origin in a straight line
-        n_rays: the number of rays
-        other_agents: `(x, y)` coordinates of any other agents to check for collisions
-           with. Should be a 2D array with shape `(n_agents, 2)`.
-        include_blocks: whether to check for collisions with blocks in the world
-        check_walls: whether to check for collisions with the world border.
-        use_relative_angle: whether ray angles should be relative to the origin
-            position's angle. Otherwise line angle is treated as absolute (i.e.
-            relative to angle of 0). This controls the ordering of the rays in the
-            output.
-        angle_bounds: The maximum and minimum of the FOV as a tuple. By default
-            the agent will have a full FOV as a circle around them. This will
-            be between 0 and 2π. This can be decreased as needed.
+        origin
+            the origin position
+        ray_distance
+            how far each ray extends from the origin in a straight line
+        n_rays
+            the number of rays
+        other_agents
+            `(x, y)` coordinates of any other agents to check for collisions with.
+            Should be a 2D array with shape `(n_agents, 2)`.
+        include_blocks
+            whether to check for collisions with blocks in the world
+        check_walls
+            whether to check for collisions with the world border.
+        use_relative_angle
+            whether ray angles should be relative to the origin position's angle.
+            Otherwise line angle is treated as absolute (i.e. relative to angle of 0).
+            This controls the ordering of the rays in the output.
+        angle_bounds
+            The maximum and minimum of the FOV as a tuple. By default the agent will
+            have a full FOV as a circle around them. This will be between 0 and 2π.
+            This can be decreased as needed.
 
         Returns
         -------
-        distances: the distance each ray extends sway from the origin, up to a max of
+        distances
+            the distance each ray extends sway from the origin, up to a max of
             `ray_distance`. Array will have shape `(n_rays,)`.
 
         """

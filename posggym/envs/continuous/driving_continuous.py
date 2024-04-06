@@ -1,4 +1,5 @@
 """The Driving Continuous Environment."""
+
 import math
 from itertools import product
 from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple, Union, cast
@@ -367,10 +368,10 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
     num_agents : int
         the number of agents in the model scenario
     obs_dists : float
-        number of cells in front, behind, and to the side that each agent
-        can observe
-    n_sensors : the number of sensor lines eminating from the agent. The agent will
-        observe at `n_sensors` equidistance intervals over `[0, 2*pi]`
+        number of cells in front, behind, and to the side that each agent can observe
+    n_sensors : int
+        the number of sensor lines eminating from the agent. The agent will observe at
+        `n_sensors` equidistance intervals over `[0, 2*pi]`
 
     """
 
