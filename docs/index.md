@@ -18,7 +18,7 @@ lastpage:
 
 POSGGym provides a collection of discrete and continuous environments along with reference agents to allow for reproducible evaluations. The API aims to mimic that of [Gymnasium](https://gymnasium.farama.org/) and [PettingZoo](https://pettingzoo.farama.org/) with the addition of a model API that can be used for planning.
 
-Some baseline implementations of planning and reinforcement learning algorithms for POSGGym are available in the [POSGGym-Baselines](https://github.com/RDLLab/posggym-baselines) library. Compatibility with other popular reinforcement learning libraries is possible using the [PettingZoo wrapper](#compatibility-with-pettingzoo).
+Baseline implementations of planning and reinforcement learning algorithms for POSGGym are available in the [POSGGym-Baselines](https://github.com/RDLLab/posggym-baselines) library. Compatibility with other popular reinforcement learning libraries is possible using the PettingZoo wrapper (see below for an example).
 
 
 ## Environment API
@@ -96,6 +96,7 @@ for policy in policies.values():
     policy.close()
 ```
 
+(pettingzoo-wrapper)=
 ## Compatibility with PettingZoo
 
 Any POSGGym environment can be converted into a PettingZoo `ParallelEnv` environment using the `posggym.wrappers.petting_zoo.PettingZoo` wrapper. This allows for easy integration with the ecosystem of libraries that support PettingZoo.

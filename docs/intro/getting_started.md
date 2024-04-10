@@ -31,7 +31,7 @@ import posggym
 env = posggym.make('PursuitEvasion-v1', grid="8x8", max_episode_steps=50)
 ```
 
-Similarly, how the environment will be visualized can be specified using the ``render_mode`` keyword argument. See the description of the [Env.render()](/api/env/#posggym.Env.render) method for details on the default meaning of different render modes.
+Similarly, how the environment will be visualized can be specified using the ``render_mode`` keyword argument. See the description of the [Env.render()](/api/env/) method for details on the default meaning of different render modes.
 
 ```python
 import posggym
@@ -71,7 +71,7 @@ The output should look something like this:
 
 ### Explaining the code
 
-First, an environment is created using ``make`` with an additional keyword `"render_mode"` that specifies how the environment should be visualised. See `[Env.render()](/api/env/#posggym.Env.render) for details on the default meaning of different render modes. In this example, we use the ``"PursuitEvasion"`` environment involving two agents: a evader and a pursuer. The evader (red triangle) is trying to reach the goal location (green square) without being spotted by the pursuer (blue triangle), while the pursuer is trying to spot the evader before they escape.
+First, an environment is created using ``make`` with an additional keyword `"render_mode"` that specifies how the environment should be visualised. See `[Env.render()](/api/env/) for details on the default meaning of different render modes. In this example, we use the ``"PursuitEvasion"`` environment involving two agents: a evader and a pursuer. The evader (red triangle) is trying to reach the goal location (green square) without being spotted by the pursuer (blue triangle), while the pursuer is trying to spot the evader before they escape.
 
 After initializing the environment, we ``reset`` the environment to get the first observation for each agent. Note, this is a dictionary where the keys are the ID of each agent, and the values are the observation for each agent. For initializing the environment with a particular random seed or options (see specific environment documentation for possible values) use the ``seed`` or ``options`` parameters with ``reset`` method.
 
