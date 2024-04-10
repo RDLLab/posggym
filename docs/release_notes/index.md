@@ -5,9 +5,15 @@ title: Release Notes
 
 # Release Notes
 
+## Next Release
+
+*Released on TBD*
+
+- TODO
+
 ## 0.6.0
 
-*Release on Apr 9 2024*
+*Released on Apr 9 2024*
 
 - fixed some awkward behaviour in `Driving-v1` and `DrivingGen-v1` shortest path policies.
 - made `info` dictionary typing less strict. It can now contain no entries, or entries for keys other than agent IDs.
@@ -17,7 +23,7 @@ title: Release Notes
 
 ## 0.5.1
 
-*Release on Nov 22 2023*
+*Released on Nov 22 2023*
 
 Minor release to fix a bug with `setup.py` and the newer agent models being saved as cuda tensors.
 
