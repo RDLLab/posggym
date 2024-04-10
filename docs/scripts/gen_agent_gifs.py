@@ -4,19 +4,17 @@ Adapted from Gymnasium:
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/docs/scripts/gen_gifs.py
 
 """
-import re
-from pprint import pprint
-from typing import List, Dict, Any
-from typing_extensions import Annotated
-from pathlib import Path
 
-import typer
-from PIL import Image
+import argparse
+import re
+from pathlib import Path
+from pprint import pprint
+from typing import Any, Dict, List
 
 import posggym
 import posggym.agents as pga
+from PIL import Image
 
-app = typer.Typer()
 
 DOCS_DIR = Path(__file__).resolve().parent.parent
 
@@ -27,35 +25,15 @@ pattern = re.compile(r"(?<!^)(?=[A-Z])")
 HEIGHT = 256
 
 
-@app.command()
-def gen_gif(
-    env_id: Annotated[
-        str,
-        typer.Option(
-            help="ID of environment to run, if None then runs all registered envs."
-        ),
-    ],
-    policy_ids: Annotated[
-        List[str],
-        typer.Option(
-            "--policy_ids",
-            "-pids",
-            help=(
-                "List of IDs of policies to compare, one for each agent. Policy IDs"
-                "should be provided in order of env.possible_agents (i.e. the first"
-                "policy ID will be assigned to the 0-index policy in"
-                "env.possible_agent, etc.)."
-            ),
-        ),
-    ],
-    ignore_existing: Annotated[
-        bool, typer.Option(help="Overwrite existing GIF if it exists.")
-    ] = False,
-    length: Annotated[int, typer.Option(help="Number of frames for the GIF.")] = 300,
-    custom_env: Annotated[bool, typer.Option()] = False,
-    resize: Annotated[bool, typer.Option()] = False,
+def gen_agent_gif(
+    env_id: str,
+    policy_ids: List[str],
+    ignore_existing: bool = False,
+    length: int = 300,
+    custom_env: bool = False,
+    resize: bool = False,
 ):
-    """Gen gif for env."""
+    """Generate GIF for agents in env."""
     print(f"\n{env_id=}")
     for idx, pi_id in enumerate(policy_ids):
         print(f"i={idx} - {pi_id=}")
@@ -121,7 +99,7 @@ def gen_gif(
         return
 
     # obtain and save length frames worth of steps
-    frames: List[Image.Image] = []
+    frames = []
     obs, _ = env.reset()
     while len(frames) <= length:
         frame = env.render()  # type: ignore
@@ -162,4 +140,35 @@ def gen_gif(
 
 
 if __name__ == "__main__":
-    app()
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        "--env_id",
+        type=str,
+        required=True,
+        help="ID of environment to run.",
+    )
+    parser.add_argument(
+        "-pids",
+        "--policy_ids",
+        type=str,
+        required=True,
+        nargs="+",
+        help=(
+            "List of IDs of policies to compare, one for each agent. Policy IDs should "
+            "be provided in order of env.possible_agents (i.e. the first policy ID "
+            "will be assigned to the 0-index policy in env.possible_agent, etc.)."
+        ),
+    )
+    parser.add_argument(
+        "--ignore_existing",
+        action="store_true",
+        help="Overwrite existing GIF if it exists.",
+    )
+    parser.add_argument(
+        "--length", type=int, help="Number of frames for the GIF.", default=300
+    )
+    args = parser.parse_args()
+
+    gen_agent_gif(args.env_id, args.policy_ids, args.ignore_existing, args.length)

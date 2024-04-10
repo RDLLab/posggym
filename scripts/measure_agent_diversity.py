@@ -5,115 +5,102 @@ evaluation for each possible pairing of policies that are registered to the envi
 and arguments.
 
 """
-from pathlib import Path
-import typer
+
+import argparse
+
 from posggym.agents.evaluation import diversity, pairwise
-from typing_extensions import Annotated
-from typing import Optional
-
-app = typer.Typer()
-
-
-@app.command()
-def run(
-    env_id: Annotated[
-        Optional[str], typer.Option(help="ID of the environment to run for.")
-    ] = None,
-    env_args_id: Annotated[
-        Optional[str], typer.Option(help="ID of the environment arguments.")
-    ] = None,
-    num_episodes: Annotated[
-        int, typer.Option(help="Number of episodes to run per trial.")
-    ] = 1000,
-    seed: Annotated[int, typer.Option(help="Seed to use.")] = 0,
-    output_dir: Annotated[
-        Optional[Path], typer.Option(help="Directory to save results files to.")
-    ] = None,
-    n_procs: Annotated[
-        Optional[int], typer.Option(help="Number of runs to do in parallel.")
-    ] = None,
-    verbose: Annotated[bool, typer.Option(help="Run in verbose mode.")] = False,
-):
-    """
-    Run pairwise comparisons to generate data.
-
-    """
-    pairwise.run_pairwise_comparisons(
-        env_id=env_id,
-        env_args_id=env_args_id,
-        num_episodes=num_episodes,
-        output_dir=output_dir,
-        seed=seed,
-        n_procs=n_procs,
-        verbose=verbose,
-    )
-
-
-@app.command()
-def plot(
-    env_id: Annotated[
-        Optional[str], typer.Option(help="ID of the environment to run for.")
-    ] = None,
-    env_args_id: Annotated[
-        Optional[str], typer.Option(help="ID of the environment arguments.")
-    ] = None,
-    output_dir: Annotated[
-        Optional[Path], typer.Option(help="Directory containing results files.")
-    ] = None,
-    verbose: Annotated[bool, typer.Option(help="Run in verbose mode.")] = False,
-):
-    """
-    Plot results (expects `--output_dir`).
-    """
-    assert output_dir is not None
-    diversity.run_return_diversity_analysis(
-        output_dir=output_dir,
-        env_id=env_id,
-        env_args_id=env_args_id,
-        verbose=verbose,
-    )
-
-
-@app.command()
-def run_and_plot(
-    env_id: Annotated[
-        Optional[str], typer.Option(help="ID of the environment to run for.")
-    ] = None,
-    env_args_id: Annotated[
-        Optional[str], typer.Option(help="ID of the environment arguments.")
-    ] = None,
-    num_episodes: Annotated[
-        int, typer.Option(help="Number of episodes to run per trial.")
-    ] = 1000,
-    seed: Annotated[int, typer.Option(help="Seed to use.")] = 0,
-    output_dir: Annotated[
-        Optional[Path], typer.Option(help="Directory to save results files to.")
-    ] = None,
-    n_procs: Annotated[
-        Optional[int], typer.Option(help="Number of runs to do in parallel.")
-    ] = None,
-    verbose: Annotated[bool, typer.Option(help="Run in verbose mode.")] = False,
-):
-    """
-    Run pairwise comparisons and then plot results.
-
-    """
-    output_dir = pairwise.run_pairwise_comparisons(
-        env_id=env_id,
-        env_args_id=env_args_id,
-        num_episodes=num_episodes,
-        output_dir=output_dir,
-        seed=seed,
-        n_procs=n_procs,
-        verbose=verbose,
-    )
-    diversity.run_return_diversity_analysis(
-        output_dir=output_dir,
-        env_id=env_id,
-        env_args_id=env_args_id,
-        verbose=verbose,
-    )
 
 
 if __name__ == "__main__":
-    app()
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        "action",
+        type=str,
+        choices=["run", "plot", "run_and_plot"],
+        help=(
+            "Action to perform. "
+            "`run` - runs pairwise comparisons to generate data. "
+            "`plot` - plots results (expects `--output_dir`). "
+            "`run_and_plot` - run pairwise comparisons then plots results. "
+        ),
+    )
+    parser.add_argument(
+        "--env_id",
+        type=str,
+        default=None,
+        help=(
+            "ID of the environment to run for. If None we will run for all "
+            "environments that have a registered policy attached."
+        ),
+    )
+    parser.add_argument(
+        "--env_args_id",
+        type=str,
+        default=None,
+        help=(
+            "ID of the environment arguments. If None will run a pairwise comparison "
+            "for all arguments which have a registered policy attached. Only used if "
+            "--env_id is not None."
+        ),
+    )
+    parser.add_argument(
+        "--num_episodes",
+        type=int,
+        default=1000,
+        help="Number of episodes to run per trial.",
+    )
+    parser.add_argument("--seed", type=int, default=0, help="Seed to use.")
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default=None,
+        help="Directory to save results files too.",
+    )
+    parser.add_argument(
+        "--n_procs",
+        type=int,
+        default=None,
+        help=(
+            "Number of runs to do in parallel. If None then will use all available "
+            "CPUS on machine."
+        ),
+    )
+    parser.add_argument("--verbose", action="store_true", help="Run in verbose mode.")
+    args = parser.parse_args()
+
+    if args.action == "run":
+        pairwise.run_pairwise_comparisons(
+            args.env_id,
+            args.env_args_id,
+            args.num_episodes,
+            args.output_dir,
+            args.seed,
+            args.n_procs,
+            args.verbose,
+        )
+    elif args.action == "plot":
+        assert args.output_dir is not None
+        diversity.run_return_diversity_analysis(
+            args.output_dir,
+            args.env_id,
+            args.env_args_id,
+            args.verbose,
+        )
+    else:
+        output_dir = pairwise.run_pairwise_comparisons(
+            args.env_id,
+            args.env_args_id,
+            args.num_episodes,
+            args.output_dir,
+            args.seed,
+            args.n_procs,
+            args.verbose,
+        )
+        diversity.run_return_diversity_analysis(
+            output_dir,
+            args.env_id,
+            args.env_args_id,
+            args.verbose,
+        )

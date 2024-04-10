@@ -12,11 +12,12 @@ Here we give a quick environment API comparison between POSGGym, Gymnasium, and 
 
 ```python
 import posggym
-env = posggym.make("PursuitEvasion-v0", render_mode="human")
+env = posggym.make("PredatorPrey-v0")
 observations, infos = env.reset(seed=42)
 
-for _ in range(1000):
-    actions = {i: policies[i](observations[i]) for i in env.agents}
+for t in range(100):
+    env.render()
+    actions = {i: env.action_spaces[i].sample() for i in env.agents}
     observations, rewards, terminations, truncations, all_done, infos = env.step(actions)
 
     if all_done:
@@ -35,7 +36,7 @@ env = gym.make("LunarLander-v2", render_mode="human")
 observation, info = env.reset(seed=42)
 
 for _ in range(1000):
-   action = policy(observation)
+   action = env.action_space.sample()
    observation, reward, terminated, truncated, info = env.step(action)
 
    if terminated or truncated:
@@ -51,14 +52,14 @@ env.close()
 ```python
 from pettingzoo.butterfly import pistonball_v6
 env = pistonball_v6.parallel_env(render_mode="human")
-observations, info = env.reset(seed=42)
+observations, infos = env.reset(seed=42)
 
 for _ in range(1000):
-	actions = {i: policies[i](observations[i]) for i in env.agents}
-	observations, rewards, terminations, truncations, infos = env.step(actions)
+    actions = {i: env.action_space(i).sample() for i in env.agents}
+    observations, rewards, terminations, truncations, infos = env.step(actions)
 
-	if not env.agents:
-		observations = env.reset()
+    if not env.agents:
+        observations, infos = env.reset()
 
 env.close()
 ```

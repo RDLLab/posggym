@@ -17,25 +17,25 @@ Initializing environments is very easy in POSGGym and can be done via the ``make
 
 ```python
 import posggym
-env = posggym.make('PursuitEvasion-v0')
+env = posggym.make('PursuitEvasion-v1')
 ```
 
 This will return an ``Env`` for users to interact with. To see all environments you can create, use ``posggym.pprint_registry()`` or see under *Environment* section of this documentation.
 
 Most environments included in POSGGym can be initialized with different parameters. You can initialize environments with custom parameters either by passing them as keyword arguments to ``make``, or alternatively by loading the environment class directly (similar to PettingZoo). To see the list of available parameters for a given environment check out it's documentation in the *Environments* section (e.g. [PursuitEvasion](/environments/grid_world/pursuit_evasion)) .
 
-As an example, we can initialize the `PursuitEvasion-v0` environment using the smaller `8x8` grid, instead of the default `16x16` grid, and reduce the max episode steps to `50`, by using the following:
+As an example, we can initialize the `PursuitEvasion-v1` environment using the smaller `8x8` grid, instead of the default `16x16` grid, and reduce the max episode steps to `50`, by using the following:
 
 ```python
 import posggym
-env = posggym.make('PursuitEvasion-v0', grid="8x8", max_episode_steps=50)
+env = posggym.make('PursuitEvasion-v1', grid="8x8", max_episode_steps=50)
 ```
 
-Similarly, how the environment will be visualized can be specified using the ``render_mode`` keyword argument. See the description of the [Env.render()](http://127.0.0.1:8000/api/env/#posggym.Env.render) method for details on the default meaning of different render modes.
+Similarly, how the environment will be visualized can be specified using the ``render_mode`` keyword argument. See the description of the [Env.render()](/api/env/#posggym.Env.render) method for details on the default meaning of different render modes.
 
 ```python
 import posggym
-env = posggym.make('PursuitEvasion-v0', render_mode="human")
+env = posggym.make('PursuitEvasion-v1', render_mode="human")
 ```
 
 ## Interacting with the Environment
@@ -46,7 +46,7 @@ The loop is implemented in posggym using the following code:
 
 ```python
 import posggym
-env = posggym.make("PursuitEvasion-v0", render_mode="human")
+env = posggym.make("PursuitEvasion-v1", render_mode="human")
 observations, infos = env.reset()
 
 for _ in range(300):
@@ -71,7 +71,7 @@ The output should look something like this:
 
 ### Explaining the code
 
-First, an environment is created using ``make`` with an additional keyword `"render_mode"` that specifies how the environment should be visualised. See `[Env.render()](http://127.0.0.1:8000/api/env/#posggym.Env.render) for details on the default meaning of different render modes. In this example, we use the ``"PursuitEvasion"`` environment involving two agents: a evader and a pursuer. The evader (red triangle) is trying to reach the goal location (green square) without being spotted by the pursuer (blue triangle), while the pursuer is trying to spot the evader before they escape.
+First, an environment is created using ``make`` with an additional keyword `"render_mode"` that specifies how the environment should be visualised. See `[Env.render()](/api/env/#posggym.Env.render) for details on the default meaning of different render modes. In this example, we use the ``"PursuitEvasion"`` environment involving two agents: a evader and a pursuer. The evader (red triangle) is trying to reach the goal location (green square) without being spotted by the pursuer (blue triangle), while the pursuer is trying to spot the evader before they escape.
 
 After initializing the environment, we ``reset`` the environment to get the first observation for each agent. Note, this is a dictionary where the keys are the ID of each agent, and the values are the observation for each agent. For initializing the environment with a particular random seed or options (see specific environment documentation for possible values) use the ``seed`` or ``options`` parameters with ``reset`` method.
 
@@ -103,11 +103,10 @@ We can recreate the agent-environment interaction loop using ``POSGModel`` as fo
 ```python
 import posggym
 
-env = posggym.make("PursuitEvation-v0")
+env = posggym.make("PursuitEvasion-v1")
 model = env.model
 
 model.seed(seed=42)
-
 state = model.sample_initial_state()
 observations = model.sample_initial_obs(state)
 
@@ -134,7 +133,7 @@ In order to wrap an environment, you must first initialize a base environment. T
 ```python
 >>> import posggym
 >>> from posggym.wrappers import FlattenObservation
->>> base_env = posggym.make("PursuitEvasion-v0")
+>>> base_env = posggym.make("PursuitEvasion-v1")
 >>> base_env.observation_spaces['0']
 Tuple(Tuple(Discrete(2), Discrete(2), Discrete(2), Discrete(2), Discrete(2), Discrete(2)), Tuple(Discrete(16), Discrete(16)), Tuple(Discrete(16), Discrete(16)), Tuple(Discrete(16), Discrete(16)))
 >>> wrapped_env = FlattenObservation(base_env)
@@ -148,9 +147,9 @@ If you have a wrapped environment, and you want to get the unwrapped environment
 
 ```python
 >>> wrapped_env
-<FlattenObservation<TimeLimit<OrderEnforcing<PassiveEnvChecker<PursuitEvasionEnv<PursuitEvasion-v0>>>>>>
+<FlattenObservation<TimeLimit<OrderEnforcing<PassiveEnvChecker<PursuitEvasionEnv<PursuitEvasion-v1>>>>>>
 >>> wrapped_env.env
-<TimeLimit<OrderEnforcing<PassiveEnvChecker<PursuitEvasionEnv<PursuitEvasion-v0>>>>>
+<TimeLimit<OrderEnforcing<PassiveEnvChecker<PursuitEvasionEnv<PursuitEvasion-v1>>>>>
 >>> wrapped_env.unwrapped
 <posggym.envs.grid_world.pursuit_evasion.PursuitEvasionEnv object at 0x7f4a94086d90>
 ```

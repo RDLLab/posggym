@@ -16,9 +16,7 @@ The latest release version of POSGGym can be installed using `pip` by running:
 pip install posggym
 ```
 
-This will install the base dependencies for running the main environments and download the agent models (so may take a few minutes), but in order to minimise the number of unused dependencies installed may not include all dependencies for all environments or for rendering some environments, and will not include dependencies for running many posggym agents.
-
-You can install all dependencies for a family of environments like `pip install posggym[grid-world]` and `pip install posggym[continuous]` or dependencies for all environments using `pip install posggym[envs-all]`.
+This will install the base dependencies for running all the environments and download the agent models (so may take a few minutes). In order to minimise the number of unused dependencies installed the default install does not include dependencies for running many posggym agents (specifically PyTorch).
 
 You can install dependencies for POSGGym agents using `pip install posggym[agents]` or to install dependencies for all environments and agents use `pip install posggym[all]`.
 

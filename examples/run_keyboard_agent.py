@@ -10,23 +10,23 @@ Example, to run a keyboard agent in the `Driving-v1` environment while controlli
 agent '0' for 10 episodes, run:
 
     python run_keyboard_agent.py \
-        --env-id Driving-v1 \
-        --keyboard-agent-ids 0 \
-        --num-episodes 10
+        --env_id Driving-v1 \
+        --keyboard_agent_ids 0 \
+        --num_episodes 10
 
 """
+
+import argparse
 import math
 import sys
 from typing import Dict, List, Optional, Tuple
-from typing_extensions import Annotated
 
-import typer
 import numpy as np
-import posggym
 import pygame
 from gymnasium import spaces
 
-app = typer.Typer()
+import posggym
+
 
 grid_world_key_action_map = {
     "Driving-v1": {
@@ -341,40 +341,14 @@ def run_continuous_env_keyboard_agent(
     return rewards, t
 
 
-@app.command()
 def run_keyboard_agent(
-    env_id: Annotated[str, typer.Option(help="Name of environment to run")],
-    keyboard_agent_ids: Annotated[
-        List[str],
-        typer.Option(
-            "--keyboard-agent-ids",
-            "-kids",
-            help=(
-                "IDs of agents to run as keyboard agents. Controlling multiple agents"
-                "only supported when running with `--manual-input`"
-            ),
-        ),
-    ] = ["0"],
-    num_episodes: Annotated[
-        int, typer.Option(help="The number of episodes to run.")
-    ] = 1,
-    max_episode_steps: Annotated[
-        Optional[int], typer.Option(help="Max number of steps to run each episode for.")
-    ] = None,
-    seed: Annotated[Optional[int], typer.Option(help="Random Seed.")] = None,
-    pause_each_step: Annotated[
-        bool, typer.Option(help="Pause execution after each step")
-    ] = False,
-    manual_input: Annotated[
-        bool,
-        typer.Option(
-            help=(
-                "Manually input action values rather than using keyboard arrows"
-                " (useful  for executing very specific sequences of actions for"
-                "testing). Supports controliing multiple keyboard agents."
-            )
-        ),
-    ] = False,
+    env_id: str,
+    keyboard_agent_ids: List[str],
+    num_episodes: int,
+    max_episode_steps: Optional[int] = None,
+    seed: Optional[int] = None,
+    pause_each_step: bool = False,
+    manual_input: bool = False,
 ):
     """Run keyboard agents."""
     if max_episode_steps is not None:
@@ -439,4 +413,46 @@ def run_keyboard_agent(
 
 
 if __name__ == "__main__":
-    app()
+    parser = argparse.ArgumentParser(
+        conflict_handler="resolve",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument("--env_id", type=str, help="Name of environment to run")
+    parser.add_argument(
+        "-kids",
+        "--keyboard_agent_ids",
+        type=str,
+        default=["0"],
+        nargs="+",
+        help=(
+            "IDs of agents to run as keyboard agents. Controlling multiple agents only "
+            "supported when running with `--manual_input`"
+        ),
+    )
+    parser.add_argument(
+        "--num_episodes",
+        type=int,
+        default=1,
+        help="The number of episodes to run.",
+    )
+    parser.add_argument(
+        "--max_episode_steps",
+        type=int,
+        default=None,
+        help="Max number of steps to run each episode for.",
+    )
+    parser.add_argument("--seed", type=int, default=None, help="Random Seed.")
+    parser.add_argument(
+        "--pause_each_step", action="store_true", help="Pause execution after each step"
+    )
+    parser.add_argument(
+        "--manual_input",
+        action="store_true",
+        help=(
+            "Manually input action values rather than using keyboard arrows (useful "
+            "for executing very specific sequences of actions for testing). Supports "
+            "controliing multiple keyboard agents."
+        ),
+    )
+    args = parser.parse_args()
+    run_keyboard_agent(**vars(args))

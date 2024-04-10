@@ -22,27 +22,24 @@ Example 3. To run 10 episodes of every agent that is compatible with the
 `PursuitEvasion-v0` environment with specific argument, e.g. grid="8x8" run:
 
     python run_all_agents.py \
-        --env-id-prefix PursuitEvasion-v0/grid=8x8 \
-        --num-episodes 10
+        --env_id_prefix PursuitEvasion-v0/grid=8x8 \
+        --num_episodes 10
 
     # Note: the argument `env_id_prefix` is a prefix of the environment id, so the
     # following would also work to show all agents for the 8x8 version of
     # the PursuitEvasion-v0 environment
     python run_all_agents.py \
-        --env-id-prefix PursuitEvasion-v0/grid=8 \
-        --num-episodes 10
+        --env_id_prefix PursuitEvasion-v0/grid=8 \
+        --num_episodes 10
 
 """
+
+import argparse
 from typing import Dict, Optional, Tuple
-from typing_extensions import Annotated
 
 import posggym
 import posggym.agents as pga
 from posggym.agents.registration import PolicySpec
-
-import typer
-
-app = typer.Typer()
 
 
 def try_make_policy(
@@ -129,27 +126,11 @@ def run_policy(
     print(f"  Mean Episode returns {mean_returns}")
 
 
-@app.command()
 def run_all_agents(
-    env_id_prefix: Annotated[
-        Optional[str],
-        typer.Option(
-            help=(
-                "Prefix of environment ID to run agents for. If 'None' runs all agents "
-                "for all environments. Otherwise only runs agents whose ID starts with "
-                "this prefix."
-            )
-        ),
-    ] = None,
-    num_episodes: Annotated[
-        int, typer.Option(help="Number of episodes per experiment.")
-    ] = 1,
-    seed: Annotated[
-        Optional[int], typer.Option(help="Number of episodes per experiment.")
-    ] = None,
-    render_mode: Annotated[
-        str, typer.Option(help="The render mode to use. For no rendering use 'None'.")
-    ] = "human",
+    env_id_prefix: Optional[str],
+    num_episodes: int,
+    seed: Optional[int],
+    render_mode: str = "human",
 ):
     """Run all agents."""
     if render_mode.lower() == "none":
@@ -161,4 +142,31 @@ def run_all_agents(
 
 
 if __name__ == "__main__":
-    app()
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        "--env_id_prefix",
+        type=str,
+        default=None,
+        help=(
+            "Prefix of environment ID to run agents for. If 'None' runs all agents "
+            "for all environments. Otherwise only runs agents whose ID starts with "
+            "this prefix."
+        ),
+    )
+    parser.add_argument(
+        "--num_episodes",
+        type=int,
+        default=1,
+        help="Number of episodes per experiment.",
+    )
+    parser.add_argument("--seed", type=int, default=None, help="Environment seed.")
+    parser.add_argument(
+        "--render_mode",
+        type=str,
+        default="human",
+        help="The render mode to use. For no rendering use 'None'.",
+    )
+    args = parser.parse_args()
+    run_all_agents(**vars(args))

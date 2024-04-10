@@ -21,7 +21,7 @@ In order to wrap an environment, you must first initialize a base environment. T
 ```python
 >>> import posggym
 >>> from posggym.wrappers import FlattenObservation
->>> base_env = posggym.make("PursuitEvasion-v0")
+>>> base_env = posggym.make("PursuitEvasion-v1")
 >>> base_env.observation_spaces['0']
 Tuple(Tuple(Discrete(2), Discrete(2), Discrete(2), Discrete(2), Discrete(2), Discrete(2)), Tuple(Discrete(16), Discrete(16)), Tuple(Discrete(16), Discrete(16)), Tuple(Discrete(16), Discrete(16)))
 >>> wrapped_env = FlattenObservation(base_env)

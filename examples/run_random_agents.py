@@ -10,30 +10,23 @@ mode, etc.). To see all available arguments, run:
 Example, to run 10 episodes of the `Driving-v1` environment with `human` rendering mode,
 
     python run_random_agents.py \
-        --env-id Driving-v1 \
-        --num-episodes 10 \
-        --render-mode human
+        --env_id Driving-v1 \
+        --num_episodes 10 \
+        --render_mode human
 """
+
+import argparse
 from typing import Dict, List, Optional
-from typing_extensions import Annotated
 
 import posggym
-import typer
-
-app = typer.Typer()
 
 
-@app.command()
 def run_random_agent(
-    env_id: Annotated[str, typer.Option(help="ID of environment to run")],
-    num_episodes: Annotated[int, typer.Option(help="The number of episodes to run.")],
-    max_episode_steps: Annotated[
-        Optional[int], typer.Option(help="Max number of steps to run each episode for.")
-    ] = None,
-    seed: Annotated[Optional[int], typer.Option(help="Random Seed.")] = None,
-    render_mode: Annotated[
-        Optional[str], typer.Option(help="Mode to use for rendering.")
-    ] = None,
+    env_id: str,
+    num_episodes: int,
+    max_episode_steps: Optional[int] = None,
+    seed: Optional[int] = None,
+    render_mode: Optional[str] = None,
 ):
     """Run random agents."""
     if max_episode_steps is not None:
@@ -90,4 +83,30 @@ def run_random_agent(
 
 
 if __name__ == "__main__":
-    app()
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        "--env_id", type=str, required=True, help="ID of environment to run"
+    )
+    parser.add_argument(
+        "--num_episodes",
+        type=int,
+        default=1,
+        help="The number of episodes to run.",
+    )
+    parser.add_argument(
+        "--max_episode_steps",
+        type=int,
+        default=None,
+        help="Max number of steps to run each episode for.",
+    )
+    parser.add_argument("--seed", type=int, default=None, help="Random Seed.")
+    parser.add_argument(
+        "--render_mode",
+        type=str,
+        default=None,
+        help="Mode to use for rendering.",
+    )
+    args = parser.parse_args()
+    run_random_agent(**vars(args))

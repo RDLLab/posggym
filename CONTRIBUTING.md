@@ -7,20 +7,6 @@ At this time we are currently accepting the current forms of contributions:
 - Documentation improvements
 - New environments
 
-### Development Roadmap
-
-The following are things we would like to add in future versions:
-
-- Implement other classic planning benchmarks
-  - [ ] wild-fire fighting
-  - [ ] human-robot repair: https://arxiv.org/pdf/2302.13916.pdf
-  - [ ] more from: https://github.com/MADPToolbox/MADP
-- Setup CI checking
-- [ ] documentation of the following:
-  - [ ] creating your own agents
-  - [ ] using posggym with pettingzoo
-  - [ ] using posggym with rllib
-
 ## Development
 
 This section contains technical instructions & hints for the contributors.

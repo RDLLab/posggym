@@ -5,14 +5,12 @@ To see options and usage:
     python test_env.py --help
 
 """
+
+import argparse
 import time
 from typing import Optional
-from typing_extensions import Annotated
 
-import typer
 import posggym
-
-app = typer.Typer()
 
 
 def time_env_step_rate(
@@ -51,27 +49,11 @@ def time_env_step_rate(
     return num_steps / time_elapsed
 
 
-@app.command()
 def main(
-    env_id: Annotated[
-        Optional[str],
-        typer.Option(
-            help=(
-                "ID of environment to test. If none will run all registered"
-                "environments."
-            )
-        ),
-    ] = None,
-    num_steps: Annotated[
-        int, typer.Option(help="The number of steps to test for.")
-    ] = 1000,
-    seed: Annotated[Optional[int], typer.Option(help="Random Seed.")] = None,
-    render_mode: Annotated[
-        Optional[str],
-        typer.Option(
-            help="Mode to use for rendering. If None then doesn't render environment."
-        ),
-    ] = None,
+    env_id: Optional[str] = None,
+    num_steps: int = 1000,
+    seed: Optional[int] = None,
+    render_mode: Optional[str] = None,
 ):
     env_ids = list(posggym.registry) if env_id is None else [env_id]
 
@@ -97,4 +79,24 @@ def main(
 
 
 if __name__ == "__main__":
-    app
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        "--env_id",
+        type=str,
+        default=None,
+        help="ID of environment to test. If none will run all registered environments.",
+    )
+    parser.add_argument(
+        "--num_steps", type=int, default=10000, help="The number of steps to test for."
+    )
+    parser.add_argument("--seed", type=int, default=None, help="Random Seed.")
+    parser.add_argument(
+        "--render_mode",
+        type=str,
+        default=None,
+        help="Mode to use for rendering. If None then doesn't render environment.",
+    )
+    args = parser.parse_args()
+    main(**vars(args))

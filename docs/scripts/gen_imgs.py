@@ -4,17 +4,17 @@ Copied and adapted from Gymnasium:
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/docs/scripts/gen_gifs.py
 
 """
+
+import argparse
 import re
-from typing import List
-from typing_extensions import Annotated
 from pathlib import Path
 
-import typer
+import posggym
 from PIL import Image
 from tqdm import tqdm
 
-import posggym
 from utils import kill_strs
+
 
 DOCS_DIR = Path(__file__).resolve().parent.parent
 
@@ -26,48 +26,14 @@ STEPS = 50
 # height of PNG in pixels, width will be scaled to ensure correct aspec ratio
 HEIGHT = 1024
 
-app = typer.Typer()
 
-
-@app.command()
-def generate_all_imgs(
-    ignore_existing: Annotated[
-        bool, typer.Option(help="Overwrite existing GIF if it exists.")
-    ] = False,
-    custom_env: Annotated[bool, typer.Option()] = False,
-    resize: Annotated[bool, typer.Option()] = False,
-):
-    """Gen image for all envs."""
-    for env_spec in tqdm(posggym.envs.registry.values()):
-        if any(x in str(env_spec.id) for x in kill_strs):
-            continue
-        # try catch in case missing some installs
-        try:
-            env = posggym.make(env_spec.id, disable_env_checker=True)
-            # the gymnasium needs to be rgb renderable
-            if "rgb_array" not in env.metadata["render_modes"]:
-                continue
-            gen_img(env_spec.id, ignore_existing, custom_env, resize)
-        except BaseException as e:
-            print(f"{env_spec.id} ERROR", e)
-            continue
-
-
-@app.command()
 def gen_img(
-    env_id: Annotated[
-        str,
-        typer.Option(
-            help="ID of environment to run, if None then runs all registered envs."
-        ),
-    ],
-    ignore_existing: Annotated[
-        bool, typer.Option(help="Overwrite existing GIF if it exists.")
-    ] = False,
-    custom_env: Annotated[bool, typer.Option()] = False,
-    resize: Annotated[bool, typer.Option()] = False,
+    env_id: str,
+    ignore_existing: bool = False,
+    custom_env: bool = False,
+    resize: bool = False,
 ):
-    """Gen image for env."""
+    """Generate image for env."""
     print(env_id)
     env = posggym.make(env_id, disable_env_checker=True, render_mode="rgb_array")
 
@@ -96,7 +62,7 @@ def gen_img(
         return
 
     # obtain and save STEPS frames worth of steps
-    frames: List[Image] = []
+    frames = []
     while True:
         env.reset()
         done = False
@@ -126,4 +92,36 @@ def gen_img(
 
 
 if __name__ == "__main__":
-    app()
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        "--env_id",
+        type=str,
+        default=None,
+        help="ID of environment to run, if None then runs all registered envs.",
+    )
+    parser.add_argument(
+        "--ignore_existing",
+        action="store_true",
+        help="Overwrite existing imange if it exists.",
+    )
+    args = parser.parse_args()
+
+    if args.env_id is None:
+        # iterate through all envspecs
+        for env_spec in tqdm(posggym.envs.registry.values()):
+            if any(x in str(env_spec.id) for x in kill_strs):
+                continue
+            # try catch in case missing some installs
+            try:
+                env = posggym.make(env_spec.id, disable_env_checker=True)
+                # the gymnasium needs to be rgb renderable
+                if "rgb_array" not in env.metadata["render_modes"]:
+                    continue
+                gen_img(env_spec.id, args.ignore_existing)
+            except BaseException as e:
+                print(f"{env_spec.id} ERROR", e)
+                continue
+    else:
+        gen_img(args.env_id, args.ignore_existing)

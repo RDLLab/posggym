@@ -1,13 +1,11 @@
 """Script for manually running and visualizing GridGenerator functionality."""
+
+import argparse
 import random
 import sys
 from typing import Optional
-from typing_extensions import Annotated
 
-import typer
 from posggym.envs.grid_world.core import GridGenerator
-
-app = typer.Typer()
 
 
 def _generate_mask(width: int, height: int, seed: Optional[int]):
@@ -22,23 +20,13 @@ def _generate_mask(width: int, height: int, seed: Optional[int]):
     return mask
 
 
-@app.command()
 def main(
-    width: Annotated[int, typer.Option(help="Width of grid")],
-    height: Annotated[int, typer.Option(help="Height of grid")],
-    use_random_mask: Annotated[
-        bool, typer.Option(help="Use a random mask for generated grids")
-    ],
-    max_obstacle_size: Annotated[
-        Optional[int],
-        typer.Option(
-            help="Max size of obstacle. If None then uses min(width, height) // 4"
-        ),
-    ] = None,
-    seed: Annotated[Optional[int], typer.Option(help="Random Seed")] = None,
-    check_grid_connectedness: Annotated[
-        Optional[int], typer.Option(help="Also check for grid connectedness")
-    ] = False,
+    width: int,
+    height: int,
+    use_random_mask: bool,
+    max_obstacle_size: Optional[int] = None,
+    seed: int = 0,
+    check_grid_connectedness: Optional[int] = False,
 ):
     """Run."""
     mask = _generate_mask(width, height, seed) if use_random_mask else set()
@@ -83,4 +71,26 @@ def main(
 
 
 if __name__ == "__main__":
-    app()
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument("width", type=int, help="Width of grid")
+    parser.add_argument("height", type=int, help="Height of grid")
+    parser.add_argument(
+        "--use_random_mask",
+        action="store_true",
+        help="Use a random mask for generated grids",
+    )
+    parser.add_argument(
+        "--max_obstacle_size",
+        type=int,
+        default=None,
+        help="Max size of obstacle. If None then uses min(width, height) // 4",
+    )
+    parser.add_argument("--seed", type=int, default=0, help="Random Seed")
+    parser.add_argument(
+        "--check_grid_connectedness",
+        action="store_true",
+        help="Also check for grid connectedness",
+    )
+    main(**vars(parser.parse_args()))

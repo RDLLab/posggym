@@ -1,62 +1,80 @@
-import typer
+"""Script for running pairwise evaluation of posggym.agents policies.
+
+The script takes an environment ID and optional environment args ID and runs a pairwise
+evaluation for each possible pairing of policies that are registered to the environment
+and arguments.
+"""
+
+import argparse
+
 from posggym.agents.evaluation import pairwise
-from typing import Annotated
 
-app = typer.Typer()
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        "--env_id",
+        type=str,
+        default=None,
+        help=(
+            "ID of the environment to run for. If None we will run for all "
+            "environments that have a registered policy attached."
+        ),
+    )
+    parser.add_argument(
+        "--env_args_id",
+        type=str,
+        default=None,
+        help=(
+            "ID of the environment arguments. If None will run a pairwise comparison "
+            "for all arguments which have a registered policy attached. Only used if "
+            "--env_id is not None."
+        ),
+    )
+    parser.add_argument(
+        "--num_episodes",
+        type=int,
+        default=1000,
+        help="Number of episodes to run per trial.",
+    )
+    parser.add_argument("--seed", type=int, default=0, help="Seed to use.")
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default=None,
+        help="Directory to save results files too.",
+    )
+    parser.add_argument(
+        "--n_procs",
+        type=int,
+        default=None,
+        help=(
+            "Number of runs to do in parallel. If None then will use all available "
+            "CPUS on machine."
+        ),
+    )
+    parser.add_argument("--verbose", action="store_true", help="Run in verbose mode.")
+    parser.add_argument(
+        "--show", action="store_true", help="Show pairwise comparison result plots."
+    )
+    args = parser.parse_args()
 
-
-@app.command()
-def run_pairwise(
-    env_id: Annotated[
-        str, typer.Option(help="ID of the environment to run for.")
-    ] = None,
-    env_args_id: Annotated[
-        str, typer.Option(help="ID of the environment arguments.")
-    ] = None,
-    num_episodes: Annotated[
-        int, typer.Option(help="Number of episodes to run per trial.")
-    ] = 1000,
-    seed: Annotated[int, typer.Option(help="Seed to use.")] = 0,
-    output_dir: Annotated[
-        str, typer.Option(help="Directory to save results files to.")
-    ] = None,
-    n_procs: Annotated[
-        int, typer.Option(help="Number of runs to do in parallel.")
-    ] = None,
-    verbose: bool = False,
-    show: bool = False,
-):
-    """
-    Run pairwise evaluation for each possible pairing of policies.
-
-    :param env_id: ID of the environment to run for.
-    :param env_args_id: ID of the environment arguments.
-    :param num_episodes: Number of episodes to run per trial.
-    :param seed: Seed to use.
-    :param output_dir: Directory to save results files to.
-    :param n_procs: Number of runs to do in parallel.
-    :param verbose: Run in verbose mode.
-    :param show: Show pairwise comparison result plots.
-    """
     output_dir = pairwise.run_pairwise_comparisons(
-        env_id=env_id,
-        env_args_id=env_args_id,
-        num_episodes=num_episodes,
-        seed=seed,
-        output_dir=output_dir,
-        n_procs=n_procs,
-        verbose=verbose,
+        env_id=args.env_id,
+        env_args_id=args.env_args_id,
+        num_episodes=args.num_episodes,
+        seed=args.seed,
+        output_dir=args.output_dir,
+        n_procs=args.n_procs,
+        verbose=args.verbose,
     )
 
     pairwise.plot_pairwise_comparison_results(
         output_dir,
-        env_id=env_id,
-        env_args_id=env_args_id,
-        show=show,
+        env_id=args.env_id,
+        env_args_id=args.env_args_id,
+        show=args.show,
         save=True,
         mean_only=True,
     )
-
-
-if __name__ == "__main__":
-    app()

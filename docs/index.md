@@ -6,7 +6,7 @@ lastpage:
 
 # POSGGym
 
-**POSGGym is an open source Python library providing implementations of Partially Observable Stochastic Game (POSG) environments coupled with dynamic models of each environment, all under a unified API**.
+**POSGGym is a Python library for planning and reinforcement learning research in partially observable, multi-agent environments.**.
 
 ```{figure} _static/videos/grid_world/predator_prey.gif
    :alt: Predator Prey
@@ -16,25 +16,20 @@ lastpage:
 
 <br/>
 
-While there are a number of amazing open-source implementations for POSG environments, very few have support for dynamic models that can be used for planning, especially for continuous domains. The aim of this library is to fill this gap.
+POSGGym provides a collection of discrete and continuous environments along with reference agents to allow for reproducible evaluations. The API aims to mimic that of [Gymnasium](https://gymnasium.farama.org/) and [PettingZoo](https://pettingzoo.farama.org/) with the addition of a model API that can be used for planning.
 
-A key goal of POSGGym is to provide easy to use and understand open-source implementations for many of the environments commonly used in the partially observable multi-agent planning literature.
-
-POSGGym also provides a collection of reference agents for it's various environments and a unified Agents API for using these agents. These agents can be used to evaluate algorithms, and includes both hand-coded bots and agents trained using reinforcement learning.
-
-POSGGym is directly inspired by and adapted from the [Gymnasium](https://gymnasium.farama.org/) and [PettingZoo](https://pettingzoo.farama.org/) libraries for reinforcement learning. The key additions in POSGGym are support for environment models which can be used for planning and reference agents. POSGGym's API aims to stay as close to the Gymnasium and PettingZoo Parallel APIs as possible while incorporating models and agents into the mix.
-
-Any POSGGym environment can be converted into a PettingZoo environment using a simple wrapper (`posggym.wrappers.petting_zoo.PettingZoo`). This allows for easy integration with the ecosystem of libraries that support PettingZoo.
+Some baseline implementations of planning and reinforcement learning algorithms for POSGGym are available in the [POSGGym-Baselines](https://github.com/RDLLab/posggym-baselines) library. Compatibility with other popular reinforcement learning libraries is possible using the [PettingZoo wrapper](#compatibility-with-pettingzoo).
 
 
 ## Environment API
 
-```{code-block} python
+```python
 import posggym
 env = posggym.make("PredatorPrey-v0")
-observations, info = env.reset(seed=42)
+observations, infos = env.reset(seed=42)
 
-for t in range(50):
+for t in range(100):
+    env.render()
     actions = {i: env.action_spaces[i].sample() for i in env.agents}
     observations, rewards, terminations, truncations, all_done, infos = env.step(actions)
 
@@ -46,7 +41,7 @@ env.close()
 
 ## Model API
 
-```{code-block} python
+```python
 import posggym
 env = posggym.make("PredatorPrey-v0")
 model = env.model
@@ -55,9 +50,9 @@ model.seed(seed=42)
 state = model.sample_initial_state()
 observations = model.sample_initial_obs(state)
 
-for t in range(50):
+for t in range(100):
     actions = {i: model.action_spaces[i].sample() for i in model.get_agents(state)}
-    timestep = model.step(state, actions)
+    state, observations, rewards, terminations, truncations, all_done, infos = model.step(state, actions)
 
     # timestep attribute can be accessed individually:
     state = timestep.state
@@ -76,29 +71,41 @@ for t in range(50):
 ```python
 import posggym
 import posggym.agents as pga
-env = posggym.make("PursuitEvasion-v0", grid="16x16")
+env = posggym.make("PursuitEvasion-v1", grid="16x16")
 
 policies = {
-    '0': pga.make("PursuitEvasion-v0/grid=16x16/klr_k1_seed0_i0-v0", env.model, '0'),
-    '1': pga.make("PursuitEvasion-v0/grid=16x16/klr_k1_seed0_i1-v0", env.model, '1')
+    '0': pga.make("PursuitEvasion-v1/grid=16x16/RL1_i0-v0", env.model, '0'),
+    '1': pga.make("PursuitEvasion-v1/grid=16x16/ShortestPath-v0", env.model, '1')
 }
 
-obs, info = env.reset(seed=42)
+obs, infos = env.reset(seed=42)
 for i, policy in policies.items():
     policy.reset(seed=7)
 
 for t in range(100):
     actions = {i: policies[i].step(obs[i]) for i in env.agents}
-    obs, rewards, termination, truncated, all_done, info = env.step(actions)
+    obs, rewards, terminations, truncations, all_done, infos = env.step(actions)
 
     if all_done:
-        obs, info = env.reset()
+        obs, infos = env.reset()
         for i, policy in policies.items():
             policy.reset()
 
 env.close()
 for policy in policies.values():
     policy.close()
+```
+
+## Compatibility with PettingZoo
+
+Any POSGGym environment can be converted into a PettingZoo `ParallelEnv` environment using the `posggym.wrappers.petting_zoo.PettingZoo` wrapper. This allows for easy integration with the ecosystem of libraries that support PettingZoo.
+
+```python
+import posggym
+from posggym.wrappers.petting_zoo import PettingZoo
+
+env = posggym.make("PredatorPrey-v0")
+env = PettingZoo(env)
 ```
 
 
