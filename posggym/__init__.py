@@ -1,4 +1,5 @@
 """Root '__init__' of the posggym package."""
+
 # isort: skip_file
 # Need to import model and core before other modules
 from posggym.model import POSGFullModel, POSGModel
@@ -38,4 +39,4 @@ __all__ = [
     "error",
     "logger",
 ]
-__version__ = "0.5.1.dev1"
+__version__ = "0.6.0"

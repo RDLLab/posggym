@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Downloads all agent models on Linux/macOS
-agent_model_repo_url=https://github.com/RDLLab/posggym-agent-models/archive/refs/heads/main.tar.gz
+agent_model_repo_url=https://github.com/RDLLab/posggym-agent-models/archive/refs/tags/v0.6.0.tar.gz
 
 function download_agent_models() {
 	echo -e "\nDownloading agent models..."

@@ -1,8 +1,9 @@
 """Setup for the posggym package."""
-from pathlib import Path
+
 import shutil
 import tarfile
 import urllib.request
+from pathlib import Path
 
 from setuptools import setup
 from setuptools.command import build_py
@@ -10,7 +11,7 @@ from setuptools.command import build_py
 CWD = Path(__file__).absolute().parent
 
 ASSETS_URL = (
-    "https://github.com/RDLLab/posggym-agent-models/archive/refs/heads/main.tar.gz"
+    "https://github.com/RDLLab/posggym-agent-models/archive/refs/tags/v0.6.0.tar.gz"
 )
 
 
