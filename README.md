@@ -174,7 +174,7 @@ You can cite POSGGym as:
 @misc{schwartzPOSGGym2023,
     title = {POSGGym},
     urldate = {2023-08-08},
-    author = {Schwartz, Jonathon and Newbury, Rhys and Kurniawati, Hanna},
+    author = {Schwartz, Jonathon and Newbury, Rhys and Kuli\'{c}, Dana and Kurniawati, Hanna},
     year = {2023},
 }
 ```
