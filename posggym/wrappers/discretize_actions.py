@@ -1,6 +1,7 @@
 """Wrapper to discretize continuous actions."""
 
-from typing import Dict, Sequence, Union, cast
+from collections.abc import Sequence
+from typing import cast
 
 import numpy as np
 from gymnasium import spaces
@@ -16,7 +17,7 @@ class DiscretizeActions(ActionWrapper):
     space is multi-dimensional with :attr:`ndim` dimensions, then will create
     discretized space with :attr:`num_actions ** ndim` actions.
 
-    Arguments
+    Arguments:
     ---------
     env : posggym.Env
         The environment to apply the wrapper
@@ -29,7 +30,7 @@ class DiscretizeActions(ActionWrapper):
 
     """
 
-    def __init__(self, env: Env, num_actions: int, flatten: bool = False):
+    def __init__(self, env: Env, num_actions: int, flatten: bool = False) -> None:
         super().__init__(env)
         assert all(
             isinstance(act_space, spaces.Box)
@@ -39,8 +40,8 @@ class DiscretizeActions(ActionWrapper):
         self.num_actions = num_actions
         self.flatten = flatten
 
-        box_action_spaces = cast(Dict[str, spaces.Box], self.action_spaces)
-        self._unflat_space: Dict[str, spaces.MultiDiscrete] = {}
+        box_action_spaces = cast(dict[str, spaces.Box], self.action_spaces)
+        self._unflat_space: dict[str, spaces.MultiDiscrete] = {}
         if self.flatten:
             self._unflat_space = {
                 i: self.discretize_action_space(  # type: ignore
@@ -58,7 +59,7 @@ class DiscretizeActions(ActionWrapper):
 
     def discretize_action_space(
         self, action_space: spaces.Box, num_actions: int, flatten: bool = False
-    ) -> Union[spaces.MultiDiscrete, spaces.Discrete]:
+    ) -> spaces.MultiDiscrete | spaces.Discrete:
         assert isinstance(action_space, spaces.Box), "Action space must be a Box"
         assert (
             len(action_space.shape) > 0
@@ -89,7 +90,7 @@ class DiscretizeActions(ActionWrapper):
 
     def undiscretize_action(
         self,
-        discrete_action: Union[int, Sequence[int], np.ndarray],
+        discrete_action: int | Sequence[int] | np.ndarray,
         action_space: spaces.Box,
     ) -> np.ndarray:
         if isinstance(discrete_action, int):

@@ -3,12 +3,11 @@
 import argparse
 import random
 import sys
-from typing import Optional
 
 from posggym.envs.grid_world.core import GridGenerator
 
 
-def _generate_mask(width: int, height: int, seed: Optional[int]):
+def _generate_mask(width: int, height: int, seed: int | None):
     rng = random.Random(None) if seed is None else random.Random(seed + 1)
 
     mask = set()
@@ -24,9 +23,9 @@ def main(
     width: int,
     height: int,
     use_random_mask: bool,
-    max_obstacle_size: Optional[int] = None,
+    max_obstacle_size: int | None = None,
     seed: int = 0,
-    check_grid_connectedness: Optional[int] = False,
+    check_grid_connectedness: int | None = False,
 ):
     """Run."""
     mask = _generate_mask(width, height, seed) if use_random_mask else set()

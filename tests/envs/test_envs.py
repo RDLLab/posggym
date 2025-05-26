@@ -6,17 +6,23 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/test_envs
 import pickle
 import warnings
 
-import pytest
-from tests.envs.utils import (
-    all_testing_env_specs,
-    all_testing_initialised_envs,
-    assert_equals,
-)
-
 import posggym
+import pytest
 from posggym.envs.registration import EnvSpec
 from posggym.utils.env_checker import check_env
 from posggym.utils.passive_env_checker import data_equivalence
+from posggym.utils.torch_utils import maybe_expand_dims
+
+from tests.envs.utils import (
+    all_testing_env_specs,
+    assert_equals,
+)
+
+
+try:
+    import torch
+except ImportError:
+    torch = None
 
 PASSIVE_CHECK_IGNORE_WARNING = [
     f"\x1b[33mWARN: {message}"
@@ -27,7 +33,6 @@ PASSIVE_CHECK_IGNORE_WARNING = [
 
 
 CHECK_ENV_IGNORE_WARNINGS = [
-    # f"\x1b[33mWARN: {message}\x1b[0m"
     f"\x1b[33mWARN: {message}"
     for message in [
         "A Box observation space minimum value is -infinity. This is probably too low.",
@@ -109,7 +114,10 @@ def test_env_determinism_rollout(env_spec: EnvSpec):
         assert_equals(env_1.state, env_2.state, f"[{time_step}][State] ")
 
         # We don't evaluate the determinism of actions
-        actions = {i: env_1.action_spaces[i].sample() for i in env_1.agents}
+        actions = {
+            i: maybe_expand_dims(env_1, env_1.action_spaces[i].sample())
+            for i in env_1.agents
+        }
 
         obs_1, rew_1, term_1, trunc_1, done_1, info_1 = env_1.step(actions)
         obs_2, rew_2, term_2, trunc_2, done_2, info_2 = env_2.step(actions)
@@ -117,6 +125,9 @@ def test_env_determinism_rollout(env_spec: EnvSpec):
         assert_equals(obs_1, obs_2, f"[{time_step}][Observations] ")
         # obs_2 verified by previous assertion
         for i, o_i in obs_1.items():
+            if torch is not None and isinstance(o_i, torch.Tensor):
+                o_i = o_i.cpu().detach().numpy().squeeze()
+
             assert env_1.observation_spaces[i].contains(o_i)
 
         assert_equals(rew_1, rew_2, f"[{time_step}][Rewards] ")
@@ -138,17 +149,20 @@ def test_env_determinism_rollout(env_spec: EnvSpec):
 
 
 @pytest.mark.parametrize(
-    "env",
-    all_testing_initialised_envs,
-    ids=[env.spec.id for env in all_testing_initialised_envs if env.spec is not None],
+    "env_spec",
+    all_testing_env_specs,
+    ids=[env.id for env in all_testing_env_specs],
 )
-def test_pickle_env(env: posggym.Env):
+def test_pickle_env(env_spec: EnvSpec):
     """Test that env can be pickled consistently."""
+    env = env_spec.make(disable_env_checker=True)
     pickled_env = pickle.loads(pickle.dumps(env))
 
     data_equivalence(env.reset(), pickled_env.reset())
 
-    actions = {i: env.action_spaces[i].sample() for i in env.agents}
+    actions = {
+        i: maybe_expand_dims(env, env.action_spaces[i].sample()) for i in env.agents
+    }
     data_equivalence(env.step(actions), pickled_env.step(actions))
     env.close()
     pickled_env.close()

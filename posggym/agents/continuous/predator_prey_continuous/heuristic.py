@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import abc
 import math
-from typing import TYPE_CHECKING, Tuple, cast
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
@@ -16,6 +16,7 @@ from posggym.envs.continuous.predator_prey_continuous import (
 )
 from posggym.utils import seeding
 
+
 if TYPE_CHECKING:
     from posggym.posggym.model import POSGModel
     from posggym.utils.history import AgentHistory
@@ -24,7 +25,7 @@ if TYPE_CHECKING:
 class PPCHeuristicPolicy(Policy[PPAction, PPObs], abc.ABC):
     """Base class for heuristic policies for Predator-Prey continuous environment."""
 
-    def __init__(self, model: POSGModel, agent_id: str, policy_id: PolicyID):
+    def __init__(self, model: POSGModel, agent_id: str, policy_id: PolicyID) -> None:
         super().__init__(model, agent_id, policy_id)
         self.model = cast(PredatorPreyContinuousModel, model)
         self._rng, _ = seeding.np_random()
@@ -91,7 +92,7 @@ class PPCHeuristicPolicy(Policy[PPAction, PPObs], abc.ABC):
     def _get_pi_from_obs(self, obs: PPObs) -> action_distributions.ActionDistribution:
         raise NotImplementedError
 
-    def _get_closest_prey(self, obs: PPObs) -> Tuple[float, float] | None:
+    def _get_closest_prey(self, obs: PPObs) -> tuple[float, float] | None:
         prey_obs = obs[2 * self.n_sensors : 3 * self.n_sensors]
         closest_idx = np.argmin(prey_obs)
         if prey_obs[closest_idx] == self.model.obs_dist:
@@ -100,7 +101,7 @@ class PPCHeuristicPolicy(Policy[PPAction, PPObs], abc.ABC):
         closest_dist = prey_obs[closest_idx]
         return closest_dist, closest_angle
 
-    def _get_closest_predator(self, obs: PPObs) -> Tuple[float, float] | None:
+    def _get_closest_predator(self, obs: PPObs) -> tuple[float, float] | None:
         pred_obs = obs[self.n_sensors : 2 * self.n_sensors]
         closest_idx = np.argmin(pred_obs)
         if pred_obs[closest_idx] == self.model.obs_dist:
@@ -111,7 +112,7 @@ class PPCHeuristicPolicy(Policy[PPAction, PPObs], abc.ABC):
 
     def _get_closest_prey_to_predator(
         self, obs: PPObs, pred_dist: float, pred_angle: float
-    ) -> Tuple[float, float] | None:
+    ) -> tuple[float, float] | None:
         # find prey with minimum distance to predator
         # d^2 = P^2 + p^2 - 2Pp cos(theta)
         # d = distance between predator and prey

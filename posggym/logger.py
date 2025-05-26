@@ -6,7 +6,6 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/logger.py
 """
 import sys
 import warnings
-from typing import Optional, Type
 
 from gymnasium.utils.colorize import colorize
 
@@ -38,15 +37,15 @@ def info(msg: str, *args):
         print(f"INFO: {msg % args}", file=sys.stderr)
 
 
-def warn(
+def warning(
     msg: str,
     *args: object,
-    category: Optional[Type[Warning]] = None,
+    category: type[Warning] | None = None,
     stacklevel: int = 1,
 ):
     """Raises a warning to the user if the min_level <= WARN.
 
-    Arguments
+    Arguments:
     ---------
     msg: str
         The message to warn the user
@@ -68,7 +67,7 @@ def warn(
 
 def deprecation(msg: str, *args: object):
     """Logs a deprecation warning to users."""
-    warn(msg, *args, category=DeprecationWarning, stacklevel=2)
+    warning(msg, *args, category=DeprecationWarning, stacklevel=2)
 
 
 def error(msg: str, *args):

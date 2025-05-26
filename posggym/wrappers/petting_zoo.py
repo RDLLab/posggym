@@ -1,14 +1,15 @@
 """Wrapper for converting a posggym environment into pettingzoo environment."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any
 
 import posggym
+
 
 try:
     from pettingzoo.utils.env import ActionDict, ObsDict, ParallelEnv
 except ImportError as e:
-    raise posggym.error.DependencyNotInstalled(
+    raise posggym.error.DependencyNotInstalledError(
         "pettingzoo is not installed, run `pip install pettingzoo` or visit "
         "'https://github.com/Farama-Foundation/PettingZoo#installation' for details on "
         "installing pettingzoo."
@@ -33,35 +34,34 @@ class PettingZoo(ParallelEnv):
 
     References
     ----------
-
     - parallel env docs: https://pettingzoo.farama.org/api/parallel/
     - parallel env code:
       https://github.com/Farama-Foundation/PettingZoo/blob/master/pettingzoo/utils/env.py
 
     """
 
-    def __init__(self, env: posggym.Env):
+    def __init__(self, env: posggym.Env) -> None:
         self.env = env
-        self._done_agents: Set[str] = set()
+        self._done_agents: set[str] = set()
 
     @property
-    def metadata(self) -> Dict[str, Any]:
+    def metadata(self) -> dict[str, Any]:
         return self.env.metadata
 
     @property
-    def agents(self) -> List[str]:
+    def agents(self) -> list[str]:
         return [i for i in self.env.agents if i not in self._done_agents]
 
     @property
-    def possible_agents(self) -> List[str]:
+    def possible_agents(self) -> list[str]:
         return list(self.env.possible_agents)
 
     @property
-    def action_spaces(self) -> Dict[str, spaces.Space]:
+    def action_spaces(self) -> dict[str, spaces.Space]:
         return self.env.action_spaces
 
     @property
-    def observation_spaces(self) -> Dict[str, spaces.Space]:
+    def observation_spaces(self) -> dict[str, spaces.Space]:
         return self.env.observation_spaces
 
     @property
@@ -70,9 +70,9 @@ class PettingZoo(ParallelEnv):
 
     def reset(
         self,
-        seed: Optional[int] = None,
-        return_info: bool = False,
-        options: Optional[dict] = None,
+        seed: int | None = None,
+        return_info: bool = True,
+        options: dict | None = None,
     ) -> ObsDict:
         obs, info = self.env.reset(seed=seed, options=options)
         self._done_agents = set()
@@ -83,8 +83,8 @@ class PettingZoo(ParallelEnv):
 
     def step(
         self, actions: ActionDict
-    ) -> Tuple[
-        ObsDict, Dict[str, float], Dict[str, bool], Dict[str, bool], Dict[str, dict]
+    ) -> tuple[
+        ObsDict, dict[str, float], dict[str, bool], dict[str, bool], dict[str, dict]
     ]:
         obs, rewards, terminated, truncated, all_done, info = self.env.step(actions)
 
@@ -102,10 +102,9 @@ class PettingZoo(ParallelEnv):
         for i, done in truncated.items():
             if done:
                 self._done_agents.add(i)
-
         return obs, rewards, terminated, truncated, info
 
-    def render(self) -> None | np.ndarray | str | List:
+    def render(self) -> None | np.ndarray | str | list:
         output = self.env.render()
         if isinstance(output, dict):
             return output.get("env", None)

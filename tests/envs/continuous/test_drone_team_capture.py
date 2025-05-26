@@ -1,8 +1,7 @@
 """Specific tests for the DroneTeamCapture-v0 environment."""
 
-import pytest
-
 import posggym
+import pytest
 
 
 @pytest.mark.parametrize("num_pursuers", [2, 3, 4, 8])
@@ -21,7 +20,7 @@ def test_init_steps(num_pursuers: int):
     )
     env.reset(seed=35)
 
-    for t in range(100):
+    for _t in range(100):
         a = {i: env.action_spaces[i].sample() for i in env.agents}
         obs, _, _, _, all_done, _ = env.step(a)
 

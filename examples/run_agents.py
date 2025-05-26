@@ -15,7 +15,6 @@ and with `human` rendering mode, run:
 """
 
 import argparse
-from typing import Dict, List, Optional
 
 import posggym
 import posggym.agents as pga
@@ -23,19 +22,19 @@ import posggym.agents as pga
 
 def run_agents(
     env_id: str,
-    policy_ids: List[str],
+    policy_ids: list[str],
     num_episodes: int,
-    seed: Optional[int] = None,
-    render_mode: Optional[str] = "human",
+    seed: int | None = None,
+    render_mode: str | None = "human",
 ):
     """Run agents."""
     print("\n== Running Agents ==")
     policy_specs = []
     env_args, env_args_id = None, None
-    for i, policy_id in enumerate(policy_ids):
+    for _i, policy_id in enumerate(policy_ids):
         try:
             pi_spec = pga.spec(policy_id)
-        except posggym.error.NameNotFound as e:
+        except posggym.error.NameNotFoundError as e:
             if "/" not in policy_id:
                 # try prepending env id
                 policy_id = f"{env_id}/{policy_id}"
@@ -67,8 +66,8 @@ def run_agents(
             policy.reset(seed=seed + i)
 
     episode_steps = []
-    episode_rewards: Dict[str, List[float]] = {i: [] for i in env.possible_agents}
-    for ep_num in range(num_episodes):
+    episode_rewards: dict[str, list[float]] = {i: [] for i in env.possible_agents}
+    for _ep_num in range(num_episodes):
         obs, _ = env.reset()
         env.render()
         for policy in policies.values():

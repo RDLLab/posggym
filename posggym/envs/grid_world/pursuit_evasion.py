@@ -1,16 +1,11 @@
 """The Pursuit-Evasion Grid World Environment."""
+from __future__ import annotations
 
 from collections import deque
 from typing import (
     Any,
-    Deque,
-    Dict,
-    List,
+    ClassVar,
     NamedTuple,
-    Optional,
-    Set,
-    Tuple,
-    Union,
     cast,
 )
 
@@ -21,9 +16,8 @@ from posggym import logger
 from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import Coord, Direction, Grid, SupportedGridTypes
 from posggym.utils import seeding
-import random
 
-# State = (e_coord, e_dir, p_coord, p_dir, e_0_coord, p_0_coord, e_goal_coord)
+
 INITIAL_DIR = Direction.NORTH
 
 
@@ -63,9 +57,9 @@ ACTION_TO_DIR = [
 #       = Tuple[Tuple[int, int, int, int, int, int], Coord, Coord, Coord]
 # Note, we use blank_coord for P Obs so Obs spaces are identical between the
 # two agents. The blank_coord is always (0, 0).
-PEEvaderObs = Tuple[Tuple[int, ...], Coord, Coord, Coord]
-PEPursuerObs = Tuple[Tuple[int, ...], Coord, Coord, Coord]
-PEObs = Union[PEEvaderObs, PEPursuerObs]
+PEEvaderObs = tuple[tuple[int, ...], Coord, Coord, Coord]
+PEPursuerObs = tuple[tuple[int, ...], Coord, Coord, Coord]
+PEObs = PEEvaderObs | PEPursuerObs
 
 
 class PursuitEvasionEnv(DefaultEnv):
@@ -163,9 +157,8 @@ class PursuitEvasionEnv(DefaultEnv):
     be adjusted when using larger grids (this can be done by manually specifying a value
     for `max_episode_steps` when creating the environment with `posggym.make`).
 
-    Arguments
+    Arguments:
     ---------
-
     - `grid` - the grid layout to use. This can either be a string specifying one of
          the supported grids, or a custom :class:`PEGrid` object (default = `"16x16"`).
     - `max_obs_distance` - the maximum number of cells in front each agent's field of
@@ -206,7 +199,7 @@ class PursuitEvasionEnv(DefaultEnv):
         - removed `normalize_reward` parameter (rewards are now always normalized)
     - `v0`: Initial version
 
-    References
+    References:
     ----------
     - [This Pursuit-Evasion implementation is directly inspired by the problem] Seaman,
       Iris Rubi, Jan-Willem van de Meent, and David Wingate. 2018. “Nested Reasoning
@@ -219,19 +212,18 @@ class PursuitEvasionEnv(DefaultEnv):
 
     """
 
-    metadata = {
+    metadata: ClassVar[dict] = {
         "render_modes": ["human", "ansi", "rgb_array"],
         "render_fps": 15,
     }
 
     def __init__(
         self,
-        grid: Union[str, "PEGrid"] = "16x16",
+        grid: str | PEGrid = "16x16",
         max_obs_distance: int = 12,
         use_progress_reward: bool = True,
-        render_mode: Optional[str] = None,
-        should_randomze_dyn=False,
-    ):
+        render_mode: str | None = None,
+    ) -> None:
         model = PursuitEvasionModel(
             grid,
             max_obs_distance=max_obs_distance,
@@ -240,7 +232,6 @@ class PursuitEvasionEnv(DefaultEnv):
         super().__init__(
             model,
             render_mode=render_mode,
-            should_randomze_dyn=should_randomze_dyn,
         )
 
         self.max_obs_distance = max_obs_distance
@@ -257,8 +248,8 @@ class PursuitEvasionEnv(DefaultEnv):
         self._agent_imgs = None
 
     def reset(
-        self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
-    ) -> Tuple[Dict[str, M.ObsType], Dict[str, Dict]]:
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> tuple[dict[str, M.ObsType], dict[str, dict]]:
         # reset renderer since goal location can change between episodes
         self._renderer = None
         return super().reset(seed=seed, options=options)
@@ -266,7 +257,7 @@ class PursuitEvasionEnv(DefaultEnv):
     def render(self):
         if self.render_mode is None:
             assert self.spec is not None
-            logger.warn(
+            logger.warning(
                 "You are calling render method without specifying any render mode. "
                 "You can specify the render_mode at initialization, "
                 f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
@@ -334,7 +325,7 @@ class PursuitEvasionEnv(DefaultEnv):
                 )
             )
 
-        render_objects: List[render_lib.GWObject] = [
+        render_objects: list[render_lib.GWObject] = [
             render_lib.GWRectangle(
                 goal_coord, self.renderer.cell_size, render_lib.get_color("green")
             )
@@ -378,10 +369,10 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
 
     def __init__(
         self,
-        grid: Union[str, "PEGrid"],
+        grid: str | PEGrid,
         max_obs_distance: int = 12,
         use_progress_reward: bool = True,
-    ):
+    ) -> None:
         if isinstance(grid, str):
             assert grid in SUPPORTED_GRIDS, (
                 f"Unsupported grid name '{grid}'. If grid is a string it must be one "
@@ -406,7 +397,6 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             )
 
         self.possible_agents = tuple(str(i) for i in range(self.NUM_AGENTS))
-        # s = Tuple[Coord, Direction, Coord, Direction, Coord, Coord, Coord, int]
         # e_coord, e_dir, p_coord, p_dir, e_start, p_start, e_goal, max_sp
         self.state_space = spaces.Tuple(
             (
@@ -423,7 +413,6 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         self.action_spaces = {
             i: spaces.Discrete(len(Direction)) for i in self.possible_agents
         }
-        # o = Tuple[Tuple[WallObs, seen , heard], Coord, Coord, Coord]
         # Wall obs, seen, heard, e_start, p_start, e_goal/blank
         self.observation_spaces = {
             i: spaces.Tuple(
@@ -439,12 +428,12 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         self.is_symmetric = False
 
     @property
-    def grid(self) -> "PEGrid":
+    def grid(self) -> PEGrid:
         """The underlying grid for this model instance."""
         return self._grid
 
     @property
-    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
+    def reward_ranges(self) -> dict[str, tuple[float, float]]:
         max_reward = self.R_EVASION
         if self.use_progress_reward:
             max_reward += self.R_PROGRESS
@@ -457,7 +446,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             self._rng, seed = seeding.std_random()
         return self._rng
 
-    def get_agents(self, state: PEState) -> List[str]:
+    def get_agents(self, state: PEState) -> list[str]:
         return list(self.possible_agents)
 
     def sample_initial_state(self) -> PEState:
@@ -474,9 +463,9 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
 
     def _sample_initial_state(
         self,
-        evader_coord: Optional[Coord],
-        pursuer_coord: Optional[Coord],
-        goal_coord: Optional[Coord],
+        evader_coord: Coord | None,
+        pursuer_coord: Coord | None,
+        goal_coord: Coord | None,
     ) -> PEState:
         if evader_coord is None:
             evader_coord = self.rng.choice(self.grid.evader_start_coords)
@@ -495,11 +484,11 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             self.grid.get_shortest_path_distance(evader_coord, goal_coord),
         )
 
-    def sample_initial_obs(self, state: PEState) -> Dict[str, PEObs]:
+    def sample_initial_obs(self, state: PEState) -> dict[str, PEObs]:
         return self._get_obs(state)[0]
 
     def step(
-        self, state: PEState, actions: Dict[str, PEAction]
+        self, state: PEState, actions: dict[str, PEAction]
     ) -> M.JointTimestep[PEState, PEObs]:
         assert all(0 <= a_i < len(Direction) for a_i in actions.values())
         next_state = self._get_next_state(state, actions)
@@ -508,7 +497,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         all_done = self._is_done(next_state)
         terminated = {i: all_done for i in self.possible_agents}
         truncated = {i: False for i in self.possible_agents}
-        info: Dict[str, Dict] = {i: {} for i in self.possible_agents}
+        info: dict[str, dict] = {i: {} for i in self.possible_agents}
         if all_done:
             for i, outcome in self._get_outcome(next_state).items():
                 info[i]["outcome"] = outcome
@@ -516,7 +505,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             next_state, obs, rewards, terminated, truncated, all_done, info
         )
 
-    def _get_next_state(self, state: PEState, actions: Dict[str, PEAction]) -> PEState:
+    def _get_next_state(self, state: PEState, actions: dict[str, PEAction]) -> PEState:
         evader_a = actions[str(self.EVADER_IDX)]
         pursuer_a = actions[str(self.PURSUER_IDX)]
         if pursuer_a == self.action_mask[self.PURSUER_IDX]:
@@ -557,7 +546,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             min_sp_distance,
         )
 
-    def _get_obs(self, state: PEState) -> Tuple[Dict[str, PEObs], bool]:
+    def _get_obs(self, state: PEState) -> tuple[dict[str, PEObs], bool]:
         walls, seen, heard = self._get_agent_obs(
             state.evader_coord, state.evader_dir, state.pursuer_coord
         )
@@ -585,11 +574,11 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
 
     def _get_agent_obs(
         self, agent_coord: Coord, agent_dir: Direction, opp_coord: Coord
-    ) -> Tuple[Tuple[int, int, int, int], int, int]:
+    ) -> tuple[tuple[int, int, int, int], int, int]:
         adj_coords = self.grid.get_neighbours(
             agent_coord, ignore_blocks=True, include_out_of_bounds=True
         )
-        walls: Tuple[int, int, int, int] = tuple(  # type: ignore
+        walls: tuple[int, int, int, int] = tuple(  # type: ignore
             int(not self.grid.coord_in_bounds(coord) or coord in self.grid.block_coords)
             for coord in adj_coords
         )
@@ -608,7 +597,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
 
     def _get_reward(
         self, state: PEState, next_state: PEState, evader_seen: bool
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         evader_coord = next_state.evader_coord
         pursuer_coord = next_state.pursuer_coord
         evader_goal_coord = next_state.evader_goal_coord
@@ -638,7 +627,7 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
             or self._get_opponent_seen(pursuer_coord, pursuer_dir, evader_coord)
         )
 
-    def _get_outcome(self, state: PEState) -> Dict[str, M.Outcome]:
+    def _get_outcome(self, state: PEState) -> dict[str, M.Outcome]:
         # Assuming this method is called on final timestep
         evader_coord, pursuer_coord = state.evader_coord, state.pursuer_coord
         evader_goal_coord = state.evader_goal_coord
@@ -658,9 +647,6 @@ class PursuitEvasionModel(M.POSGModel[PEState, PEObs, PEAction]):
         diff = self._max_raw_return - self._min_raw_return
         return 2 * (reward - self._min_raw_return) / diff - 1
 
-    def randomize_dynamics(self):
-        self.action_mask = [random.randint(0, 3) for _ in range(self.NUM_AGENTS)]
-
 
 class PEGrid(Grid):
     """A grid for the Pursuit Evasion Problem."""
@@ -669,11 +655,11 @@ class PEGrid(Grid):
         self,
         grid_width: int,
         grid_height: int,
-        block_coords: Set[Coord],
-        goal_coords_map: Dict[Coord, List[Coord]],
-        evader_start_coords: List[Coord],
-        pursuer_start_coords: List[Coord],
-    ):
+        block_coords: set[Coord],
+        goal_coords_map: dict[Coord, list[Coord]],
+        evader_start_coords: list[Coord],
+        pursuer_start_coords: list[Coord],
+    ) -> None:
         super().__init__(grid_width, grid_height, block_coords)
         self._goal_coords_map = goal_coords_map
         self.evader_start_coords = evader_start_coords
@@ -681,14 +667,14 @@ class PEGrid(Grid):
         self.shortest_paths = self.get_all_shortest_paths(self.all_goal_coords)
 
     @property
-    def all_goal_coords(self) -> List[Coord]:
+    def all_goal_coords(self) -> list[Coord]:
         """The list of all evader goal locations."""
         all_locs = set()
         for v in self._goal_coords_map.values():
             all_locs.update(v)
         return list(all_locs)
 
-    def get_goal_coords(self, evader_start_coord: Coord) -> List[Coord]:
+    def get_goal_coords(self, evader_start_coord: Coord) -> list[Coord]:
         """Get list of possible evader goal coords for given start coords."""
         return self._goal_coords_map[evader_start_coord]
 
@@ -715,9 +701,9 @@ class PEGrid(Grid):
 
     def get_ascii_repr(
         self,
-        goal_coord: Union[None, Coord, List[Coord]],
-        evader_coord: Union[None, Coord, List[Coord]],
-        pursuer_coord: Union[None, Coord, List[Coord]],
+        goal_coord: Coord | list[Coord] | None,
+        evader_coord: Coord | list[Coord] | None,
+        pursuer_coord: Coord | list[Coord] | None,
     ) -> str:
         """Get ascii repr of grid."""
         if goal_coord is None:
@@ -742,7 +728,7 @@ class PEGrid(Grid):
 
         if evader_coord is None:
             evader_coord = []
-        elif not isinstance(evader_coord, List):
+        elif not isinstance(evader_coord, list):
             evader_coord = [evader_coord]
 
         for coord in evader_coord:
@@ -750,7 +736,7 @@ class PEGrid(Grid):
 
         if pursuer_coord is None:
             pursuer_coord = []
-        elif not isinstance(pursuer_coord, List):
+        elif not isinstance(pursuer_coord, list):
             pursuer_coord = [pursuer_coord]
 
         for coord in pursuer_coord:
@@ -773,7 +759,7 @@ class PEGrid(Grid):
         direction: Direction,
         widening_increment: int,
         max_depth: int,
-    ) -> Set[Coord]:
+    ) -> set[Coord]:
         """Get the Field of vision from origin looking in given direction.
 
         Uses BFS starting from origin and expanding in the direction, while
@@ -784,7 +770,7 @@ class PEGrid(Grid):
         assert max_depth > 0
         fov = {origin}
 
-        frontier_queue: Deque[Coord] = deque([origin])
+        frontier_queue: deque[Coord] = deque([origin])
         visited = {origin}
 
         while len(frontier_queue):
@@ -806,7 +792,7 @@ class PEGrid(Grid):
         coord: Coord,
         widening_increment: int,
         max_depth: int,
-    ) -> List[Coord]:
+    ) -> list[Coord]:
         if direction in [Direction.NORTH, Direction.SOUTH]:
             depth = abs(origin[1] - coord[1])
         else:
@@ -827,20 +813,20 @@ class PEGrid(Grid):
             # Don't expand sideways
             return successors
 
-        side_coords_list: List[Coord] = []
+        side_coords_list: list[Coord] = []
 
         if direction in [Direction.NORTH, Direction.SOUTH]:
             if 0 < coord[0] <= origin[0]:
                 side_coords_list.append((coord[0] - 1, coord[1]))
             if origin[0] <= coord[0] < self.width - 1:
                 side_coords_list.append((coord[0] + 1, coord[1]))
-        else:
-            if 0 < coord[1] <= origin[1]:
-                side_coords_list.append((coord[0], coord[1] - 1))
-            elif origin[1] <= coord[1] < self.height - 1:
-                side_coords_list.append((coord[0], coord[1] + 1))
 
-        side_successor: Optional[Coord] = None
+        elif 0 < coord[1] <= origin[1]:
+            side_coords_list.append((coord[0], coord[1] - 1))
+        elif origin[1] <= coord[1] < self.height - 1:
+            side_coords_list.append((coord[0], coord[1] + 1))
+
+        side_successor: Coord | None = None
         for side_coord in side_coords_list:
             if side_coord in self.block_coords:
                 continue
@@ -851,7 +837,7 @@ class PEGrid(Grid):
 
         return successors
 
-    def _get_fov_successor(self, coord: Coord, direction: Direction) -> Optional[Coord]:
+    def _get_fov_successor(self, coord: Coord, direction: Direction) -> Coord | None:
         new_coord = self.get_next_coord(coord, direction, ignore_blocks=False)
         if new_coord == coord:
             # move in given direction is blocked or out-of-bounds
@@ -989,9 +975,9 @@ def _convert_map_to_grid(
     height: int,
     width: int,
     block_symbol: str = "#",
-    pursuer_start_symbols: Optional[Set[str]] = None,
-    evader_start_symbols: Optional[Set[str]] = None,
-    evader_goal_symbol_map: Optional[Dict] = None,
+    pursuer_start_symbols: set[str] | None = None,
+    evader_start_symbols: set[str] | None = None,
+    evader_goal_symbol_map: dict | None = None,
 ) -> PEGrid:
     assert len(ascii_map) == height * width
 
@@ -1041,7 +1027,6 @@ def _convert_map_to_grid(
     )
 
 
-# grid_name: (grid_make_fn, step_limit)
 SUPPORTED_GRIDS: SupportedGridTypes[PEGrid] = {
     "8x8": (get_8x8_grid, 50),
     "16x16": (get_16x16_grid, 100),

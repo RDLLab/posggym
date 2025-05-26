@@ -6,7 +6,7 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/test_rend
 import numpy as np
 import pytest
 from posggym.envs.registration import EnvSpec
-from posggym.logger import warn
+from posggym.logger import warning
 
 from tests.envs.utils import all_testing_env_specs
 
@@ -32,7 +32,7 @@ def check_rendered(rendered_frame, mode: str):
         assert isinstance(rendered_frame, str)
         assert len(rendered_frame) > 0
     else:
-        warn(
+        warning(
             f"Unknown render mode: {mode}, cannot check that the rendered data is "
             "correct. Add case to `check_rendered`"
         )
@@ -43,8 +43,6 @@ def check_rendered(rendered_frame, mode: str):
 )
 def test_render_modes(spec: EnvSpec):
     env = spec.make(disable_env_checker=True)
-
-    # assert "rgb_array" in env.metadata["render_modes"]
 
     for mode in env.metadata["render_modes"]:
         if mode != "human":

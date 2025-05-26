@@ -11,7 +11,7 @@ Best-Response Diversity https://openreview.net/pdf?id=l5BzfQhROl
 from __future__ import annotations
 
 import random
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING
 
 from posggym.agents.policy import Policy, PolicyID, PolicyState
 from posggym.agents.utils import action_distributions
@@ -26,6 +26,7 @@ from posggym.envs.grid_world.cooperative_reaching import (
     CRObs,
 )
 
+
 if TYPE_CHECKING:
     from posggym.envs.grid_world.core import Coord
 
@@ -39,7 +40,7 @@ class CRHeuristicPolicy(Policy[CRAction, CRObs]):
 
     def __init__(
         self, model: CooperativeReachingModel, agent_id: str, policy_id: PolicyID
-    ):
+    ) -> None:
         super().__init__(model, agent_id, policy_id)
         self._rng = random.Random()
         self.grid_size = model.size
@@ -83,7 +84,7 @@ class CRHeuristicPolicy(Policy[CRAction, CRObs]):
             f"`get_value()` no implemented by {self.__class__.__name__} policy"
         )
 
-    def _move_towards(self, target_pos: Coord, agent_pos: Coord) -> List[CRAction]:
+    def _move_towards(self, target_pos: Coord, agent_pos: Coord) -> list[CRAction]:
         """Get list of actions that move towards target_pos from agent_pos."""
         valid_actions = []
         if target_pos[1] < agent_pos[1]:
@@ -100,7 +101,7 @@ class CRHeuristicPolicy(Policy[CRAction, CRObs]):
             valid_actions.append(DO_NOTHING)
         return valid_actions
 
-    def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
+    def _get_target_pos(self, obs: CRObs, target_goal: Coord | None) -> Coord:
         """Get target position from observation."""
         raise NotImplementedError
 
@@ -145,7 +146,7 @@ class CRHeuristicPolicy(Policy[CRAction, CRObs]):
         desired_dist_to_goal = min(dist_to_goal) if closest else max(dist_to_goal)
         valid_target_goals = [
             g
-            for g, dist in zip(goal_list, dist_to_goal)
+            for g, dist in zip(goal_list, dist_to_goal, strict=False)
             if dist == desired_dist_to_goal
         ]
         return self._rng.choice(valid_target_goals)
@@ -154,7 +155,7 @@ class CRHeuristicPolicy(Policy[CRAction, CRObs]):
 class CRHeuristic1(CRHeuristicPolicy):
     """H1 always goes to the closest rewarding goal."""
 
-    def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
+    def _get_target_pos(self, obs: CRObs, target_goal: Coord | None) -> Coord:
         if target_goal is None:
             target_goal = self._get_target_goal(obs, closest=True, optimal=None)
         return target_goal
@@ -163,7 +164,7 @@ class CRHeuristic1(CRHeuristicPolicy):
 class CRHeuristic2(CRHeuristicPolicy):
     """H2 always goes to the furthest rewarding goal."""
 
-    def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
+    def _get_target_pos(self, obs: CRObs, target_goal: Coord | None) -> Coord:
         if target_goal is None:
             target_goal = self._get_target_goal(obs, closest=False, optimal=None)
         return target_goal
@@ -172,7 +173,7 @@ class CRHeuristic2(CRHeuristicPolicy):
 class CRHeuristic3(CRHeuristicPolicy):
     """H3 always goes to the closest optimal goal."""
 
-    def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
+    def _get_target_pos(self, obs: CRObs, target_goal: Coord | None) -> Coord:
         if target_goal is None:
             target_goal = self._get_target_goal(obs, closest=True, optimal=True)
         return target_goal
@@ -181,7 +182,7 @@ class CRHeuristic3(CRHeuristicPolicy):
 class CRHeuristic4(CRHeuristicPolicy):
     """H4 always goes to the furthest optimal goal."""
 
-    def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
+    def _get_target_pos(self, obs: CRObs, target_goal: Coord | None) -> Coord:
         if target_goal is None:
             target_goal = self._get_target_goal(obs, closest=False, optimal=True)
         return target_goal
@@ -190,7 +191,7 @@ class CRHeuristic4(CRHeuristicPolicy):
 class CRHeuristic5(CRHeuristicPolicy):
     """H5 always goes to the closest suboptimal goal."""
 
-    def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
+    def _get_target_pos(self, obs: CRObs, target_goal: Coord | None) -> Coord:
         if target_goal is None:
             target_goal = self._get_target_goal(obs, closest=True, optimal=False)
         return target_goal
@@ -199,7 +200,7 @@ class CRHeuristic5(CRHeuristicPolicy):
 class CRHeuristic6(CRHeuristicPolicy):
     """H6 always goes to the furthest suboptimal goal."""
 
-    def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
+    def _get_target_pos(self, obs: CRObs, target_goal: Coord | None) -> Coord:
         if target_goal is None:
             target_goal = self._get_target_goal(obs, closest=False, optimal=False)
         return target_goal
@@ -208,7 +209,7 @@ class CRHeuristic6(CRHeuristicPolicy):
 class CRHeuristic7(CRHeuristicPolicy):
     """H7 goes to a randomly selected goal."""
 
-    def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
+    def _get_target_pos(self, obs: CRObs, target_goal: Coord | None) -> Coord:
         if target_goal is None:
             target_goal = self._rng.choice(list(self.goals))
         return target_goal
@@ -217,7 +218,7 @@ class CRHeuristic7(CRHeuristicPolicy):
 class CRHeuristic8(CRHeuristicPolicy):
     """H8 goes to the goal closest to the other agent at each time step."""
 
-    def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
+    def _get_target_pos(self, obs: CRObs, target_goal: Coord | None) -> Coord:
         other_pos = obs[1]
         if other_pos == (self.grid_size, self.grid_size):
             # cannot see other agent, so just go towards a random goal
@@ -229,7 +230,9 @@ class CRHeuristic8(CRHeuristicPolicy):
         ]
         min_dist_to_goal = min(dist_to_goal)
         closest_goals = [
-            g for g, dist in zip(self.goals, dist_to_goal) if dist == min_dist_to_goal
+            g
+            for g, dist in zip(self.goals, dist_to_goal, strict=False)
+            if dist == min_dist_to_goal
         ]
         return self._rng.choice(closest_goals)
 
@@ -237,7 +240,7 @@ class CRHeuristic8(CRHeuristicPolicy):
 class CRHeuristic9(CRHeuristicPolicy):
     """H9 goes to the optimal goal closest to the other agent."""
 
-    def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
+    def _get_target_pos(self, obs: CRObs, target_goal: Coord | None) -> Coord:
         other_pos = obs[1]
         if other_pos == (self.grid_size, self.grid_size):
             # cannot see other agent, so just go towards a random optimal goal
@@ -255,7 +258,9 @@ class CRHeuristic9(CRHeuristicPolicy):
         ]
         min_dist_to_goal = min(dist_to_goal)
         closest_goals = [
-            g for g, dist in zip(goal_list, dist_to_goal) if dist == min_dist_to_goal
+            g
+            for g, dist in zip(goal_list, dist_to_goal, strict=False)
+            if dist == min_dist_to_goal
         ]
         return self._rng.choice(closest_goals)
 
@@ -263,7 +268,7 @@ class CRHeuristic9(CRHeuristicPolicy):
 class CRHeuristic10(CRHeuristicPolicy):
     """H10 goes to the sub-optimal goal closest to the other agent."""
 
-    def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
+    def _get_target_pos(self, obs: CRObs, target_goal: Coord | None) -> Coord:
         other_pos = obs[1]
         if other_pos == (self.grid_size, self.grid_size):
             # cannot see other agent, so just go towards a random optimal goal
@@ -281,7 +286,9 @@ class CRHeuristic10(CRHeuristicPolicy):
         ]
         min_dist_to_goal = min(dist_to_goal)
         closest_goals = [
-            g for g, dist in zip(goal_list, dist_to_goal) if dist == min_dist_to_goal
+            g
+            for g, dist in zip(goal_list, dist_to_goal, strict=False)
+            if dist == min_dist_to_goal
         ]
         return self._rng.choice(closest_goals)
 
@@ -289,7 +296,7 @@ class CRHeuristic10(CRHeuristicPolicy):
 class CRHeuristic11(CRHeuristicPolicy):
     """H11 follows the other agent."""
 
-    def _get_target_pos(self, obs: CRObs, target_goal: Optional[Coord]) -> Coord:
+    def _get_target_pos(self, obs: CRObs, target_goal: Coord | None) -> Coord:
         other_pos = obs[1]
         if other_pos == (self.grid_size, self.grid_size):
             # cannot see other agent, so just go towards a random goal

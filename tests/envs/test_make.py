@@ -7,11 +7,12 @@ import re
 import warnings
 from copy import deepcopy
 
-import pytest
-
 import posggym
+import pytest
 from posggym.envs.classic import mabc
+from posggym.utils.torch_utils import maybe_expand_dims
 from posggym.wrappers import OrderEnforcing, PassiveEnvChecker, TimeLimit
+
 from tests.envs.test_envs import PASSIVE_CHECK_IGNORE_WARNING
 from tests.envs.utils import all_testing_env_specs
 from tests.envs.utils_envs import ArgumentEnv, RegisterDuringMakeEnv
@@ -20,7 +21,7 @@ from tests.wrappers.utils import has_wrapper
 
 @pytest.fixture(scope="function")
 def register_make_testing_envs():
-    """Registers testing envs for `posggym.make`"""
+    """Registers testing envs for `posggym.make`."""
     posggym.register(
         "DummyEnv-v0",
         entry_point="tests.envs.utils_envs:DummyEnv",
@@ -165,7 +166,13 @@ def test_passive_checker_wrapper_warnings(spec):
     with warnings.catch_warnings(record=True) as caught_warnings:
         env = posggym.make(spec)  # disable_env_checker=False
         env.reset()
-        env.step({i: env.action_spaces[i].sample() for i in env.agents})
+
+        env.step(
+            {
+                i: maybe_expand_dims(env, env.action_spaces[i].sample())
+                for i in env.agents
+            }
+        )
         env.close()
 
     for warning in caught_warnings:
@@ -240,26 +247,16 @@ def test_make_render_mode(register_make_testing_envs):
 # Add this test when it is
 # def test_make_human_rendering(register_make_testing_envs):
 #     # Make sure that native rendering is used when possible
-#     env = posggym.make("MultiAccessBroadcastChannel-v0", render_mode="human")
-#     assert not has_wrapper(env, HumanRendering)  # Should use native human-rendering
-#     assert env.render_mode == "human"
-#     env.close()
 
 #     with pytest.warns(
 #         UserWarning,
-#         match=re.escape(
 #             "You are trying to use 'human' rendering for an environment that doesn't "
 #             "natively support it. The HumanRendering wrapper is being applied to "
 #             " your environment."
 #         ),
 #     ):
 #         # Make sure that `HumanRendering` is applied here
-#         env = posggym.make(
-#             "test/NoHuman-v0", render_mode="human"
 #         )  # This environment doesn't use native rendering
-#         assert has_wrapper(env, HumanRendering)
-#         assert env.render_mode == "human"
-#         env.close()
 
 
 def test_make_kwargs(register_make_testing_envs):

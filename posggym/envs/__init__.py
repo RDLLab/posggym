@@ -8,6 +8,7 @@ import math
 
 from posggym.envs.registration import make, pprint_registry, register, registry, spec
 
+
 # Classic
 # -------------------------------------------
 
@@ -31,10 +32,10 @@ register(
     entry_point="posggym.envs.continuous.driving_continuous:DrivingContinuousEnv",
     max_episode_steps=100,
     kwargs={
-        "world": "14x14Empty",
+        "world": "14x14RoundAbout",
         "num_agents": 2,
-        "obs_dist": 15.0,
-        "n_sensors": 32,
+        "obs_dist": 5.0,
+        "n_sensors": 16,
     },
 )
 
@@ -80,6 +81,17 @@ register(
         "normalize_reward": True,
         "use_progress_reward": True,
     },
+)
+
+
+# Differentiable
+# -------------------------------------------
+
+register(
+    id="PredatorPreyDifferentiable-v0",
+    entry_point="posggym.envs.differentiable.predator_prey_diff:PredatorPreyDiff",
+    max_episode_steps=100,
+    kwargs={"world": "10x10", "batch_size": 1},
 )
 
 # Grid World

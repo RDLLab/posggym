@@ -5,9 +5,8 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/test_spec
 """
 import re
 
-import pytest
-
 import posggym
+import pytest
 
 
 def test_spec():
@@ -34,7 +33,7 @@ def test_spec_missing_lookup():
     posggym.register(id="Other1-v100", entry_point="no-entry-point")
 
     with pytest.raises(
-        posggym.error.DeprecatedEnv,
+        posggym.error.DeprecatedEnvError,
         match=re.escape(
             "Environment version v1 for `Test1` is deprecated. Please use `Test1-v15` "
             "instead."
@@ -43,7 +42,7 @@ def test_spec_missing_lookup():
         posggym.spec("Test1-v1")
 
     with pytest.raises(
-        posggym.error.UnregisteredEnv,
+        posggym.error.UnregisteredEnvError,
         match=re.escape(
             "Environment version `v1000` for environment `Test1` doesn't exist. "
             "It provides versioned environments: [ `v0`, `v9`, `v15` ]."
@@ -52,7 +51,7 @@ def test_spec_missing_lookup():
         posggym.spec("Test1-v1000")
 
     with pytest.raises(
-        posggym.error.UnregisteredEnv,
+        posggym.error.UnregisteredEnvError,
         match=re.escape("Environment Unknown1 doesn't exist. "),
     ):
         posggym.spec("Unknown1-v1")
@@ -75,7 +74,7 @@ def test_spec_versioned_lookups():
     posggym.register("test/Test2-v5", "no-entry-point")
 
     with pytest.raises(
-        posggym.error.VersionNotFound,
+        posggym.error.VersionNotFoundError,
         match=re.escape(
             "Environment version `v9` for environment `test/Test2` doesn't exist. "
             "It provides versioned environments: [ `v5` ]."
@@ -84,7 +83,7 @@ def test_spec_versioned_lookups():
         posggym.spec("test/Test2-v9")
 
     with pytest.raises(
-        posggym.error.DeprecatedEnv,
+        posggym.error.DeprecatedEnvError,
         match=re.escape(
             "Environment version v4 for `test/Test2` is deprecated. Please use "
             "`test/Test2-v5` instead."
@@ -99,7 +98,7 @@ def test_spec_default_lookups():
     posggym.register("test/Test3", "no-entry-point")
 
     with pytest.raises(
-        posggym.error.DeprecatedEnv,
+        posggym.error.DeprecatedEnvError,
         match=re.escape(
             "Environment version `v0` for environment `test/Test3` doesn't exist. "
             "It provides the default version test/Test3`."

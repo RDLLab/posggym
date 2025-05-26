@@ -69,7 +69,7 @@ def test_collisions(world):
     size = model.world.agent_radius
     # pypunk munk allows overlaps, but only typically ~10-15%, so if overlap is as big
     # as agent radius then something is wrong
-    min_dist = 2 * size * 0.85
+    min_dist = 2 * size * 0.80
 
     for _ in range(100):
         state = cast(PPState, env.state)

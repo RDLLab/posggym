@@ -35,7 +35,6 @@ Example 3. To run 10 episodes of every agent that is compatible with the
 """
 
 import argparse
-from typing import Dict, Optional, Tuple
 
 import posggym
 import posggym.agents as pga
@@ -43,8 +42,8 @@ from posggym.agents.registration import PolicySpec
 
 
 def try_make_policy(
-    spec: PolicySpec, render_mode: Optional[str]
-) -> Tuple[Optional[posggym.Env], Optional[Dict[str, pga.Policy]]]:
+    spec: PolicySpec, render_mode: str | None
+) -> tuple[posggym.Env | None, dict[str, pga.Policy] | None]:
     """Tries to make the policy showing if it is possible."""
     try:
         env_id = "Driving-v1" if spec.env_id is None else spec.env_id
@@ -62,10 +61,10 @@ def try_make_policy(
         return env, policies
     except (
         ImportError,
-        posggym.error.DependencyNotInstalled,
-        posggym.error.MissingArgument,
+        posggym.error.DependencyNotInstalledError,
+        posggym.error.MissingArgumentError,
     ) as e:
-        posggym.logger.warn(
+        posggym.logger.warning(
             f"Not testing posggym.agents policy spec `{spec.id}` due to error: {e}"
         )
     except RuntimeError as e:
@@ -78,8 +77,8 @@ def try_make_policy(
 def run_policy(
     spec: PolicySpec,
     num_episodes: int,
-    seed: Optional[int],
-    render_mode: Optional[str] = "human",
+    seed: int | None,
+    render_mode: str | None = "human",
 ):
     """Run a posggym.policy."""
     print(f"Running policy={spec.id}")
@@ -127,9 +126,9 @@ def run_policy(
 
 
 def run_all_agents(
-    env_id_prefix: Optional[str],
+    env_id_prefix: str | None,
     num_episodes: int,
-    seed: Optional[int],
+    seed: int | None,
     render_mode: str = "human",
 ):
     """Run all agents."""

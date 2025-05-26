@@ -25,7 +25,7 @@ def test_make_rllib_multi_agent_env(spec):
             from posggym.posggym.wrappers.rllib_env import RllibMultiAgentEnv
             from ray.rllib.utils.pre_checks.env import check_env
     except ImportError as e:
-        pytest.skip(f"ray[rllib] not installed.: {str(e)}")
+        pytest.skip(f"ray[rllib] not installed.: {e!s}")
 
     env = posggym.make(spec.id, disable_env_checker=True)
     rllib_env = RllibMultiAgentEnv(env)

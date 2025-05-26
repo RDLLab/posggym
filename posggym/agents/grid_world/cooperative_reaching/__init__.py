@@ -2,6 +2,7 @@
 from posggym.agents.grid_world.cooperative_reaching import heuristic
 from posggym.agents.registration import PolicySpec
 
+
 policy_specs = {}
 for policy_class in [
     heuristic.CRHeuristic1,

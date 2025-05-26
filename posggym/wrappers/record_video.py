@@ -5,12 +5,15 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/wrappers/r
 
 """
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional, Union
 
 from posggym import logger
 from posggym.core import Env, Wrapper
 from posggym.wrappers.monitoring.video_recorder import VideoRecorder
+
+
+CUBIC_SCHEDULE_THRESHOLD = 1000
 
 
 def capped_cubic_video_schedule(episode_id: int) -> bool:
@@ -20,36 +23,36 @@ def capped_cubic_video_schedule(episode_id: int) -> bool:
     the 1000th episode, then every 1000 episodes after that:
     0, 1, 8, 27, 64, 125, 216, 343, 512, 729, 1000, 2000, 3000, ...
 
-    Arguments
+    Arguments:
     ---------
     episode_id: int
         The episode number
 
-    Returns
+    Returns:
     -------
     bool
         Whether to record episode or not.
 
     """
-    if episode_id < 1000:
+    if episode_id < CUBIC_SCHEDULE_THRESHOLD:
         return int(round(episode_id ** (1.0 / 3))) ** 3 == episode_id
     else:
-        return episode_id % 1000 == 0
+        return episode_id % CUBIC_SCHEDULE_THRESHOLD == 0
 
 
 class RecordVideo(Wrapper):
     """Wrapper for recording videos of rollouts.
 
-    Arguments
+    Arguments:
     ---------
     env: posggym.Env
         The environment that will be wrapped
     video_folder: str
         The folder where the recordings will be stored
-    episode_trigger: Optional[Callable[[int], bool]]
+    episode_trigger: Callable[[int], bool] | None
         Function that accepts an integer and returns ``True`` iff a recording should be
         started at this episode
-    step_trigger: Optional[Callable[[int], bool]]
+    step_trigger: Callable[[int], bool] | None
         Function that accepts an integer and returns ``True`` iff a recording should be
         started at this step
     video_length: int
@@ -60,7 +63,7 @@ class RecordVideo(Wrapper):
     disable_logger: bool
         Whether to disable moviepy logger or not.
 
-    Note
+    Note:
     ----
     This implementation is based on the gymnasium.wrappers.RecordVideo (version
     gymnasium 0.27) wrapper, adapted here to work with posggym's multiagent environment:
@@ -71,13 +74,13 @@ class RecordVideo(Wrapper):
     def __init__(
         self,
         env: Env,
-        video_folder: Union[Path, str],
-        episode_trigger: Optional[Callable[[int], bool]] = None,
-        step_trigger: Optional[Callable[[int], bool]] = None,
+        video_folder: Path | str,
+        episode_trigger: Callable[[int], bool] | None = None,
+        step_trigger: Callable[[int], bool] | None = None,
         video_length: int = 0,
         name_prefix: str = "posggym-video",
         disable_logger: bool = False,
-    ):
+    ) -> None:
         super().__init__(env)
 
         if episode_trigger is None and step_trigger is None:
@@ -88,7 +91,7 @@ class RecordVideo(Wrapper):
 
         self.episode_trigger = episode_trigger
         self.step_trigger = step_trigger
-        self.video_recorder: Optional[VideoRecorder] = None
+        self.video_recorder: VideoRecorder | None = None
         self.disable_logger = disable_logger
 
         if isinstance(video_folder, str):
@@ -97,7 +100,7 @@ class RecordVideo(Wrapper):
         self.video_folder = video_folder
         # Create output folder if needed
         if self.video_folder.is_dir():
-            logger.warn(
+            logger.warning(
                 f"Overwriting existing videos at {self.video_folder} folder (try "
                 "specifying a different `video_folder` for the `RecordVideo` wrapper "
                 "if this is not desired)"

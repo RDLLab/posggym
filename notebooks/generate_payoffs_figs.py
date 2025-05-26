@@ -4,12 +4,13 @@ import argparse
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from posggym.config import BASE_RESULTS_DIR, REPO_DIR
 
+
 sys.path.append(str(REPO_DIR / "notebooks"))
-import plot_utils  # noqa: E402
+import plot_utils
+
 
 results_dir = REPO_DIR / "notebooks" / "results" / "pairwise_agent_comparison"
 
@@ -70,7 +71,7 @@ def generate_fig(
             )
 
 
-def main(env_id: Optional[str], output_dir: Optional[str] = None):
+def main(env_id: str | None, output_dir: Path | None = None):
     available_env_result_dirs = [x.name for x in results_dir.glob("*")]
     available_env_result_dirs.sort()
 
@@ -98,10 +99,10 @@ def main(env_id: Optional[str], output_dir: Optional[str] = None):
             result_file = result_path.name
             print(f"Generating figures for {result_file}")
 
-            df = plot_utils.import_results(result_path)
+            results_df = plot_utils.import_results(result_path)
 
             generate_fig(
-                df,
+                results_df,
                 env_output_dir,
                 result_file,
                 policy_key="policy_name",
@@ -109,7 +110,7 @@ def main(env_id: Optional[str], output_dir: Optional[str] = None):
             )
 
             generate_fig(
-                df,
+                results_df,
                 env_output_dir,
                 result_file,
                 policy_key="policy_type",

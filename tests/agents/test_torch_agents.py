@@ -33,7 +33,7 @@ def test_policy(spec: PolicySpec):
     obs, _ = env.reset(seed=SEED)
 
     if spec.valid_agent_ids:
-        test_agent_id = list(set(env.agents).intersection(spec.valid_agent_ids))[0]
+        test_agent_id = next(iter(set(env.agents).intersection(spec.valid_agent_ids)))
     else:
         test_agent_id = env.agents[0]
 
@@ -95,7 +95,7 @@ def test_policy_determinism_rollout(spec: PolicySpec):
     env_2.reset(seed=SEED)
 
     if spec.valid_agent_ids:
-        agent_id = list(set(env_1.agents).intersection(spec.valid_agent_ids))[0]
+        agent_id = next(iter(set(env_1.agents).intersection(spec.valid_agent_ids)))
     else:
         agent_id = env_1.agents[0]
 

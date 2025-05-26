@@ -4,12 +4,12 @@ Adapted from:
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/wrappers/test_order_enforcing.py
 
 """
-import pytest
-
 import posggym
+import pytest
 from posggym.envs.classic.mabc import MABCEnv
-from posggym.error import ResetNeeded
+from posggym.error import ResetNeededError
 from posggym.wrappers import OrderEnforcing
+
 from tests.envs.utils import all_testing_env_specs
 from tests.wrappers.utils import has_wrapper
 
@@ -36,9 +36,9 @@ def test_order_enforcing():
     # Assert that the order enforcing works for step and render before reset
     order_enforced_env = OrderEnforcing(env)
     assert order_enforced_env.has_reset is False
-    with pytest.raises(ResetNeeded):
+    with pytest.raises(ResetNeededError):
         order_enforced_env.step({i: 0 for i in env.possible_agents})
-    with pytest.raises(ResetNeeded):
+    with pytest.raises(ResetNeededError):
         order_enforced_env.render()
     assert order_enforced_env.has_reset is False
 

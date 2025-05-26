@@ -8,21 +8,14 @@ from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Dict,
-    List,
     NamedTuple,
-    Optional,
-    Tuple,
-    Type,
-    Union,
 )
 
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from gymnasium import spaces
+from torch import nn
 from torch.distributions import Categorical, Normal
 
 from posggym import logger
@@ -32,18 +25,25 @@ from posggym.agents.utils import action_distributions, processors
 from posggym.agents.utils.download import download_from_repo
 from posggym.utils import seeding
 
+
+BATCH_OBSERVATION_DIMENSION = 2
+SINGLE_OBSERVATION_DIMENSION = 1
+MIN_CUDA_VERSION = 10.2
+
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     import posggym.model as M
 
 
 class PPOTorchModelSaveFileFormat(NamedTuple):
     """Format for saving and loading POSGGym PPOLSTMModel."""
 
-    weights: Dict[str, Any]
-    trunk_sizes: List[int]
+    weights: dict[str, Any]
+    trunk_sizes: list[int]
     lstm_size: int
     lstm_layers: int
-    head_sizes: List[int]
+    head_sizes: list[int]
     activation: str
     lstm_use_prev_action: bool
     lstm_use_prev_reward: bool
@@ -73,14 +73,14 @@ class PPOLSTMModel(nn.Module):
         self,
         obs_space: spaces.Space,
         action_space: spaces.Space,
-        trunk_sizes: List[int],
+        trunk_sizes: list[int],
         lstm_size: int,
         lstm_layers: int,
-        head_sizes: List[int],
+        head_sizes: list[int],
         activation: str,
         lstm_use_prev_action: bool,
         lstm_use_prev_reward: bool,
-    ):
+    ) -> None:
         assert isinstance(obs_space, spaces.Box) and len(obs_space.shape) == 1, (
             "Only 1D Box observation spaces are supported for PPO PyTorch Policy "
             "models. Look into using `gymansium.spaces.flatten_space` to flatten your "
@@ -112,7 +112,7 @@ class PPOLSTMModel(nn.Module):
                 "Expected either Discrete, MultiDiscrete, or Box."
             )
 
-        activation_fn: Optional[Callable] = None
+        activation_fn: Callable | None = None
         if activation == "tanh":
             activation_fn = nn.Tanh
         elif activation == "relu":
@@ -167,16 +167,16 @@ class PPOLSTMModel(nn.Module):
 
     def get_next_state(
         self,
-        obs: Union[np.ndarray, torch.Tensor],
-        lstm_state: Tuple[torch.Tensor, torch.Tensor],
-        prev_action: Optional[Union[np.ndarray, torch.Tensor]] = None,
-        prev_reward: Optional[Union[np.ndarray, torch.Tensor]] = None,
-    ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        obs: np.ndarray | torch.Tensor,
+        lstm_state: tuple[torch.Tensor, torch.Tensor],
+        prev_action: np.ndarray | torch.Tensor | None = None,
+        prev_reward: np.ndarray | torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
         """Get next lstm output and state.
 
         If obs is not batched, adds batch dimension with batch size of 1.
 
-        Arguments
+        Arguments:
         ---------
         obs
             the observation, shape=(batch_size, obs_size) | (obs_size, )
@@ -188,7 +188,7 @@ class PPOLSTMModel(nn.Module):
         prev_reward
             the previous reward, shape=(batch_size, 1) | (1, )
 
-        Returns
+        Returns:
         -------
         lstm_output
             the lstm output, shape=(batch_size, cell_size)
@@ -199,11 +199,11 @@ class PPOLSTMModel(nn.Module):
         if isinstance(obs, np.ndarray):
             obs = torch.tensor(obs, dtype=torch.float32)
 
-        if len(obs.shape) == 1:
+        if len(obs.shape) == SINGLE_OBSERVATION_DIMENSION:
             # Single observation
             # Add batch and sequence length dimensions
             obs = obs.reshape(1, 1, -1)
-        elif len(obs.shape) == 2:
+        elif len(obs.shape) == BATCH_OBSERVATION_DIMENSION:
             # Batch of observations
             # Add sequence length dimension
             obs = obs.unsqueeze(1)
@@ -212,7 +212,7 @@ class PPOLSTMModel(nn.Module):
 
         prev_action_reward = []
         if self.use_prev_action:
-            if isinstance(self.action_space, (spaces.Discrete, spaces.MultiDiscrete)):
+            if isinstance(self.action_space, spaces.Discrete | spaces.MultiDiscrete):
                 # One-hot encode discrete actions
                 prev_action = F.one_hot(
                     torch.tensor(prev_action, dtype=torch.int64),
@@ -227,7 +227,7 @@ class PPOLSTMModel(nn.Module):
             )
 
         if len(prev_action_reward) > 0:
-            hidden = torch.cat([hidden] + prev_action_reward, dim=-1)
+            hidden = torch.cat([hidden, *prev_action_reward], dim=-1)
 
         lstm_output, lstm_state = self.lstm(hidden, lstm_state)
         # remove sequence length dimension
@@ -236,16 +236,16 @@ class PPOLSTMModel(nn.Module):
 
     def get_value(
         self,
-        obs: Union[np.ndarray, torch.Tensor],
-        lstm_state: Tuple[torch.Tensor, torch.Tensor],
-        prev_action: Optional[Union[np.ndarray, torch.Tensor]] = None,
-        prev_reward: Optional[Union[np.ndarray, torch.Tensor]] = None,
+        obs: np.ndarray | torch.Tensor,
+        lstm_state: tuple[torch.Tensor, torch.Tensor],
+        prev_action: np.ndarray | torch.Tensor | None = None,
+        prev_reward: np.ndarray | torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Get value function output.
 
         If input is not batched, then adds batch dimension with batch size of 1.
 
-        Arguments
+        Arguments:
         ---------
         obs
             the observation, shape=(batch_size, obs_size) | (obs_size, )
@@ -257,7 +257,7 @@ class PPOLSTMModel(nn.Module):
         prev_reward
             the previous reward, shape=(batch_size, 1) | (1, )
 
-        Returns
+        Returns:
         -------
         value
             output of value function, shape=(batch_size, 1)
@@ -268,19 +268,19 @@ class PPOLSTMModel(nn.Module):
 
     def get_action_and_value(
         self,
-        obs: Union[np.ndarray, torch.Tensor],
-        lstm_state: Tuple[torch.Tensor, torch.Tensor],
-        prev_action: Optional[Union[np.ndarray, torch.Tensor]] = None,
-        prev_reward: Optional[Union[np.ndarray, torch.Tensor]] = None,
+        obs: np.ndarray | torch.Tensor,
+        lstm_state: tuple[torch.Tensor, torch.Tensor],
+        prev_action: np.ndarray | torch.Tensor | None = None,
+        prev_reward: np.ndarray | torch.Tensor | None = None,
         deterministic: bool = False,
-    ) -> Tuple[
-        torch.Tensor, Tuple[torch.Tensor, torch.Tensor], torch.Tensor, torch.Tensor
+    ) -> tuple[
+        torch.Tensor, tuple[torch.Tensor, torch.Tensor], torch.Tensor, torch.Tensor
     ]:
         """Get next action and value.
 
         If input is not batched, then adds batch dimension with batch size of 1.
 
-        Arguments
+        Arguments:
         ---------
         obs
             the observation, shape=(batch_size, obs_size) | (obs_size, )
@@ -295,7 +295,7 @@ class PPOLSTMModel(nn.Module):
             whether to sample action from action distribution or deterministicly select
             action with highest probability.
 
-        Returns
+        Returns:
         -------
         action
             next action, shape=(batch_size, action_size)
@@ -342,15 +342,15 @@ class PPOLSTMModel(nn.Module):
 
     def get_initial_state(
         self, batch_size: int = 1
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Get the initial LSTM state.
 
-        Arguments
+        Arguments:
         ---------
         batch_size
             the batch size of the LSTM state
 
-        Returns
+        Returns:
         -------
         initial_state
             the initial LSTM state, this is a tuple of two tensors, each with
@@ -366,7 +366,7 @@ class PPOLSTMModel(nn.Module):
 class PPOPolicy(Policy[ActType, ObsType]):
     """A PyTorch PPO Policy.
 
-    Arguments
+    Arguments:
     ---------
     model
         the model of the environment
@@ -398,7 +398,7 @@ class PPOPolicy(Policy[ActType, ObsType]):
         obs_processor: processors.Processor | None = None,
         action_processor: processors.Processor | None = None,
         deterministic: bool = False,
-    ):
+    ) -> None:
         self.policy_model = policy_model
         self.deterministic = deterministic
         self.action_space = model.action_spaces[agent_id]
@@ -442,7 +442,7 @@ class PPOPolicy(Policy[ActType, ObsType]):
                 cuda_version = torch.version.cuda
                 if (
                     cuda_version is not None
-                    and float(cuda_version) >= 10.2
+                    and float(cuda_version) >= MIN_CUDA_VERSION
                     and (
                         "CUBLAS_WORKSPACE_CONFIG" not in os.environ
                         or (
@@ -530,10 +530,10 @@ class PPOPolicy(Policy[ActType, ObsType]):
         policy_id: str,
         policy_file_path: Path,
         deterministic: bool = False,
-        obs_processor_cls: Type[processors.Processor] | None = None,
-        obs_processor_config: Dict[str, Any] | None = None,
-        action_processor_cls: Type[processors.Processor] | None = None,
-        action_processor_config: Dict[str, Any] | None = None,
+        obs_processor_cls: type[processors.Processor] | None = None,
+        obs_processor_config: dict[str, Any] | None = None,
+        action_processor_cls: type[processors.Processor] | None = None,
+        action_processor_config: dict[str, Any] | None = None,
     ) -> PPOPolicy:
         if not policy_file_path.exists():
             logger.info(
@@ -601,17 +601,17 @@ class PPOPolicy(Policy[ActType, ObsType]):
     def get_spec_from_path(
         policy_file_path: Path,
         env_id: str,
-        env_args: Dict[str, Any] | None,
+        env_args: dict[str, Any] | None,
         env_args_id: str | None = None,
         version: int = 0,
-        valid_agent_ids: List[str] | None = None,
+        valid_agent_ids: list[str] | None = None,
         nondeterministic: bool = False,
         description: str | None = None,
         **kwargs,
     ) -> PolicySpec:
         """Load PPO policy spec from policy file.
 
-        Arguments
+        Arguments:
         ---------
         policy_file_path
             Path to the policy file.
@@ -637,7 +637,7 @@ class PPOPolicy(Policy[ActType, ObsType]):
             Additional kwargs, if any, to pass to the agent initializing function.
 
 
-        Returns
+        Returns:
         -------
         spec
             Policy specs for PPO Policy loaded from policy file.

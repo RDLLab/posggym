@@ -7,6 +7,7 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/docs/scripts/gen_env
 import sys
 from pathlib import Path
 
+
 DOCS_DIR = Path(__file__).resolve().parent.parent
 
 all_envs = [
@@ -100,7 +101,7 @@ if __name__ == "__main__":
         type_arg = sys.argv[1]
 
     for env in all_envs:
-        if type_arg == env["id"] or type_arg == "":
+        if type_arg in {env["id"], ""}:
             type_dict_arr.append(env)
 
     for type_dict in type_dict_arr:
@@ -127,7 +128,7 @@ if __name__ == "__main__":
                 env_name = " ".join(type_id.split("_")).title()
                 fp.write(
                     f"# Complete List - {env_name}\n\n"
-                    + "```{raw} html\n:file: complete_list.html\n```"
+                    "```{raw} html\n:file: complete_list.html\n```"
                 )
         else:
             page = generate_page(type_dict)

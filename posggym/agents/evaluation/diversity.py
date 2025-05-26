@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 from itertools import product
-from typing import Dict, List, TYPE_CHECKING
+from typing import TYPE_CHECKING
+
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -14,12 +15,15 @@ import posggym.agents as pga
 from posggym.agents.evaluation import pairwise
 
 
-def measure_return_diversity(
+MIN_POLICIES_FOR_RANDOM = 2
+
+
+def measure_return_diversity(  # noqa: PLR0912
     pw_returns: np.ndarray,
-    policies: List[str],
-    co_teams: List[str],
+    policies: list[str],
+    co_teams: list[str],
     verbose: bool = False,
-) -> Dict[str, np.ndarray]:
+) -> dict[str, np.ndarray]:
     """Measure return diversity for a set of pairwise returns.
 
     Diversity is measured in terms of the Euclidean distance between the pairwise
@@ -41,7 +45,7 @@ def measure_return_diversity(
     # get max and min returns, excluding random policy if it exists
     random_co_team_idxs = []
     random_idx = None
-    if len(policies) > 2 and "Random" in policies:
+    if len(policies) > MIN_POLICIES_FOR_RANDOM and "Random" in policies:
         random_idx = policies.index("Random")
         pw_returns_excl_random = np.delete(pw_returns, random_idx, axis=0)
         random_co_team_idxs = [
@@ -57,7 +61,6 @@ def measure_return_diversity(
 
     if verbose:
         with np.printoptions(precision=2, suppress=True):
-            # print(f"{pw_returns=}")
             print(f"{max_return=:.2f}, {min_return=:.2f}")
 
     # normalize pairwise distributions into [0.0, 1.0]
@@ -90,7 +93,7 @@ def measure_return_diversity(
             print(f"{policy_ed=}")
 
     # Group similar policies by relative MSE
-    if len(policies) > 2 and "Random" in policies:
+    if len(policies) > MIN_POLICIES_FOR_RANDOM and "Random" in policies:
         # exclude random policy from calculating bin sizes for grouping
         pw_ed_excl_random = np.delete(pw_ed, random_idx, axis=0)
         pw_ed_excl_random = np.delete(pw_ed_excl_random, random_idx, axis=1)
@@ -173,14 +176,16 @@ def run_return_diversity_analysis(
                 continue
 
             print(f"  {args_id=}")
-            df = pairwise.load_pairwise_comparison_results(env_id, output_dir, args_id)
+            results_df = pairwise.load_pairwise_comparison_results(
+                env_id, output_dir, args_id
+            )
 
-            if df["symmetric"].unique().tolist()[0]:
+            if results_df["symmetric"].unique().tolist()[0]:
                 # only keep results for one agent
-                agent_ids = df["agent_id"].unique().tolist()
-                df = df[df["agent_id"] == agent_ids[0]]
+                agent_ids = results_df["agent_id"].unique().tolist()
+                results_df = results_df[results_df["agent_id"] == agent_ids[0]]
 
-            pw_returns_per_agent = pairwise.get_pairwise_returns_matrix(df)
+            pw_returns_per_agent = pairwise.get_pairwise_returns_matrix(results_df)
 
             pairwise.generate_pairwise_returns_plot(
                 env_id=env_id,
@@ -202,7 +207,7 @@ def run_return_diversity_analysis(
                 )
                 results[i] = (results_i, policy_ids, co_teams_ids)
 
-            for k in list(results.values())[0][0]:
+            for k in next(iter(results.values()))[0]:
                 fig, axs = plt.subplots(
                     nrows=1,
                     ncols=len(results),
@@ -213,7 +218,7 @@ def run_return_diversity_analysis(
                 for idx, i in enumerate(results):
                     div_results, policy_ids, co_teams_ids = results[i]
 
-                    if len(results) > 2:
+                    if len(results) > MIN_POLICIES_FOR_RANDOM:
                         # only show first policy name for each co-team
                         co_team_labels = [
                             team_id.replace("(", "").replace(")", "").split(",")[0]

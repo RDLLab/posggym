@@ -1,5 +1,5 @@
 """Environment wrapper class that stacks agent observations into a single array."""
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 from gymnasium import spaces
@@ -89,7 +89,7 @@ class StackEnv(posggym.Wrapper):
 
     """
 
-    def __init__(self, env: posggym.Env):
+    def __init__(self, env: posggym.Env) -> None:
         super().__init__(env)
 
         self.num_envs = getattr(env, "num_envs", 1)
@@ -123,12 +123,17 @@ class StackEnv(posggym.Wrapper):
     def step(self, actions):
         # input shape (num_envs * num_agents, *single_action_space.shape)
         # convert to dict of actions, shape (num_envs, *single_action_space.shape)
-        if all(
-            isinstance(
-                self.env.unwrapped.single_action_spaces[key], spaces.MultiDiscrete
+        try:
+            is_multi_discrete = all(
+                isinstance(
+                    self.env.unwrapped.single_action_spaces[key], spaces.MultiDiscrete
+                )
+                for key in self.env.unwrapped.single_action_spaces
             )
-            for key in self.env.unwrapped.single_action_spaces
-        ):
+        except AttributeError:
+            is_multi_discrete = False
+
+        if is_multi_discrete:
             action_map = {
                 i: actions[:, idx, :] for idx, i in enumerate(self.possible_agents)
             }
@@ -147,9 +152,9 @@ class StackEnv(posggym.Wrapper):
             infos,
         )
 
-    def _stack_output(self, output: Dict[str, Any]) -> np.ndarray:
+    def _stack_output(self, output: dict[str, Any]) -> np.ndarray:
         """Stacks the output of the environment into a single array."""
-        x0 = list(output.values())[0]
+        x0 = next(iter(output.values()))
         x0 = x0 if isinstance(x0, np.ndarray) else np.array([x0])
         num_agents = len(self.possible_agents)
         if self.is_vector_env:

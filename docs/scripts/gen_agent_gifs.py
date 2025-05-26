@@ -9,7 +9,7 @@ import argparse
 import re
 from pathlib import Path
 from pprint import pprint
-from typing import Any, Dict, List
+from typing import Any
 
 import posggym
 import posggym.agents as pga
@@ -27,7 +27,7 @@ HEIGHT = 256
 
 def gen_agent_gif(
     env_id: str,
-    policy_ids: List[str],
+    policy_ids: list[str],
     ignore_existing: bool = False,
     length: int = 300,
     custom_env: bool = False,
@@ -43,7 +43,7 @@ def gen_agent_gif(
     for policy_id in policy_ids:
         try:
             pi_spec = pga.spec(policy_id)
-        except posggym.error.NameNotFound as e:
+        except posggym.error.NameNotFoundError as e:
             if "/" not in policy_id:
                 # try prepending env id
                 policy_id = f"{env_id}/{policy_id}"
@@ -65,8 +65,6 @@ def gen_agent_gif(
     env = posggym.make(
         env_id, disable_env_checker=True, render_mode="rgb_array", **env_args
     )
-    # env = posggym.wrappers.RescaleObservations(env, min_obs=-1.0, max_obs=1.0)
-    # env = posggym.wrappers.RescaleActions(env, min_action=-1.0, max_action=1.0)
 
     policies = {}
     for idx, spec in enumerate(policy_specs):
@@ -107,7 +105,7 @@ def gen_agent_gif(
         for _ in range(repeat):
             frames.append(Image.fromarray(frame))
 
-        actions: Dict[str, Any] = {}
+        actions: dict[str, Any] = {}
         for i in env.agents:
             if policies[i].observes_state:
                 actions[i] = policies[i].step(env.state)

@@ -1,19 +1,9 @@
 """The Driving Grid World Environment."""
+from __future__ import annotations
 
 import enum
 from itertools import product
-from typing import (
-    Any,
-    Dict,
-    List,
-    NamedTuple,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-    Union,
-    Type,
-)
+from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple
 
 from gymnasium import spaces
 
@@ -22,28 +12,27 @@ from posggym import logger
 from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import DIRECTION_ASCII_REPR, Coord, Direction, Grid
 from posggym.utils import seeding
-import random
 
 
-def max_enum_value(enum_cls: Type[enum.Enum]):
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+
+def max_enum_value(enum_cls: type[enum.Enum]):
     return max(enum_member.value for enum_member in enum_cls)
 
 
-def min_enum_value(enum_cls: Type[enum.Enum]):
+def min_enum_value(enum_cls: type[enum.Enum]):
     return min(enum_member.value for enum_member in enum_cls)
 
 
 class Speed(enum.IntEnum):
     """A speed setting for a vehicle."""
 
-    REVERSEFAST = -1
     REVERSE = 0
     STOPPED = 1
     FORWARD_SLOW = 2
     FORWARD_FAST = 3
-    FORWARD_FASTFAST = 4
-    FORWARD_FASTFASTFAST = 5
-    FORWARD_FASTFASTFASTFAST = 6
 
 
 class VehicleState(NamedTuple):
@@ -59,7 +48,7 @@ class VehicleState(NamedTuple):
     init_dest_dist: int
 
 
-DState = Tuple[VehicleState, ...]
+DState = tuple[VehicleState, ...]
 
 # Initial direction and speed of each vehicle
 INIT_DIR = Direction.NORTH
@@ -76,13 +65,12 @@ TURN_LEFT = 4
 ACTIONS = [DO_NOTHING, ACCELERATE, DECELERATE, TURN_RIGHT, TURN_LEFT]
 ACTIONS_STR = ["0", "acc", "dec", "tr", "tl"]
 
-# Obs = [
 # V0 Obs = (adj_obs, speed, dest_coord, dest_reached, crashed)
 # V1 Obs = (adj_obs, speed, Coord, dest_coord, dest_reached, crashed)
-DObs = Union[
-    Tuple[Tuple[int, ...], Speed, Coord, int, int],
-    Tuple[Tuple[int, ...], Speed, Coord, Coord, int, int],
-]
+DObs = (
+    tuple[tuple[int, ...], Speed, Coord, int, int]
+    | tuple[tuple[int, ...], Speed, Coord, Coord, int, int]
+)
 
 # Cell obs
 VEHICLE = 0
@@ -193,9 +181,8 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
     can be done by manually specifying a value for `max_episode_steps` when creating the
     environment with `posggym.make`).
 
-    Arguments
+    Arguments:
     ---------
-
     - `grid` - the grid layout to use. This can either be a string specifying one of
         the supported grids, or a custom :class:`DrivingGrid` object
         (default = `"14x14RoundAbout"`).
@@ -243,34 +230,32 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
           from progress) and min return is -1.0 (-1.0 for crashing),
     - `v0`: Initial version
 
-    References
+    References:
     ----------
     - Adam Lerer and Alexander Peysakhovich. 2019. Learning Existing Social Conventions
     via Observationally Augmented Self-Play. In Proceedings of the 2019 AAAI/ACM
-    Conference on AI, Ethics, and Society. 107–114.
+    Conference on AI, Ethics, and Society. 107-114.
     - Kevin R. McKee, Joel Z. Leibo, Charlie Beattie, and Richard Everett. 2022.
     Quantifying the Effects of Environment and Population Diversity in Multi-Agent
-    Reinforcement Learning. Autonomous Agents and Multi-Agent Systems 36, 1 (2022), 1–16
+    Reinforcement Learning. Autonomous Agents and Multi-Agent Systems 36, 1 (2022), 1-16
 
     """
 
-    metadata = {
+    metadata: ClassVar[dict] = {
         "render_modes": ["human", "ansi", "rgb_array", "rgb_array_dict"],
         "render_fps": 15,
     }
 
     def __init__(
         self,
-        grid: Union[str, "DrivingGrid"] = "14x14RoundAbout",
+        grid: str | DrivingGrid = "14x14RoundAbout",
         num_agents: int = 2,
-        obs_dim: Tuple[int, int, int] = (3, 1, 1),
-        should_randomze_dyn=False,
-        render_mode: Optional[str] = None,
-    ):
+        obs_dim: tuple[int, int, int] = (3, 1, 1),
+        render_mode: str | None = None,
+    ) -> None:
         super().__init__(
             DrivingModel(grid, num_agents, obs_dim),
             render_mode=render_mode,
-            should_randomze_dyn=should_randomze_dyn,
         )
 
         self._obs_dim = obs_dim
@@ -280,7 +265,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
     def render(self):
         if self.render_mode is None:
             assert self.spec is not None
-            logger.warn(
+            logger.warning(
                 "You are calling render method without specifying any render mode. "
                 "You can specify the render_mode at initialization, "
                 f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
@@ -312,7 +297,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
         return "\n".join(output) + "\n"
 
     def _render_img(self):
-        # assert self.render_mode in ["human", "rgb", "rgb_array"]
+        assert self.render_mode in ["human", "rgb", "rgb_array", "rgb_array_dict"]
         model: DrivingModel = self.model  # type: ignore
 
         import posggym.envs.grid_world.render as render_lib
@@ -367,7 +352,7 @@ class DrivingEnv(DefaultEnv[DState, DObs, DAction]):
         }
 
         # Add visualization for crashed agents
-        for i, vs in enumerate(self._state):
+        for _, vs in enumerate(self._state):
             if vs.crashed:
                 render_objects.append(
                     render_lib.GWCircle(
@@ -411,10 +396,10 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
     def __init__(
         self,
-        grid: Union[str, "DrivingGrid"],
+        grid: str | DrivingGrid,
         num_agents: int,
-        obs_dim: Tuple[int, int, int],
-    ):
+        obs_dim: tuple[int, int, int],
+    ) -> None:
         if isinstance(grid, str):
             assert grid in SUPPORTED_GRIDS, (
                 f"Unsupported grid '{grid}'. If grid argument is a string it must be "
@@ -441,8 +426,8 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         self.obs_dim = obs_dim
         self._obs_front, self._obs_back, self._obs_side = obs_dim
         self.num_agents = num_agents
-        self.max_speeds = [max_enum_value(Speed)] * self.num_agents
-        self.min_speeds = [min_enum_value(Speed)] * self.num_agents
+        self.max_speeds: list[Speed] = [Speed.FORWARD_FAST] * self.num_agents
+        self.min_speeds: list[Speed] = [Speed.STOPPED] * self.num_agents
         self.allow_reverse_turn = [False] * self.num_agents
 
         def _coord_space():
@@ -498,7 +483,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         self.is_symmetric = True
 
     @property
-    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
+    def reward_ranges(self) -> dict[str, tuple[float, float]]:
         return {
             i: (
                 self.R_CRASH_VEHICLE,
@@ -513,32 +498,23 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             self._rng, _ = seeding.std_random()
         return self._rng
 
-    def get_agents(self, state: DState) -> List[str]:
+    def get_agents(self, state: DState) -> list[str]:
         return list(self.possible_agents)
 
-    def randomize_dynamics(
-        self,
-    ):
-        self.max_speeds = [random.randint(2, 6) for _ in range(self.num_agents)]
-        self.min_speeds = [random.randint(-1, 0) for _ in range(self.num_agents)]
-        self.allow_reverse_turn = [
-            bool(random.randint(0, 1)) for _ in range(self.num_agents)
-        ]
-
     @property
-    def grid(self) -> "DrivingGrid":
+    def grid(self) -> DrivingGrid:
         """The underlying grid for this model instance."""
         return self._grid
 
     @grid.setter
-    def grid(self, grid: "DrivingGrid"):
+    def grid(self, grid: DrivingGrid):
         assert (self._grid.height, self._grid.width) == (grid.height, grid.width)
         self._grid = grid
 
     def sample_initial_state(self) -> DState:
         state = []
-        chosen_start_coords: Set[Coord] = set()
-        chosen_dest_coords: Set[Coord] = set()
+        chosen_start_coords: set[Coord] = set()
+        chosen_dest_coords: set[Coord] = set()
         for i in range(len(self.possible_agents)):
             start_coords_i = self.grid.start_coords[i]
             avail_start_coords = start_coords_i.difference(chosen_start_coords)
@@ -574,8 +550,8 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         agent_dest_coord = obs[3]
 
         state = []
-        chosen_start_coords: Set[Coord] = set()
-        chosen_dest_coords: Set[Coord] = set()
+        chosen_start_coords: set[Coord] = set()
+        chosen_dest_coords: set[Coord] = set()
 
         chosen_start_coords.add(agent_start_coord)
         chosen_dest_coords.add(agent_dest_coord)
@@ -614,11 +590,11 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             state.append(state_i)
         return tuple(state)
 
-    def sample_initial_obs(self, state: DState) -> Dict[str, DObs]:
+    def sample_initial_obs(self, state: DState) -> dict[str, DObs]:
         return self._get_obs(state)
 
     def step(
-        self, state: DState, actions: Dict[str, DAction]
+        self, state: DState, actions: dict[str, DAction]
     ) -> M.JointTimestep[DState, DObs]:
         assert all(a_i in ACTIONS for a_i in actions.values())
         next_state = self._get_next_state(state, actions)
@@ -631,7 +607,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         truncated = {i: False for i in self.possible_agents}
         all_done = all(terminated.values())
 
-        info: Dict[str, Dict] = {i: {} for i in self.possible_agents}
+        info: dict[str, dict] = {i: {} for i in self.possible_agents}
         for idx in range(len(self.possible_agents)):
             if next_state[idx].dest_reached:
                 outcome_i = M.Outcome.WIN
@@ -646,8 +622,8 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         )
 
     def _get_next_state(
-        self, state: DState, actions: Dict[str, DAction]
-    ) -> Tuple[DState, List[bool]]:
+        self, state: DState, actions: dict[str, DAction]
+    ) -> tuple[DState, list[bool]]:
         exec_order = list(range(len(self.possible_agents)))
         self.rng.shuffle(exec_order)
 
@@ -664,7 +640,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
             vehicle_coords.pop(state_i.coord)
 
-            next_speed = self.get_next_speed(action_i, state_i.speed, idx)
+            next_speed = self.get_next_speed_(action_i, state_i.speed, idx)
             move_dir = self.get_move_direction(
                 action_i, next_speed, state_i.facing_dir, self.allow_reverse_turn[idx]
             )
@@ -741,20 +717,25 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             return Direction((curr_dir - 1) % len(Direction))
         return curr_dir
 
-    def get_next_speed(
+    def get_next_speed_(
         self, action: DAction, curr_speed: Speed, agent_idx: int = 0
     ) -> Speed:
-        return DrivingModel.get_next_speed_static(
+        return DrivingModel.get_next_speed(
             action, curr_speed, self.max_speeds[agent_idx], self.min_speeds[agent_idx]
         )
 
     @staticmethod
-    def get_next_speed_static(
+    def get_next_speed(
         action: DAction,
         curr_speed: Speed,
-        max_speed=max_enum_value(Speed),
-        min_speed=min_enum_value(Speed),
+        max_speed: Speed | None = None,
+        min_speed: Speed | None = None,
     ) -> Speed:
+        if max_speed is None:
+            max_speed = max_enum_value(Speed)
+        if min_speed is None:
+            min_speed = min_enum_value(Speed)
+
         if action == DO_NOTHING:
             return curr_speed
 
@@ -776,8 +757,8 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         curr_coord: Coord,
         speed: Speed,
         move_dir: Direction,
-        vehicle_coords: Set[Coord],
-    ) -> Tuple[Coord, bool, Optional[Coord]]:
+        vehicle_coords: set[Coord],
+    ) -> tuple[Coord, bool, Coord] | None:
         # assumes curr_coord isn't in vehicle coords
         next_coord = curr_coord
         crashed = False
@@ -795,8 +776,8 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
         return (next_coord, crashed, hit_vehicle_coord)
 
-    def _get_obs(self, state: DState) -> Dict[str, DObs]:
-        obs: Dict[str, DObs] = {}
+    def _get_obs(self, state: DState) -> dict[str, DObs]:
+        obs: dict[str, DObs] = {}
         for i in self.possible_agents:
             idx = int(i)
             local_cell_obs = self._get_local_cell__obs(
@@ -821,7 +802,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
         vehicle_coords: Sequence[Coord],
         facing_dir: Direction,
         dest_coord: Coord,
-    ) -> Tuple[int, ...]:
+    ) -> tuple[int, ...]:
         obs_depth = self._obs_front + self._obs_back + 1
         obs_width = (2 * self._obs_side) + 1
         agent_coord = vehicle_coords[agent_idx]
@@ -843,7 +824,7 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
 
     def _map_obs_to_grid_coord(
         self, obs_coord: Coord, agent_coord: Coord, facing_dir: Direction
-    ) -> Optional[Coord]:
+    ) -> Coord | None:
         if facing_dir == Direction.NORTH:
             grid_row = agent_coord[1] + obs_coord[1] - self._obs_front
             grid_col = agent_coord[0] + obs_coord[0] - self._obs_side
@@ -861,19 +842,19 @@ class DrivingModel(M.POSGModel[DState, DObs, DAction]):
             return (grid_col, grid_row)
         return None
 
-    def get_obs_coords(self, origin: Coord, facing_dir: Direction) -> List[Coord]:
+    def get_obs_coords(self, origin: Coord, facing_dir: Direction) -> list[Coord]:
         """Get the list of coords observed by agent at origin."""
         obs_depth = self._obs_front + self._obs_back + 1
         obs_width = (2 * self._obs_side) + 1
-        obs_coords: List[Coord] = []
+        obs_coords: list[Coord] = []
         for col, row in product(range(obs_width), range(obs_depth)):
             obs_grid_coord = self._map_obs_to_grid_coord((col, row), origin, facing_dir)
             if obs_grid_coord is not None:
                 obs_coords.append(obs_grid_coord)
         return obs_coords
 
-    def _get_rewards(self, state: DState, next_state: DState) -> Dict[str, float]:
-        rewards: Dict[str, float] = {}
+    def _get_rewards(self, state: DState, next_state: DState) -> dict[str, float]:
+        rewards: dict[str, float] = {}
         for i in self.possible_agents:
             idx = int(i)
             if state[idx].crashed or state[idx].dest_reached:
@@ -901,10 +882,10 @@ class DrivingGrid(Grid):
         self,
         grid_width: int,
         grid_height: int,
-        block_coords: Set[Coord],
-        start_coords: List[Set[Coord]],
-        dest_coords: List[Set[Coord]],
-    ):
+        block_coords: set[Coord],
+        start_coords: list[set[Coord]],
+        dest_coords: list[set[Coord]],
+    ) -> None:
         super().__init__(grid_width, grid_height, block_coords)
         assert len(start_coords) == len(dest_coords)
         self.start_coords = start_coords
@@ -926,9 +907,9 @@ class DrivingGrid(Grid):
 
     def get_ascii_repr(
         self,
-        vehicle_coords: List[Coord],
-        vehicle_dirs: List[Direction],
-        vehicle_dests: List[Coord],
+        vehicle_coords: list[Coord],
+        vehicle_dirs: list[Direction],
+        vehicle_dests: list[Coord],
     ) -> str:
         """Get ascii repr of grid."""
         grid_repr = []
@@ -944,7 +925,7 @@ class DrivingGrid(Grid):
                     row_repr.append(".")
             grid_repr.append(row_repr)
 
-        for coord, direction in zip(vehicle_coords, vehicle_dirs):
+        for coord, direction in zip(vehicle_coords, vehicle_dirs, strict=False):
             grid_repr[coord[0]][coord[1]] = DIRECTION_ASCII_REPR[direction]
 
         return "\n".join([" ".join(r) for r in grid_repr])
@@ -992,13 +973,13 @@ def parse_grid_str(grid_str: str, supported_num_agents: int) -> DrivingGrid:
     grid_width = len(row_strs[0])
 
     agent_start_chars = set(["+"] + [str(i) for i in range(10)])
-    agent_dest_chars = set(["-"] + list("abcdefghij"))
+    agent_dest_chars = {"-", *list("abcdefghij")}
 
-    block_coords: Set[Coord] = set()
-    shared_start_coords: Set[Coord] = set()
-    agent_start_coords_map: Dict[int, Set[Coord]] = {}
-    shared_dest_coords: Set[Coord] = set()
-    agent_dest_coords_map: Dict[int, Set[Coord]] = {}
+    block_coords: set[Coord] = set()
+    shared_start_coords: set[Coord] = set()
+    agent_start_coords_map: dict[int, set[Coord]] = {}
+    shared_dest_coords: set[Coord] = set()
+    agent_dest_coords_map: dict[int, set[Coord]] = {}
     for r, c in product(range(grid_height), range(grid_width)):
         coord = (c, r)
         char = row_strs[r][c]
@@ -1031,8 +1012,8 @@ def parse_grid_str(grid_str: str, supported_num_agents: int) -> DrivingGrid:
     if len(included_agent_ids) > 0:
         assert max(included_agent_ids) < supported_num_agents
 
-    start_coords: List[Set[Coord]] = []
-    dest_coords: List[Set[Coord]] = []
+    start_coords: list[set[Coord]] = []
+    dest_coords: list[set[Coord]] = []
     for i in range(supported_num_agents):
         agent_start_coords = set(shared_start_coords)
         agent_start_coords.update(agent_start_coords_map.get(i, {}))
@@ -1052,14 +1033,29 @@ def parse_grid_str(grid_str: str, supported_num_agents: int) -> DrivingGrid:
 
 
 #  (grid_make_fn, max step_limit, )
-SUPPORTED_GRIDS: Dict[str, Dict[str, Any]] = {
+SUPPORTED_GRIDS: dict[str, dict[str, Any]] = {
     "3x3": {
-        "grid_str": ("a1.\n" ".#.\n" ".0b\n"),
+        # fmt: off
+        "grid_str": (
+            "a1.\n"
+            ".#.\n"
+            ".0b\n"
+        ),
+        # fmt: on
         "supported_num_agents": 2,
         "max_episode_steps": 15,
     },
     "6x6Intersection": {
-        "grid_str": ("##0b##\n" "##..##\n" "d....3\n" "2....c\n" "##..##\n" "##a1##\n"),
+        # fmt: off
+        "grid_str": (
+            "##0b##\n"
+            "##..##\n"
+            "d....3\n"
+            "2....c\n"
+            "##..##\n"
+            "##a1##\n"
+        ),
+        # fmt: on
         "supported_num_agents": 4,
         "max_episode_steps": 20,
     },

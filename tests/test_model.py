@@ -1,16 +1,14 @@
 """Checks that the core posggym model API is implemented as expected."""
-from typing import Dict, List
-
-from gymnasium import spaces
 
 import posggym.model as M
+from gymnasium import spaces
 from posggym.utils import seeding
 
 
 class ExampleModel(M.POSGModel[int, int, int]):
     """Example discrete testing model."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.possible_agents = (0, 1)
         self.action_spaces = {i: spaces.Discrete(2) for i in self.possible_agents}
         self.observation_spaces = {i: spaces.Discrete(2) for i in self.possible_agents}
@@ -22,16 +20,16 @@ class ExampleModel(M.POSGModel[int, int, int]):
             self._rng, seed = seeding.std_random()
         return self._rng
 
-    def get_agents(self, state: int) -> List[str]:
+    def get_agents(self, state: int) -> list[str]:
         return list(self.possible_agents)
 
     def sample_initial_state(self) -> int:
         return 0
 
-    def sample_initial_obs(self, state: int) -> Dict[str, int]:
+    def sample_initial_obs(self, state: int) -> dict[str, int]:
         return {i: 0 for i in self.possible_agents}
 
-    def step(self, state: int, actions: Dict[str, int]) -> M.JointTimestep[int, int]:
+    def step(self, state: int, actions: dict[str, int]) -> M.JointTimestep[int, int]:
         return M.JointTimestep(
             0,
             {i: 0 for i in self.possible_agents},

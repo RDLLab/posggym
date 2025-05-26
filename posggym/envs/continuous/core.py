@@ -8,34 +8,41 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from itertools import product
 from queue import PriorityQueue
-from typing import Dict, Iterable, List, NamedTuple, Set, Tuple, Union, Optional
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    NamedTuple,
+)
 
 import numpy as np
 from gymnasium import spaces
 
-from posggym.error import DependencyNotInstalled
+from posggym.error import DependencyNotInstalledError
+
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 try:
     import pymunk
     from pymunk import Vec2d
 except ImportError as e:
-    raise DependencyNotInstalled(
+    raise DependencyNotInstalledError(
         "pymunk is not installed, run `pip install posggym[continuous]`"
     ) from e
 
 
 # (x, y) coord = (col, row) coord
-Coord = Tuple[int, int]
-FloatCoord = Tuple[float, float]
+Coord = tuple[int, int]
+FloatCoord = tuple[float, float]
 # (x, y, yaw) in continuous world
-Position = Tuple[float, float, float]
-Location = Union[Coord, FloatCoord, Position, np.ndarray]
+Position = tuple[float, float, float]
+Location = Coord | FloatCoord | Position | np.ndarray
 # Position, radius
-CircleEntity = Tuple[Position, float]
-# start (x, y), end (x, y)
-Line = Tuple[FloatCoord, FloatCoord]
-IntLine = Tuple[Tuple[int, int], Tuple[int, int]]
+CircleEntity = tuple[Position, float]
+Line = tuple[FloatCoord, FloatCoord]
+IntLine = tuple[tuple[int, int], tuple[int, int]]
 
 # (Main, Alternative) agent colors (from pygame.colordict.THECOLORS)
 AGENT_COLORS = [
@@ -49,16 +56,34 @@ AGENT_COLORS = [
     ((255, 165, 0, 255), (205, 133, 0, 255)),  # orange, orange3
 ]
 
+ZERO = 0.0
+ONE = 1.0
+
 
 def clamp(x, lower, upper):
     return lower if x < lower else upper if x > upper else x
 
 
-class ControlType(str, Enum):
-    VelocityHolonomoic = "VelocityHolonomoic"
-    ForceHolonomoic = "ForceHolonomoic"
-    VelocityNonHolonomoic = "VelocityNonHolonomoic"
-    ForceNonHolonomoic = "ForceNonHolonomoic"
+class ControlType(Enum):
+    VelocityHolonomoic = 0, "VelocityHolonomoic"
+    ForceHolonomoic = 1, "ForceHolonomoic"
+    VelocityNonHolonomoic = 2, "VelocityNonHolonomoic"
+    ForceNonHolonomoic = 3, "ForceNonHolonomoic"
+    WheeledRobot = 4, "WheeledRobot"
+    Ackermann = 5, "Ackermann"
+
+    def __int__(self):
+        return self.value[0]
+
+    def __str__(self):
+        return self.value[1]
+
+    @classmethod
+    def from_str(cls, name):
+        for member in cls:
+            if member.value[1] == name:
+                return member
+        raise ValueError(f"'{name}' is not a valid {cls.__name__}")
 
 
 class CollisionType(Enum):
@@ -69,6 +94,25 @@ class CollisionType(Enum):
     BLOCK = 2
     BORDER = 3
     INTERIOR_WALL = 4
+
+
+MIN_POSITION_ARRAY_LENGTH = 3
+
+
+def generate_parameters(control_type: ControlType) -> dict[str, float]:
+    match control_type:
+        case ControlType.WheeledRobot:
+            return {
+                "wheel_radius": 0.1,
+                "L": 0.1,
+            }
+        case ControlType.Ackermann:
+            return {
+                "L": 0.1,
+            }
+
+        case _:
+            return {}
 
 
 class PMBodyState(NamedTuple):
@@ -90,7 +134,6 @@ class PMBodyState(NamedTuple):
     def get_space(world_size: float) -> spaces.Box:
         """Get the space for a pymunk body's state."""
         # x, y, angle, vx, vy, vangle
-        # shape = (1, 6)
         size, angle = world_size, 2 * math.pi
         low = np.array([-1, -1, -angle, -1, -1, -angle], dtype=np.float32)
         high = np.array(
@@ -109,13 +152,51 @@ VANGLE_IDX = PMBodyState._fields.index("vangle")
 
 
 def generate_action_space(
+    possible_agents: tuple[str, ...],
+    dyaw_limit: float | tuple[float, float],
+    dvel_limit: float | tuple[float, float],
+    fyaw_limit: float | tuple[float, float],
+    fvel_limit: float | tuple[float, float],
+):
+    action_spaces_per_control = {}
+    for i in ControlType:
+        action_spaces_per_control[i] = generate_action_space_per_control(
+            i,
+            possible_agents,
+            dyaw_limit,
+            dvel_limit,
+            fyaw_limit,
+            fvel_limit,
+        )
+    return action_spaces_per_control
+
+
+def scale_action(
+    action: np.ndarray, source_space: spaces.Space, target_space: spaces.Box
+) -> np.ndarray:
+    assert isinstance(source_space, spaces.Box)
+
+    source_low = source_space.low
+    source_high = source_space.high
+    target_low = target_space.low
+    target_high = target_space.high
+
+    # Apply the scaling formula for each dimension of the action
+    scaled_action = target_low + (action - source_low) * (target_high - target_low) / (
+        source_high - source_low
+    )
+
+    return scaled_action
+
+
+def generate_action_space_per_control(
     control_type: ControlType,
-    possible_agents: Tuple[str, ...],
-    dyaw_limit: Optional[Union[float, Tuple[float, float]]] = None,
-    dvel_limit: Optional[Union[float, Tuple[float, float]]] = None,
-    fyaw_limit: Optional[Union[float, Tuple[float, float]]] = None,
-    fvel_limit: Optional[Union[float, Tuple[float, float]]] = None,
-) -> Dict[str, spaces.Space]:
+    possible_agents: tuple[str, ...],
+    dyaw_limit: float | tuple[float, float] | None = None,
+    dvel_limit: float | tuple[float, float] | None = None,
+    fyaw_limit: float | tuple[float, float] | None = None,
+    fvel_limit: float | tuple[float, float] | None = None,
+) -> dict[str, spaces.Space]:
     if isinstance(dyaw_limit, float):
         dyaw_limit = (-dyaw_limit, dyaw_limit)
     if isinstance(dvel_limit, float):
@@ -125,40 +206,36 @@ def generate_action_space(
     if isinstance(fvel_limit, float):
         fvel_limit = (-fvel_limit, fvel_limit)
 
-    if control_type == ControlType.VelocityNonHolonomoic:
-        assert dyaw_limit is not None and dvel_limit is not None
-        neg_limits = np.array(
-            [dyaw_limit[0], dvel_limit[0]], dtype=np.float32  # type: ignore
-        )
-        pos_limits = np.array(
-            [dyaw_limit[1], dvel_limit[1]], dtype=np.float32  # type: ignore
-        )
-    elif control_type == ControlType.VelocityHolonomoic:
-        assert dvel_limit is not None
-        neg_limits = np.array(
-            [dvel_limit[0], dvel_limit[0]], dtype=np.float32  # type: ignore
-        )
-        pos_limits = np.array(
-            [dvel_limit[1], dvel_limit[1]], dtype=np.float32  # type: ignore
-        )
-    elif control_type == ControlType.ForceNonHolonomoic:
-        assert fyaw_limit is not None and fvel_limit is not None
-        neg_limits = np.array(
-            [fyaw_limit[0], fvel_limit[0]], dtype=np.float32  # type: ignore
-        )
-        pos_limits = np.array(
-            [fyaw_limit[1], fvel_limit[1]], dtype=np.float32  # type: ignore
-        )
-    elif control_type == ControlType.ForceHolonomoic:
-        assert fvel_limit is not None
-        neg_limits = np.array(
-            [fvel_limit[0], fvel_limit[0]], dtype=np.float32  # type: ignore
-        )
-        pos_limits = np.array(
-            [fvel_limit[1], fvel_limit[1]], dtype=np.float32  # type: ignore
-        )
-    else:
-        raise RuntimeError("Invalid Control Type")
+    assert isinstance(dyaw_limit, tuple)
+    assert isinstance(dvel_limit, tuple)
+    assert isinstance(fyaw_limit, tuple)
+    assert isinstance(fvel_limit, tuple)
+
+    match control_type:
+        case ControlType.VelocityNonHolonomoic:
+            assert dyaw_limit is not None and dvel_limit is not None
+            neg_limits = np.array([dyaw_limit[0], dvel_limit[0]], dtype=np.float32)
+            pos_limits = np.array([dyaw_limit[1], dvel_limit[1]], dtype=np.float32)
+        case ControlType.VelocityHolonomoic:
+            assert dvel_limit is not None
+            neg_limits = np.array([dvel_limit[0], dvel_limit[0]], dtype=np.float32)
+            pos_limits = np.array([dvel_limit[1], dvel_limit[1]], dtype=np.float32)
+        case ControlType.ForceNonHolonomoic:
+            assert fyaw_limit is not None and fvel_limit is not None
+            neg_limits = np.array([fyaw_limit[0], fvel_limit[0]], dtype=np.float32)
+            pos_limits = np.array([fyaw_limit[1], fvel_limit[1]], dtype=np.float32)
+        case ControlType.ForceHolonomoic:
+            assert fvel_limit is not None
+            neg_limits = np.array([fvel_limit[0], fvel_limit[0]], dtype=np.float32)
+            pos_limits = np.array([fvel_limit[1], fvel_limit[1]], dtype=np.float32)
+        case ControlType.WheeledRobot:
+            assert dvel_limit is not None
+            neg_limits = np.array([dvel_limit[0], dvel_limit[0]], dtype=np.float32)
+            pos_limits = np.array([dvel_limit[1], dvel_limit[1]], dtype=np.float32)
+        case ControlType.Ackermann:
+            assert dyaw_limit is not None and dvel_limit is not None
+            neg_limits = np.array([dyaw_limit[0], dvel_limit[0]], dtype=np.float32)
+            pos_limits = np.array([dyaw_limit[1], dvel_limit[1]], dtype=np.float32)
 
     return {
         i: spaces.Box(
@@ -176,8 +253,8 @@ def ignore_collisions(arbiter, space, data):
 
 
 def clip_actions(
-    actions: Dict[str, np.ndarray], action_spaces: Dict[str, spaces.Space]
-) -> Dict[str, np.ndarray]:
+    actions: dict[str, np.ndarray], action_spaces: dict[str, spaces.Space]
+) -> dict[str, np.ndarray]:
     """Clip continuous actions so they are within the agents action space dims."""
     clipped_actions = {}
     for i, a in actions.items():
@@ -196,19 +273,19 @@ class AbstractContinuousWorld(ABC):
     def __init__(
         self,
         size: float,
-        blocks: List[CircleEntity] | None = None,
-        interior_walls: List[Line] | None = None,
+        blocks: list[CircleEntity] | None = None,
+        interior_walls: list[Line] | None = None,
         agent_radius: float = 0.5,
         border_thickness: float = 0.1,
         enable_agent_collisions: bool = True,
-    ):
+    ) -> None:
         self.size = size
         self.blocks = blocks or []
         self.interior_walls = interior_walls or []
         self.agent_radius = agent_radius
         self.border_thickness = border_thickness
         # access via blocked_coords property
-        self._blocked_coords: Set[Coord] | None = None
+        self._blocked_coords: set[Coord] | None = None
 
         self.collision_id = 0
         self.enable_agent_collisions = enable_agent_collisions
@@ -234,29 +311,25 @@ class AbstractContinuousWorld(ABC):
             self.space.add(body, shape)
 
         # moveable entities in the world
-        self.entities: Dict[str, Tuple[pymunk.Body, pymunk.Circle]] = {}
+        self.entities: dict[str, tuple[pymunk.Body, pymunk.Circle]] = {}
 
     @abstractmethod
     def add_border_to_space(self, size: float):
         """Adds solid border to the world physics space."""
-        pass
 
     @abstractmethod
     def check_border_collisions(
         self, ray_start_coords: np.ndarray, ray_end_coords: np.ndarray
     ) -> np.ndarray:
         """Check for collision between rays and world border."""
-        pass
 
     @abstractmethod
     def clip_position(self, position: Vec2d) -> Vec2d:
-        """Clip the position of an agent to be inside the border"""
-        pass
+        """Clip the position of an agent to be inside the border."""
 
     @abstractmethod
-    def copy(self) -> "AbstractContinuousWorld":
+    def copy(self) -> AbstractContinuousWorld:
         """Get a deep copy of this world."""
-        pass
 
     def simulate(
         self,
@@ -272,7 +345,7 @@ class AbstractContinuousWorld(ABC):
         Also performing multiple steps `t` with a smaller `dt` creates a more stable
         and accurate simulation.
 
-        Arguments
+        Arguments:
         ---------
         dt : float
             the step size
@@ -301,68 +374,85 @@ class AbstractContinuousWorld(ABC):
         self,
         control_type: ControlType,
         current_ang: float,
-        current_vel: Optional[Tuple[float, float]],
+        current_vel: tuple[float, float] | None,
         action_i: np.ndarray,
-        vel_limit_norm: Optional[float],
-    ):
-        """
-        Compute appropriate velocity, force, and torque based on the
+        vel_limit_norm: float | None,
+        kinematic_parameters: dict[str, float],
+    ) -> dict[str, Any]:
+        """Compute appropriate velocity, force, and torque based on the
         given control type and action.
 
-        Parameters:
+        Parameters
+        ----------
         - control_type (ControlType): The type of control being used.
         - current_ang (float): The current angle of the agent.
-        - current_vel (Optional[Tuple[float, float]]): The current vel of the agent,
-                      if given, velcoity will be relative to the current agent
+        - current_vel (Tuple[float, float] | None): The current vel of the agent,
+                      if given, velocity will be relative to the current agent
         - action_i (np.ndarray): The action input for the agent.
-        - vel_limit_norm (Optional[float]): The limit of velocity norm
+        - vel_limit_norm (float | None): The limit of velocity norm
                       if given, velcoity will be relative to the current agent
         """
-
-        v_angle, vel, torque, local_force, global_force = (
+        angle, vel, torque, local_force, global_force = (
             None,
             None,
             None,
             None,
             None,
         )
+        match control_type:
+            case ControlType.VelocityNonHolonomoic:
+                angle = current_ang + action_i[0]
+                vel = self.linear_to_xy_velocity(action_i[1], angle)
+                if current_vel is not None and vel_limit_norm is not None:
+                    vel += Vec2d(*current_vel).rotated(action_i[0])
+                    vel = self.clamp_norm(vel[0], vel[1], vel_limit_norm)
 
-        if control_type == ControlType.VelocityNonHolonomoic:
-            v_angle = current_ang + action_i[0]
-            vel = self.linear_to_xy_velocity(action_i[1], v_angle)
-            if current_vel is not None and vel_limit_norm is not None:
-                vel += Vec2d(*current_vel).rotated(action_i[0])
-                vel = self.clamp_norm(vel[0], vel[1], vel_limit_norm)
+            case ControlType.VelocityHolonomoic:
+                angle = 0
+                if current_vel is not None and vel_limit_norm is not None:
+                    vel = (current_vel[0] + action_i[0], current_vel[1] + action_i[1])
+                    vel = self.clamp_norm(vel[0], vel[1], vel_limit_norm)
+                else:
+                    vel = (action_i[0], action_i[1])
 
-        elif control_type == ControlType.VelocityHolonomoic:
-            v_angle = 0
-            if current_vel is not None and vel_limit_norm is not None:
-                vel = (current_vel[0] + action_i[0], current_vel[1] + action_i[1])
-                vel = self.clamp_norm(vel[0], vel[1], vel_limit_norm)
-            else:
-                vel = (action_i[0], action_i[1])
+            case ControlType.ForceHolonomoic:
+                local_force = (action_i[0], 0)
+                torque = action_i[1]
+            case ControlType.ForceNonHolonomoic:
+                global_force = (action_i[0], action_i[1])
+                angle = 0
+            case ControlType.WheeledRobot:
+                wheel_radius = kinematic_parameters["wheel_radius"]
+                L = kinematic_parameters["L"]
+                v = wheel_radius / 2 * (action_i[0] + action_i[1])
+                omega = wheel_radius / L * (action_i[0] - action_i[1])
+                vel = v * np.array([np.cos(current_ang), np.sin(current_ang)])
+                angle = current_ang + omega
+            case ControlType.Ackermann:
+                v, phi = action_i
+                L = kinematic_parameters["L"]
+                omega = v / L * np.tan(phi)
+                vel = v * np.array([np.cos(current_ang), np.sin(current_ang)])
+                angle = current_ang + omega
 
-        elif control_type == ControlType.ForceHolonomoic:
-            local_force = (action_i[0], 0)
-            torque = action_i[1]
-        elif control_type == ControlType.ForceNonHolonomoic:
-            global_force = (action_i[0], action_i[1])
-            v_angle = 0
-        else:
-            raise RuntimeError("Invalid Control Type!")
-
-        return v_angle, vel, torque, local_force, global_force
+        return {
+            "angle": angle,
+            "vel": vel,
+            "torque": torque,
+            "local_force": local_force,
+            "global_force": global_force,
+        }
 
     def add_entity(
         self,
         id: str,
         radius: float | None,
-        color: Tuple[int, int, int, int] | None,
+        color: tuple[int, int, int, int] | None,
         is_static: bool = False,
-    ) -> Tuple[pymunk.Body, pymunk.Circle]:
+    ) -> tuple[pymunk.Body, pymunk.Circle]:
         """Add moveable entity to the world.
 
-        Arguments
+        Arguments:
         ---------
         id : str
             the unique ID of the entity
@@ -371,7 +461,7 @@ class AbstractContinuousWorld(ABC):
         color : Tuple[int, int, int, int] | None
             optional color for the entity. This only impacts rendering of the world.
 
-        Returns
+        Returns:
         -------
         body : pymunk.Body
             underlying physics Body of the entity
@@ -387,10 +477,7 @@ class AbstractContinuousWorld(ABC):
         body = pymunk.Body(mass, inertia, body_type=body_type)
         shape = pymunk.Circle(body, radius)
 
-        shape.collision_type = self.get_collision_id()
-
         shape.elasticity = 0.0  # no bouncing
-        shape.friction = 0.05
         shape.collision_type = self.get_collision_id()
         if color is not None:
             shape.color = color
@@ -423,7 +510,7 @@ class AbstractContinuousWorld(ABC):
             elasticity = clamp(elasticity, 0, 0.99)
             shape.elasticity = elasticity
 
-    def add_interior_walls_to_space(self, walls: List[Line]):
+    def add_interior_walls_to_space(self, walls: list[Line]):
         """Adds interior walls to the world physics space."""
         self.interior_walls_array = (
             np.array([ln[0] for ln in walls], dtype=np.float32),
@@ -468,12 +555,12 @@ class AbstractContinuousWorld(ABC):
         self,
         id: str,
         *,
-        coord: FloatCoord | List[float] | np.ndarray | Vec2d | None = None,
+        coord: FloatCoord | list[float] | np.ndarray | Vec2d | None = None,
         angle: float | None = None,
-        vel: FloatCoord | List[float] | np.ndarray | Vec2d | None = None,
-        vangle: float | None = None,
-        local_force: Tuple[float, float] | None = None,
-        global_force: Tuple[float, float] | None = None,
+        vel: FloatCoord | list[float] | np.ndarray | Vec2d | None = None,
+        v_angle: float | None = None,
+        local_force: tuple[float, float] | None = None,
+        global_force: tuple[float, float] | None = None,
         torque: float | None = None,
     ):
         """Update the state of an entity.
@@ -491,8 +578,8 @@ class AbstractContinuousWorld(ABC):
         if vel is not None:
             body.velocity = Vec2d(vel[0], vel[1])
 
-        if vangle is not None:
-            body.angular_velocity = vangle
+        if v_angle is not None:
+            body.angular_velocity = v_angle
 
         if local_force is not None:
             body.apply_force_at_local_point(local_force, (0, 0))
@@ -505,12 +592,12 @@ class AbstractContinuousWorld(ABC):
         if torque is not None:
             body.torque = torque
 
-    def get_bounds(self) -> Tuple[FloatCoord, FloatCoord]:
+    def get_bounds(self) -> tuple[FloatCoord, FloatCoord]:
         """Get  (min x, max_x), (min y, max y) bounds of the world."""
         return (0, self.size), (0, self.size)
 
     @property
-    def blocked_coords(self) -> Set[Coord]:
+    def blocked_coords(self) -> set[Coord]:
         """The set of all integer coordinates that contain at least part of a block."""
         if self._blocked_coords is None:
             self._blocked_coords = set()
@@ -548,7 +635,7 @@ class AbstractContinuousWorld(ABC):
     @staticmethod
     def euclidean_dist(loc1: Location, loc2: Location) -> float:
         """Get Euclidean distance between two positions on the grid."""
-        return math.sqrt((loc1[0] - loc2[0]) ** 2 + (loc1[1] - loc2[1]) ** 2)
+        return math.sqrt(AbstractContinuousWorld.squared_euclidean_dist(loc1, loc2))
 
     @staticmethod
     def squared_euclidean_dist(loc1: Location, loc2: Location) -> float:
@@ -562,7 +649,7 @@ class AbstractContinuousWorld(ABC):
     @staticmethod
     def convert_angle_to_negpi_pi_interval(angle: float) -> float:
         """Convert angle in radians to be in (-pi, pi] interval."""
-        angle = angle % (2 * math.pi)
+        angle = AbstractContinuousWorld.convert_angle_to_0_2pi_interval(angle)
         if angle > math.pi:
             angle -= 2 * math.pi
         return angle
@@ -570,13 +657,13 @@ class AbstractContinuousWorld(ABC):
     @staticmethod
     def array_to_position(arr: np.ndarray) -> Position:
         """Convert from numpy array to tuple representation of a Position."""
-        assert arr.shape[0] >= 3
+        assert arr.shape[0] >= MIN_POSITION_ARRAY_LENGTH
         return (arr[0], arr[1], arr[2])
 
     @staticmethod
     def linear_to_xy_velocity(linear_vel: float, angle: float) -> Vec2d:
         """Convert from linear velocity to velocity along x and y axis."""
-        return linear_vel * Vec2d(1, 0).rotated(angle)
+        return linear_vel * AbstractContinuousWorld.rotate_vector(1, 0, angle)
 
     @staticmethod
     def rotate_vector(vx: float, vy: float, angle: float) -> Vec2d:
@@ -584,9 +671,9 @@ class AbstractContinuousWorld(ABC):
         return Vec2d(vx, vy).rotated(angle)
 
     @staticmethod
-    def clamp_norm(vx: float, vy: float, norm_max: float) -> Tuple[float, float]:
+    def clamp_norm(vx: float, vy: float, norm_max: float) -> tuple[float, float]:
         """Clamp x, y vector to within a given max norm."""
-        if vx == 0.0 and vy == 0.0:
+        if vx == ZERO and vy == ZERO:
             return vx, vy
         norm = math.sqrt(vx**2 + vy**2)
         f = min(norm, norm_max) / norm
@@ -624,7 +711,7 @@ class AbstractContinuousWorld(ABC):
     ) -> np.ndarray:
         """Check if lines intersect circles.
 
-        Arguments
+        Arguments:
         ---------
         circle_coords
             array containing the `(x, y)` of the center of each circle. Should have
@@ -638,7 +725,7 @@ class AbstractContinuousWorld(ABC):
             array containing the `(x, y)` coords of the end of of each of the lines.
             Should have shape `(n_lines, 2)`
 
-        Returns
+        Returns:
         -------
         distances
             An array containing the euclidean distance from each lines start to
@@ -663,8 +750,8 @@ class AbstractContinuousWorld(ABC):
 
         t1 = (-b - sqrtdisc) / (2 * a)
         t2 = (-b + sqrtdisc) / (2 * a)
-        t1 = np.where(((t1 >= 0.0) & (t1 <= 1.0)), t1, np.nan)
-        t2 = np.where(((t2 >= 0.0) & (t2 <= 1.0)), t2, np.nan)
+        t1 = np.where(((t1 >= ZERO) & (t1 <= ONE)), t1, np.nan)
+        t2 = np.where(((t2 >= ZERO) & (t2 <= ONE)), t2, np.nan)
         t = np.where(t1 <= t2, t1, t2)
 
         t = np.expand_dims(t, axis=-1)
@@ -676,12 +763,12 @@ class AbstractContinuousWorld(ABC):
         l1_end_coords: np.ndarray,
         l2_start_coords: np.ndarray,
         l2_end_coords: np.ndarray,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Check if lines intersect.
 
         Checks for each line in `l1` if it intersects with any line in `l2`.
 
-        Arguments
+        Arguments:
         ---------
         l1_start_coords
             array with shape `(n_lines1, 2)` containing the (x, y) coord for the start
@@ -696,7 +783,7 @@ class AbstractContinuousWorld(ABC):
             array with shape `(n_lines2, 2)` containing the (x, y) coord for the end of
             each of the second set of lines.
 
-        Returns
+        Returns:
         -------
         intersection_coords
             array with shape `(n_lines1, n_lines2, 2)` containing the (x, y) coords for
@@ -733,18 +820,15 @@ class AbstractContinuousWorld(ABC):
         dl2p[:, 0] = -dl2[:, 1]
         dl2p[:, 1] = dl2[:, 0]
 
-        # mult (n_lines1, 2) @ (n_lines1, 2, nlines2) = (n_lines1, n_lines2)
         # each i in n_lines1 is multiplied with one of the n_lines1 matrices in dl1l2
         # l1[i] @ (l1[i] - l2[j]) for i in [0, n_lines1], j in [0, n_lines2]
         u_num = np.stack([np.matmul(dl1p[i], dl1l2_T[i]) for i in range(dl1p.shape[0])])
 
-        # mult (n_lines2, 2) @ (n_lines2, 2, nlines1) = (n_lines2, n_lines1)
         # same as above except for l2 lines
         t_num = np.stack(
             [np.matmul(dl2p[j], dl1l2_T2[j]) for j in range(dl2p.shape[0])]
         )
 
-        # mult (n_lines1, 2) @ (2, n_lines2) = (n_lines1, n_lines2)
         # get l1[i] dot l2[j] for i in [0, n_lines1], j in [0, n_lines2]
         # but using perpendicular lines to l1,
         denom = np.matmul(dl1p, dl2.transpose())
@@ -774,10 +858,10 @@ class AbstractContinuousWorld(ABC):
         other_agents: np.ndarray | None = None,
         include_blocks: bool = True,
         check_walls: bool = True,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Check for collision along rays.
 
-        Arguments
+        Arguments:
         ---------
         ray_start_coords
             start coords of rays. Should be 2D array with shape `(n_rays, 2`),
@@ -793,7 +877,7 @@ class AbstractContinuousWorld(ABC):
         check_walls
             whether to check for collisions with the world border.
 
-        Returns
+        Returns:
         -------
         distances
             the distance each ray extends sway from the origin, up to a max of
@@ -836,14 +920,12 @@ class AbstractContinuousWorld(ABC):
             np.fmin(closest_distances, min_dists, out=closest_distances)
 
         if check_walls:
-            # shape = (n_lines, walls, 2)
             wall_intersect_coords = self.check_border_collisions(
                 ray_start_coords, ray_end_coords
             )
 
             # Need to get coords of intersected walls, each ray can intersect a max of
             # of 1 wall, so we just find the minimum non nan coords
-            # shape = (n_lines, 2)
             with warnings.catch_warnings():
                 # if no wall intersected, we take min of all NaN which throws a warning
                 # but this is acceptable behevaiour, so we suppress the warning
@@ -882,14 +964,14 @@ class AbstractContinuousWorld(ABC):
         include_blocks: bool = True,
         check_walls: bool = True,
         use_relative_angle: bool = True,
-        angle_bounds: Tuple[float, float] = (0.0, 2 * np.pi),
-    ) -> Tuple[np.ndarray, np.ndarray]:
+        angle_bounds: tuple[float, float] = (0.0, 2 * np.pi),
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Check for collision along rays that radiate away from the origin.
 
         Rays are evenly spaced around the origin, with the number of rays controlled
         by the `n_rays` arguments.
 
-        Arguments
+        Arguments:
         ---------
         origin
             the origin position
@@ -913,7 +995,7 @@ class AbstractContinuousWorld(ABC):
             have a full FOV as a circle around them. This will be between 0 and 2π.
             This can be decreased as needed.
 
-        Returns
+        Returns:
         -------
         distances
             the distance each ray extends sway from the origin, up to a max of
@@ -945,7 +1027,7 @@ class AbstractContinuousWorld(ABC):
 
     def get_all_shortest_paths(
         self, origins: Iterable[FloatCoord | Coord | Position]
-    ) -> Dict[Tuple[int, int], Dict[Tuple[int, int], int]]:
+    ) -> dict[tuple[int, int], dict[tuple[int, int], int]]:
         """Get shortest path distance from every origin to all other coords."""
         src_dists = {}
         for origin in origins:
@@ -957,12 +1039,12 @@ class AbstractContinuousWorld(ABC):
         """Convert a position/float coord to a integer coords."""
         return (math.floor(origin[0]), math.floor(origin[1]))
 
-    def dijkstra(self, origin: FloatCoord | Coord | Position) -> Dict[Coord, int]:
+    def dijkstra(self, origin: FloatCoord | Coord | Position) -> dict[Coord, int]:
         """Get shortest path distance between origin and all other coords."""
         coord_origin = self.convert_to_coord(origin)
 
         dist = {coord_origin: 0}
-        pq: PriorityQueue[Tuple[int, Coord]] = PriorityQueue()
+        pq: PriorityQueue[tuple[int, Coord]] = PriorityQueue()
         pq.put((dist[coord_origin], coord_origin))
 
         visited = {coord_origin}
@@ -985,7 +1067,7 @@ class AbstractContinuousWorld(ABC):
         coord: Coord,
         ignore_blocks: bool = False,
         include_out_of_bounds: bool = False,
-    ) -> List[Coord]:
+    ) -> list[Coord]:
         """Get set of adjacent non-blocked coords."""
         (min_x, max_x), (min_y, max_y) = self.get_bounds()
         neighbours = []
@@ -1011,7 +1093,7 @@ class AbstractContinuousWorld(ABC):
 class SquareContinuousWorld(AbstractContinuousWorld):
     """A continuous world with a square border."""
 
-    def copy(self) -> "SquareContinuousWorld":
+    def copy(self) -> SquareContinuousWorld:
         world = SquareContinuousWorld(
             size=self.size,
             blocks=self.blocks,
@@ -1042,7 +1124,7 @@ class SquareContinuousWorld(AbstractContinuousWorld):
             ),
         )
 
-        for w_start, w_end in zip(*self.border):
+        for w_start, w_end in zip(*self.border, strict=False):
             wall = pymunk.Segment(
                 self.space.static_body,
                 (w_start[0], w_start[1]),
@@ -1070,7 +1152,7 @@ class SquareContinuousWorld(AbstractContinuousWorld):
 class CircularContinuousWorld(AbstractContinuousWorld):
     """A 2D continuous world with a circular border."""
 
-    def copy(self) -> "CircularContinuousWorld":
+    def copy(self) -> CircularContinuousWorld:
         world = CircularContinuousWorld(
             size=self.size,
             blocks=self.blocks,
@@ -1139,7 +1221,7 @@ class CircularContinuousWorld(AbstractContinuousWorld):
 
 def generate_interior_walls(
     width: int, height: int, blocked_coords: Iterable[Coord]
-) -> List[Line]:
+) -> list[Line]:
     """Generate interior walls for rectangular world based on blocked coordinates."""
     # dx, dy
     # north, east, south, west
@@ -1152,10 +1234,10 @@ def generate_interior_walls(
     ]
 
     # get line for each block face adjacent to empty cell
-    lines_map: Dict[Coord, Set[Coord]] = {}
-    lines: Set[IntLine] = set()
+    lines_map: dict[Coord, set[Coord]] = {}
+    lines: set[IntLine] = set()
     for x, y in blocked_coords:
-        for (dx, dy), line_offset in zip(directions, line_offsets):
+        for (dx, dy), line_offset in zip(directions, line_offsets, strict=False):
             if (x + dx, y + dy) in blocked_coords:
                 # adjacent cell blocked
                 continue
@@ -1178,7 +1260,7 @@ def generate_interior_walls(
             lines.add((l_start, l_end))
 
     # merge lines
-    merged_lines: List[IntLine] = []
+    merged_lines: list[IntLine] = []
 
     # lines l1 and l2 can merge if
     # 1. l1[1] == l2[0] and (l1[0][0] == l2[1][0] or l1[0][1] == l2[1][1]
@@ -1189,7 +1271,7 @@ def generate_interior_walls(
     stack = list(lines)
     stack.sort(reverse=True)
 
-    visited: Set[IntLine] = set()
+    visited: set[IntLine] = set()
     while len(stack):
         line = stack.pop()
         if line in visited:

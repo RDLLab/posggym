@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from itertools import product
 from queue import PriorityQueue
-from typing import TYPE_CHECKING, Dict, Set, Tuple, cast
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from posggym.agents.policy import Policy, PolicyID, PolicyState
 from posggym.agents.utils import action_distributions
@@ -30,9 +30,12 @@ if TYPE_CHECKING:
     from posggym.model import POSGModel
     from posggym.utils.history import AgentHistory
 
+MIN_AGGRESSIVENESS = 0.0
+MAX_AGGRESSIVENESS = 1.0
+AVG_AGGRESSIVENESS = (MIN_AGGRESSIVENESS + MAX_AGGRESSIVENESS) / 2
 
 # Current coord, speed, facing direction
-Pos = Tuple[Coord, Speed, Direction]
+Pos = tuple[Coord, Speed, Direction]
 
 
 class DrivingShortestPathPolicy(Policy[DAction, DObs]):
@@ -42,7 +45,7 @@ class DrivingShortestPathPolicy(Policy[DAction, DObs]):
     goal. If there are multiple actions on the shortest path then selects uniformly
     at random from those actions.
 
-    Arguments
+    Arguments:
     ---------
     aggressiveness : float
         The aggressiveness of the policy towards other vehicles. A value of 0.0 means
@@ -58,8 +61,7 @@ class DrivingShortestPathPolicy(Policy[DAction, DObs]):
     # this shares shortest path computation and storage between all instances of class
     # which is useful if running a vectorized environment or with many shortest path
     # agents
-    # shortest_paths: Dict[Coord, Dict[Pos, Dict[Pos, int]]] = {}
-    shortest_paths: Dict[Coord, Dict[Pos, int]] = {}
+    shortest_paths: ClassVar[dict[Coord, dict[Pos, int]]] = {}
 
     def __init__(
         self,
@@ -67,12 +69,13 @@ class DrivingShortestPathPolicy(Policy[DAction, DObs]):
         agent_id: str,
         policy_id: PolicyID,
         aggressiveness: float = 1.0,
-    ):
+    ) -> None:
         super().__init__(model, agent_id, policy_id)
         self.model = cast(DrivingModel, model)
-        assert (
-            0.0 <= aggressiveness <= 1.0
-        ), f"Aggressiveness must be between 0.0 and 1.0, got {aggressiveness}"
+        assert MIN_AGGRESSIVENESS <= aggressiveness <= MAX_AGGRESSIVENESS, (
+            f"Aggressiveness must be between {MIN_AGGRESSIVENESS}"
+            f"and {MAX_AGGRESSIVENESS}, got {aggressiveness}"
+        )
         self.aggressiveness = aggressiveness
         self._grid = self.model.grid
         self._action_space = list(range(self.model.action_spaces[agent_id].n))
@@ -167,7 +170,7 @@ class DrivingShortestPathPolicy(Policy[DAction, DObs]):
         dists = []
         for a in self._action_space:
             if (
-                self.aggressiveness < 0.5
+                self.aggressiveness < AVG_AGGRESSIVENESS
                 and state["speed"] >= Speed.FORWARD_SLOW
                 and a == ACCELERATE
             ):
@@ -176,7 +179,7 @@ class DrivingShortestPathPolicy(Policy[DAction, DObs]):
                 dists.append(float("inf"))
                 continue
 
-            a_speed = self.model.get_next_speed(a, state["speed"])
+            a_speed = self.model.get_next_speed_(a, state["speed"])
             a_facing_dir = self.model.get_next_direction(
                 a, a_speed, state["facing_dir"]
             )
@@ -211,7 +214,7 @@ class DrivingShortestPathPolicy(Policy[DAction, DObs]):
             f"`get_value()` no implemented by {self.__class__.__name__} policy"
         )
 
-    def get_min_other_vehicle_dist(self, local_obs: Tuple[int, ...]) -> int:
+    def get_min_other_vehicle_dist(self, local_obs: tuple[int, ...]) -> int:
         """Get minimum distance to other vehicle in local observation."""
         min_other_vehicle_dist = self.max_obs_dist + 1
         for idx, cell_obs in enumerate(local_obs):
@@ -237,7 +240,7 @@ class DrivingShortestPathPolicy(Policy[DAction, DObs]):
         origin: Pos,
         dest: Coord,
         grid: DrivingGrid,
-        lookup_table: Dict[Pos, int],
+        lookup_table: dict[Pos, int],
     ) -> int:
         """Get shortest path to given origin to given destination.
 
@@ -295,12 +298,12 @@ class DrivingShortestPathPolicy(Policy[DAction, DObs]):
         return lookup_table[origin]
 
     @staticmethod
-    def get_next_positions(pos: Pos, grid: DrivingGrid) -> Set[Pos]:
+    def get_next_positions(pos: Pos, grid: DrivingGrid) -> set[Pos]:
         coord, speed, facing_dir = pos
 
         next_positions = set()
         for a in [DO_NOTHING, TURN_LEFT, TURN_RIGHT, ACCELERATE, DECELERATE]:
-            next_speed = DrivingModel.get_next_speed_static(a, speed)
+            next_speed = DrivingModel.get_next_speed(a, speed)
             move_dir = DrivingModel.get_move_direction(a, next_speed, facing_dir)
             next_dir = DrivingModel.get_next_direction(a, next_speed, facing_dir)
 

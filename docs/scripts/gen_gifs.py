@@ -71,7 +71,7 @@ def gen_gif(
             repeat = (
                 int(60 / env.metadata["render_fps"]) if env_type == "classic" else 1
             )
-            for i in range(repeat):
+            for _i in range(repeat):
                 frames.append(Image.fromarray(frame))
             action = {i: env.action_spaces[i].sample() for i in env.agents}
             _, _, _, _, done, _ = env.step(action)

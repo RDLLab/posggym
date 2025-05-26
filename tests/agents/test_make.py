@@ -7,15 +7,15 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/test_make
 import re
 import warnings
 
-import pytest
-from tests.agents.helpers import assert_equals
-
 import posggym
 import posggym.agents as pga
+import pytest
 from posggym import error
 from posggym.agents.random_policies import DiscreteFixedDistributionPolicy, RandomPolicy
 from posggym.agents.registration import get_env_args_id
 from posggym.agents.utils.action_distributions import DiscreteActionDistribution
+from tests.agents.helpers import assert_equals
+
 
 TEST_ENV_ID = "MultiAccessBroadcastChannel-v0"
 TEST_ENV_ID_UNV = "MultiAccessBroadcastChannel"
@@ -29,7 +29,7 @@ TEST_ENV_ARGS_ID = get_env_args_id(TEST_ENV_ARGS)
 
 @pytest.fixture(scope="function")
 def register_make_testing_policies():
-    """Registers testing policies for `posggym.agents.make`"""
+    """Registers testing policies for `posggym.agents.make`."""
     pga.register(policy_name="GenericTestPolicy", entry_point=RandomPolicy, version=0)
     pga.register(
         policy_name="EnvTestPolicy",
@@ -240,7 +240,7 @@ def test_policy_suggestions(
 ):
     env = posggym.make(TEST_ENV_ID)
     with pytest.raises(
-        error.UnregisteredPolicy, match=f"Did you mean: `{policy_id_suggested}`?"
+        error.UnregisteredPolicyError, match=f"Did you mean: `{policy_id_suggested}`?"
     ):
         pga.make(policy_id_input, env.model, env.agents[0])
 
@@ -262,13 +262,13 @@ def test_env_version_suggestions(
     env = posggym.make(TEST_ENV_ID)
     if default_version:
         with pytest.raises(
-            error.DeprecatedPolicy,
+            error.DeprecatedPolicyError,
             match="It provides the default version",
         ):
             pga.make(policy_id_input, env.model, env.agents[0])
     else:
         with pytest.raises(
-            error.UnregisteredPolicy,
+            error.UnregisteredPolicyError,
             match=f"It provides versioned policies: \\[ {suggested_versions} \\]",
         ):
             pga.make(policy_id_input, env.model, env.agents[0])

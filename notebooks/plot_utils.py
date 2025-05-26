@@ -1,11 +1,12 @@
 """Plotting functions for posggym.agents analysis."""
+from functools import partial
 from itertools import product
-from typing import List, Optional, Tuple
 
 import numpy as np
 
+
 try:
-    import matplotlib
+    import matplotlib as mpl
     import matplotlib.pyplot as plt
 except ImportError as e:
     raise ImportError(
@@ -31,12 +32,13 @@ def add_95CI(df: pd.DataFrame) -> pd.DataFrame:
         n = row["num_episodes"]
         return 1.96 * (std / np.sqrt(n))
 
-    prefix = ""
     for col in df.columns:
         if not col.endswith("_std"):
             continue
         prefix = col.replace("_std", "")
-        df[f"{prefix}_CI"] = df.apply(lambda row: conf_int(row, prefix), axis=1)
+        conf_int_with_prefix = partial(conf_int, prefix=prefix)
+
+        df[f"{prefix}_CI"] = df.apply(conf_int_with_prefix, axis=1)
     return df
 
 
@@ -50,18 +52,18 @@ def add_outcome_proportions(df: pd.DataFrame) -> pd.DataFrame:
 
     columns = ["num_LOSS", "num_DRAW", "num_WIN", "num_NA"]
     new_column_names = ["prop_LOSS", "prop_DRAW", "prop_WIN", "prop_NA"]
-    for col_name, new_name in zip(columns, new_column_names):
+    for col_name, new_name in zip(columns, new_column_names, strict=False):
         if col_name in df.columns:
-            df[new_name] = df.apply(lambda row: prop(row, col_name), axis=1)
+            prop_with_col = partial(prop, col_name=col_name)
+            df[new_name] = df.apply(prop_with_col, axis=1)
     return df
 
 
-def get_policy_type_and_seed(policy_name: str) -> Tuple[str, str]:
+def get_policy_type_and_seed(policy_name: str) -> tuple[str, str]:
     """Get policy type and seed from policy name."""
     if "seed" not in policy_name:
         return policy_name, "None"
 
-    # policy_name = "policy_type_seed[seed]"
     tokens = policy_name.split("_")
     policy_type = []
     seed_token = None
@@ -87,38 +89,38 @@ def add_policy_type_and_seed(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def add_co_team_name(df: pd.DataFrame) -> pd.DataFrame:
+def add_co_team_name(results_df: pd.DataFrame) -> pd.DataFrame:
     """Add co team name to dataframe.
 
     Also removes unwanted rows.
     """
     # For each policy we want to group rows where that policy is paired with equivalent
     # co-player policies.
-    env_symmetric = df["symmetric"].unique().tolist()[0]
+    env_symmetric = results_df["symmetric"].unique().tolist()[0]
     if env_symmetric:
         # For symmetric environments we group rows where the policy is paired with the
         # same co-player policies, independent of the ordering
         same_co_team_ids = set()
-        for team_id in df["co_team_id"].unique().tolist():
+        for team_id in results_df["co_team_id"].unique().tolist():
             # ignore ( and ) and start and end
             pi_names = team_id[1:-1].split(",")
             if all(name == pi_names[0] for name in pi_names):
                 same_co_team_ids.add(team_id)
 
-        df = df[df["co_team_id"].isin(same_co_team_ids)]
+        results_df = results_df[results_df["co_team_id"].isin(same_co_team_ids)]
 
         def get_team_name(row):
             team_id = row["co_team_id"]
             return team_id[1:-1].split(",")[0]
 
-        df["co_team_name"] = df.apply(get_team_name, axis=1)
+        results_df["co_team_name"] = results_df.apply(get_team_name, axis=1)
     else:
         # for asymmetric environments ordering matters so can't reduce team IDs
         def get_team_name_asymmetric(row):
             team_id = row["co_team_id"]
             return team_id[1:-1]
 
-        df["co_team_name"] = df.apply(get_team_name_asymmetric, axis=1)
+        results_df["co_team_name"] = results_df.apply(get_team_name_asymmetric, axis=1)
 
     def get_team_type(row):
         pi_names = row["co_team_name"].split(",")
@@ -134,9 +136,9 @@ def add_co_team_name(df: pd.DataFrame) -> pd.DataFrame:
             return pi_seeds[0]
         return ",".join(pi_seeds)
 
-    df["co_team_type"] = df.apply(get_team_type, axis=1)
-    df["co_team_seed"] = df.apply(get_team_seed, axis=1)
-    return df
+    results_df["co_team_type"] = results_df.apply(get_team_type, axis=1)
+    results_df["co_team_seed"] = results_df.apply(get_team_seed, axis=1)
+    return results_df
 
 
 def import_results(
@@ -145,16 +147,16 @@ def import_results(
     """Import experiment results."""
     # disable annoying warning
     pd.options.mode.chained_assignment = None
-    df = pd.read_csv(result_file)
+    results_df = pd.read_csv(result_file)
 
-    df = add_95CI(df)
-    df = add_outcome_proportions(df)
-    df = add_policy_type_and_seed(df)
-    df = add_co_team_name(df)
+    results_df = add_95CI(results_df)
+    results_df = add_outcome_proportions(results_df)
+    results_df = add_policy_type_and_seed(results_df)
+    results_df = add_co_team_name(results_df)
 
-    # enable annoyin warning
+    # enable annoying warning
     pd.options.mode.chained_assignment = "warn"
-    return df
+    return results_df
 
 
 def heatmap(
@@ -163,7 +165,7 @@ def heatmap(
     col_labels,
     ax=None,
     show_cbar=True,
-    cbar_kw={},
+    cbar_kw=None,
     cbarlabel="",
     **kwargs,
 ):
@@ -202,7 +204,7 @@ def heatmap(
 
     # Create colorbar
     if show_cbar:
-        cbar = ax.figure.colorbar(im, ax=ax, **cbar_kw)
+        cbar = ax.figure.colorbar(im, ax=ax, **(cbar_kw or {}))
         cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom")
     else:
         cbar = None
@@ -260,7 +262,7 @@ def annotate_heatmap(
         the text labels.
 
     """
-    if not isinstance(data, (list, np.ndarray)):
+    if not isinstance(data, list | np.ndarray):
         data = im.get_array()
 
     # Normalize the threshold to the images color range.
@@ -276,7 +278,7 @@ def annotate_heatmap(
 
     # Get the formatter in case a string is supplied
     if isinstance(valfmt, str):
-        valfmt = matplotlib.ticker.StrMethodFormatter(valfmt)
+        valfmt = mpl.ticker.StrMethodFormatter(valfmt)
 
     # Loop over the data and create a `Text` for each "pixel".
     # Change the text's color depending on the data.
@@ -292,11 +294,11 @@ def annotate_heatmap(
 
 def plot_pairwise_heatmap(
     ax,
-    labels: Tuple[List[str], List[str]],
+    labels: tuple[list[str], list[str]],
     values: np.ndarray,
-    title: Optional[str] = None,
-    vrange: Optional[Tuple[float, float]] = None,
-    valfmt: Optional[str] = None,
+    title: str | None = None,
+    vrange: tuple[float, float] | None = None,
+    valfmt: str | None = None,
 ):
     """Plot pairwise values as a heatmap."""
     # Note numpy arrays by default have (0, 0) in the top-left corner.
@@ -339,7 +341,7 @@ def get_pairwise_values(
     y_key: str,
     policy_key: str = "policy_id",
     coplayer_policy_key: str = "coplayer_policy_id",
-    coplayer_policies: Optional[List[str]] = None,
+    coplayer_policies: list[str] | None = None,
 ):
     """Get values for each policy pairing."""
     policies = plot_df[policy_key].unique().tolist()
@@ -370,11 +372,11 @@ def plot_pairwise_comparison(
     y_key: str,
     policy_key: str = "policy_id",
     coplayer_policy_key: str = "coplayer_policy_id",
-    y_err_key: Optional[str] = None,
+    y_err_key: str | None = None,
     vrange=None,
     figsize=(20, 20),
     valfmt=None,
-    coplayer_policies: Optional[List[str]] = None,
+    coplayer_policies: list[str] | None = None,
 ):
     """Plot results for each policy pairings.
 
@@ -391,7 +393,6 @@ def plot_pairwise_comparison(
     fig, axs = plt.subplots(
         nrows=1,
         ncols=ncols,
-        # figsize=figsize,
         squeeze=False,
         sharey=True,
     )
@@ -566,7 +567,7 @@ def plot_mean_pairwise_comparison(
     pop_key: str,
     coplayer_policy_key: str,
     coplayer_pop_key: str,
-    vrange: Optional[Tuple[float, float]] = None,
+    vrange: tuple[float, float] | None = None,
     figsize=(12, 6),
     valfmt=None,
 ):

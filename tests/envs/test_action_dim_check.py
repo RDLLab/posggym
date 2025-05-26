@@ -3,14 +3,22 @@
 Ref:
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/test_action_dim_check.py
 """
-from typing import Dict, Tuple, Union
 
 import numpy as np
 import pytest
 from gymnasium import spaces
+
 from tests.envs.utils import all_testing_initialised_envs
 
+
+try:
+    import torch
+except ImportError:
+    torch = None
+
 import posggym
+from posggym.utils.torch_utils import maybe_expand_dims
+
 
 DISCRETE_ENVS = list(
     filter(
@@ -42,9 +50,8 @@ def test_discrete_actions_out_of_bound(env: posggym.Env):
         i: env.action_spaces[i].start + env.action_spaces[i].n  # type: ignore
         for i in env.agents
     }
-
     env.reset()
-    with pytest.raises(Exception):
+    with pytest.raises(AssertionError):
         env.step(upper_bounds)
 
     env.close()
@@ -63,7 +70,7 @@ OOB_VALUE = 100
 
 
 def tuple_equal(
-    a: Tuple[Union[int, np.ndarray, float]], b: Tuple[Union[int, np.ndarray, float]]
+    a: tuple[int | np.ndarray | float], b: tuple[int | np.ndarray | float]
 ) -> bool:
     if len(a) != len(b):
         return False
@@ -71,6 +78,14 @@ def tuple_equal(
         if isinstance(a[i], np.ndarray) and isinstance(b[i], np.ndarray):
             if not np.array_equal(a[i], b[i]):
                 return False
+        elif (
+            torch is not None
+            and isinstance(a[i], torch.Tensor)
+            and isinstance(b[i], torch.Tensor)
+        ):
+            if not torch.equal(a[i], b[i]):  # type: ignore
+                return False
+
         elif a[i] != b[i]:
             return False
     return True
@@ -92,19 +107,23 @@ def test_box_actions_out_of_bound(env: posggym.Env):
     oob_env = posggym.make(env.spec.id, disable_env_checker=True)
     oob_env.reset(seed=42)
 
-    action_spaces: Dict[str, spaces.Box] = env.action_spaces  # type: ignore
+    action_spaces: dict[str, spaces.Box] = env.action_spaces  # type: ignore
     assert all(
         isinstance(act_space, spaces.Box) for act_space in action_spaces.values()
     )
 
     dtypes = {i: action_spaces[i].dtype for i in env.agents}
-    upper_bounds = {i: action_spaces[i].high for i in env.agents}
-    lower_bounds = {i: action_spaces[i].low for i in env.agents}
+
+    upper_bounds = {
+        i: maybe_expand_dims(env, action_spaces[i].high) for i in env.agents
+    }
+    lower_bounds = {i: maybe_expand_dims(env, action_spaces[i].low) for i in env.agents}
 
     if all(np.all(action_spaces[i].bounded_above) for i in env.agents):
         obs, _, _, _, _, _ = env.step(upper_bounds)
         oob_actions = {
-            i: np.cast[dtypes[i]](upper_bounds[i] + OOB_VALUE) for i in upper_bounds
+            i: np.asarray(upper_bounds[i] + OOB_VALUE, dtype=dtypes[i])
+            for i in upper_bounds
         }
 
         assert all(np.all(oob_actions[i] > upper_bounds[i]) for i in upper_bounds)
@@ -116,7 +135,8 @@ def test_box_actions_out_of_bound(env: posggym.Env):
         obs, _, _, _, _, _ = env.step(lower_bounds)
 
         oob_actions = {
-            i: np.cast[dtypes[i]](lower_bounds[i] - OOB_VALUE) for i in lower_bounds
+            i: np.asarray(lower_bounds[i] - OOB_VALUE, dtype=dtypes[i])
+            for i in lower_bounds
         }
         assert all(np.all(oob_actions[i] < lower_bounds[i]) for i in lower_bounds)
         oob_obs, _, _, _, _, _ = oob_env.step(oob_actions)

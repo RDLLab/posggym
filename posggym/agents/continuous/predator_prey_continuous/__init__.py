@@ -1,10 +1,10 @@
 """Policies for the PredatorPreyContinuous-v0 environment."""
 
-from posggym.agents.registration import PolicySpec
 from posggym.agents.continuous.predator_prey_continuous import heuristic
+from posggym.agents.registration import PolicySpec
 from posggym.agents.torch_policy import PPOPolicy
-from posggym.config import AGENT_MODEL_DIR
 from posggym.agents.utils import processors
+from posggym.config import AGENT_MODEL_DIR
 
 
 ENV_ID = "PredatorPreyContinuous-v0"

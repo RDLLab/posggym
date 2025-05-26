@@ -19,13 +19,11 @@ agent '0' for 10 episodes, run:
 import argparse
 import math
 import sys
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+import posggym
 import pygame
 from gymnasium import spaces
-
-import posggym
 
 
 grid_world_key_action_map = {
@@ -106,8 +104,8 @@ def display_vector_obs(obs: np.ndarray, width: int):
 
 
 def run_discrete_env_manual_keyboard_agent(
-    env: posggym.Env, keyboard_agent_id: List[str], pause_each_step: bool = False
-) -> Tuple[Dict[str, float], int]:
+    env: posggym.Env, keyboard_agent_id: list[str], pause_each_step: bool = False
+) -> tuple[dict[str, float], int]:
     """Run manual keyboard agent in discrete environment.
 
     Assumes environment actions are discrete. So user will be prompted to input an
@@ -161,7 +159,7 @@ def run_discrete_env_manual_keyboard_agent(
 
 def run_continuous_env_manual_keyboard_agent(
     env: posggym.Env, keyboard_agent_id: str, pause_each_step: bool = False
-) -> Tuple[Dict[str, float], int]:
+) -> tuple[dict[str, float], int]:
     """Run manual keyboard agent in continuous environment.
 
     Assumes environment actions are continuous (i.e. space.Box). So user will be
@@ -194,8 +192,6 @@ def run_continuous_env_manual_keyboard_agent(
                     if action_str == "q":
                         env.close()
                         sys.exit()
-                    if action_str == "r":
-                        env.model.randomize_dynamics()
                     try:
                         action_i = np.array(
                             [float(x) for x in action_str.split()],
@@ -226,7 +222,7 @@ def run_continuous_env_manual_keyboard_agent(
 
 def run_grid_world_env_keyboard_agent(
     env: posggym.Env, keyboard_agent_id: str, pause_each_step: bool = False
-) -> Tuple[Dict[str, float], int]:
+) -> tuple[dict[str, float], int]:
     """Run keyboard agent in grid-world environment.
 
     Assumes environment actions are angular and linear velocity.
@@ -277,7 +273,7 @@ def run_grid_world_env_keyboard_agent(
 
 def run_continuous_env_keyboard_agent(
     env: posggym.Env, keyboard_agent_id: str, pause_each_step: bool = False
-) -> Tuple[Dict[str, float], int]:
+) -> tuple[dict[str, float], int]:
     """Run keyboard agent in continuous environment.
 
     Assumes environment actions are angular and linear velocity.
@@ -316,16 +312,14 @@ def run_continuous_env_keyboard_agent(
             action_i[0] = +angle_inc
 
         if keys[pygame.K_UP]:
-            action_i[1] = vel_inc  # if use_linear_acc else action_i[1] + vel_inc
+            action_i[1] = vel_inc if use_linear_acc else action_i[1] + vel_inc
         elif keys[pygame.K_DOWN]:
-            action_i[1] = -vel_inc  # if use_linear_acc else action_i[1] - vel_inc
+            action_i[1] = -vel_inc if use_linear_acc else action_i[1] - vel_inc
 
         if keys[pygame.K_c] and pygame.key.get_mods() & pygame.KMOD_CTRL:
             # exit on control-c
             env.close()
             sys.exit()
-        if keys[pygame.K_r]:
-            env.model.randomize_dynamics()
 
         actions = {}
         for i in env.agents:
@@ -347,10 +341,10 @@ def run_continuous_env_keyboard_agent(
 
 def run_keyboard_agent(
     env_id: str,
-    keyboard_agent_ids: List[str],
+    keyboard_agent_ids: list[str],
     num_episodes: int,
-    max_episode_steps: Optional[int] = None,
-    seed: Optional[int] = None,
+    max_episode_steps: int | None = None,
+    seed: int | None = None,
     pause_each_step: bool = False,
     manual_input: bool = False,
 ):
@@ -360,7 +354,6 @@ def run_keyboard_agent(
             env_id,
             render_mode="human",
             max_episode_steps=max_episode_steps,
-            control_type="ForceNonHolonomoic",
         )
     else:
         env = posggym.make(env_id, render_mode="human")
@@ -391,7 +384,7 @@ def run_keyboard_agent(
     env.reset(seed=seed)
 
     episode_steps = []
-    episode_rewards: Dict[str, List[float]] = {i: [] for i in env.possible_agents}
+    episode_rewards: dict[str, list[float]] = {i: [] for i in env.possible_agents}
     for _ in range(num_episodes):
         if manual_input:
             rewards, steps = run_env_episode_fn(

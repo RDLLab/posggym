@@ -1,18 +1,9 @@
 """The Pursuit-Evasion World World Environment."""
+from __future__ import annotations
+
 import math
 from itertools import product
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    NamedTuple,
-    Optional,
-    Set,
-    Tuple,
-    Union,
-    cast,
-)
+from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple, cast
 
 import numpy as np
 from gymnasium import spaces
@@ -21,20 +12,26 @@ import posggym.model as M
 from posggym import logger
 from posggym.core import DefaultEnv
 from posggym.envs.continuous.core import (
+    ANGLE_IDX,
+    X_IDX,
+    Y_IDX,
+    CollisionType,
+    ControlType,
+    Coord,
+    FloatCoord,
     PMBodyState,
     SquareContinuousWorld,
     clip_actions,
-    X_IDX,
-    Y_IDX,
-    ANGLE_IDX,
     generate_action_space,
-    ControlType,
-    CollisionType,
-    FloatCoord,
-    Coord,
     generate_interior_walls,
+    generate_parameters,
+    scale_action,
 )
 from posggym.utils import seeding
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class PEState(NamedTuple):
@@ -168,9 +165,8 @@ class PursuitEvasionContinuousEnv(DefaultEnv):
     by manually specifying a value for `max_episode_steps` when creating the environment
     with `posggym.make`).
 
-    Arguments
+    Arguments:
     ---------
-
     - `world` - the world layout to use. This can either be a string specifying one of
          the supported worlds (see SUPPORTED_WORLDS), or a custom :class:`PEWorld`
          object (default = `"16x16"`).
@@ -215,7 +211,7 @@ class PursuitEvasionContinuousEnv(DefaultEnv):
     )
     ```
 
-    References
+    References:
     ----------
     - [This Pursuit-Evasion implementation is directly inspired by the problem] Seaman,
       Iris Rubi, Jan-Willem van de Meent, and David Wingate. 2018. “Nested Reasoning
@@ -228,22 +224,33 @@ class PursuitEvasionContinuousEnv(DefaultEnv):
 
     """
 
-    metadata = {
+    metadata: ClassVar[dict] = {
         "render_modes": ["human", "rgb_array"],
         "render_fps": 15,
     }
 
     def __init__(
         self,
-        world: Union[str, "PEWorld"] = "16x16",
-        max_obs_distance: Optional[float] = None,
+        world: str | PEWorld = "16x16",
+        max_obs_distance: float | None = None,
         fov: float = np.pi / 3,
         n_sensors: int = 16,
         normalize_reward: bool = True,
         use_progress_reward: bool = True,
-        render_mode: Optional[str] = None,
+        obs_self_model: bool = False,
+        control_type: ControlType | str = ControlType.VelocityNonHolonomoic,
+        render_mode: str | None = None,
         **kwargs,
-    ):
+    ) -> None:
+        if isinstance(control_type, str):
+            try:
+                control_type = ControlType.from_str(control_type)
+            except ValueError:
+                logger.warning(
+                    "Invalid control type, defaulting to VelocityNonHolonomoic"
+                )
+                control_type = ControlType.VelocityNonHolonomoic
+
         model = PursuitEvasionContinuousModel(
             world,
             max_obs_distance=max_obs_distance,
@@ -251,9 +258,14 @@ class PursuitEvasionContinuousEnv(DefaultEnv):
             use_progress_reward=use_progress_reward,
             fov=fov,
             n_sensors=n_sensors,
+            control_type=control_type,
+            obs_self_model=obs_self_model,
             **kwargs,
         )
-        super().__init__(model, render_mode=render_mode)
+        super().__init__(
+            model,
+            render_mode=render_mode,
+        )
         self.window_surface = None
         self.blocked_surface = None
         self.clock = None
@@ -263,8 +275,8 @@ class PursuitEvasionContinuousEnv(DefaultEnv):
         self.fov = fov
 
     def reset(
-        self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
-    ) -> Tuple[Dict[str, M.ObsType], Dict[str, Dict]]:
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> tuple[dict[str, M.ObsType], dict[str, dict]]:
         # reset renderer since goal location can change between episodes
         self._renderer = None
         return super().reset(seed=seed, options=options)
@@ -272,10 +284,11 @@ class PursuitEvasionContinuousEnv(DefaultEnv):
     def render(self):
         if self.render_mode is None:
             assert self.spec is not None
-            logger.warn(
+            logger.warning(
                 "You are calling render method without specifying any render mode. "
                 "You can specify the render_mode at initialization, "
-                f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
+                'e.g. posggym.make("%s", render_mode="rgb_array")',
+                self.spec.id,
             )
             return
         return self._render_img()
@@ -364,7 +377,7 @@ class PursuitEvasionContinuousEnv(DefaultEnv):
                 end_x = x + dist * math.cos(angle)
                 end_y = y + dist * math.sin(angle)
                 scaled_start = (int(x * scale_factor), int(y * scale_factor))
-                scaled_end = int(end_x * scale_factor), (end_y * scale_factor)
+                scaled_end = (int(end_x * scale_factor), int(end_y * scale_factor))
                 pygame.draw.line(
                     self.window_surface,
                     pygame.Color("red"),
@@ -405,7 +418,7 @@ class PursuitEvasionContinuousEnv(DefaultEnv):
 class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
     """Continuous Pursuit-Evasion Model.
 
-    Arguments
+    Arguments:
     ---------
     world : str, PEWorld
         the world layout to use. This can either be a string specifying one of
@@ -447,13 +460,15 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
 
     def __init__(
         self,
-        world: Union[str, "PEWorld"],
-        max_obs_distance: Optional[float] = None,
+        world: str | PEWorld,
+        max_obs_distance: float | None = None,
         fov: float = np.pi / 3,
         n_sensors: int = 16,
         normalize_reward: bool = True,
         use_progress_reward: bool = True,
-    ):
+        obs_self_model: bool = False,
+        control_type: ControlType = ControlType.VelocityNonHolonomoic,
+    ) -> None:
         assert 0 < fov < 2 * np.pi, "fov must be in (0, 2 * pi)"
         assert n_sensors > 0, "n_sensors must be positive"
 
@@ -473,6 +488,10 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
         self._normalize_reward = normalize_reward
         self._use_progress_reward = use_progress_reward
         self.fov = fov
+        self.control_type = control_type
+        self.obs_self_model = obs_self_model
+        self.dt = 1.0
+        self.substeps = 10
 
         self._max_sp_distance = self.world.get_max_shortest_path_distance()
         self._max_raw_return = self.R_EVASION
@@ -501,13 +520,26 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
 
         # can turn by up to 45 degrees per timestep
         self.dyaw_limit = math.pi / 4
-        self.action_spaces = generate_action_space(
-            ControlType.VelocityNonHolonomoic,
+        self.dvel_limit = 1.0
+
+        self.fyaw_limit = math.pi
+        self.fvel_limit = 3.0
+
+        self.action_spaces_per_control = generate_action_space(
             self.possible_agents,
-            dyaw_limit=self.dyaw_limit,
-            dvel_limit=(0.0, 1.0),
+            self.dyaw_limit,
+            self.dvel_limit,
+            self.fyaw_limit,
+            self.fvel_limit,
         )
 
+        self.action_spaces = {
+            i: spaces.Box(np.array([-1, -1]), np.array([1, 1]))
+            for i in self.possible_agents
+        }
+
+        self.control_types = {i: self.control_type for i in self.possible_agents}
+        self.init_kinematics()
         self.obs_dist = self.max_obs_distance
         self.n_sensors = n_sensors
         self.sensor_obs_dim = self.n_sensors * 2
@@ -517,9 +549,14 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
         size = self.world.size
         self.observation_spaces = {
             i: spaces.Box(
-                low=np.array([*sensor_low, 0, 0, 0, 0, 0, 0, 0], dtype=np.float32),
+                low=np.array(
+                    [*sensor_low, 0, 0, 0, 0, 0, 0, 0]
+                    + ([0] if self.obs_self_model else []),
+                    dtype=np.float32,
+                ),
                 high=np.array(
-                    [*sensor_high, 1, size, size, size, size, size, size],
+                    [*sensor_high, 1, size, size, size, size, size, size]
+                    + ([len(ControlType)] if self.obs_self_model else []),
                     dtype=np.float32,
                 ),
                 dtype=np.float32,
@@ -533,7 +570,7 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
         self.world.add_entity("evader", None, color=self.EVADER_COLOR)
 
     @property
-    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
+    def reward_ranges(self) -> dict[str, tuple[float, float]]:
         max_reward = self.R_EVASION
         if self._use_progress_reward:
             max_reward += self.R_PROGRESS
@@ -541,13 +578,18 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
             max_reward = self._get_normalized_reward(max_reward)
         return {i: (-max_reward, max_reward) for i in self.possible_agents}
 
+    def init_kinematics(self):
+        self.kinematic_parameters = {
+            i: generate_parameters(self.control_types[i]) for i in self.possible_agents
+        }
+
     @property
     def rng(self) -> seeding.RNG:
         if self._rng is None:
             self._rng, seed = seeding.std_random()
         return self._rng
 
-    def get_agents(self, state: PEState) -> List[str]:
+    def get_agents(self, state: PEState) -> list[str]:
         return list(self.possible_agents)
 
     def sample_initial_state(self) -> PEState:
@@ -569,11 +611,11 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
             self.world.get_shortest_path_distance(evader_coord, goal_coord),
         )
 
-    def sample_initial_obs(self, state: PEState) -> Dict[str, PEObs]:
+    def sample_initial_obs(self, state: PEState) -> dict[str, PEObs]:
         return self._get_obs(state)[0]
 
     def step(
-        self, state: PEState, actions: Dict[str, PEAction]
+        self, state: PEState, actions: dict[str, PEAction]
     ) -> M.JointTimestep[PEState, PEObs]:
         clipped_actions = clip_actions(actions, self.action_spaces)
         next_state = self._get_next_state(state, clipped_actions)
@@ -583,7 +625,7 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
         all_done = self._is_done(next_state, evader_seen)
         terminated = {i: all_done for i in self.possible_agents}
         truncated = {i: False for i in self.possible_agents}
-        info: Dict[str, Dict] = {i: {} for i in self.possible_agents}
+        info: dict[str, dict] = {i: {} for i in self.possible_agents}
         if all_done:
             for i, outcome in self._get_outcome(next_state, evader_seen).items():
                 info[i]["outcome"] = outcome
@@ -592,61 +634,52 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
             next_state, obs, rewards, terminated, truncated, all_done, info
         )
 
-    def _get_next_state(self, state: PEState, actions: Dict[str, PEAction]) -> PEState:
+    def _get_next_state(self, state: PEState, actions: dict[str, PEAction]) -> PEState:
         evader_a = actions[str(self.EVADER_IDX)]
         pursuer_a = actions[str(self.PURSUER_IDX)]
-
         self.world.set_entity_state("pursuer", state.pursuer_state)
         self.world.set_entity_state("evader", state.evader_state)
 
-        (
-            v_angle,
-            vel,
-            torque,
-            local_force,
-            global_force,
-        ) = self.world.compute_vel_force(
-            ControlType.VelocityNonHolonomoic,
+        pursuer_a_scaled = scale_action(
+            pursuer_a,
+            self.action_spaces[str(self.PURSUER_IDX)],
+            self.action_spaces_per_control[self.control_types[str(self.PURSUER_IDX)]][
+                str(self.PURSUER_IDX)
+            ],
+        )
+
+        result = self.world.compute_vel_force(
+            self.control_types[str(self.PURSUER_IDX)],
             state.pursuer_state[ANGLE_IDX],
             current_vel=None,
-            action_i=pursuer_a,
+            action_i=pursuer_a_scaled,
             vel_limit_norm=None,
+            kinematic_parameters=self.kinematic_parameters[str(self.PURSUER_IDX)],
         )
 
-        self.world.update_entity_state(
-            "pursuer",
-            angle=v_angle,
-            vel=vel,
-            torque=torque,
-            local_force=local_force,
-            global_force=global_force,
+        self.world.update_entity_state("pursuer", **result)
+
+        evader_a_scaled = scale_action(
+            evader_a,
+            self.action_spaces[str(self.EVADER_IDX)],
+            self.action_spaces_per_control[self.control_types[str(self.EVADER_IDX)]][
+                str(self.EVADER_IDX)
+            ],
         )
 
-        (
-            v_angle,
-            vel,
-            torque,
-            local_force,
-            global_force,
-        ) = self.world.compute_vel_force(
-            ControlType.VelocityNonHolonomoic,
-            state.pursuer_state[ANGLE_IDX],
+        result = self.world.compute_vel_force(
+            self.control_types[str(self.EVADER_IDX)],
+            state.evader_state[ANGLE_IDX],
             current_vel=None,
-            action_i=evader_a,
+            action_i=evader_a_scaled,
             vel_limit_norm=None,
+            kinematic_parameters=self.kinematic_parameters[str(self.PURSUER_IDX)],
         )
 
-        self.world.update_entity_state(
-            "evader",
-            angle=v_angle,
-            vel=vel,
-            torque=torque,
-            local_force=local_force,
-            global_force=global_force,
-        )
+        self.world.update_entity_state("evader", **result)
 
         # simulate
-        self.world.simulate(1.0 / 10, 10)
+        self.world.simulate(self.dt / self.substeps, self.substeps)
 
         pursuer_next_state = np.array(
             self.world.get_entity_state("pursuer"),
@@ -672,7 +705,7 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
             min_sp_distance,
         )
 
-    def _get_obs(self, state: PEState) -> Tuple[Dict[str, PEObs], bool]:
+    def _get_obs(self, state: PEState) -> tuple[dict[str, PEObs], bool]:
         evader_obs, _ = self._get_agent_obs(state, evader=True)
         pursuer_obs, evader_seen = self._get_agent_obs(state, evader=False)
 
@@ -685,7 +718,7 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
         self,
         state: PEState,
         evader: bool,
-    ) -> Tuple[np.ndarray, bool]:
+    ) -> tuple[np.ndarray, bool]:
         if evader:
             agent_pos = (
                 state.evader_state[X_IDX],
@@ -700,7 +733,6 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
                 state.pursuer_state[ANGLE_IDX],
             )
             opp_coord = (state.evader_state[X_IDX], state.evader_state[Y_IDX])
-
         ray_dists, ray_col_type = self.world.check_collision_circular_rays(
             agent_pos,
             self.max_obs_distance,
@@ -734,11 +766,16 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
         else:
             obs[aux_obs_idx + 5 : aux_obs_idx + 7] = [0, 0]
 
+        if self.obs_self_model:
+            if evader:
+                obs[-1] = int(self.control_types[str(self.EVADER_IDX)])
+            else:
+                obs[-1] = int(self.control_types[str(self.PURSUER_IDX)])
         return obs, other_agent_seen
 
     def _get_reward(
         self, state: PEState, next_state: PEState, evader_seen: bool
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         evader_reward = 0.0
         if self._use_progress_reward and next_state.min_goal_dist < state.min_goal_dist:
             evader_reward += self.R_PROGRESS
@@ -768,7 +805,7 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
             or self.world.agents_collide(state.evader_state, state.evader_goal_coord)
         )
 
-    def _get_outcome(self, state: PEState, evader_seen: bool) -> Dict[str, M.Outcome]:
+    def _get_outcome(self, state: PEState, evader_seen: bool) -> dict[str, M.Outcome]:
         evader_id, pursuer_id = str(self.EVADER_IDX), str(self.PURSUER_IDX)
         if evader_seen or self.world.agents_collide(
             state.evader_state, state.pursuer_state
@@ -787,7 +824,7 @@ class PursuitEvasionContinuousModel(M.POSGModel[PEState, PEObs, PEAction]):
 class PEWorld(SquareContinuousWorld):
     """A world for the Pursuit Evasion Problem.
 
-    Arguments
+    Arguments:
     ---------
     size : int
         height and width of the world.
@@ -805,11 +842,11 @@ class PEWorld(SquareContinuousWorld):
     def __init__(
         self,
         size: int,
-        blocked_coords: Set[Coord],
-        goal_coords_map: Dict[FloatCoord, List[FloatCoord]],
-        evader_start_coords: List[FloatCoord],
-        pursuer_start_coords: List[FloatCoord],
-    ):
+        blocked_coords: set[Coord],
+        goal_coords_map: dict[FloatCoord, list[FloatCoord]],
+        evader_start_coords: list[FloatCoord],
+        pursuer_start_coords: list[FloatCoord],
+    ) -> None:
         interior_walls = generate_interior_walls(size, size, blocked_coords)
         super().__init__(
             size=size,
@@ -825,7 +862,7 @@ class PEWorld(SquareContinuousWorld):
         self.pursuer_start_coords = pursuer_start_coords
         self.shortest_paths = self.get_all_shortest_paths(self.all_goal_coords)
 
-    def copy(self) -> "PEWorld":
+    def copy(self) -> PEWorld:
         world = PEWorld(
             size=int(self.size),
             blocked_coords=self.blocked_coords,
@@ -844,14 +881,14 @@ class PEWorld(SquareContinuousWorld):
         return world
 
     @property
-    def all_goal_coords(self) -> List[FloatCoord]:
+    def all_goal_coords(self) -> list[FloatCoord]:
         """The list of all evader goal locations."""
         all_locs = set()
         for v in self._goal_coords_map.values():
             all_locs.update(v)
         return list(all_locs)
 
-    def get_goal_coords(self, evader_start_coord: FloatCoord) -> List[FloatCoord]:
+    def get_goal_coords(self, evader_start_coord: FloatCoord) -> list[FloatCoord]:
         """Get list of possible evader goal coords for given start coords."""
         return self._goal_coords_map[evader_start_coord]
 
@@ -957,9 +994,9 @@ def convert_map_to_world(
     height: int,
     width: int,
     block_symbol: str = "#",
-    pursuer_start_symbols: Optional[Set[str]] = None,
-    evader_start_symbols: Optional[Set[str]] = None,
-    evader_goal_symbol_map: Optional[Dict] = None,
+    pursuer_start_symbols: set[str] | None = None,
+    evader_start_symbols: set[str] | None = None,
+    evader_goal_symbol_map: dict | None = None,
 ) -> PEWorld:
     """Generate PE world layout from ascii map.
 
@@ -992,7 +1029,7 @@ def convert_map_to_world(
             "9": ["0", "1", "2"],
         }
 
-    blocked_coords: Set[Coord] = set()
+    blocked_coords: set[Coord] = set()
     evader_start_coords = []
     pursuer_start_coords = []
     evader_symbol_coord_map = {}
@@ -1023,9 +1060,22 @@ def convert_map_to_world(
     )
 
 
-# world_name: world_make_fn
-SUPPORTED_WORLDS: Dict[str, Callable[[], PEWorld]] = {
+SUPPORTED_WORLDS: dict[str, Callable[[], PEWorld]] = {
     "8x8": get_8x8_world,
     "16x16": get_16x16_world,
     "32x32": get_32x32_world,
 }
+
+
+if __name__ == "__main__":
+    from posggym.utils.run_random_agents import run_random
+
+    run_random(
+        PursuitEvasionContinuousEnv(
+            render_mode="human",
+            obs_self_model=True,
+            control_type=ControlType.WheeledRobot,
+        ),
+        num_episodes=5,
+        max_episode_steps=100,
+    )

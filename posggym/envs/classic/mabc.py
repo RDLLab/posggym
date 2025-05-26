@@ -1,7 +1,7 @@
 """The Multi-Access Broadcast problem."""
 import sys
 from itertools import product
-from typing import Dict, List, Optional, Tuple, Union
+from typing import ClassVar
 
 from gymnasium import spaces
 
@@ -10,7 +10,8 @@ from posggym import logger
 from posggym.core import DefaultEnv
 from posggym.utils import seeding
 
-MABCState = Tuple[int, ...]
+
+MABCState = tuple[int, ...]
 EMPTY = 0
 FULL = 1
 NODE_STATES = [EMPTY, FULL]
@@ -90,9 +91,8 @@ class MABCEnv(DefaultEnv[MABCState, MABCObs, MABCAction]):
     By default episodes continue infinitely long. To set a step limit, specify
     `max_episode_steps` when initializing the environment with `posggym.make`.
 
-    Arguments
+    Arguments:
     ---------
-
     - `num_nodes` - the number of nodes (i.e. agents) in the network (default=`2.0`)
     - `fill_probs` - the probability each nodes buffer is filled, should be a tuple with
         an entry for each node (default = `None` = `(0.9, 0.1)`)
@@ -105,28 +105,28 @@ class MABCEnv(DefaultEnv[MABCState, MABCObs, MABCAction]):
     ---------------
     - `v0`: Initial version
 
-    References
+    References:
     ----------
     - Ooi, J. M., and Wornell, G. W. 1996. Decentralized control of a multiple
       access broadcast channel: Performance bounds. In Proceedings of the 35th
-      Conference on Decision and Control, 293–298.
+      Conference on Decision and Control, 293-298.
     - Hansen, Eric A., Daniel S. Bernstein, and Shlomo Zilberstein. “Dynamic
       Programming for Partially Observable Stochastic Games.” In Proceedings of
-      the 19th National Conference on Artificial Intelligence, 709–715. AAAI’04.
+      the 19th National Conference on Artificial Intelligence, 709-715. AAAI`04.
       San Jose, California: AAAI Press, 2004.
 
     """
 
-    metadata = {"render_modes": ["human", "ansi"], "render_fps": 4}
+    metadata: ClassVar[dict] = {"render_modes": ["human", "ansi"], "render_fps": 4}
 
     def __init__(
         self,
         num_nodes: int = 2,
-        fill_probs: Optional[Tuple[float, ...]] = None,
+        fill_probs: tuple[float, ...] | None = None,
         observation_prob: float = 0.9,
-        init_buffer_dist: Optional[Tuple[float, ...]] = None,
-        render_mode: Optional[str] = None,
-    ):
+        init_buffer_dist: tuple[float, ...] | None = None,
+        render_mode: str | None = None,
+    ) -> None:
         super().__init__(
             MABCModel(num_nodes, fill_probs, observation_prob, init_buffer_dist),
             render_mode=render_mode,
@@ -135,7 +135,7 @@ class MABCEnv(DefaultEnv[MABCState, MABCObs, MABCAction]):
     def render(self):
         if self.render_mode is None:
             assert self.spec is not None
-            logger.warn(
+            logger.warning(
                 "You are calling render method without specifying any render mode. "
                 "You can specify the render_mode at initialization, "
                 f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
@@ -167,6 +167,9 @@ class MABCEnv(DefaultEnv[MABCState, MABCObs, MABCAction]):
             return output_str
 
 
+MIN_NODES = 2
+
+
 class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
     """POSG Model for the Multi-Access Broadcast Channel problem."""
 
@@ -180,11 +183,11 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
     def __init__(
         self,
         num_nodes: int = 2,
-        fill_probs: Optional[Tuple[float, ...]] = None,
+        fill_probs: tuple[float, ...] | None = None,
         observation_prob: float = 0.9,
-        init_buffer_dist: Optional[Tuple[float, ...]] = None,
-    ):
-        assert num_nodes >= 2
+        init_buffer_dist: tuple[float, ...] | None = None,
+    ) -> None:
+        assert num_nodes >= MIN_NODES
 
         if fill_probs is None:
             fill_probs = self.DEFAULT_FILL_PROBS
@@ -225,7 +228,7 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
         self._obs_map = self._construct_obs_func()
 
     @property
-    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
+    def reward_ranges(self) -> dict[str, tuple[float, float]]:
         return {i: (self.R_NO_SEND, self.R_SEND) for i in self.possible_agents}
 
     @property
@@ -234,7 +237,7 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
             self._rng, seed = seeding.std_random()
         return self._rng
 
-    def get_agents(self, state: MABCState) -> List[str]:
+    def get_agents(self, state: MABCState) -> list[str]:
         return list(self.possible_agents)
 
     def sample_initial_state(self) -> MABCState:
@@ -246,11 +249,11 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
                 node_states.append(EMPTY)
         return tuple(node_states)
 
-    def sample_initial_obs(self, state: MABCState) -> Dict[str, MABCObs]:
+    def sample_initial_obs(self, state: MABCState) -> dict[str, MABCObs]:
         return {i: NOCOLLISION for i in self.possible_agents}
 
     def step(
-        self, state: MABCState, actions: Dict[str, MABCAction]
+        self, state: MABCState, actions: dict[str, MABCAction]
     ) -> M.JointTimestep[MABCState, MABCObs]:
         assert all(a_i in ACTIONS for a_i in actions.values())
         next_state = self._sample_next_state(state, actions)
@@ -260,14 +263,14 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
         terminated = {i: False for i in self.possible_agents}
         truncated = {i: False for i in self.possible_agents}
         all_done = False
-        info: Dict[str, Dict] = {i: {} for i in self.possible_agents}
+        info: dict[str, dict] = {i: {} for i in self.possible_agents}
 
         return M.JointTimestep(
             next_state, obs, rewards, terminated, truncated, all_done, info
         )
 
     def _sample_next_state(
-        self, state: MABCState, actions: Dict[str, MABCAction]
+        self, state: MABCState, actions: dict[str, MABCAction]
     ) -> MABCState:
         next_node_states = list(state)
         for i, a_i in actions.items():
@@ -279,7 +282,7 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
                 next_node_states[idx] = FULL
         return tuple(next_node_states)
 
-    def _sample_obs(self, actions: Dict[str, MABCAction]) -> Dict[str, MABCObs]:
+    def _sample_obs(self, actions: dict[str, MABCAction]) -> dict[str, MABCObs]:
         senders = sum(int(a_i == SEND) for a_i in actions.values())
         if senders > 1:
             correct_obs = COLLISION
@@ -296,8 +299,8 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
                 obs[i] = wrong_obs
         return obs
 
-    def get_initial_belief(self) -> Dict[MABCState, float]:
-        b_map: Dict[MABCState, float] = {}
+    def get_initial_belief(self) -> dict[MABCState, float]:
+        b_map: dict[MABCState, float] = {}
         s_prob_sum = 0.0
         for s in self._state_space:
             s_prob = 1.0
@@ -317,13 +320,13 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
     def transition_fn(
         self,
         state: MABCState,
-        actions: Dict[str, MABCAction],
+        actions: dict[str, MABCAction],
         next_state: MABCState,
     ) -> float:
         action_tuple = tuple(actions[i] for i in self.possible_agents)
         return self._trans_map[(state, action_tuple, next_state)]
 
-    def _construct_trans_func(self) -> Dict:
+    def _construct_trans_func(self) -> dict:
         trans_map = {}
         agent_ids = [int(i) for i in self.possible_agents]
         for s, a, s_next in product(
@@ -343,15 +346,15 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
 
     def observation_fn(
         self,
-        obs: Dict[str, MABCObs],
+        obs: dict[str, MABCObs],
         next_state: MABCState,
-        actions: Dict[str, MABCAction],
+        actions: dict[str, MABCAction],
     ) -> float:
         obs_tuple = tuple(obs[i] for i in self.possible_agents)
         action_tuple = tuple(actions[i] for i in self.possible_agents)
         return self._obs_map[(next_state, action_tuple, obs_tuple)]
 
-    def _construct_obs_func(self) -> Dict:
+    def _construct_obs_func(self) -> dict:
         obs_map = {}
         agent_ids = [int(i) for i in self.possible_agents]
         for s_next, a, o in product(
@@ -372,12 +375,12 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
         return obs_map
 
     def reward_fn(
-        self, state: MABCState, actions: Dict[str, MABCAction]
-    ) -> Dict[str, float]:
+        self, state: MABCState, actions: dict[str, MABCAction]
+    ) -> dict[str, float]:
         action_tuple = tuple(actions[i] for i in self.possible_agents)
         return self._rew_map[(state, action_tuple)]
 
-    def _construct_rew_func(self) -> Dict:
+    def _construct_rew_func(self) -> dict:
         rew_map = {}
         joint_actions_space = product(*self._action_spaces)
         for s, a in product(self._state_space, joint_actions_space):
@@ -388,7 +391,7 @@ class MABCModel(M.POSGFullModel[MABCState, MABCObs, MABCAction]):
     def _message_sent(
         self,
         state: MABCState,
-        actions: Union[Dict[str, MABCAction], Tuple[MABCAction, ...]],
+        actions: dict[str, MABCAction] | tuple[MABCAction, ...],
     ) -> bool:
         if isinstance(actions, dict):
             actions = tuple(actions[i] for i in self.possible_agents)

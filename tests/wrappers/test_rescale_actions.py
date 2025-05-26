@@ -1,12 +1,9 @@
 """Test for RescaleActions Wrapper."""
-from typing import cast
 
 import numpy as np
+import posggym
 import pytest
 from gymnasium import spaces
-
-import posggym
-from posggym.envs.continuous.driving_continuous import DrivingContinuousModel
 from posggym.wrappers import RescaleActions
 
 
@@ -34,16 +31,14 @@ def test_rescale_actions(min_val, max_val):
     )
     wrapped_env = RescaleActions(env, min_action=min_val, max_action=max_val)
 
-    model = cast(DrivingContinuousModel, env.model)
-
     box_act_dim = 2
     base_space = spaces.Box(
-        low=np.array([-model.dyaw_limit, -model.dvel_limit], dtype=np.float32),
-        high=np.array([model.dyaw_limit, model.dvel_limit], dtype=np.float32),
+        low=np.array([-1, -1], dtype=np.float32),
+        high=np.array([1, 1], dtype=np.float32),
     )
 
     wrapped_spaces = {}
-    if isinstance(min_val, (int, float)):
+    if isinstance(min_val, int | float):
         # assume max_val also (int, float)
         wrapped_spaces = {
             i: spaces.Box(

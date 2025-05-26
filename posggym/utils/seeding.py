@@ -6,34 +6,36 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/utils/seed
 """
 
 import random
-from typing import Optional, Tuple, Union
 
 import numpy as np
+from torch import Generator
 
 from posggym import error
 
 
-RNG = Union[random.Random, np.random.Generator]
+RNG = random.Random | np.random.Generator | Generator
 
 
-def np_random(seed: Optional[int] = None) -> Tuple[np.random.Generator, int]:
+def np_random(seed: int | None = None) -> tuple[np.random.Generator, int]:
     """Create a numpy random number generator.
 
-    Arguments
+    Arguments:
     ---------
     seed : int, optional
         the seed used to create the generator.
 
-    Returns
+    Returns:
     -------
     rng : np.random.Generator
         the random number generator
     seed : int
         the seed used for the rng (will equal argument seed if one is provided.)
 
-    Raises
+    Raises:
     ------
-    Error
+
+    Error:
+    -----
         if seed is not None or a non-negative integer.
 
     """
@@ -55,24 +57,26 @@ def np_random(seed: Optional[int] = None) -> Tuple[np.random.Generator, int]:
     return rng, np_seed
 
 
-def std_random(seed: Optional[int] = None) -> Tuple[random.Random, int]:
+def std_random(seed: int | None = None) -> tuple[random.Random, int]:
     """Create random number generator using python built-in `random.Random`.
 
-    Arguments
+    Arguments:
     ---------
     seed : int, optional
         the seed used to create the generator.
 
-    Returns
+    Returns:
     -------
     rng : random.Random
         the random number generator
     seed : int
         the seed used for the rng (will equal argument seed if one is provided.)
 
-    Raises
+    Raises:
     ------
-    Error
+
+    Error:
+    -----
         if seed is not None or a non-negative integer.
 
     """

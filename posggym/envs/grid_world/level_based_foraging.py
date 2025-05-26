@@ -5,7 +5,7 @@ import math
 from collections import defaultdict
 from itertools import product
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import ClassVar, NamedTuple
 
 import numpy as np
 from gymnasium import spaces
@@ -35,8 +35,8 @@ class Food(NamedTuple):
 class LBFState(NamedTuple):
     """State in Level-Based Foraging environment."""
 
-    players: Tuple[Player, ...]
-    food: Tuple[Food, ...]
+    players: tuple[Player, ...]
+    food: tuple[Food, ...]
     # sum of levels of all food that have been spawned in the episode
     food_spawned: int
 
@@ -69,7 +69,7 @@ class CellEntity(enum.IntEnum):
     AGENT = 3
 
 
-LBFObs = Union[Tuple[int, ...], np.ndarray]
+LBFObs = tuple[int, ...] | np.ndarray
 
 
 class LBFEntityObs(NamedTuple):
@@ -186,9 +186,8 @@ class LevelBasedForagingEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
     need to be adjusted when using larger grids (this can be done by manually specifying
     a value for `max_episode_steps` when creating the environment with `posggym.make`).
 
-    Arguments
+    Arguments:
     ---------
-
     - `num_agents` - the number of agents in the environment (default = `2`).
     - `max_agent_level` - the maximum level of an agent (default = `3`).
     - `size` - the width and height of the square grid world (default = `10`).
@@ -216,19 +215,19 @@ class LevelBasedForagingEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
           (`field_size`/`size` is now a single int)
     - `v2`: Version adapted from <https://github.com/semitable/lb-foraging>
 
-    References
+    References:
     ----------
     - Stefano V. Albrecht and Subramanian Ramamoorthy. 2013. A Game-Theoretic Model and
       Best-Response Learning Method for Ad Hoc Coordination in Multia-gent Systems.
       In Proceedings of the 2013 International Conference on Autonomous Agents and
-      Multi-Agent Systems. 1155–1156.
+      Multi-Agent Systems. 1155-1156.
     - S. V. Albrecht and Peter Stone. 2017. Reasoning about Hypothetical Agent
       Behaviours and Their Parameters. In 16th International Conference on Autonomous
       Agents and Multiagent Systems 2017. International Foundation for Autonomous
-      Agents and Multiagent Systems, 547–555
+      Agents and Multiagent Systems, 547-555
     - Filippos Christianos, Lukas Schäfer, and Stefano Albrecht. 2020. Shared Experience
       Actor-Critic for Multi-Agent Reinforcement Learning. Advances in Neural
-      Information Processing Systems 33 (2020), 10707–10717
+      Information Processing Systems 33 (2020), 10707-10717
     - Georgios Papoudakis, Filippos Christianos, Lukas Schäfer, and Stefano V. Albrecht.
       2021. Benchmarking Multi-Agent Deep Reinforcement Learning Algorithms in
       Cooperative Tasks. In Thirty-Fifth Conference on Neural Information Processing
@@ -236,7 +235,7 @@ class LevelBasedForagingEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
 
     """
 
-    metadata = {
+    metadata: ClassVar[dict] = {
         "render_modes": ["human", "rgb_array", "rgb_array_dict"],
         "render_fps": 15,
     }
@@ -251,8 +250,8 @@ class LevelBasedForagingEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
         force_coop: bool = False,
         static_layout: bool = False,
         observation_mode: str = "tuple",
-        render_mode: Optional[str] = None,
-    ):
+        render_mode: str | None = None,
+    ) -> None:
         super().__init__(
             LevelBasedForagingModel(
                 num_agents,
@@ -274,7 +273,7 @@ class LevelBasedForagingEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
     def render(self):
         if self.render_mode is None:
             assert self.spec is not None
-            logger.warn(
+            logger.warning(
                 "You are calling render method without specifying any render mode. "
                 "You can specify the render_mode at initialization, "
                 f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
@@ -335,7 +334,7 @@ class LevelBasedForagingEnv(DefaultEnv[LBFState, LBFObs, LBFAction]):
             img_obj.text = str(food.level)
             render_objects.append(img_obj)
 
-        agent_coords_and_dirs: Dict[str, Tuple[Coord, Direction]] = {
+        agent_coords_and_dirs: dict[str, tuple[Coord, Direction]] = {
             str(i): (player.coord, Direction.NORTH)
             for i, player in enumerate(self._state.players)
         }
@@ -381,7 +380,11 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
                       containing integers instead of floats
     """
 
-    OBSERVATION_MODES = ["grid", "vector", "tuple"]
+    OBSERVATION_MODES: ClassVar[list] = ["grid", "vector", "tuple"]
+    MIN_GRID_SIZE = 3
+    MIN_AGENTS = 2
+
+    MAX_ATTEMPTS = 1000
 
     def __init__(
         self,
@@ -393,10 +396,10 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         force_coop: bool,
         static_layout: bool,
         observation_mode: str = "tuple",
-    ):
-        assert num_agents >= 2
+    ) -> None:
+        assert num_agents >= self.MIN_AGENTS
         assert max_agent_level >= 1
-        assert size >= 3
+        assert size >= self.MIN_GRID_SIZE
         assert max_food >= 1
         assert sight >= 1
         assert observation_mode in self.OBSERVATION_MODES
@@ -419,8 +422,8 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
 
         self.grid = Grid(grid_width=self.size, grid_height=self.size, block_coords=None)
 
-        self._food_locations: Optional[List[Coord]] = None
-        self._player_locations: Optional[List[Coord]] = None
+        self._food_locations: list[Coord] | None = None
+        self._player_locations: list[Coord] | None = None
         if static_layout:
             assert self.max_food <= math.floor((self.size - 1) / 2) ** 2, (
                 "when using static layout there must be enough space to surround each "
@@ -487,7 +490,6 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
             min_obs = np.stack([agents_min, foods_min, access_min])
             max_obs = np.stack([agents_max, foods_max, access_max])
 
-        # dtype = np.int8 if self.observation_mode == "vector" else np.uint8
         dtype = np.float32
         return spaces.Box(
             np.array(min_obs, dtype=dtype),
@@ -496,10 +498,10 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         )
 
     @property
-    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
+    def reward_ranges(self) -> dict[str, tuple[float, float]]:
         return {i: (0.0, 1.0) for i in self.possible_agents}
 
-    def get_agents(self, state: LBFState) -> List[str]:
+    def get_agents(self, state: LBFState) -> list[str]:
         return list(self.possible_agents)
 
     @property
@@ -508,13 +510,13 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
             self._rng, _ = seeding.std_random()
         return self._rng
 
-    def seed(self, seed: Optional[int] = None):
+    def seed(self, seed: int | None = None):
         super().seed(seed)
         if self.static_layout:
             self._food_locations = self._generate_static_food_coords()
             self._player_locations = self._generate_static_player_coords()
 
-    def _generate_static_food_coords(self) -> List[Coord]:
+    def _generate_static_food_coords(self) -> list[Coord]:
         """Generate food coords for static layout.
 
         Number and location of food is the same for given pairing of
@@ -532,7 +534,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
             food_locs.append((x, y))
         return food_locs
 
-    def _generate_static_player_coords(self) -> List[Coord]:
+    def _generate_static_player_coords(self) -> list[Coord]:
         """Generate player start coords for static layout.
 
         Players always start around edge of field.
@@ -550,8 +552,8 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
             product(idxs_reverse[:-1], [0]),
             product(idxs[:-1], [self.size - 1]),
         ]
-        available_locations: List[Coord] = []
-        for locs in zip(*sides):
+        available_locations: list[Coord] = []
+        for locs in zip(*sides, strict=False):
             available_locations.extend(locs)
 
         return available_locations[: len(self.possible_agents)]
@@ -573,7 +575,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
             )
         return LBFState(players, food, sum(f.level for f in food))
 
-    def _spawn_players_static(self) -> Tuple[Player, ...]:
+    def _spawn_players_static(self) -> tuple[Player, ...]:
         assert self._player_locations is not None
         players = []
         for i in range(len(self.possible_agents)):
@@ -582,7 +584,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
             players.append(Player(i, (x, y), level))
         return tuple(players)
 
-    def _spawn_players_generative(self) -> Tuple[Player, ...]:
+    def _spawn_players_generative(self) -> tuple[Player, ...]:
         players = []
         available_coords = list(product(range(self.size), range(self.size)))
         for i in range(len(self.possible_agents)):
@@ -592,7 +594,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
             players.append(Player(i, coord, level))
         return tuple(players)
 
-    def _spawn_food_static(self, max_level: int) -> Tuple[Food, ...]:
+    def _spawn_food_static(self, max_level: int) -> tuple[Food, ...]:
         """Spawn food in static layout.
 
         Number and location of food is the same for given pairing of (size, max_food),
@@ -612,13 +614,13 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         self,
         max_food: int,
         max_level: int,
-        player_coords: List[Coord],
-    ) -> Tuple[Food, ...]:
+        player_coords: list[Coord],
+    ) -> tuple[Food, ...]:
         attempts = 0
         min_level = max_level if self.force_coop else 1
         unavailable_coords = set(player_coords)
         food = []
-        while len(food) < max_food and attempts < 1000:
+        while len(food) < max_food and attempts < self.MAX_ATTEMPTS:
             attempts += 1
             x = self.rng.randint(1, self.size - 2)
             y = self.rng.randint(1, self.size - 2)
@@ -637,11 +639,11 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
             food.append(Food((x, y), level))
         return tuple(food)
 
-    def sample_initial_obs(self, state: LBFState) -> Dict[str, LBFObs]:
+    def sample_initial_obs(self, state: LBFState) -> dict[str, LBFObs]:
         return self._get_obs(state)
 
     def step(
-        self, state: LBFState, actions: Dict[str, LBFAction]
+        self, state: LBFState, actions: dict[str, LBFAction]
     ) -> M.JointTimestep[LBFState, LBFObs]:
         assert all(0 <= a < len(LBFAction) for a in actions.values())
         next_state, rewards = self._get_next_state_and_rewards(state, actions)
@@ -655,8 +657,8 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         )
 
     def _get_next_state_and_rewards(
-        self, state: LBFState, actions: Dict[str, LBFAction]
-    ) -> Tuple[LBFState, Dict[str, float]]:
+        self, state: LBFState, actions: dict[str, LBFAction]
+    ) -> tuple[LBFState, dict[str, float]]:
         next_food = {f.coord: f for f in state.food}
 
         # try move agents
@@ -712,7 +714,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         )
         return next_state, rewards
 
-    def _get_obs(self, state: LBFState) -> Dict[str, LBFObs]:
+    def _get_obs(self, state: LBFState) -> dict[str, LBFObs]:
         obs = {}
         for i in self.possible_agents:
             player_obs, food_obs = self._get_local_obs(state, int(i))
@@ -728,7 +730,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
 
     def _get_local_obs(
         self, state: LBFState, agent_id: int
-    ) -> Tuple[List[LBFEntityObs], List[LBFEntityObs]]:
+    ) -> tuple[list[LBFEntityObs], list[LBFEntityObs]]:
         # player is always in center of observable area
         player_obs = []
         ego_player = state.players[agent_id]
@@ -765,9 +767,9 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         return player_obs, food_obs
 
     def _get_tuple_obs(
-        self, player_obs: List[LBFEntityObs], food_obs: List[LBFEntityObs]
+        self, player_obs: list[LBFEntityObs], food_obs: list[LBFEntityObs]
     ) -> LBFObs:
-        obs: List[int] = []
+        obs: list[int] = []
         for o in player_obs:
             if o.is_self:
                 obs.insert(0, o.level)
@@ -785,8 +787,8 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
     def _get_vector_obs(
         self,
         agent_id: int,
-        player_obs: List[LBFEntityObs],
-        food_obs: List[LBFEntityObs],
+        player_obs: list[LBFEntityObs],
+        food_obs: list[LBFEntityObs],
     ) -> np.ndarray:
         # initialize obs array to (-1, -1, 0)
         obs = np.full(
@@ -811,8 +813,8 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
     def _get_grid_obs(
         self,
         agent_coord: Coord,
-        player_obs: List[LBFEntityObs],
-        food_obs: List[LBFEntityObs],
+        player_obs: list[LBFEntityObs],
+        food_obs: list[LBFEntityObs],
     ) -> np.ndarray:
         grid_shape_x, grid_shape_y = (2 * self.sight + 1, 2 * self.sight + 1)
         # agent, food, access layers
@@ -844,7 +846,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
 
     def parse_obs(
         self, obs: LBFObs
-    ) -> Tuple[List[Tuple[int, int, int]], List[Tuple[int, int, int]]]:
+    ) -> tuple[list[tuple[int, int, int]], list[tuple[int, int, int]]]:
         """Parse observation into (x, y, level) agent and food triplets.
 
         Agent obs are ordered so the observing agent is first, then the
@@ -864,7 +866,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
 
     def parse_grid_obs(
         self, obs: np.ndarray
-    ) -> Tuple[List[Tuple[int, int, int]], List[Tuple[int, int, int]]]:
+    ) -> tuple[list[tuple[int, int, int]], list[tuple[int, int, int]]]:
         """Parse grid observation int (x, y, level) agent and food triplets.
 
         Agent obs are ordered so the observing agent is first, then the
@@ -876,7 +878,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
 
     def parse_vector_obs(
         self, obs: np.ndarray
-    ) -> Tuple[List[Tuple[int, int, int]], List[Tuple[int, int, int]]]:
+    ) -> tuple[list[tuple[int, int, int]], list[tuple[int, int, int]]]:
         """Parse vector obs into (x, y, level) agent and food triplets.
 
         Agent obs are ordered so the observing agent is first, then the
@@ -896,8 +898,8 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
         return agent_obs, food_obs
 
     def parse_tuple_obs(
-        self, obs: Tuple[int, ...]
-    ) -> Tuple[List[Tuple[int, int, int]], List[Tuple[int, int, int]]]:
+        self, obs: tuple[int, ...]
+    ) -> tuple[list[tuple[int, int, int]], list[tuple[int, int, int]]]:
         """Parse tuple obs into (x, y, level) agent and food triplets.
 
         Agent obs are ordered so the observing agent is first, then the
@@ -916,10 +918,10 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
                 food_obs.append(triplet)
         return agent_obs, food_obs
 
-    def get_obs_coords(self, origin: Coord) -> List[Coord]:
+    def get_obs_coords(self, origin: Coord) -> list[Coord]:
         """Get the list of coords observed from agent at origin."""
         obs_size = (2 * self.sight) + 1
-        obs_coords: List[Coord] = []
+        obs_coords: list[Coord] = []
         for col, row in product(range(obs_size), repeat=2):
             obs_grid_coord = self._map_obs_to_grid_coord((col, row), origin)
             if obs_grid_coord is not None:
@@ -928,7 +930,7 @@ class LevelBasedForagingModel(M.POSGModel[LBFState, LBFObs, LBFAction]):
 
     def _map_obs_to_grid_coord(
         self, obs_coord: Coord, agent_coord: Coord
-    ) -> Optional[Coord]:
+    ) -> Coord | None:
         grid_col = agent_coord[0] + obs_coord[0] - self.sight
         grid_row = agent_coord[1] + obs_coord[1] - self.sight
         if 0 <= grid_row < self.size and 0 <= grid_col < self.size:
@@ -941,6 +943,6 @@ def sorted_from_middle(lst):
     left = lst[len(lst) // 2 - 1 :: -1]
     right = lst[len(lst) // 2 :]
     output = [right.pop(0)] if len(lst) % 2 else []
-    for t in zip(left, right):
+    for t in zip(left, right, strict=False):
         output += sorted(t)
     return output

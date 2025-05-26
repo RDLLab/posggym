@@ -18,14 +18,18 @@ def test_invalid_seeds():
         except error.Error:
             pass
         else:
-            assert False, f"Invalid seed {seed} passed validation for `np_random`"
+            raise AssertionError(
+                f"Invalid seed {seed} passed validation for `np_random`"
+            )
 
         try:
             seeding.std_random(seed)
         except error.Error:
             pass
         else:
-            assert False, f"Invalid seed {seed} passed validation for `std_random`"
+            raise AssertionError(
+                f"Invalid seed {seed} passed validation for `std_random`"
+            )
 
 
 def test_valid_seeds():

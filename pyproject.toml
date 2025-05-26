@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 name = "posggym"
 description = "A library for planning and reinforcement learning research in partially observable, multi-agent environments."
 readme = "README.md"
-requires-python = ">= 3.8"
+requires-python = ">= 3.10"
 authors = [
 	{ name = "Jonathon Schwartz", email = "jonathon.schwartz@anu.edu.au" },
 ]
@@ -33,12 +33,13 @@ classifiers = [
 	'Topic :: Scientific/Engineering :: Artificial Intelligence',
 ]
 dependencies = [
-	"gymnasium >=0.26",
+    "gymnasium>=0.26,<=0.29.1",
 	"numpy >=1.21.0",
 	"typing-extensions >=4.3.0",
 	"importlib-metadata >=4.8.0; python_version < '3.10'",
 	"pygame >=2.0",
 	"pymunk >=6.0.0",
+	"vmas==1.4.1"
 ]
 dynamic = ["version"]
 
@@ -89,26 +90,75 @@ posggym = ["envs/grid_world/img/*.png", "py.typed"]
 
 # Linters and Test tools #######################################################
 [tool.ruff]
-# https://beta.ruff.rs/docs/settings/
 src = ["posggym", "tests", "docs/scripts", "scripts", "examples", "notebooks"]
-extend-select = ["C4", "SIM", "TCH"]
 show-fixes = true
 # Same as Black.
 line-length = 88
-# Assume Python 3.8.
-target-version = "py38"
+# Assume Python 3.10.
+target-version = "py310"
 
+[tool.ruff.lint]
+extend-select = ["C4", "SIM", "TCH"]
+
+ignore = [
+    "A001", "A002",
+    "ARG001", "ARG002",
+    "FBT001", "FBT002", "FBT003",
+    "N802", "N806", "N812",
+    "PGH003", "PGH004",
+    "S101", "S202", "S301", "S310", "S311",
+	"T201", "T203"
+]
+
+select = [
+    "A",
+    "ARG",
+    "B",
+    "C4",
+    "C90",
+    "E",
+    "ERA",
+    "F",
+    "FBT",
+    "ICN",
+    "I",
+    "ISC",
+    "N",
+    "NPY",
+    "PD",
+    "PGH",
+    "PIE",
+    "PLE",
+    "PLR",
+    "Q",
+    "RUF",
+    "S",
+    "SIM",
+    "T",
+    "UP",
+    "W",
+]
 # Ignore `F401` (import violations) in all `__init__.py` files,
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "E402"]
+"tests/**/*.py" = ["PLR2004", "N802", "N801"]
+"docs/conf.py" = ["A001"]
+"docs/**/*.py" = ["PLR2004"]
+"posggym/utils/**.py" = ["PLR2004"]
 
-[tool.ruff.mccabe]
+[tool.ruff.lint.mccabe]
 # Unlike Flake8, default to a complexity level of 10.
-max-complexity = 10
+max-complexity = 30
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 lines-after-imports = 2
 extra-standard-library = ["typing_extensions"]
+
+[tool.ruff.lint.pylint]
+max-statements = 100
+max-branches=20
+max-args=15
+
 
 [tool.black]
 line-length = 88
@@ -119,7 +169,7 @@ exclude = ["**/node_modules", "**/__pycache__"]
 strict = []
 
 typeCheckingMode = "basic"
-pythonVersion = "3.8"
+pythonVersion = "3.10"
 pythonPlatform = "All"
 enableTypeIgnoreComments = true
 

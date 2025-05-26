@@ -4,7 +4,6 @@ Adapted from:
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/utils.py
 
 """
-from typing import List, Optional
 
 import numpy as np
 import posggym
@@ -15,7 +14,7 @@ from posggym.agents.registration import PolicySpec
 from tests.conftest import env_id_prefix
 
 
-def try_make_policy(spec: PolicySpec) -> Optional[pga.Policy]:
+def try_make_policy(spec: PolicySpec) -> pga.Policy | None:
     """Tries to make the policy showing if it is possible."""
     try:
         if spec.env_id is None:
@@ -32,10 +31,10 @@ def try_make_policy(spec: PolicySpec) -> Optional[pga.Policy]:
         return pga.make(spec, env.model, agent_id)
     except (
         ImportError,
-        posggym.error.DependencyNotInstalled,
-        posggym.error.MissingArgument,
+        posggym.error.DependencyNotInstalledError,
+        posggym.error.MissingArgumentError,
     ) as e:
-        posggym.logger.warn(
+        posggym.logger.warning(
             f"Not testing posggym.agents policy spec `{spec.id}` due to error: {e}"
         )
     except RuntimeError as e:
@@ -46,28 +45,28 @@ def try_make_policy(spec: PolicySpec) -> Optional[pga.Policy]:
 
 
 # Tries to make all policies to test with
-_all_testing_initialised_policies: List[Optional[pga.Policy]] = [
+_all_testing_initialised_policies: list[pga.Policy] | None = [
     try_make_policy(policy_spec)
     for policy_spec in pga.registry.values()
     if env_id_prefix is None or policy_spec.id.startswith(env_id_prefix)
 ]
-all_testing_initialised_policies: List[pga.Policy] = [
+all_testing_initialised_policies: list[pga.Policy] = [
     policy for policy in _all_testing_initialised_policies if policy is not None
 ]
-all_testing_initialised_torch_policies: List[torch_policy.PPOPolicy] = [
+all_testing_initialised_torch_policies: list[torch_policy.PPOPolicy] = [
     policy
     for policy in all_testing_initialised_policies
     if isinstance(policy, torch_policy.PPOPolicy)
 ]
 
 # All testing posggym-agents policy specs
-all_testing_policy_specs: List[PolicySpec] = [
+all_testing_policy_specs: list[PolicySpec] = [
     policy.spec
     for policy in all_testing_initialised_policies
     if policy.spec is not None
 ]
 # All testing posggym-agents policy specs that use torch
-all_testing_torch_policy_specs: List[PolicySpec] = [
+all_testing_torch_policy_specs: list[PolicySpec] = [
     policy.spec
     for policy in all_testing_initialised_torch_policies
     if policy.spec is not None
@@ -77,7 +76,7 @@ all_testing_torch_policy_specs: List[PolicySpec] = [
 def assert_equals(a, b, prefix=None):
     """Assert equality of data structures `a` and `b`.
 
-    Arguments
+    Arguments:
     ---------
     a: first data structure
     b: second data structure
@@ -95,8 +94,8 @@ def assert_equals(a, b, prefix=None):
         np.testing.assert_array_equal(a, b)
     elif isinstance(a, torch.Tensor):
         assert torch.equal(a, b), f"{prefix}Tensors differ: {a} and {b}"
-    elif isinstance(a, (tuple, list)):
-        for elem_from_a, elem_from_b in zip(a, b):
+    elif isinstance(a, tuple | list):
+        for elem_from_a, elem_from_b in zip(a, b, strict=False):
             assert_equals(elem_from_a, elem_from_b, prefix)
     else:
         assert a == b

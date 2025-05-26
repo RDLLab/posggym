@@ -1,10 +1,9 @@
 """Tests for the heuristic agent in the predator prey continuous environment."""
 
 import numpy as np
-import pytest
-
 import posggym
 import posggym.agents as pga
+import pytest
 
 
 RENDER_MODE = None

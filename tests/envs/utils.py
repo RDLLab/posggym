@@ -3,7 +3,6 @@
 Reference:
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/utils.py
 """
-from typing import List, Optional
 
 import numpy as np
 import posggym
@@ -13,7 +12,13 @@ from posggym.envs.registration import EnvSpec
 from tests.conftest import env_id_prefix
 
 
-def try_make_env(env_spec: EnvSpec) -> Optional[posggym.Env]:
+try:
+    import torch
+except ImportError:
+    torch = None
+
+
+def try_make_env(env_spec: EnvSpec) -> posggym.Env | None:
     """Tries to make the environment showing if it is possible.
 
     Warning the environments have no wrappers, including time limit and order enforcing.
@@ -28,25 +33,25 @@ def try_make_env(env_spec: EnvSpec) -> Optional[posggym.Env]:
             return env_spec.make(disable_env_checker=True).unwrapped
         except (
             ImportError,
-            posggym.error.DependencyNotInstalled,
-            posggym.error.MissingArgument,
+            posggym.error.DependencyNotInstalledError,
+            posggym.error.MissingArgumentError,
         ) as e:
-            logger.warn(f"Not testing {env_spec.id} due to error: {e}")
+            logger.warning(f"Not testing {env_spec.id} due to error: {e}")
     return None
 
 
 # Tries to make all environment to test with
-_all_testing_initialised_envs: List[Optional[posggym.Env]] = [
+_all_testing_initialised_envs: list[posggym.Env] | None = [
     try_make_env(env_spec)
     for env_spec in posggym.envs.registry.values()
     if env_id_prefix is None or env_spec.id.startswith(env_id_prefix)
 ]
-all_testing_initialised_envs: List[posggym.Env] = [
+all_testing_initialised_envs: list[posggym.Env] = [
     env for env in _all_testing_initialised_envs if env is not None
 ]
 
 # All testing posggym environment specs
-all_testing_env_specs: List[EnvSpec] = [
+all_testing_env_specs: list[EnvSpec] = [
     env.spec for env in all_testing_initialised_envs if env.spec is not None
 ]
 
@@ -54,7 +59,7 @@ all_testing_env_specs: List[EnvSpec] = [
 def assert_equals(a, b, prefix=None):
     """Assert equality of data structures `a` and `b`.
 
-    Arguments
+    Arguments:
     ---------
     a:
         first data structure
@@ -73,8 +78,11 @@ def assert_equals(a, b, prefix=None):
             assert_equals(v_a, v_b, prefix)
     elif isinstance(a, np.ndarray):
         np.testing.assert_array_equal(a, b)
+    elif torch is not None and isinstance(a, torch.Tensor):
+        torch.testing.assert_close(a, b)
+
     elif isinstance(a, tuple):
-        for elem_from_a, elem_from_b in zip(a, b):
+        for elem_from_a, elem_from_b in zip(a, b, strict=False):
             assert_equals(elem_from_a, elem_from_b, prefix)
     else:
         assert a == b

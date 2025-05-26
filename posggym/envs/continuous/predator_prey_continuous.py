@@ -1,8 +1,9 @@
 """The Continuous Predator-Prey Environment."""
+from __future__ import annotations
 
 import math
 from itertools import product
-from typing import Dict, List, NamedTuple, Optional, Set, Tuple, Union, cast
+from typing import ClassVar, NamedTuple, cast
 
 import numpy as np
 from gymnasium import spaces
@@ -11,16 +12,18 @@ import posggym.model as M
 from posggym import logger
 from posggym.core import DefaultEnv
 from posggym.envs.continuous.core import (
+    ANGLE_IDX,
+    X_IDX,
+    Y_IDX,
     CircleEntity,
+    ControlType,
     PMBodyState,
     Position,
     SquareContinuousWorld,
     clip_actions,
-    X_IDX,
-    Y_IDX,
-    ANGLE_IDX,
     generate_action_space,
-    ControlType,
+    generate_parameters,
+    scale_action,
 )
 from posggym.utils import seeding
 
@@ -137,9 +140,8 @@ class PredatorPreyContinuousEnv(DefaultEnv[PPState, PPObs, PPAction]):
     worlds (this can be done by manually specifying a value for `max_episode_steps` when
     creating the environment with `posggym.make`).
 
-    Arguments
+    Arguments:
     ---------
-
     - `world` - the world layout to use. This can either be a string specifying one of
         the supported worlds, or a custom :class:`PPWorld` object (default = `"10x10"`).
     - `num_predators` - the number of predator (and thus controlled agents)
@@ -197,32 +199,43 @@ class PredatorPreyContinuousEnv(DefaultEnv[PPState, PPObs, PPAction]):
     ---------
     - Ming Tan. 1993. Multi-Agent Reinforcement Learning: Independent vs. Cooperative
       Agents. In Proceedings of the Tenth International Conference on Machine Learning.
-      330–337.
+      330-337.
     - J. Z. Leibo, V. F. Zambaldi, M. Lanctot, J. Marecki, and T. Graepel. 2017.
       Multi-Agent Reinforcement Learning in Sequential Social Dilemmas. In AAMAS,
-      Vol. 16. ACM, 464–473
+      Vol. 16. ACM, 464-473
     - Lowe, Ryan, Yi I. Wu, Aviv Tamar, Jean Harb, OpenAI Pieter Abbeel, and Igor
       Mordatch. 2017. “Multi-Agent Actor-Critic for Mixed Cooperative-Competitive
       Environments.” Advances in Neural Information Processing Systems 30.
 
     """
 
-    metadata = {
+    metadata: ClassVar[dict] = {
         "render_modes": ["human", "rgb_array"],
         "render_fps": 15,
     }
 
     def __init__(
         self,
-        world: Union[str, "PPWorld"] = "10x10",
+        world: str | PPWorld = "10x10",
         num_predators: int = 2,
         num_prey: int = 3,
         cooperative: bool = True,
-        prey_strength: Optional[int] = None,
+        prey_strength: int | None = None,
         obs_dist: float = 4,
         n_sensors: int = 16,
-        render_mode: Optional[str] = None,
-    ):
+        control_type: ControlType | str = ControlType.VelocityNonHolonomoic,
+        obs_self_model: bool = False,
+        render_mode: str | None = None,
+    ) -> None:
+        if isinstance(control_type, str):
+            try:
+                control_type = ControlType.from_str(control_type)
+            except ValueError:
+                logger.warning(
+                    "Invalid control type, defaulting to VelocityNonHolonomoic"
+                )
+                control_type = ControlType.VelocityNonHolonomoic
+
         super().__init__(
             PredatorPreyContinuousModel(
                 world=world,
@@ -232,6 +245,8 @@ class PredatorPreyContinuousEnv(DefaultEnv[PPState, PPObs, PPAction]):
                 prey_strength=prey_strength,
                 obs_dist=obs_dist,
                 n_sensors=n_sensors,
+                control_type=control_type,
+                obs_self_model=obs_self_model,
             ),
             render_mode=render_mode,
         )
@@ -244,7 +259,7 @@ class PredatorPreyContinuousEnv(DefaultEnv[PPState, PPObs, PPAction]):
     def render(self):
         if self.render_mode is None:
             assert self.spec is not None
-            logger.warn(
+            logger.warning(
                 "You are calling render method without specifying any render mode. "
                 "You can specify the render_mode at initialization, "
                 f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
@@ -317,7 +332,7 @@ class PredatorPreyContinuousEnv(DefaultEnv[PPState, PPObs, PPAction]):
                 end_x = x + dist * math.cos(angle)
                 end_y = y + dist * math.sin(angle)
                 scaled_start = (int(x * scale_factor), int(y * scale_factor))
-                scaled_end = int(end_x * scale_factor), (end_y * scale_factor)
+                scaled_end = (int(end_x * scale_factor), int(end_y * scale_factor))
 
                 pygame.draw.line(
                     self.window_surface, pygame.Color("red"), scaled_start, scaled_end
@@ -373,18 +388,21 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
 
     PREDATOR_COLOR = (55, 155, 205, 255)  # Blueish
     PREY_COLOR = (110, 55, 155, 255)  # purpleish
+    MAX_AGENTS = 8
 
     def __init__(
         self,
-        world: Union[str, "PPWorld"],
+        world: str | PPWorld,
         num_predators: int,
         num_prey: int,
         cooperative: bool,
-        prey_strength: Optional[int],
+        prey_strength: int | None,
         obs_dist: float,
         n_sensors: int,
-    ):
-        assert 1 < num_predators <= 8
+        control_type: ControlType,
+        obs_self_model: bool,
+    ) -> None:
+        assert 1 < num_predators <= self.MAX_AGENTS
         assert num_prey > 0
         assert obs_dist > 0
 
@@ -423,12 +441,12 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
         self.n_sensors = n_sensors
         # capture radius large enough so prey in corner can be captured by 3 predators
         self.prey_capture_dist = 2.75 * self.world.agent_radius
-        self.possible_agents = tuple((str(x) for x in range(self.num_predators)))
+        self.possible_agents = tuple(str(x) for x in range(self.num_predators))
+        self.obs_self_model = obs_self_model
 
         def _pos_space(n_agents: int):
             # x, y, angle, vx, vy, vangle
             # stacked n_agents time
-            # shape = (n_agents, 6)
             size, angle = self.world.size, 2 * math.pi
             low = np.array([-1, -1, -angle, -1, -1, -angle], dtype=np.float32)
             high = np.array(
@@ -450,19 +468,45 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
             )
         )
 
+        self.control_type = control_type
+        self.dt = 1.0
+        self.substeps = 10
+
         # can turn up to 45 degrees per step
         self.dyaw_limit = math.pi / 4
-        self.action_spaces = generate_action_space(
-            ControlType.VelocityNonHolonomoic,
+        self.dvel_limit = 1.0
+
+        self.fyaw_limit = math.pi
+        self.fvel_limit = 3.0
+
+        self.action_spaces_per_control = generate_action_space(
             self.possible_agents,
-            dyaw_limit=self.dyaw_limit,
-            dvel_limit=(0.0, 1.0),
+            self.dyaw_limit,
+            self.dvel_limit,
+            self.fyaw_limit,
+            self.fvel_limit,
         )
+
+        self.action_spaces = {
+            i: spaces.Box(np.array([-1, -1]), np.array([1, 1]))
+            for i in self.possible_agents
+        }
+
+        self.control_types = {i: self.control_type for i in self.possible_agents}
+        self.init_kinematics()
 
         self.obs_dim = self.n_sensors * 3
         self.observation_spaces = {
             i: spaces.Box(
-                low=0.0, high=self.obs_dist, shape=(self.obs_dim,), dtype=np.float32
+                low=np.array(
+                    [0.0] * self.obs_dim + ([0] if self.obs_self_model else [])
+                ),
+                high=np.array(
+                    [self.obs_dist] * self.obs_dim
+                    + ([len(ControlType)] if self.obs_self_model else [])
+                ),
+                shape=(self.obs_dim + int(self.obs_self_model),),
+                dtype=np.float32,
             )
             for i in self.possible_agents
         }
@@ -478,7 +522,7 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
             self.world.add_entity(f"prey_{i}", None, color=self.PREY_COLOR)
 
     @property
-    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
+    def reward_ranges(self) -> dict[str, tuple[float, float]]:
         return {i: (0.0, self.R_MAX) for i in self.possible_agents}
 
     @property
@@ -487,8 +531,13 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
             self._rng, seed = seeding.std_random()
         return self._rng
 
-    def get_agents(self, state: PPState) -> List[str]:
+    def get_agents(self, state: PPState) -> list[str]:
         return list(self.possible_agents)
+
+    def init_kinematics(self):
+        self.kinematic_parameters = {
+            i: generate_parameters(self.control_types[i]) for i in self.possible_agents
+        }
 
     def sample_initial_state(self) -> PPState:
         predator_positions = [*self.world.predator_start_positions]
@@ -513,11 +562,11 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
             np.zeros(self.num_prey, dtype=np.int8),
         )
 
-    def sample_initial_obs(self, state: PPState) -> Dict[str, PPObs]:
+    def sample_initial_obs(self, state: PPState) -> dict[str, PPObs]:
         return self.get_obs(state)
 
     def step(
-        self, state: PPState, actions: Dict[str, PPAction]
+        self, state: PPState, actions: dict[str, PPAction]
     ) -> M.JointTimestep[PPState, PPObs]:
         clipped_actions = clip_actions(actions, self.action_spaces)
 
@@ -529,7 +578,7 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
         truncated = {i: False for i in self.possible_agents}
         terminated = {i: all_done for i in self.possible_agents}
 
-        info: Dict[str, Dict] = {i: {} for i in self.possible_agents}
+        info: dict[str, dict] = {i: {} for i in self.possible_agents}
         if all_done:
             for i in self.possible_agents:
                 info[i]["outcome"] = M.Outcome.WIN
@@ -538,7 +587,7 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
             next_state, obs, rewards, terminated, truncated, all_done, info
         )
 
-    def _get_next_state(self, state: PPState, actions: Dict[str, PPAction]) -> PPState:
+    def _get_next_state(self, state: PPState, actions: dict[str, PPAction]) -> PPState:
         prey_move_angles = self._get_prey_move_angles(state)
 
         # apply prey actions
@@ -557,34 +606,29 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         # apply predator actions
         for i in range(self.num_predators):
-            action = actions[str(i)]
+            action_i = actions[str(i)]
+
+            action_scaled = scale_action(
+                action_i,
+                self.action_spaces[str(i)],
+                self.action_spaces_per_control[self.control_types[str(i)]][str(i)],
+            )
 
             self.world.set_entity_state(f"pred_{i}", state.predator_states[i])
-            (
-                v_angle,
-                vel,
-                torque,
-                local_force,
-                global_force,
-            ) = self.world.compute_vel_force(
-                ControlType.VelocityNonHolonomoic,
+
+            result = self.world.compute_vel_force(
+                self.control_types[str(i)],
                 state.predator_states[i][ANGLE_IDX],
                 current_vel=None,
-                action_i=action,
+                action_i=action_scaled,
                 vel_limit_norm=None,
+                kinematic_parameters=self.kinematic_parameters[str(i)],
             )
 
-            self.world.update_entity_state(
-                f"pred_{i}",
-                angle=v_angle,
-                vel=vel,
-                torque=torque,
-                local_force=local_force,
-                global_force=global_force,
-            )
+            self.world.update_entity_state(f"pred_{i}", **result)
 
         # simulate
-        self.world.simulate(1.0 / 10, 10)
+        self.world.simulate(self.dt / self.substeps, self.substeps)
 
         # extract next state
         next_pred_states = np.array(
@@ -619,7 +663,7 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         return PPState(next_pred_states, next_prey_states, next_prey_caught)
 
-    def _get_prey_move_angles(self, state: PPState) -> List[float]:
+    def _get_prey_move_angles(self, state: PPState) -> list[float]:
         prey_actions = []
         active_prey = self.num_prey - state.prey_caught.sum()
         for i in range(self.num_prey):
@@ -677,7 +721,7 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         return prey_actions
 
-    def get_obs(self, state: PPState) -> Dict[str, PPObs]:
+    def get_obs(self, state: PPState) -> dict[str, PPObs]:
         return {i: self._get_local_obs(i, state) for i in self.possible_agents}
 
     def _get_local_obs(self, agent_id: str, state: PPState) -> np.ndarray:
@@ -728,9 +772,12 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
         )
         obs[idx] = np.minimum(min_val, obs[idx])
 
+        if self.obs_self_model:
+            obs[-1] = int(self.control_types[agent_id])
+
         return obs
 
-    def _get_rewards(self, state: PPState, next_state: PPState) -> Dict[str, float]:
+    def _get_rewards(self, state: PPState, next_state: PPState) -> dict[str, float]:
         new_caught_prey = []
         for i in range(self.num_prey):
             if not state.prey_caught[i] and next_state.prey_caught[i]:
@@ -760,14 +807,16 @@ class PredatorPreyContinuousModel(M.POSGModel[PPState, PPObs, PPAction]):
 class PPWorld(SquareContinuousWorld):
     """A continuous 2D world for the Predator-Prey Problem."""
 
+    MIN_GRID_SIZE = 3
+
     def __init__(
         self,
         size: int,
-        blocks: Optional[List[CircleEntity]],
-        predator_start_positions: Optional[List[Position]] = None,
-        prey_start_positions: Optional[List[Position]] = None,
-    ):
-        assert size >= 3
+        blocks: list[CircleEntity] | None,
+        predator_start_positions: list[Position] | None = None,
+        prey_start_positions: list[Position] | None = None,
+    ) -> None:
+        assert size >= self.MIN_GRID_SIZE
         super().__init__(
             size=size,
             blocks=blocks,
@@ -821,7 +870,7 @@ class PPWorld(SquareContinuousWorld):
 
         self.prey_start_positions = prey_start_positions
 
-    def copy(self) -> "PPWorld":
+    def copy(self) -> PPWorld:
         world = PPWorld(
             size=int(self.size),
             blocks=self.blocks,
@@ -889,7 +938,7 @@ def parse_world_str(world_str: str) -> PPWorld:
     assert len(row_strs) == len(row_strs[0])
 
     size = len(row_strs)
-    blocks: Set[CircleEntity] = set()
+    blocks: set[CircleEntity] = set()
     predator_coords = set()
     prey_coords = set()
     for r, c in product(range(size), repeat=2):
@@ -981,7 +1030,6 @@ def get_20x20_blocks_world() -> PPWorld:
     return get_default_world(20, include_blocks=True)
 
 
-#  world: world_make_fn
 SUPPORTED_WORLDS = {
     "5x5": get_5x5_world,
     "5x5Blocks": get_5x5_blocks_world,
@@ -992,3 +1040,15 @@ SUPPORTED_WORLDS = {
     "20x20": get_20x20_world,
     "20x20Blocks": get_20x20_blocks_world,
 }
+
+if __name__ == "__main__":
+    from posggym.utils.run_random_agents import run_random
+
+    run_random(
+        PredatorPreyContinuousEnv(
+            render_mode="human",
+            obs_self_model=True,
+        ),
+        num_episodes=5,
+        max_episode_steps=100,
+    )

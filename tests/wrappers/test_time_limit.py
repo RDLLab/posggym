@@ -4,9 +4,8 @@ Adapted from:
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/wrappers/test_time_limit.py
 
 """
-import pytest
-
 import posggym
+import pytest
 from posggym.envs.classic.mabc import MABCEnv
 from posggym.wrappers import TimeLimit
 

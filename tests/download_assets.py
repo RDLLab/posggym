@@ -2,6 +2,7 @@
 import tempfile
 import urllib.request
 
+
 ASSETS_URL = "https://github.com/RDLLab/posggym-agent-models/tarball/refs/tags/v0.4.0"
 
 
@@ -17,6 +18,6 @@ def show_progress(block_num, block_size, total_size):
 
 
 print(f"Downloading assets from {ASSETS_URL}")
-tarfile_path = tempfile.mktemp(suffix=".tar.gz")
+tarfile_path = tempfile.mktemp(suffix=".tar.gz")  # noqa: S306
 print(f"Downloading assets to {tarfile_path}")
 urllib.request.urlretrieve(ASSETS_URL, filename=tarfile_path, reporthook=show_progress)

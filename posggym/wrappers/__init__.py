@@ -1,4 +1,5 @@
 """Module of wrapper classes."""
+from posggym.wrappers.batched_time_limit import BatchTimeLimit
 from posggym.wrappers.discretize_actions import DiscretizeActions
 from posggym.wrappers.env_checker import PassiveEnvChecker
 from posggym.wrappers.flatten_observations import FlattenObservations

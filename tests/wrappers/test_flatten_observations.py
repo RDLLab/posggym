@@ -7,7 +7,7 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/wrappers/test_
 import numpy as np
 import posggym
 from gymnasium import spaces
-from posggym.envs.grid_world.driving import CELL_OBS, Speed
+from posggym.envs.grid_world.driving import CELL_OBS
 from posggym.wrappers import FlattenObservations
 
 
@@ -34,7 +34,7 @@ def test_flatten_observation():
                     spaces.Discrete(len(CELL_OBS)) for _ in range(obs_depth * obs_width)
                 )
             ),
-            spaces.Discrete(len(Speed)),
+            spaces.Discrete(4),  # reverse, stopped, forward, forward fast,
             spaces.Tuple(
                 (spaces.Discrete(grid_width), spaces.Discrete(grid_height))
             ),  # current coord
@@ -50,7 +50,7 @@ def test_flatten_observation():
         1,
         [
             len(CELL_OBS) * obs_depth * obs_width
-            + len(Speed)
+            + 4  # reverse, stopped, forward, forward fast
             + grid_width
             + grid_height
             + grid_width
@@ -62,10 +62,10 @@ def test_flatten_observation():
     )
 
     assert all(i in obs for i in env.agents)
-    for i, obs_i in obs.items():
+    for _i, obs_i in obs.items():
         assert space.contains(obs_i)
     assert all(i in wrapped_obs for i in env.agents)
-    for i, wrapped_obs_i in wrapped_obs.items():
+    for _i, wrapped_obs_i in wrapped_obs.items():
         assert wrapped_space.contains(wrapped_obs_i), wrapped_obs_i.shape
     assert isinstance(info, dict)
     assert isinstance(wrapped_obs_info, dict)

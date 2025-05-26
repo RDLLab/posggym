@@ -6,6 +6,7 @@ from posggym.agents.torch_policy import PPOPolicy
 from posggym.agents.utils import processors
 from posggym.config import AGENT_MODEL_DIR
 
+
 agent_model_dir = AGENT_MODEL_DIR / "grid_world" / "predator_prey"
 policy_specs = {}
 

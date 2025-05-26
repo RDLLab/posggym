@@ -1,7 +1,7 @@
 """The Two-Paths Grid World Environment."""
 import itertools
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import ClassVar
 
 from gymnasium import spaces
 
@@ -11,10 +11,10 @@ from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import Coord, Direction, Grid
 from posggym.utils import seeding
 
-TPState = Tuple[Coord, Coord]
+
+TPState = tuple[Coord, Coord]
 TPAction = int
-# Obs = adj_obs
-TPObs = Tuple[int, int, int, int]
+TPObs = tuple[int, int, int, int]
 
 # Cell obs
 OPPONENT = 0
@@ -99,9 +99,8 @@ class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
     Episode ends when either the runner is caught, or reaches a goal. By default a
     `max_episode_steps` limit of `20` is also set.
 
-    Arguments
+    Arguments:
     ---------
-
     - `grid_size` - the grid size to use. This can either `3`, `4`, or `7`, each size
         `n` create a TwoPaths Env with a `n`-by-`n` grid layout (default = `7`).
     - `action_probs` - the action success probability for each agent. This can be a
@@ -117,7 +116,7 @@ class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
 
     """
 
-    metadata = {
+    metadata: ClassVar[dict] = {
         "render_modes": ["human", "ansi", "rgb_array", "rgb_array_dict"],
         "render_fps": 15,
     }
@@ -125,14 +124,12 @@ class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
     def __init__(
         self,
         grid_size: int = 7,
-        action_probs: Union[float, Tuple[float, float]] = 1.0,
-        render_mode: Optional[str] = None,
-        should_randomze_dyn=False,
-    ):
+        action_probs: float | tuple[float, float] = 1.0,
+        render_mode: str | None = None,
+    ) -> None:
         super().__init__(
             TwoPathsModel(grid_size, action_probs),
             render_mode=render_mode,
-            should_randomze_dyn=should_randomze_dyn,
         )
         self.renderer = None
         self.chaser_img = None
@@ -141,7 +138,7 @@ class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
     def render(self):
         if self.render_mode is None:
             assert self.spec is not None
-            logger.warn(
+            logger.warning(
                 "You are calling render method without specifying any render mode. "
                 "You can specify the render_mode at initialization, "
                 f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
@@ -169,7 +166,7 @@ class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
         return "\n".join(output) + "\n"
 
     def _render_img(self):
-        assert self.render_mode in ["human", "rgb", "rgb_array_dict"]
+        assert self.render_mode in ["human", "rgb", "rgb_array", "rgb_array_dict"]
         model: TwoPathsModel = self.model  # type: ignore
 
         import posggym.envs.grid_world.render as render_lib
@@ -202,7 +199,7 @@ class TwoPathsEnv(DefaultEnv[TPState, TPObs, TPAction]):
 
         self.runner_img.coord = self._state[0]
         self.chaser_img.coord = self._state[1]
-        render_objects: List[render_lib.GWObject] = [self.runner_img, self.chaser_img]
+        render_objects: list[render_lib.GWObject] = [self.runner_img, self.chaser_img]
 
         observed_coords = model.grid.get_neighbours(self._state[0])
         observed_coords.extend(model.grid.get_neighbours(self._state[1]))
@@ -254,8 +251,8 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
     def __init__(
         self,
         grid_size: int,
-        action_probs: Union[float, Tuple[float, float]] = 1.0,
-    ):
+        action_probs: float | tuple[float, float] = 1.0,
+    ) -> None:
         assert grid_size in SUPPORTED_GRIDS, (
             f"Unsupported grid_size of `{grid_size}`, must be one of: "
             f"{SUPPORTED_GRIDS.keys()}."
@@ -265,7 +262,7 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
         if isinstance(action_probs, float):
             action_probs = (action_probs, action_probs)
 
-        self._action_probs: Tuple[float, float] = action_probs  # type: ignore
+        self._action_probs: tuple[float, float] = action_probs  # type: ignore
 
         self.possible_agents = tuple(str(i) for i in range(self.NUM_AGENTS))
         self.state_space = spaces.Tuple(
@@ -296,7 +293,7 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
         self.is_symmetric = False
 
     @property
-    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
+    def reward_ranges(self) -> dict[str, tuple[float, float]]:
         return {i: (self.R_CAPTURE, self.R_SAFE) for i in self.possible_agents}
 
     @property
@@ -305,7 +302,7 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
             self._rng, seed = seeding.std_random()
         return self._rng
 
-    def get_agents(self, state: TPState) -> List[str]:
+    def get_agents(self, state: TPState) -> list[str]:
         return list(self.possible_agents)
 
     def sample_initial_state(self) -> TPState:
@@ -314,25 +311,25 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
     def sample_agent_initial_state(self, agent_id: str, obs: TPObs) -> TPState:
         return self.sample_initial_state()
 
-    def get_initial_belief_dist(self) -> Dict[TPState, float]:
+    def get_initial_belief_dist(self) -> dict[TPState, float]:
         s_0 = (self.grid.init_runner_coord, self.grid.init_chaser_coord)
         return {
             s: float(s == s_0)  # type: ignore
             for s in itertools.product(self.grid.all_coords, repeat=2)
         }
 
-    def sample_initial_obs(self, state: TPState) -> Dict[str, TPObs]:
+    def sample_initial_obs(self, state: TPState) -> dict[str, TPObs]:
         return self._get_obs(state)
 
     def step(
-        self, state: TPState, actions: Dict[str, TPAction]
+        self, state: TPState, actions: dict[str, TPAction]
     ) -> M.JointTimestep[TPState, TPObs]:
         assert all(0 <= a_i < len(Direction) for a_i in actions.values())
         next_state = self._get_next_state(state, actions)
         rewards = self._get_rewards(next_state)
         all_done = self._state_is_terminal(next_state)
 
-        info: Dict[str, Dict] = {i: {} for i in self.possible_agents}
+        info: dict[str, dict] = {i: {} for i in self.possible_agents}
         if all_done:
             for i, outcome in self._get_outcome(next_state).items():
                 info[i]["outcome"] = outcome
@@ -345,7 +342,7 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
             next_state, obs, rewards, terminated, truncated, all_done, info
         )
 
-    def _get_next_state(self, state: TPState, actions: Dict[str, TPAction]) -> TPState:
+    def _get_next_state(self, state: TPState, actions: dict[str, TPAction]) -> TPState:
         runner_coord = state[self.RUNNER_IDX]
         chaser_coord = state[self.CHASER_IDX]
         runner_a = actions[str(self.RUNNER_IDX)]
@@ -371,7 +368,7 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
 
         return (runner_next_coord, chaser_next_coord)
 
-    def _get_obs(self, state: TPState) -> Dict[str, TPObs]:
+    def _get_obs(self, state: TPState) -> dict[str, TPObs]:
         runner_coord = state[self.RUNNER_IDX]
         chaser_coord = state[self.CHASER_IDX]
         return {
@@ -381,7 +378,7 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
 
     def _get_adj_obs(
         self, coord: Coord, opponent_coord: Coord
-    ) -> Tuple[int, int, int, int]:
+    ) -> tuple[int, int, int, int]:
         adj_obs = []
         for d in Direction:
             next_coord = self.grid.get_next_coord(coord, d, False)
@@ -393,7 +390,7 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
                 adj_obs.append(EMPTY)
         return tuple(adj_obs)  # type: ignore
 
-    def _get_rewards(self, state: TPState) -> Dict[str, float]:
+    def _get_rewards(self, state: TPState) -> dict[str, float]:
         runner_coord = state[self.RUNNER_IDX]
         chaser_coord = state[self.CHASER_IDX]
         r_runner, r_chaser = (self.R_ACTION, self.R_ACTION)
@@ -405,7 +402,7 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
             r_runner, r_chaser = (self.R_CAPTURE, -self.R_CAPTURE)
         return {str(self.RUNNER_IDX): r_runner, str(self.CHASER_IDX): r_chaser}
 
-    def _get_outcome(self, state: TPState) -> Dict[str, M.Outcome]:
+    def _get_outcome(self, state: TPState) -> dict[str, M.Outcome]:
         # Assuming state is terminal
         runner_coord = state[self.RUNNER_IDX]
         chaser_coord = state[self.CHASER_IDX]
@@ -429,9 +426,6 @@ class TwoPathsModel(M.POSGModel[TPState, TPObs, TPAction]):
         neighbour_coords = self.grid.get_neighbours(chaser_coords, True)
         return runner_coords in neighbour_coords
 
-    def randomize_dynamics(self):
-        self.action_probs = (self.rng.random(), self.rng.random())
-
 
 class TPGrid(Grid):
     """A grid for the Two-Paths Problem."""
@@ -440,18 +434,18 @@ class TPGrid(Grid):
         self,
         grid_width: int,
         grid_height: int,
-        block_coords: Set[Coord],
-        goal_coords: Set[Coord],
+        block_coords: set[Coord],
+        goal_coords: set[Coord],
         init_runner_coord: Coord,
         init_chaser_coord: Coord,
-    ):
+    ) -> None:
         super().__init__(grid_width, grid_height, block_coords)
         self.goal_coords = goal_coords
         self.init_runner_coord = init_runner_coord
         self.init_chaser_coord = init_chaser_coord
 
     def get_ascii_repr(
-        self, runner_coord: Optional[Coord], chaser_coord: Optional[Coord]
+        self, runner_coord: Coord | None, chaser_coord: Coord | None
     ) -> str:
         """Get ascii repr of grid."""
         grid_repr = []
@@ -585,7 +579,6 @@ def get_7x7_grid() -> TPGrid:
     )
 
 
-# grid_size: grid_make_fn
 SUPPORTED_GRIDS = {
     3: get_3x3_grid,
     4: get_4x4_grid,

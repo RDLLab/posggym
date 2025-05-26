@@ -62,7 +62,7 @@ def test_reset_sync_vector_env():
         assert isinstance(env.observation_spaces[agent_id], spaces.Box)
         assert isinstance(obs_i, np.ndarray)
         assert obs_i.shape == env.observation_spaces[agent_id].shape
-        assert obs_i.shape == (8,) + env.single_observation_spaces[agent_id].shape
+        assert obs_i.shape == (8, *env.single_observation_spaces[agent_id].shape)
         assert obs_i.dtype == env.observation_spaces[agent_id].dtype
 
         assert isinstance(info_i, dict)
@@ -109,11 +109,11 @@ def test_step_sync_vector_env(use_single_action_space):
         assert isinstance(env.observation_spaces[i], spaces.Box)
         assert isinstance(observations[i], np.ndarray)
         assert observations[i].shape == env.observation_spaces[i].shape
-        assert observations[i].shape == (8,) + env.single_observation_spaces[i].shape
+        assert observations[i].shape == (8, *env.single_observation_spaces[i].shape)
         assert observations[i].dtype == env.observation_spaces[i].dtype
 
         assert isinstance(rewards[i], np.ndarray)
-        assert isinstance(rewards[i][0], (float, np.floating))
+        assert isinstance(rewards[i][0], float | np.floating)
         assert rewards[i].shape == (8,)
 
         assert isinstance(terminations[i], np.ndarray)

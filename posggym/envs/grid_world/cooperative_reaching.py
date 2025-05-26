@@ -2,7 +2,7 @@
 
 from itertools import product
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import ClassVar
 
 from gymnasium import spaces
 
@@ -12,8 +12,8 @@ from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import Coord, Direction, Grid
 from posggym.utils import seeding
 
-# State = (coord_0, coord_1)
-CRState = Tuple[Coord, Coord]
+
+CRState = tuple[Coord, Coord]
 
 # The actions
 CRAction = int
@@ -27,8 +27,7 @@ ACTIONS = [DO_NOTHING, UP, DOWN, LEFT, RIGHT]
 ACTIONS_STR = ["0", "U", "D", "L", "R"]
 ACTION_TO_DIR = [None, Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST]
 
-# Obs = (ego_coord, other_coord)
-CRObs = Tuple[Coord, Coord]
+CRObs = tuple[Coord, Coord]
 
 
 class CooperativeReachingEnv(DefaultEnv[CRState, CRObs, CRAction]):
@@ -89,9 +88,8 @@ class CooperativeReachingEnv(DefaultEnv[CRState, CRObs, CRAction]):
     need to be adjusted when using larger grids (this can be done by manually specifying
     a value for `max_episode_steps` when creating the environment with `posggym.make`).
 
-    Arguments
+    Arguments:
     ---------
-
     - `size` - the size (width and height) of grid.
     - `num_goals` - the number of goal cells in the grid.
     - `mode` - the mode of the environment, which determines the layout of goals in the
@@ -148,14 +146,14 @@ class CooperativeReachingEnv(DefaultEnv[CRState, CRObs, CRAction]):
     ---------------
     - `v0`: Initial version
 
-    References
+    References:
     ----------
     - Arrasy Rahman, Elliot Fosong, Ignacio Carlucho, and Stefano V. Albrecht. 2023.
       Generating Teammates for Training Robust Ad Hoc Teamwork Agents via Best-Response
       Diversity. Transactions on Machine Learning Research.
     """
 
-    metadata = {
+    metadata: ClassVar[dict] = {
         "render_modes": ["human", "ansi", "rgb_array", "rgb_array_dict"],
         "render_fps": 15,
     }
@@ -165,14 +163,12 @@ class CooperativeReachingEnv(DefaultEnv[CRState, CRObs, CRAction]):
         size: int = 5,
         num_goals: int = 4,
         mode: str = "original",
-        obs_distance: Optional[int] = None,
-        render_mode: Optional[str] = None,
-        should_randomze_dyn=False,
-    ):
+        obs_distance: int | None = None,
+        render_mode: str | None = None,
+    ) -> None:
         super().__init__(
             CooperativeReachingModel(size, num_goals, mode, obs_distance),
             render_mode=render_mode,
-            should_randomze_dyn=should_randomze_dyn,
         )
         self.renderer = None
         self._agent_imgs = None
@@ -180,7 +176,7 @@ class CooperativeReachingEnv(DefaultEnv[CRState, CRObs, CRAction]):
     def render(self):
         if self.render_mode is None:
             assert self.spec is not None
-            logger.warn(
+            logger.warning(
                 "You are calling render method without specifying any render mode. "
                 "You can specify the render_mode at initialization, "
                 f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
@@ -296,18 +292,23 @@ class CooperativeReachingModel(M.POSGModel[CRState, CRObs, CRAction]):
     """
 
     NUM_AGENTS = 2
+    MIN_GRID_SIZE = 3
+    MIN_GOALS = 1
+    NUM_GOALS = 4
 
-    MODES = ["square", "line", "original"]
+    MODES: ClassVar[list] = ["square", "line", "original"]
 
     def __init__(
         self,
         size: int,
         num_goals: int,
         mode: str,
-        obs_distance: Optional[int],
-    ):
-        assert size >= 3, "Grid size must be at least 3"
-        assert num_goals >= 1, "Must have at least one goal"
+        obs_distance: int | None,
+    ) -> None:
+        assert (
+            size >= self.MIN_GRID_SIZE
+        ), f"Grid size must be at least {self.MIN_GRID_SIZE}"
+        assert num_goals >= self.MIN_GOALS, "Must have at least one goal"
         assert mode in self.MODES, f"Mode must be one of {self.MODES}"
         if obs_distance is None:
             obs_distance = 2 * size
@@ -325,10 +326,13 @@ class CooperativeReachingModel(M.POSGModel[CRState, CRObs, CRAction]):
             points = equid_points_line(num_goals, self.size)
             self.goals = {p: 1.0 for p in points}
         else:
-            if num_goals != 4:
-                logger.warn(
-                    f"'original' mode only supports 4 goals, but got {num_goals}. "
-                    "Continuing with 4 goals."
+            if num_goals != self.NUM_GOALS:
+                logger.warning(
+                    "'original' mode only supports %s goals, but got %s. "
+                    "Continuing with %s goals.",
+                    self.NUM_GOALS,
+                    num_goals,
+                    self.NUM_GOALS,
                 )
             self.goals = {
                 (0, 0): 1.0,
@@ -364,7 +368,7 @@ class CooperativeReachingModel(M.POSGModel[CRState, CRObs, CRAction]):
         self.is_symmetric = True
 
     @property
-    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
+    def reward_ranges(self) -> dict[str, tuple[float, float]]:
         max_goal_value = max(self.goals.values())
         return {i: (0.0, max_goal_value) for i in self.possible_agents}
 
@@ -374,7 +378,7 @@ class CooperativeReachingModel(M.POSGModel[CRState, CRObs, CRAction]):
             self._rng, _ = seeding.std_random()
         return self._rng
 
-    def get_agents(self, state: CRState) -> List[str]:
+    def get_agents(self, state: CRState) -> list[str]:
         return list(self.possible_agents)
 
     def sample_initial_state(self) -> CRState:
@@ -391,11 +395,11 @@ class CooperativeReachingModel(M.POSGModel[CRState, CRObs, CRAction]):
         agent_idx = int(agent_id)
         return (obs[0], obs[1]) if agent_idx == 0 else (obs[1], obs[0])
 
-    def sample_initial_obs(self, state: CRState) -> Dict[str, CRObs]:
+    def sample_initial_obs(self, state: CRState) -> dict[str, CRObs]:
         return self._get_obs(state)
 
     def step(
-        self, state: CRState, actions: Dict[str, CRAction]
+        self, state: CRState, actions: dict[str, CRAction]
     ) -> M.JointTimestep[CRState, CRObs]:
         assert all(0 <= a_i < len(ACTIONS) for a_i in actions.values())
         next_state = self._get_next_state(state, actions)
@@ -408,7 +412,7 @@ class CooperativeReachingModel(M.POSGModel[CRState, CRObs, CRAction]):
         terminated = {i: all_done for i in self.possible_agents}
         truncated = {i: False for i in self.possible_agents}
 
-        info: Dict[str, Dict] = {i: {} for i in self.possible_agents}
+        info: dict[str, dict] = {i: {} for i in self.possible_agents}
         if all_done:
             for i in self.possible_agents:
                 info[i]["outcome"] = M.Outcome.WIN
@@ -417,7 +421,7 @@ class CooperativeReachingModel(M.POSGModel[CRState, CRObs, CRAction]):
             next_state, obs, rewards, terminated, truncated, all_done, info
         )
 
-    def _get_next_state(self, state: CRState, actions: Dict[str, CRAction]) -> CRState:
+    def _get_next_state(self, state: CRState, actions: dict[str, CRAction]) -> CRState:
         next_state = list(state)
         for i, action_i in actions.items():
             if action_i == DO_NOTHING:
@@ -428,8 +432,8 @@ class CooperativeReachingModel(M.POSGModel[CRState, CRObs, CRAction]):
             )
         return tuple(next_state)
 
-    def _get_obs(self, state: CRState) -> Dict[str, CRObs]:
-        obs: Dict[str, CRObs] = {}
+    def _get_obs(self, state: CRState) -> dict[str, CRObs]:
+        obs: dict[str, CRObs] = {}
         for i in self.possible_agents:
             idx = int(i)
             other_idx = (idx + 1) % 2
@@ -444,10 +448,10 @@ class CooperativeReachingModel(M.POSGModel[CRState, CRObs, CRAction]):
                 obs[i] = (state_i, (self.size, self.size))
         return obs
 
-    def get_obs_coords(self, origin: Coord) -> List[Coord]:
+    def get_obs_coords(self, origin: Coord) -> list[Coord]:
         """Get the list of coords observed from agent at origin."""
         obs_size = (2 * self.obs_distance) + 1
-        obs_coords: List[Coord] = []
+        obs_coords: list[Coord] = []
         for obs_col, obs_row in product(range(obs_size), repeat=2):
             grid_col = origin[0] + obs_col - self.obs_distance
             grid_row = origin[1] + obs_row - self.obs_distance
@@ -455,7 +459,7 @@ class CooperativeReachingModel(M.POSGModel[CRState, CRObs, CRAction]):
                 obs_coords.append((grid_col, grid_row))
         return obs_coords
 
-    def _get_rewards(self, state: CRState) -> Dict[str, float]:
+    def _get_rewards(self, state: CRState) -> dict[str, float]:
         all_done = all(p == state[0] for p in state) and state[0] in self.goals
         if all_done:
             goal_value = self.goals[state[0]]
@@ -466,12 +470,16 @@ class CooperativeReachingModel(M.POSGModel[CRState, CRObs, CRAction]):
 class CooperativeReachingGrid(Grid):
     """A grid for the Cooperative Reaching Problem."""
 
+    MIN_GRID_SIZE = 3
+
     def __init__(
         self,
         size: int,
-        goal_coords: List[Coord],
-    ):
-        assert size >= 3, "Grid size must be at least 3"
+        goal_coords: list[Coord],
+    ) -> None:
+        assert (
+            size >= self.MIN_GRID_SIZE
+        ), f"Grid size must be at least {self.MIN_GRID_SIZE}"
         super().__init__(size, size, block_coords=set())
         self.size = size
         self.goal_coords = goal_coords
@@ -481,7 +489,7 @@ class CooperativeReachingGrid(Grid):
         """Get the shortest path distance from coord to goal."""
         return int(self.shortest_paths[goal][coord])
 
-    def get_ascii_repr(self, agent_coords: Optional[CRState]) -> str:
+    def get_ascii_repr(self, agent_coords: CRState | None) -> str:
         """Get ascii repr of grid."""
         grid_repr = []
         for row in range(self.height):
@@ -503,7 +511,7 @@ class CooperativeReachingGrid(Grid):
         return "\n".join([" ".join(r) for r in grid_repr])
 
 
-def equid_points_square(n_points: int, grid_size: int) -> List[Tuple[int, int]]:
+def equid_points_square(n_points: int, grid_size: int) -> list[tuple[int, int]]:
     """Return n_points equidistant points on square border of grid."""
     assert 0 < n_points <= (grid_size - 1) * 4
     perimeter_length = (grid_size - 1) * 4
@@ -524,7 +532,7 @@ def equid_points_square(n_points: int, grid_size: int) -> List[Tuple[int, int]]:
     return points
 
 
-def equid_points_line(n_points: int, grid_size: int) -> List[Tuple[int, int]]:
+def equid_points_line(n_points: int, grid_size: int) -> list[tuple[int, int]]:
     """Return n_points equidistant points on line in middle of grid."""
     assert 0 < n_points <= grid_size
     col = int(grid_size / 2)

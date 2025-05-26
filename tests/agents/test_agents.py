@@ -44,7 +44,7 @@ def test_policy(spec: PolicySpec):
     obs, _ = env.reset(seed=SEED)
 
     if spec.valid_agent_ids:
-        test_agent_id = list(set(env.agents).intersection(spec.valid_agent_ids))[0]
+        test_agent_id = next(iter(set(env.agents).intersection(spec.valid_agent_ids)))
     else:
         test_agent_id = env.agents[0]
 
@@ -53,7 +53,7 @@ def test_policy(spec: PolicySpec):
 
     test_policy.reset(seed=SEED + 1)
 
-    for t in range(2):
+    for _t in range(2):
         joint_action = {}
         for i in env.agents:
             if i == test_agent_id and test_policy.observes_state:
@@ -110,7 +110,7 @@ def test_policy_determinism_rollout(spec: PolicySpec):
     env_2.reset(seed=SEED)
 
     if spec.valid_agent_ids:
-        agent_id = list(set(env_1.agents).intersection(spec.valid_agent_ids))[0]
+        agent_id = next(iter(set(env_1.agents).intersection(spec.valid_agent_ids)))
     else:
         agent_id = env_1.agents[0]
 
@@ -122,7 +122,7 @@ def test_policy_determinism_rollout(spec: PolicySpec):
 
     assert_equals(policy_1.get_state(), policy_2.get_state())
 
-    for time_step in range(NUM_STEPS):
+    for _time_step in range(NUM_STEPS):
         if policy_1.observes_state:
             action_1 = policy_1.step(env_1.state)
             action_2 = policy_2.step(env_1.state)

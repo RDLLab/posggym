@@ -13,16 +13,18 @@ import copy
 import difflib
 import importlib
 import re
-import sys
 from collections import defaultdict
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Tuple
+from typing import TYPE_CHECKING, Any
 
 from posggym import error, logger
-from posggym.wrappers import OrderEnforcing, PassiveEnvChecker, TimeLimit
-
-if sys.version_info < (3, 10):
-    import importlib_metadata as metadata  # type: ignore
+from posggym.wrappers import (
+    BatchTimeLimit,
+    OrderEnforcing,
+    PassiveEnvChecker,
+    TimeLimit,
+)
 
 
 if TYPE_CHECKING:
@@ -38,12 +40,12 @@ ENV_ID_RE = re.compile(
 def load(name: str) -> Callable:
     """Loads environment with name and returns an environment creation function.
 
-    Arguments
+    Arguments:
     ---------
     name : str
         The environment name
 
-    Returns
+    Returns:
     -------
     entry_point : Callable
         Environment creation function.
@@ -55,17 +57,17 @@ def load(name: str) -> Callable:
     return fn
 
 
-def parse_env_id(env_id: str) -> Tuple[str | None, str, int | None]:
+def parse_env_id(env_id: str) -> tuple[str | None, str, int | None]:
     """Parse environment ID string format.
 
     [namespace/](env-name)-v(version)    env-name is group 1, version is group 2
 
-    Arguments
+    Arguments:
     ---------
     env_id : str
         The environment id to parse
 
-    Returns
+    Returns:
     -------
     ns : str | None
         The environment namespace
@@ -74,9 +76,11 @@ def parse_env_id(env_id: str) -> Tuple[str | None, str, int | None]:
     version : int | None
         The environment version
 
-    Raises
+    Raises:
     ------
-    Error
+
+    Error:
+    -----
         If the environment id does not a valid environment regex
 
     """
@@ -98,7 +102,7 @@ def get_env_id(ns: str | None, name: str, version: int | None) -> str:
 
     Inverse of :meth:`parse_env_id`.
 
-    Arguments
+    Arguments:
     ---------
     ns : str | None
         The environment namespace.
@@ -107,7 +111,7 @@ def get_env_id(ns: str | None, name: str, version: int | None) -> str:
     version : int | None
         The environment version.
 
-    Returns
+    Returns:
     -------
     str
         The environment id.
@@ -161,7 +165,7 @@ class EnvSpec:
     disable_env_checker: bool = field(default=False)
 
     # Environment Arguments
-    kwargs: Dict = field(default_factory=dict)
+    kwargs: dict = field(default_factory=dict)
 
     # post-init attributes
     namespace: str | None = field(init=False)
@@ -201,7 +205,7 @@ def _check_namespace_exists(ns: str | None):
         else f"Have you installed the proper package for {ns}?"
     )
 
-    raise error.NamespaceNotFound(f"Namespace {ns} not found. {suggestion_msg}")
+    raise error.NamespaceNotFoundError(f"Namespace {ns} not found. {suggestion_msg}")
 
 
 def _check_name_exists(ns: str | None, name: str):
@@ -220,7 +224,7 @@ def _check_name_exists(ns: str | None, name: str):
     namespace_msg = f" in namespace {ns}" if ns else ""
     suggestion_msg = f"Did you mean: `{names[suggestion[0]]}`?" if suggestion else ""
 
-    raise error.NameNotFound(
+    raise error.NameNotFoundError(
         f"Environment {name} doesn't exist{namespace_msg}. {suggestion_msg}"
     )
 
@@ -231,7 +235,7 @@ def _check_version_exists(ns: str | None, name: str, version: int | None):
     This is a complete test whether an environment identifier is valid, and will
     provide the best available hints.
 
-    Arguments
+    Arguments:
     ---------
     ns : str | None
         The environment namespace.
@@ -240,12 +244,12 @@ def _check_version_exists(ns: str | None, name: str, version: int | None):
     version : int | None
         The environment version.
 
-    Raises
+    Raises:
     ------
-    DeprecatedEnv
+    DeprecatedEnvError
         The environment doesn't exist but a default version does or the environment
         version is deprecated.
-    VersionNotFound
+    VersionNotFoundError
         The ``version`` used doesn't exist.
 
     """
@@ -273,7 +277,7 @@ def _check_version_exists(ns: str | None, name: str, version: int | None):
     if default_spec:
         message += f" It provides the default version {default_spec[0].id}`."
         if len(env_specs) == 1:
-            raise error.DeprecatedEnv(message)
+            raise error.DeprecatedEnvError(message)
 
     # Process possible versioned environments
     versioned_specs = [spec_ for spec_ in env_specs if spec_.version is not None]
@@ -287,10 +291,10 @@ def _check_version_exists(ns: str | None, name: str, version: int | None):
     if version > latest_spec.version:
         version_list_msg = ", ".join(f"`v{spec_.version}`" for spec_ in env_specs)
         message += f" It provides versioned environments: [ {version_list_msg} ]."
-        raise error.VersionNotFound(message)
+        raise error.VersionNotFoundError(message)
 
     if version < latest_spec.version:
-        raise error.DeprecatedEnv(
+        raise error.DeprecatedEnvError(
             f"Environment version v{version} for `{get_env_id(ns, name, None)}` "
             f"is deprecated. Please use `{latest_spec.id}` instead."
         )
@@ -357,21 +361,22 @@ def _check_spec_register(spec: EnvSpec):
         )
 
 
-def _check_metadata(metadata_: Dict):
+def _check_metadata(metadata_: dict):
     """Checks validity of metadata. Printing warnings if it's invalid."""
     if not isinstance(metadata_, dict):
-        raise error.InvalidMetadata(
-            f"Expect the environment metadata to be dict, actual type: {type(metadata)}"
+        raise error.InvalidMetadataError(
+            "Expect the environment metadata to be dict,",
+            f"actual type: {type(metadata_)}",
         )
 
     render_modes = metadata_.get("render_modes")
     if render_modes is None:
-        logger.warn(
+        logger.warning(
             "The environment creator metadata doesn't include `render_modes`, "
             f"contains: {list(metadata_.keys())}"
         )
     elif not isinstance(render_modes, Iterable):
-        logger.warn(
+        logger.warning(
             "Expects the environment metadata render_modes to be a Iterable, actual "
             f"type: {type(render_modes)}"
         )
@@ -409,7 +414,7 @@ def register(
 
     It takes arbitrary keyword arguments, which are passed to the `EnvSpec` constructor.
 
-    Arguments
+    Arguments:
     ---------
     id : str
         The environment id.
@@ -442,7 +447,7 @@ def register(
             kwargs.get("namespace") is not None
             and kwargs.get("namespace") != current_namespace
         ):
-            logger.warn(
+            logger.warning(
                 f"Custom namespace `{kwargs.get('namespace')}` is being overridden by "
                 f"namespace `{current_namespace}`. If you are developing a plugin you "
                 "shouldn't specify a namespace in `register` calls. "
@@ -464,7 +469,7 @@ def register(
     )
     _check_spec_register(new_spec)
     if new_spec.id in registry:
-        logger.warn(f"Overriding environment {new_spec.id} already in registry.")
+        logger.warning(f"Overriding environment {new_spec.id} already in registry.")
     registry[new_spec.id] = new_spec
 
 
@@ -479,7 +484,7 @@ def make(
     To find all available environments use `posggym.envs.registry.keys()` for all valid
     ids.
 
-    Arguments
+    Arguments:
     ---------
     id : str | EnvSpec
         Name of the environment. Optionally, a module to import can be included,
@@ -494,14 +499,16 @@ def make(
     **kwargs
         Additional arguments to pass to the environment constructor.
 
-    Returns
+    Returns:
     -------
     Env
         An instance of the environment.
 
-    Raises
+    Raises:
     ------
-    Error
+
+    Error:
+    -----
         If the ``id`` doesn't exist then an error is raised
 
     """
@@ -528,7 +535,7 @@ def make(
             and latest_version is not None
             and latest_version > version
         ):
-            logger.warn(
+            logger.warning(
                 f"The environment {id} is out of date. You should consider "
                 f"upgrading to version `v{latest_version}`."
             )
@@ -537,7 +544,7 @@ def make(
             version = latest_version
             new_env_id = get_env_id(ns, name, version)
             spec_ = registry.get(new_env_id)  # type: ignore
-            logger.warn(
+            logger.warning(
                 f"Using the latest versioned environment `{new_env_id}` "
                 f"instead of the unversioned environment `{id}`."
             )
@@ -564,7 +571,7 @@ def make(
     mode = _kwargs.get("render_mode")
 
     if mode is not None and render_modes is not None and mode not in render_modes:
-        raise error.UnsupportedMode(
+        raise error.UnsupportedModeError(
             f"The environment is being initialised with render_mode={mode} "
             f"that is not in the possible render_modes ({render_modes})."
         )
@@ -581,6 +588,8 @@ def make(
     env.unwrapped.spec = spec_
     env.unwrapped.model.spec = spec_
 
+    TL = BatchTimeLimit if hasattr(env, "batch_size") else TimeLimit
+
     # Run the environment checker as the lowest level wrapper
     if disable_env_checker is False or (
         disable_env_checker is None and spec_.disable_env_checker is False
@@ -593,9 +602,9 @@ def make(
 
     # Add the time limit wrapper
     if max_episode_steps is not None:
-        env = TimeLimit(env, max_episode_steps)
+        env = TL(env, max_episode_steps)
     elif spec_.max_episode_steps is not None:
-        env = TimeLimit(env, spec_.max_episode_steps)
+        env = TL(env, spec_.max_episode_steps)
 
     return env
 
@@ -603,19 +612,21 @@ def make(
 def spec(env_id: str) -> EnvSpec:
     """Retrieve the spec for the given environment from the global registry.
 
-    Arguments
+    Arguments:
     ---------
     env_id : str
         The environment id.
 
-    Returns
+    Returns:
     -------
     EnvSpec
         The environment spec from the global registry.
 
-    Raises
+    Raises:
     ------
-    Error
+
+    Error:
+    -----
         If environment with given ``env_id`` doesn't exist in global registry.
 
     """
@@ -629,15 +640,18 @@ def spec(env_id: str) -> EnvSpec:
         return spec_
 
 
+NAMESPACE_MIN_PARTS = 3
+
+
 def pprint_registry(
-    _registry: Dict = registry,
+    _registry: dict = registry,
     num_cols: int = 3,
-    exclude_namespaces: List[str] | None = None,
+    exclude_namespaces: list[str] | None = None,
     disable_print: bool = False,
 ) -> str | None:
     """Pretty print the environments in the registry.
 
-    Arguments
+    Arguments:
     ---------
     _registry : Dict
         Environment registry to be printed.
@@ -649,7 +663,7 @@ def pprint_registry(
         Whether to return a string of all the namespaces and environment IDs instead of
         printing it to console.
 
-    Returns
+    Returns:
     -------
     str | None
         Formatted str representation of registry, if ``disable_print=True``, otherwise
@@ -657,7 +671,7 @@ def pprint_registry(
 
     """
     # Defaultdict to store environment names according to namespace.
-    namespace_envs = defaultdict(lambda: [])
+    namespace_envs = defaultdict(list)
     max_justify = float("-inf")
     for env in _registry.values():
         namespace, _, _ = parse_env_id(env.id)
@@ -666,7 +680,7 @@ def pprint_registry(
             # entrypoints.
             env_entry_point = re.sub(r":\w+", "", env.entry_point)
             e_ep_split = env_entry_point.split(".")
-            if len(e_ep_split) >= 3:
+            if len(e_ep_split) >= NAMESPACE_MIN_PARTS:
                 # If namespace is of the format - posggym.envs.env_group.env_name:env_id
                 # or posggym.envs.env_group:env_id
                 idx = 2

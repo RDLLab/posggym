@@ -6,6 +6,7 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/wrappers/test_
 """
 import shutil
 from pathlib import Path
+
 import posggym
 from posggym.wrappers.record_video import RecordVideo, capped_cubic_video_schedule
 

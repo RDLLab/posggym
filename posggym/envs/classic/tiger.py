@@ -1,7 +1,7 @@
 """Model for the classic Multi-Agent Tiger problem."""
 import sys
 from itertools import product
-from typing import Dict, List, Optional, Tuple
+from typing import ClassVar
 
 from gymnasium import spaces
 
@@ -24,7 +24,7 @@ LISTEN = 2
 ACTIONS = [OPENLEFT, OPENRIGHT, LISTEN]
 ACTION_STR = ["OL", "OR", "L"]
 
-MATObs = Tuple[int, int]
+MATObs = tuple[int, int]
 GROWLLEFT = 0
 GROWLRIGHT = 1
 CREAKLEFT = 0
@@ -42,6 +42,8 @@ OBS_SPACE = [
 OBS_STR = [("GL", "GR"), ("CL", "CR", "S")]
 
 OTHER_AGENT_ID = {"0": "1", "1": "0"}
+MIN_PROBABILITY = 0.0
+MAX_PROBABILITY = 1.0
 
 
 class MultiAgentTigerEnv(DefaultEnv):
@@ -122,9 +124,8 @@ class MultiAgentTigerEnv(DefaultEnv):
     By default episodes continue infinitely long. To set a step limit, specify
     `max_episode_steps` when initializing the environment with `posggym.make`.
 
-    Arguments
+    Arguments:
     ---------
-
     - `observation_prob` - the probability of correctly observing the position of the
         tiger (default = `0.85`)
     - `creak_observation_prob` - the probability of correctly observing which door was
@@ -134,21 +135,21 @@ class MultiAgentTigerEnv(DefaultEnv):
     ---------------
     - `v0`: Initial version
 
-    References
+    References:
     ----------
     - Gmytrasiewicz, Piotr J., and Prashant Doshi. “A Framework for Sequential Planning
     in Multi-Agent Settings.” Journal of Artificial Intelligence Research 24 (2005).
 
     """
 
-    metadata = {"render_modes": ["human", "ansi"], "render_fps": 4}
+    metadata: ClassVar[dict] = {"render_modes": ["human", "ansi"], "render_fps": 4}
 
     def __init__(
         self,
         observation_prob: float = 0.85,
         creak_observation_prob: float = 0.9,
-        render_mode: Optional[str] = None,
-    ):
+        render_mode: str | None = None,
+    ) -> None:
         super().__init__(
             MultiAgentTigerModel(observation_prob, creak_observation_prob),
             render_mode=render_mode,
@@ -157,7 +158,7 @@ class MultiAgentTigerEnv(DefaultEnv):
     def render(self):
         if self.render_mode is None:
             assert self.spec is not None
-            logger.warn(
+            logger.warning(
                 "You are calling render method without specifying any render mode. "
                 "You can specify the render_mode at initialization, "
                 f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
@@ -202,9 +203,9 @@ class MultiAgentTigerModel(M.POSGFullModel[MATState, MATObs, MATAction]):
 
     def __init__(
         self, observation_prob: float = 0.85, creak_observation_prob: float = 0.9
-    ):
-        assert 0 <= observation_prob <= 1.0
-        assert 0 <= creak_observation_prob <= 1.0
+    ) -> None:
+        assert MIN_PROBABILITY <= observation_prob <= MAX_PROBABILITY
+        assert MIN_PROBABILITY <= creak_observation_prob <= MAX_PROBABILITY
         self._obs_prob = observation_prob
         self._creak_obs_prob = creak_observation_prob
 
@@ -233,7 +234,7 @@ class MultiAgentTigerModel(M.POSGFullModel[MATState, MATObs, MATAction]):
         self._obs_map = self._construct_obs_func()
 
     @property
-    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
+    def reward_ranges(self) -> dict[str, tuple[float, float]]:
         return {i: (self.OPEN_BAD_R, self.OPEN_GOOD_R) for i in self.possible_agents}
 
     @property
@@ -242,17 +243,17 @@ class MultiAgentTigerModel(M.POSGFullModel[MATState, MATObs, MATAction]):
             self._rng, seed = seeding.std_random()
         return self._rng
 
-    def get_agents(self, state: MATState) -> List[str]:
+    def get_agents(self, state: MATState) -> list[str]:
         return list(self.possible_agents)
 
     def sample_initial_state(self) -> MATState:
         return self.rng.choice(STATES)
 
-    def sample_initial_obs(self, state: MATState) -> Dict[str, MATObs]:
+    def sample_initial_obs(self, state: MATState) -> dict[str, MATObs]:
         return {i: OBS_SPACE[2] for i in self.possible_agents}
 
     def step(
-        self, state: MATState, actions: Dict[str, MATAction]
+        self, state: MATState, actions: dict[str, MATAction]
     ) -> M.JointTimestep[MATState, MATObs]:
         assert all(a_i in ACTIONS for a_i in actions.values())
         next_state = self._sample_next_state(state, actions)
@@ -261,13 +262,13 @@ class MultiAgentTigerModel(M.POSGFullModel[MATState, MATObs, MATAction]):
         terminated = {i: False for i in self.possible_agents}
         truncated = {i: False for i in self.possible_agents}
         all_done = False
-        info: Dict[str, Dict] = {i: {} for i in self.possible_agents}
+        info: dict[str, dict] = {i: {} for i in self.possible_agents}
         return M.JointTimestep(
             next_state, obs, rewards, terminated, truncated, all_done, info
         )
 
     def _sample_next_state(
-        self, state: MATState, actions: Dict[str, MATAction]
+        self, state: MATState, actions: dict[str, MATAction]
     ) -> MATState:
         next_state = state
         if any(a != LISTEN for a in actions.values()):
@@ -275,9 +276,9 @@ class MultiAgentTigerModel(M.POSGFullModel[MATState, MATObs, MATAction]):
         return next_state
 
     def _sample_obs(
-        self, state: MATState, actions: Dict[str, MATAction]
-    ) -> Dict[str, MATObs]:
-        obs: Dict[str, MATObs] = {}
+        self, state: MATState, actions: dict[str, MATAction]
+    ) -> dict[str, MATObs]:
+        obs: dict[str, MATObs] = {}
         for i, a in actions.items():
             if a != LISTEN:
                 obs[i] = self.rng.choice(OBS_SPACE)
@@ -311,9 +312,9 @@ class MultiAgentTigerModel(M.POSGFullModel[MATState, MATObs, MATAction]):
         return self.rng.choice([CREAKRIGHT, SILENCE])
 
     def _get_reward(
-        self, state: MATState, actions: Dict[str, MATAction]
-    ) -> Dict[str, float]:
-        rewards: Dict[str, float] = {}
+        self, state: MATState, actions: dict[str, MATAction]
+    ) -> dict[str, float]:
+        rewards: dict[str, float] = {}
         for i, a in actions.items():
             if a == LISTEN:
                 rewards[i] = self.LISTEN_R
@@ -323,20 +324,20 @@ class MultiAgentTigerModel(M.POSGFullModel[MATState, MATObs, MATAction]):
                 rewards[i] = self.OPEN_GOOD_R
         return rewards
 
-    def get_initial_belief(self) -> Dict[MATState, float]:
-        b_map: Dict[MATState, float] = {}
+    def get_initial_belief(self) -> dict[MATState, float]:
+        b_map: dict[MATState, float] = {}
         for s in STATES:
             s_prob = 1.0 / len(STATES)
             b_map[s] = s_prob
         return b_map
 
     def transition_fn(
-        self, state: MATState, actions: Dict[str, MATAction], next_state: MATState
+        self, state: MATState, actions: dict[str, MATAction], next_state: MATState
     ) -> float:
         action_tuple = tuple(actions[i] for i in self.possible_agents)
         return self._trans_map[(state, action_tuple, next_state)]
 
-    def _construct_trans_func(self) -> Dict:
+    def _construct_trans_func(self) -> dict:
         trans_map = {}
         uniform_prob = 1.0 / len(STATES)
         for s, a, s_next in product(
@@ -349,15 +350,15 @@ class MultiAgentTigerModel(M.POSGFullModel[MATState, MATObs, MATAction]):
 
     def observation_fn(
         self,
-        obs: Dict[str, MATObs],
+        obs: dict[str, MATObs],
         next_state: MATState,
-        actions: Dict[str, MATAction],
+        actions: dict[str, MATAction],
     ) -> float:
         obs_tuple = tuple(obs[i] for i in self.possible_agents)
         action_tuple = tuple(actions[i] for i in self.possible_agents)
         return self._obs_map[(next_state, action_tuple, obs_tuple)]
 
-    def _construct_obs_func(self) -> Dict:
+    def _construct_obs_func(self) -> dict:
         obs_func = {}
         uniform_o_prob = 1.0 / len(OBS_SPACE)
         for s_next, a, o in product(
@@ -406,12 +407,12 @@ class MultiAgentTigerModel(M.POSGFullModel[MATState, MATObs, MATAction]):
         return obs_func
 
     def reward_fn(
-        self, state: MATState, actions: Dict[str, MATAction]
-    ) -> Dict[str, float]:
+        self, state: MATState, actions: dict[str, MATAction]
+    ) -> dict[str, float]:
         action_tuple = tuple(actions[i] for i in self.possible_agents)
         return self._rew_map[(state, action_tuple)]
 
-    def _construct_rew_func(self) -> Dict:
+    def _construct_rew_func(self) -> dict:
         rew_map = {}
         joint_actions_space = product(*self._action_spaces)
         for s, a in product(self._state_space, joint_actions_space):

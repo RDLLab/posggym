@@ -1,5 +1,5 @@
 """Utilities for storing and managing agent action-observation histories."""
-from typing import Dict, Generic, List, Optional, Tuple
+from typing import Generic
 
 import posggym.model as M
 
@@ -12,8 +12,8 @@ class AgentHistory(Generic[M.ActType, M.ObsType]):
     """
 
     def __init__(
-        self, history: Tuple[Tuple[Optional[M.ActType], Optional[M.ObsType]], ...]
-    ):
+        self, history: tuple[tuple[M.ActType | None, M.ObsType | None], ...]
+    ) -> None:
         self.history = history
         self.t = len(history) - 1
 
@@ -33,7 +33,7 @@ class AgentHistory(Generic[M.ActType, M.ObsType]):
             return self
         return AgentHistory(self.history[:horizon])
 
-    def get_last_step(self) -> Tuple[Optional[M.ActType], Optional[M.ObsType]]:
+    def get_last_step(self) -> tuple[M.ActType | None, M.ObsType | None]:
         """Get the last step in the history."""
         return self.history[-1]
 
@@ -46,7 +46,7 @@ class AgentHistory(Generic[M.ActType, M.ObsType]):
         return len(self.history)
 
     @classmethod
-    def get_init_history(cls, obs: Optional[M.ObsType] = None) -> "AgentHistory":
+    def get_init_history(cls, obs: M.ObsType | None = None) -> "AgentHistory":
         """Get Initial history."""
         if obs is None:
             return cls(())
@@ -81,7 +81,7 @@ class AgentHistory(Generic[M.ActType, M.ObsType]):
 
 
 class _AgentHistoryIterator:
-    def __init__(self, history: AgentHistory):
+    def __init__(self, history: AgentHistory) -> None:
         self.history = history
         self._idx = 0
 
@@ -98,14 +98,14 @@ class _AgentHistoryIterator:
 class JointHistory:
     """A joint history for all agents in the environment."""
 
-    def __init__(self, agent_histories: Dict[str, AgentHistory]):
+    def __init__(self, agent_histories: dict[str, AgentHistory]) -> None:
         self.agent_histories = agent_histories
         self.agent_ids = sorted(agent_histories.keys())
         self.num_agents = len(self.agent_histories)
 
     @classmethod
     def get_init_history(
-        cls, agent_ids: List[str], obs: Optional[Dict[str, M.ObsType]] = None
+        cls, agent_ids: list[str], obs: dict[str, M.ObsType] | None = None
     ) -> "JointHistory":
         """Get Initial joint history."""
         if obs is None:
@@ -117,7 +117,7 @@ class JointHistory:
         return self.agent_histories[agent_id]
 
     def extend(
-        self, action: Dict[str, M.ActType], obs: Dict[str, M.ObsType]
+        self, action: dict[str, M.ActType], obs: dict[str, M.ObsType]
     ) -> "JointHistory":
         """Extend the current history with given action, observation pair."""
         new_agent_histories = {

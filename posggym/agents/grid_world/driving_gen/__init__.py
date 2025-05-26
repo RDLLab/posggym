@@ -4,6 +4,7 @@ from posggym.agents.grid_world.driving_gen.shortest_path import (
 )
 from posggym.agents.registration import PolicySpec
 
+
 policy_specs = {}
 for a, description in [
     (

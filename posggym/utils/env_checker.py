@@ -30,17 +30,18 @@ from posggym.utils.passive_env_checker import (
     env_reset_passive_checker,
     env_step_passive_checker,
 )
+from posggym.utils.torch_utils import maybe_expand_dims
 
 
 def check_reset_seed(env: posggym.Env):
     """Check that the environment can be reset with a seed.
 
-    Arguments
+    Arguments:
     ---------
     env
         The environment to check
 
-    Raises
+    Raises:
     ------
     AssertionError
         The environment cannot be reset with a random seed, even though `seed` or
@@ -113,7 +114,7 @@ def check_reset_seed(env: posggym.Env):
         seed_param = signature.parameters.get("seed")
         # Check the default value is None
         if seed_param is not None and seed_param.default is not None:
-            logger.warn(
+            logger.warning(
                 "The default seed argument in reset should be `None`, otherwise the "
                 "environment will by default always be deterministic. "
                 f"Actual default: {seed_param.default}"
@@ -128,12 +129,12 @@ def check_reset_seed(env: posggym.Env):
 def check_reset_options(env: posggym.Env):
     """Check that the environment can be reset with options.
 
-    Arguments
+    Arguments:
     ---------
     env
         The environment to check
 
-    Raises
+    Raises:
     ------
     AssertionError
         The environment cannot be reset with options, even though `options` or `kwargs`
@@ -163,12 +164,12 @@ def check_reset_options(env: posggym.Env):
 def check_reset_return_type(env: posggym.Env):
     """Checks that :meth:`reset` correctly returns a tuple of the form `(obs , info)`.
 
-    Arguments
+    Arguments:
     ---------
     env
         The environment to check
 
-    Raises
+    Raises:
     ------
     AssertionError
         depending on spec violation
@@ -199,7 +200,7 @@ def check_env(env: posggym.Env, skip_render_check: bool = False):
 
     This is particularly useful when using a custom environment.
 
-    Arguments
+    Arguments:
     ---------
     env
         The posggym environment that will be checked
@@ -215,7 +216,7 @@ def check_env(env: posggym.Env, skip_render_check: bool = False):
     ), f"The environment must inherit from the posggym.Env class. {more_info_msg}"
 
     if env.unwrapped is not env:
-        logger.warn(
+        logger.warning(
             f"The environment ({env}) is different from the unwrapped version "
             f"({env.unwrapped}). This could effect the environment checker as the "
             "environment most likely has a wrapper applied to it. We recommend using "
@@ -242,8 +243,10 @@ def check_env(env: posggym.Env, skip_render_check: bool = False):
 
     # ============ Check the returned values ===============
     env_reset_passive_checker(env)
+
     env_step_passive_checker(
-        env, {i: env.action_spaces[i].sample() for i in env.agents}
+        env,
+        {i: maybe_expand_dims(env, env.action_spaces[i].sample()) for i in env.agents},
     )
 
     # ==== Check the render method and the declared render modes ====

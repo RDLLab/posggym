@@ -8,6 +8,7 @@ from pathlib import Path
 from setuptools import setup
 from setuptools.command import build_py
 
+
 CWD = Path(__file__).absolute().parent
 
 ASSETS_URL = (

@@ -9,20 +9,21 @@ __email__ = "sanderschulhoff@gmail.com"
 
 import re
 from functools import reduce
-from typing import Dict, List
 from pathlib import Path
-from tqdm import tqdm
-from utils import kill_strs, trim
 
 import posggym
 from posggym.envs.registration import EnvSpec
+from tqdm import tqdm
+
+from utils import kill_strs, trim
+
 
 pattern = re.compile(r"(?<!^)(?=[A-Z])")
 
 posggym.logger.set_level(posggym.logger.DISABLED)
 
 all_envs = list(posggym.envs.registry.values())
-filtered_envs_by_type: Dict[str, Dict[str, EnvSpec]] = {}
+filtered_envs_by_type: dict[str, dict[str, EnvSpec]] = {}
 
 # Obtain filtered list
 for env_spec in tqdm(all_envs):
@@ -47,7 +48,7 @@ for env_spec in tqdm(all_envs):
         split = str(type(env.unwrapped)).split(".")
         env_name = split[3]
 
-        if env_type not in filtered_envs_by_type.keys():
+        if env_type not in filtered_envs_by_type:
             filtered_envs_by_type[env_type] = {}
         # only store new entries and higher versions
         if env_name not in filtered_envs_by_type[env_type] or (
@@ -60,7 +61,7 @@ for env_spec in tqdm(all_envs):
         print(e)
 
 # Sort
-filtered_envs: List = list(
+filtered_envs: list = list(
     reduce(
         lambda s, x: s + x,  # type: ignore
         (
@@ -120,15 +121,15 @@ title: {title_env_name}
         if "rgb_array" in env.metadata["render_modes"]:
             gif = (
                 "```{figure}"
-                + f" ../../_static/videos/{env_type}/{snake_env_name}.gif"
-                + f"\n:width: 200px\n:name: {snake_env_name}\n```"
+                f" ../../_static/videos/{env_type}/{snake_env_name}.gif"
+                f"\n:width: 200px\n:name: {snake_env_name}\n```"
             )
         else:
             gif = ""
         info = (
             "This environment is part of the "
-            + f"<a href='..'>{env_type_title} environments</a>. "
-            + "Please read that page first for general information."
+            f"<a href='..'>{env_type_title} environments</a>. "
+            "Please read that page first for general information."
         )
 
         act_spaces_str = str(env.action_spaces)
@@ -144,32 +145,17 @@ title: {title_env_name}
         env_table += f"| Symmetric | {env.is_symmetric} |\n"
 
         # if env.observation_space.shape:
-        #     env_table += f"| Observation Shape | {env.observation_space.shape} |\n"
 
         #     if hasattr(env.observation_space, "high"):
-        #         high = env.observation_space.high
 
         #         if hasattr(high, "shape"):
         #             if len(high.shape) == 3:
-        #                 high = high[0][0][0]
         #         if env_type == "mujoco":
-        #             high = high[0]
-        #         high = np.round(high, 2)
-        #         high = str(high).replace("\n", " ")
-        #         env_table += f"| Observation High | {high} |\n"
 
         #     if hasattr(env.observation_space, "low"):
-        #         low = env.observation_space.low
         #         if hasattr(low, "shape"):
         #             if len(low.shape) == 3:
-        #                 low = low[0][0][0]
         #         if env_type == "mujoco":
-        #             low = low[0]
-        #         low = np.round(low, 2)
-        #         low = str(low).replace("\n", " ")
-        #         env_table += f"| Observation Low | {low} |\n"
-        # else:
-        #     env_table += f"| Observation Space | {env.observation_space} |\n"
 
         env_table += f'| Import | `posggym.make("{env_spec.id}")` |\n'
 

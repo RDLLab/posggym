@@ -4,11 +4,10 @@ Ref:
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/wrappers/monitoring/video_recorder.py
 
 """
-
 import json
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import ClassVar
 
 from posggym import Env, error, logger
 
@@ -23,27 +22,27 @@ class VideoRecorder:
     makes it compatible with posggym.env.render function which returns rgb
     arrays for the whole environment as well as (optionally) each agent.
 
-    Note
+    Note:
     ----
     You are responsible for calling `close` on a created VideoRecorder, or else
     you may leak an encoder process.
 
     """
 
-    combatible_render_modes = ["rgb_array", "rgb_array_dict"]
+    combatible_render_modes: ClassVar[list] = ["rgb_array", "rgb_array_dict"]
 
     def __init__(
         self,
         env: Env,
-        path: Optional[Path] = None,
-        metadata: Optional[Dict] = None,
+        path: Path | None = None,
+        metadata: dict | None = None,
         enabled: bool = True,
-        base_path: Optional[Path] = None,
+        base_path: Path | None = None,
         disable_logger: bool = False,
-    ):
+    ) -> None:
         """Video recorder renders a nice movie of a rollout, frame by frame.
 
-        Arguments
+        Arguments:
         ---------
         env : posggym.Env
             Environment to take video of.
@@ -64,7 +63,7 @@ class VideoRecorder:
             # check that moviepy is now installed
             import moviepy  # noqa
         except ImportError as e:
-            raise error.DependencyNotInstalled(
+            raise error.DependencyNotInstalledError(
                 "MoviePy is not installed, run `pip install moviepy`"
             ) from e
 
@@ -73,13 +72,13 @@ class VideoRecorder:
         self.disable_logger = disable_logger
         self._closed = False
 
-        self.render_history: List = []
+        self.render_history: list = []
         self.env = env
 
         self.render_mode = env.render_mode
 
         if self.render_mode not in self.combatible_render_modes:
-            logger.warn(
+            logger.warning(
                 f"Disabling video recorder because environment {env} was not "
                 "initialized with any compatible video modes in "
                 f"{self.combatible_render_modes}."
@@ -129,7 +128,7 @@ class VideoRecorder:
         self.write_metadata()
 
         logger.info("Starting new video recorder writing to %s", self.path)
-        self.recorded_frames: List = []
+        self.recorded_frames: list = []
 
     @property
     def functional(self) -> bool:
@@ -150,7 +149,7 @@ class VideoRecorder:
             frame = frame[-1]
         elif isinstance(frame, dict):
             if "env" not in frame:
-                logger.warn(
+                logger.warning(
                     "The video recorder expects an entry with the key `env` when "
                     "trying to record an environment that is using the "
                     "`rgb_array_dict` render mode."
@@ -160,7 +159,7 @@ class VideoRecorder:
             frame = frame["env"]
 
         if self._closed:
-            logger.warn(
+            logger.warning(
                 "The video recorder has been closed and no frames will be "
                 "captured anymore."
             )
@@ -173,7 +172,7 @@ class VideoRecorder:
             else:
                 # Indicates a bug in the environment: don't want to raise
                 # an error here.
-                logger.warn(
+                logger.warning(
                     "Env returned None on `render()`. Disabling further rendering for "
                     f"video recorder by marking as disabled: path={self.path} "
                     f"metadata_path={self.metadata_path}"
@@ -193,7 +192,7 @@ class VideoRecorder:
             try:
                 from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
             except ImportError as e:
-                raise error.DependencyNotInstalled(
+                raise error.DependencyNotInstalledError(
                     "MoviePy is not installed, run `pip install moviepy`"
                 ) from e
 
@@ -220,4 +219,4 @@ class VideoRecorder:
         """Closes the environment correctly when the recorder is deleted."""
         # Make sure we've closed up shop when garbage collecting
         if not self._closed:
-            logger.warn("Unable to save last video! Did you call close()?")
+            logger.warning("Unable to save last video! Did you call close()?")

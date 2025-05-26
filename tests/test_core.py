@@ -4,7 +4,7 @@ Adapted from:
 https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/test_core.py
 
 """
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import posggym.model as M
@@ -25,7 +25,7 @@ from tests.test_model import ExampleModel
 class ExampleEnv(DefaultEnv[int, int, int]):
     """Example testing environment."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(ExampleModel())
 
 
@@ -41,25 +41,25 @@ def test_posggym_env():
 class ExampleWrapper(Wrapper):
     """An example testing wrapper."""
 
-    def __init__(self, env: Env[M.StateType, M.ObsType, M.ActType]):
+    def __init__(self, env: Env[M.StateType, M.ObsType, M.ActType]) -> None:
         """Constructor that sets the reward."""
         super().__init__(env)
         self.new_reward = 3
 
     def reset(
-        self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
-    ) -> Tuple[Dict[str, WrapperObsType], Dict[str, Dict]]:
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> tuple[dict[str, WrapperObsType], dict[str, dict]]:
         return super().reset(seed=seed, options=options)
 
     def step(
-        self, actions: Dict[str, WrapperActType]
-    ) -> Tuple[
-        Dict[str, WrapperObsType],
-        Dict[str, float],
-        Dict[str, bool],
-        Dict[str, bool],
+        self, actions: dict[str, WrapperActType]
+    ) -> tuple[
+        dict[str, WrapperObsType],
+        dict[str, float],
+        dict[str, bool],
+        dict[str, bool],
         bool,
-        Dict[str, Dict],
+        dict[str, dict],
     ]:
         obs, reward, term, trunc, done, info = self.env.step(actions)  # type: ignore
         reward = {i: self.new_reward for i in reward}
@@ -96,21 +96,21 @@ def test_posggym_wrapper():
 class ExampleRewardWrapper(RewardWrapper):
     """Example reward wrapper for testing."""
 
-    def rewards(self, rewards: Dict[str, float]) -> Dict[str, float]:
+    def rewards(self, rewards: dict[str, float]) -> dict[str, float]:
         return {i: 1 for i in rewards}
 
 
 class ExampleObservationWrapper(ObservationWrapper):
     """Example observation wrapper for testing."""
 
-    def observations(self, obs: Dict[str, M.ObsType]) -> Dict[str, WrapperObsType]:
+    def observations(self, obs: dict[str, M.ObsType]) -> dict[str, WrapperObsType]:
         return {i: np.array([1]) for i in obs}  # type: ignore
 
 
 class ExampleActionWrapper(ActionWrapper):
     """Example action wrapper for testing."""
 
-    def actions(self, actions: Dict[str, M.ActType]) -> Dict[str, WrapperActType]:
+    def actions(self, actions: dict[str, M.ActType]) -> dict[str, WrapperActType]:
         return {i: np.array([1]) for i in actions}  # type: ignore
 
 
@@ -120,18 +120,18 @@ class ActionWrapperTestEnv(DefaultEnv[int, int, int]):
     Step returns the action as an observation.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(ExampleModel())
 
     def step(
-        self, actions: Dict[str, int]
-    ) -> Tuple[
-        Dict[str, int],
-        Dict[str, float],
-        Dict[str, bool],
-        Dict[str, bool],
+        self, actions: dict[str, int]
+    ) -> tuple[
+        dict[str, int],
+        dict[str, float],
+        dict[str, bool],
+        dict[str, bool],
         bool,
-        Dict[str, Dict],
+        dict[str, dict],
     ]:
         step = self.model.step(self._state, actions)
         self._step_num += 1
