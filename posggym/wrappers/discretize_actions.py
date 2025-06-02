@@ -56,6 +56,25 @@ class DiscretizeActions(ActionWrapper):
             )
             for i, act_space in box_action_spaces.items()
         }
+        self.model_action_spaces = self.model.action_spaces
+        self.model = self._wrap_model(self.model)
+
+    def _wrap_model(self, model):
+        class DiscretizedModel:
+            def __init__(self, base_model, parent):
+                self._model = base_model
+                self._parent = parent
+                self.action_spaces = parent._action_spaces
+
+            def step(self, state, actions):
+                undiscretized = self._parent.actions(actions)
+                return self._model.step(state, undiscretized)
+
+            def __getattr__(self, name):
+                # Delegate to base model for any undefined attribute
+                return getattr(self._model, name)
+
+        return DiscretizedModel(model, self)
 
     def discretize_action_space(
         self, action_space: spaces.Box, num_actions: int, flatten: bool = False
@@ -84,7 +103,7 @@ class DiscretizeActions(ActionWrapper):
                 for i, act_i in actions.items()
             }
         return {
-            i: self.undiscretize_action(act_i, self.model.action_spaces[i])
+            i: self.undiscretize_action(act_i, self.model_action_spaces[i])
             for i, act_i in actions.items()
         }
 
