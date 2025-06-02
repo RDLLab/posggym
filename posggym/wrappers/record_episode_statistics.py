@@ -49,7 +49,7 @@ class RecordEpisodeStatistics(posggym.Wrapper):
     can be accessed via :attr:`wrapped_env.return_queue` and
     :attr:`wrapped_env.length_queue` respectively.
 
-    Attributes
+    Attributes:
     ----------
     episode_count : int
         The number of episodes that have been recorded.
@@ -61,21 +61,21 @@ class RecordEpisodeStatistics(posggym.Wrapper):
         A queue of the last ``deque_size`` episode lengths. Each entry is a dictionary
         mapping agent ids to the episode length of the respective agent for an episode.
 
-    Arguments
+    Arguments:
     ---------
     env : posggym.Env
         The environment to apply the wrapper
     deque_size : int
         The size of the buffer for storing the previous episode statistics.
 
-    Note
+    Note:
     ----
     This implementation is based on the similar Gymnasium wrapper:
     https://github.com/Farama-Foundation/Gymnasium/blob/main/gymnasium/wrappers/record_episode_statistics.py
 
     """
 
-    def __init__(self, env: posggym.Env, deque_size: int = 100):
+    def __init__(self, env: posggym.Env, deque_size: int = 100) -> None:
         super().__init__(env)
         self._deque_size = deque_size
 

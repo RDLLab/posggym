@@ -1,10 +1,9 @@
 """Tests for the shortest path policy in pursuit-evasion continuous environment."""
 
 import numpy as np
-import pytest
-
 import posggym
 import posggym.agents as pga
+import pytest
 from posggym.agents.utils.action_distributions import DeterministicActionDistribution
 
 
@@ -16,7 +15,7 @@ np.set_printoptions(precision=2, suppress=True)
 class ConstantPolicy(pga.Policy):
     """A policy that always returns the same action."""
 
-    def __init__(self, model, agent_id, policy_id, action):
+    def __init__(self, model, agent_id, policy_id, action) -> None:
         super().__init__(model, agent_id, policy_id)
         self.action = action
 
@@ -90,7 +89,6 @@ def test_shortest_path(agent_id, world):
 
 if __name__ == "__main__":
     # For manual debugging
-    # RENDER_MODE = "human"
     for fn in [
         test_shortest_path,
     ]:

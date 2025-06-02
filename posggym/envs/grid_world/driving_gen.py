@@ -1,5 +1,5 @@
 """The Generated Driving Grid World Environment."""
-from typing import Any, Dict, Optional, Set, Tuple, Union
+from typing import Any
 
 from posggym.envs.grid_world.core import Coord, GridCycler, GridGenerator
 from posggym.envs.grid_world.driving import DObs, DrivingEnv, DrivingGrid
@@ -14,9 +14,8 @@ class DrivingGenEnv(DrivingEnv):
     For environment attributes see [Driving](/environments/grid_world/driving)
     environment class documentation.
 
-    Arguments
+    Arguments:
     ---------
-
     - `num_agents` - the number of agents in the environment (default = `2`).
     - `obs_dim` - the local observation dimensions, specifying how many cells in front,
         behind, and to each side the agent observes (default = `(3, 1, 1)`, resulting
@@ -68,12 +67,12 @@ class DrivingGenEnv(DrivingEnv):
     def __init__(
         self,
         num_agents: int = 2,
-        obs_dim: Tuple[int, int, int] = (3, 1, 2),
-        generator_params: Union[str, Dict[str, int]] = "14x14",
-        n_grids: Optional[int] = None,
+        obs_dim: tuple[int, int, int] = (3, 1, 2),
+        generator_params: str | dict[str, int] = "14x14",
+        n_grids: int | None = None,
         shuffle_grid_order: bool = True,
-        render_mode: Optional[str] = None,
-    ):
+        render_mode: str | None = None,
+    ) -> None:
         if isinstance(generator_params, str):
             assert generator_params in SUPPORTED_GEN_PARAMS, (
                 f"Unsupported grid generator parameters'{generator_params}'. If "
@@ -82,7 +81,7 @@ class DrivingGenEnv(DrivingEnv):
             )
             generator_params = SUPPORTED_GEN_PARAMS[generator_params][0]
 
-        self._generator_params = generator_params
+        self._generator_params: dict[str, int] = generator_params  # type: ignore
         self._n_grids = n_grids
         self._shuffle_grid_order = shuffle_grid_order
         self._gen = DrivingGridGenerator(**self._generator_params)
@@ -90,7 +89,7 @@ class DrivingGenEnv(DrivingEnv):
         if n_grids is not None:
             grids = self._gen.generate_n(n_grids)
             self._cycler = GridCycler(grids, shuffle_grid_order)
-            grid: "DrivingGrid" = grids[0]  # type: ignore
+            grid: DrivingGrid = grids[0]  # type: ignore
         else:
             self._cycler = None  # type: ignore
             grid = self._gen.generate()
@@ -103,8 +102,8 @@ class DrivingGenEnv(DrivingEnv):
         )
 
     def reset(
-        self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
-    ) -> Tuple[Dict[str, DObs], Dict[str, Dict]]:
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> tuple[dict[str, DObs], dict[str, dict]]:
         if seed is not None:
             self._model_seed = seed
             self._gen = DrivingGridGenerator(seed=seed, **self._generator_params)
@@ -137,8 +136,8 @@ class DrivingGridGenerator(GridGenerator):
         height: int,
         max_obstacle_size: int,
         max_num_obstacles: int,
-        seed: Optional[int] = None,
-    ):
+        seed: int | None = None,
+    ) -> None:
         super().__init__(
             width,
             height,
@@ -152,7 +151,7 @@ class DrivingGridGenerator(GridGenerator):
         self._start_coords = [self.mask for _ in range(len(self.mask))]
         self._dest_coords = [self.mask for _ in range(len(self.mask))]
 
-    def _generate_mask(self, width: int, height: int) -> Set[Coord]:
+    def _generate_mask(self, width: int, height: int) -> set[Coord]:
         start = 1
         mask = set()
         for x in range(start, width, 2):

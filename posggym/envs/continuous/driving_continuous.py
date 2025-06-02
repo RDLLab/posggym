@@ -1,25 +1,40 @@
 """The Driving Continuous Environment."""
+from __future__ import annotations
 
 import math
 from itertools import product
-from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple, Union, cast
+from typing import (
+    Any,
+    ClassVar,
+    NamedTuple,
+    cast,
+)
 
 import numpy as np
 from gymnasium import spaces
-from pymunk import Vec2d
 
 import posggym.model as M
 from posggym import logger
 from posggym.core import DefaultEnv
 from posggym.envs.continuous.core import (
     AGENT_COLORS,
+    ANGLE_IDX,
+    VX_IDX,
+    VY_IDX,
+    X_IDX,
+    Y_IDX,
     CollisionType,
+    ControlType,
     Coord,
     FloatCoord,
     PMBodyState,
     SquareContinuousWorld,
+    clamp,
     clip_actions,
+    generate_action_space,
     generate_interior_walls,
+    generate_parameters,
+    scale_action,
 )
 from posggym.utils import seeding
 
@@ -30,10 +45,11 @@ class VehicleState(NamedTuple):
     body: np.ndarray
     dest_coord: np.ndarray
     status: np.ndarray
+    dest_dist: np.ndarray
     min_dest_dist: np.ndarray
 
 
-DState = Tuple[VehicleState, ...]
+DState = tuple[VehicleState, ...]
 
 # Obs = (sensor obs, dir, vx, vy, dest_coord)
 DObs = np.ndarray
@@ -144,9 +160,8 @@ class DrivingContinuousEnv(DefaultEnv[DState, DObs, DAction]):
     larger worlds (this can be done by manually specifying a value for
     `max_episode_steps` when creating the environment with `posggym.make`).
 
-    Arguments
+    Arguments:
     ---------
-
     - `world` - the world layout to use. This can either be a string specifying one of
          the supported worlds, or a custom :class:`DrivingWorld` object
          (default = `"14x14RoundAbout"`).
@@ -185,32 +200,50 @@ class DrivingContinuousEnv(DefaultEnv[DState, DObs, DAction]):
     ---------------
     - `v0`: Initial version
 
-    References
+    References:
     ----------
     - Adam Lerer and Alexander Peysakhovich. 2019. Learning Existing Social Conventions
     via Observationally Augmented Self-Play. In Proceedings of the 2019 AAAI/ACM
-    Conference on AI, Ethics, and Society. 107–114.
+    Conference on AI, Ethics, and Society. 107-114.
     - Kevin R. McKee, Joel Z. Leibo, Charlie Beattie, and Richard Everett. 2022.
     Quantifying the Effects of Environment and Population Diversity in Multi-Agent
-    Reinforcement Learning. Autonomous Agents and Multi-Agent Systems 36, 1 (2022), 1–16
+    Reinforcement Learning. Autonomous Agents and Multi-Agent Systems 36, 1 (2022), 1-16
 
     """
 
-    metadata = {
+    metadata: ClassVar[dict] = {
         "render_modes": ["human", "rgb_array"],
         "render_fps": 15,
     }
 
     def __init__(
         self,
-        world: Union[str, "DrivingWorld"] = "14x14RoundAbout",
-        num_agents: int = 2,
+        world: str | DrivingWorld = "14x14RoundAbout",
+        num_agents: int = 1,
         obs_dist: float = 5.0,
         n_sensors: int = 16,
-        render_mode: Optional[str] = None,
-    ):
+        obs_self_model: bool = False,
+        control_type: ControlType | str = ControlType.VelocityNonHolonomoic,
+        render_mode: str | None = None,
+    ) -> None:
+        if isinstance(control_type, str):
+            try:
+                control_type = ControlType.from_str(control_type)
+            except ValueError:
+                logger.warning(
+                    "Invalid control type, defaulting to VelocityNonHolonomoic"
+                )
+                control_type = ControlType.VelocityNonHolonomoic
+
         super().__init__(
-            DrivingContinuousModel(world, num_agents, obs_dist, n_sensors),
+            DrivingContinuousModel(
+                world,
+                num_agents,
+                obs_dist,
+                n_sensors,
+                obs_self_model,
+                control_type,
+            ),
             render_mode=render_mode,
         )
         self.window_surface = None
@@ -223,7 +256,7 @@ class DrivingContinuousEnv(DefaultEnv[DState, DObs, DAction]):
     def render(self):
         if self.render_mode is None:
             assert self.spec is not None
-            logger.warn(
+            logger.warning(
                 "You are calling render method without specifying any render mode. "
                 "You can specify the render_mode at initialization, "
                 f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
@@ -232,14 +265,12 @@ class DrivingContinuousEnv(DefaultEnv[DState, DObs, DAction]):
         return self._render_img()
 
     def _render_img(self):
-        # import posggym.envs.continuous.render as render_lib
         import pygame
         from pymunk import Transform, pygame_util
 
         model = cast(DrivingContinuousModel, self.model)
         state = cast(DState, self.state)
         scale_factor = self.window_size / model.world.size
-
         if self.window_surface is None:
             pygame.init()
             if self.render_mode == "human":
@@ -300,10 +331,11 @@ class DrivingContinuousEnv(DefaultEnv[DState, DObs, DAction]):
 
         lines_colors = ["red", "green", "black"]
         # draw sensor lines
+
         n_sensors = model.n_sensors
         for i, obs_i in self._last_obs.items():
             line_obs = obs_i[: model.sensor_obs_dim]
-            x, y, agent_angle = state[int(i)].body[:3]
+            x, y, agent_angle = state[int(i)].body[[X_IDX, Y_IDX, ANGLE_IDX]]
             angle_inc = 2 * math.pi / n_sensors
             for k in range(n_sensors):
                 values = [
@@ -318,7 +350,7 @@ class DrivingContinuousEnv(DefaultEnv[DState, DObs, DAction]):
                 end_x = x + dist * math.cos(angle)
                 end_y = y + dist * math.sin(angle)
                 scaled_start = (int(x * scale_factor), int(y * scale_factor))
-                scaled_end = int(end_x * scale_factor), (end_y * scale_factor)
+                scaled_end = (int(end_x * scale_factor), int(end_y * scale_factor))
 
                 pygame.draw.line(
                     self.window_surface,
@@ -376,17 +408,19 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
     """
 
     R_STEP_COST = 0.00
-    R_CRASH_VEHICLE = -1.0
+    R_CRASH_VEHICLE = -5.0
     R_DESTINATION_REACHED = 1.0
     R_PROGRESS = 0.05
 
     def __init__(
         self,
-        world: Union[str, "DrivingWorld"],
+        world: str | DrivingWorld,
         num_agents: int,
         obs_dist: float,
         n_sensors: int,
-    ):
+        obs_self_model: bool,
+        control_type: ControlType,
+    ) -> None:
         if isinstance(world, str):
             assert world in SUPPORTED_WORLDS, (
                 f"Unsupported world '{world}'. If world argument is a string it must "
@@ -394,7 +428,8 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
             )
             world_info = SUPPORTED_WORLDS[world]
             world = parseworld_str(
-                world_info["world_str"], world_info["supported_num_agents"]
+                world_info["world_str"],
+                world_info["supported_num_agents"],
             )
         assert 0 < num_agents <= world.supported_num_agents, (
             f"Supplied DrivingWorld `{world}` does not support {num_agents} "
@@ -405,7 +440,11 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
         self.world = world
         self.n_sensors = n_sensors
         self.obs_dist = obs_dist
+        self.obs_self_model = obs_self_model
         self.vehicle_collision_dist = 2.1 * self.world.agent_radius
+        self.control_type = control_type
+        self.dt = 1.0
+        self.substeps = 10
 
         self.possible_agents = tuple(str(i) for i in range(num_agents))
         self.state_space = spaces.Tuple(
@@ -425,6 +464,10 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
                             low=np.array([0], dtype=np.float32),
                             high=np.array([self.world.size**2], dtype=np.float32),
                         ),
+                        spaces.Box(
+                            low=np.array([0], dtype=np.float32),
+                            high=np.array([self.world.size**2], dtype=np.float32),
+                        ),
                     )
                 )
                 for _ in range(len(self.possible_agents))
@@ -433,31 +476,51 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
 
         self.dyaw_limit = math.pi / 4
         self.dvel_limit = 0.25
-        self.vel_limit_norm = 1.0
-        # dyaw, dvel
+
+        self.fyaw_limit = math.pi
+        self.fvel_limit = 3.0
+
+        self.action_spaces_per_control = generate_action_space(
+            self.possible_agents,
+            self.dyaw_limit,
+            self.dvel_limit,
+            self.fyaw_limit,
+            self.fvel_limit,
+        )
+
         self.action_spaces = {
-            i: spaces.Box(
-                low=np.array([-self.dyaw_limit, -self.dvel_limit], dtype=np.float32),
-                high=np.array([self.dyaw_limit, self.dvel_limit], dtype=np.float32),
-            )
+            i: spaces.Box(np.array([-1, -1]), np.array([1, 1]))
             for i in self.possible_agents
         }
 
+        self.control_types = {i: self.control_type for i in self.possible_agents}
+        self.init_kinematics()
+        self.vel_limit_norm = 1.0
         # Observes entity and distance to entity along a n_sensors rays from the agent
         # 0 to n_sensors = wall distance obs
         # n_sensors to (2 * n_sensors) = other vehicle dist
         # Also observs angle, vx, vy, dest dx, desy dy
         self.sensor_obs_dim = self.n_sensors * 2
-        self.obs_dim = self.sensor_obs_dim + 5
+        self.obs_dim = self.sensor_obs_dim + 5 + int(self.obs_self_model)
         sensor_low = [0.0] * self.sensor_obs_dim
         sensor_high = [self.obs_dist] * self.sensor_obs_dim
         self.observation_spaces = {
             i: spaces.Box(
                 low=np.array(
-                    [*sensor_low, -2 * math.pi, -1, -1, 0, 0], dtype=np.float32
+                    [
+                        *sensor_low,
+                        -2 * math.pi,
+                        -1,
+                        -1,
+                        -self.world.size,
+                        -self.world.size,
+                    ]
+                    + ([0] if self.obs_self_model else []),
+                    dtype=np.float32,
                 ),
                 high=np.array(
-                    [*sensor_high, 2 * math.pi, 1, 1, self.world.size, self.world.size],
+                    [*sensor_high, 2 * math.pi, 1, 1, self.world.size, self.world.size]
+                    + ([len(ControlType)] if self.obs_self_model else []),
                     dtype=np.float32,
                 ),
                 dtype=np.float32,
@@ -473,7 +536,7 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
         self.is_symmetric = True
 
     @property
-    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
+    def reward_ranges(self) -> dict[str, tuple[float, float]]:
         return {
             i: (self.R_CRASH_VEHICLE, self.R_DESTINATION_REACHED)
             for i in self.possible_agents
@@ -485,13 +548,13 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
             self._rng, seed = seeding.std_random()
         return self._rng
 
-    def get_agents(self, state: DState) -> List[str]:
+    def get_agents(self, state: DState) -> list[str]:
         return list(self.possible_agents)
 
     def sample_initial_state(self) -> DState:
         state = []
-        chosen_start_coords: Set[FloatCoord] = set()
-        chosen_dest_coords: Set[FloatCoord] = set()
+        chosen_start_coords: set[FloatCoord] = set()
+        chosen_dest_coords: set[FloatCoord] = set()
         for i in range(len(self.possible_agents)):
             start_coords_i = self.world.start_coords[i]
             avail_start_coords = start_coords_i.difference(chosen_start_coords)
@@ -504,9 +567,10 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
                 avail_dest_coords.remove(start_coord)
 
             body_state = np.zeros((PMBodyState.num_features()), dtype=np.float32)
-            body_state[:2] = start_coord
+            body_state[[X_IDX, Y_IDX]] = start_coord
 
             _dest_coord = self.rng.choice(list(avail_dest_coords))
+
             chosen_dest_coords.add(_dest_coord)
             dest_coord = np.array(_dest_coord, dtype=np.float32)
 
@@ -516,28 +580,30 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
                 body=body_state,
                 dest_coord=dest_coord,
                 status=np.array([int(False), int(False)], dtype=np.int8),
+                dest_dist=np.array([dest_dist], dtype=np.float32),
                 min_dest_dist=np.array([dest_dist], dtype=np.float32),
             )
             state.append(state_i)
 
         return tuple(state)
 
-    def sample_initial_obs(self, state: DState) -> Dict[str, DObs]:
+    def sample_initial_obs(self, state: DState) -> dict[str, DObs]:
         return self._get_obs(state)
 
     def step(
-        self, state: DState, actions: Dict[str, DAction]
+        self, state: DState, actions: dict[str, DAction]
     ) -> M.JointTimestep[DState, DObs]:
         clipped_actions = clip_actions(actions, self.action_spaces)
 
         next_state, collision_types = self._get_next_state(state, clipped_actions)
         obs = self._get_obs(next_state)
+
         rewards = self._get_rewards(state, next_state, collision_types)
         terminated = {i: any(next_state[int(i)].status) for i in self.possible_agents}
         truncated = {i: False for i in self.possible_agents}
         all_done = all(terminated.values())
 
-        info: Dict[str, Dict] = {i: {} for i in self.possible_agents}
+        info: dict[str, dict] = {i: {} for i in self.possible_agents}
         for idx in range(len(self.possible_agents)):
             if next_state[idx].status[0]:
                 outcome_i = M.Outcome.WIN
@@ -551,55 +617,79 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
             next_state, obs, rewards, terminated, truncated, all_done, info
         )
 
+    def init_kinematics(self):
+        self.kinematic_parameters = {
+            i: generate_parameters(self.control_types[i]) for i in self.possible_agents
+        }
+
     def _get_next_state(
-        self, state: DState, actions: Dict[str, DAction]
-    ) -> Tuple[DState, List[CollisionType]]:
+        self, state: DState, actions: dict[str, DAction]
+    ) -> tuple[DState, list[CollisionType]]:
         for i in range(len(self.possible_agents)):
             state_i = state[i]
+            action_i = actions[str(i)]
+
             self.world.set_entity_state(f"vehicle_{i}", state_i.body)
 
             if state[i].status[0] or state[i].status[1]:
                 self.world.update_entity_state(f"vehicle_{i}", vel=(0.0, 0.0))
                 continue
 
-            action_i = actions[str(i)]
-            v_angle = state_i.body[2] + action_i[0]
-            v_vel = Vec2d(*state_i.body[3:5]).rotated(action_i[0]) + (
-                action_i[1] * Vec2d(1, 0).rotated(v_angle)
-            )
-            self.world.update_entity_state(
-                f"vehicle_{i}",
-                angle=v_angle,
-                vel=self.world.clamp_norm(v_vel[0], v_vel[1], self.vel_limit_norm),
+            action_scaled = scale_action(
+                action_i,
+                self.action_spaces[str(i)],
+                self.action_spaces_per_control[self.control_types[str(i)]][str(i)],
             )
 
-        self.world.simulate(1.0 / 10, 10)
+            result = self.world.compute_vel_force(
+                self.control_types[str(i)],
+                state_i.body[ANGLE_IDX],
+                (state_i.body[VX_IDX], state_i.body[VY_IDX]),
+                action_scaled,
+                self.vel_limit_norm,
+                self.kinematic_parameters[str(i)],
+            )
+            self.world.update_entity_state(f"vehicle_{i}", **result)
 
+        self.world.simulate(self.dt / self.substeps, self.substeps)
         collision_types = [CollisionType.NONE] * len(self.possible_agents)
-        new_state: List[Optional[VehicleState]] = [None] * len(self.possible_agents)
+        new_state: list[VehicleState | None] = [None] * len(self.possible_agents)
         for idx in range(len(self.possible_agents)):
             next_v_body_state = np.array(
                 self.world.get_entity_state(f"vehicle_{idx}"), dtype=np.float32
             )
 
-            next_v_body_state[2] = self.world.convert_angle_to_0_2pi_interval(
-                next_v_body_state[2]
+            next_v_body_state[ANGLE_IDX] = self.world.convert_angle_to_0_2pi_interval(
+                next_v_body_state[ANGLE_IDX]
             )
 
             # ensure vx, vy is in [-1, 1]
             # with collisions, etc pymunk can sometime push it over this limit
-            next_v_body_state[3] = max(-1.0, min(1.0, next_v_body_state[3]))
-            next_v_body_state[4] = max(-1.0, min(1.0, next_v_body_state[4]))
+            next_v_body_state[VX_IDX] = clamp(next_v_body_state[VX_IDX], -1.0, 1.0)
+            next_v_body_state[VY_IDX] = clamp(next_v_body_state[VY_IDX], -1.0, 1.0)
 
             state_i = state[idx]
-            next_v_coords = next_v_body_state[:2]
-            dest_distance = np.linalg.norm(state_i.dest_coord - next_v_coords)
+            next_v_coords = next_v_body_state[[X_IDX, Y_IDX]]
+            current_v_coords = state_i.body[[X_IDX, Y_IDX]]
+
+            # Interpolate between start and end, in case it was between states.
+            fractions = np.array([0, 0.2, 0.4, 0.6, 0.8, 1])  # Array of fractions
+            intermediate_vectors = (
+                current_v_coords[:, np.newaxis]
+                + (next_v_coords - current_v_coords)[:, np.newaxis] * fractions
+            ).T
+            dest_distance = np.linalg.norm(
+                state_i.dest_coord - intermediate_vectors, axis=1
+            )
+
             crashed = False
 
             for other_idx, other_v_state in enumerate(new_state):
                 if other_v_state is None:
                     continue
-                dist = np.linalg.norm(other_v_state.body[:2] - next_v_coords)
+                dist = np.linalg.norm(
+                    other_v_state.body[[X_IDX, Y_IDX]] - next_v_coords
+                )
                 if dist <= self.vehicle_collision_dist:
                     crashed = True
                     collision_types[idx] = CollisionType.AGENT
@@ -611,21 +701,24 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
 
             crashed = crashed or bool(state_i.status[1])
 
-            min_dest_dist = min(
-                state_i.min_dest_dist[0],
-                self.world.get_shortest_path_distance(
-                    (next_v_body_state[0], next_v_body_state[1]),
-                    (state_i.dest_coord[0], state_i.dest_coord[1]),
-                ),
+            dest_dist = self.world.get_shortest_path_distance(
+                (next_v_body_state[X_IDX], next_v_body_state[Y_IDX]),
+                (state_i.dest_coord[X_IDX], state_i.dest_coord[Y_IDX]),
             )
+
+            min_dest_dist = min(dest_dist, state_i.min_dest_dist[0])
 
             new_state[idx] = VehicleState(
                 body=next_v_body_state,
                 dest_coord=state_i.dest_coord,
                 status=np.array(
-                    [int(dest_distance <= self.world.agent_radius), int(crashed)],
+                    [
+                        int((dest_distance <= self.world.agent_radius).any()),
+                        int(crashed),
+                    ],
                     dtype=np.int8,
                 ),
+                dest_dist=np.array([dest_dist], dtype=np.float32),
                 min_dest_dist=np.array([min_dest_dist], dtype=np.float32),
             )
 
@@ -634,7 +727,7 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
 
         return tuple(final_state), collision_types
 
-    def _get_obs(self, state: DState) -> Dict[str, DObs]:
+    def _get_obs(self, state: DState) -> dict[str, DObs]:
         return {i: self._get_agent_obs(i, state) for i in self.possible_agents}
 
     def _get_agent_obs(self, agent_id: str, state: DState) -> np.ndarray:
@@ -642,9 +735,13 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
         if state_i.status[0] or state_i.status[1]:
             return np.zeros((self.obs_dim,), dtype=np.float32)
 
-        pos_i = (state_i.body[0], state_i.body[1], state_i.body[2])
+        pos_i = (state_i.body[X_IDX], state_i.body[Y_IDX], state_i.body[ANGLE_IDX])
         vehicle_coords = np.array(
-            [[s.body[0], s.body[1]] for i, s in enumerate(state) if i != int(agent_id)]
+            [
+                [s.body[X_IDX], s.body[Y_IDX]]
+                for i, s in enumerate(state)
+                if i != int(agent_id)
+            ]
         )
 
         ray_dists, ray_col_type = self.world.check_collision_circular_rays(
@@ -667,20 +764,24 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
         obs[flat_obs_idx] = ray_dists
 
         d = self.sensor_obs_dim
-        obs[d] = self.world.convert_angle_to_0_2pi_interval(state_i.body[2])
-        obs[d + 1] = max(-1.0, min(1.0, state_i.body[3]))
-        obs[d + 2] = max(-1.0, min(1.0, state_i.body[4]))
-        obs[d + 3] = abs(state_i.dest_coord[0] - pos_i[0])
-        obs[d + 4] = abs(state_i.dest_coord[1] - pos_i[1])
+        obs[d] = self.world.convert_angle_to_0_2pi_interval(state_i.body[ANGLE_IDX])
+        obs[d + 1] = clamp(state_i.body[VX_IDX], -1.0, 1.0)
+        obs[d + 2] = clamp(state_i.body[VY_IDX], -1.0, 1.0)
+        obs[d + 3] = state_i.dest_coord[X_IDX] - pos_i[X_IDX]
+        obs[d + 4] = state_i.dest_coord[Y_IDX] - pos_i[Y_IDX]
+        if self.obs_self_model:
+            obs[d + 5] = int(self.control_types[agent_id])
 
         return obs
 
     def _get_rewards(
-        self, state: DState, next_state: DState, collision_types: List[CollisionType]
-    ) -> Dict[str, float]:
-        rewards: Dict[str, float] = {}
-        for i in self.possible_agents:
-            idx = int(i)
+        self,
+        state: DState,
+        next_state: DState,
+        collision_types: list[CollisionType],
+    ) -> dict[str, float]:
+        rewards: dict[str, float] = {}
+        for idx in map(int, self.possible_agents):
             if any(state[idx].status):
                 # already in terminal/rewarded state
                 r_i = 0.0
@@ -694,7 +795,7 @@ class DrivingContinuousModel(M.POSGModel[DState, DObs, DAction]):
 
             progress = (state[idx].min_dest_dist - next_state[idx].min_dest_dist)[0]
             r_i += max(0, progress) * self.R_PROGRESS
-            rewards[i] = r_i
+            rewards[str(idx)] = r_i
         return rewards
 
 
@@ -704,10 +805,10 @@ class DrivingWorld(SquareContinuousWorld):
     def __init__(
         self,
         size: int,
-        blocked_coords: Set[Coord],
-        start_coords: List[Set[FloatCoord]],
-        dest_coords: List[Set[FloatCoord]],
-    ):
+        blocked_coords: set[Coord],
+        start_coords: list[set[FloatCoord]],
+        dest_coords: list[set[FloatCoord]],
+    ) -> None:
         interior_walls = generate_interior_walls(size, size, blocked_coords)
         super().__init__(
             size=size,
@@ -721,11 +822,9 @@ class DrivingWorld(SquareContinuousWorld):
         self._blocked_coords = blocked_coords
         self.start_coords = start_coords
         self.dest_coords = dest_coords
-        self.shortest_paths = self.get_all_shortest_paths(
-            set.union(*dest_coords)  # type: ignore
-        )
+        self.shortest_paths = self.get_all_shortest_paths(set.union(*dest_coords))
 
-    def copy(self) -> "DrivingWorld":
+    def copy(self) -> DrivingWorld:
         assert self._blocked_coords is not None
         world = DrivingWorld(
             size=int(self.size),
@@ -748,7 +847,9 @@ class DrivingWorld(SquareContinuousWorld):
         """Get the number of agents supported by this world."""
         return len(self.start_coords)
 
-    def get_shortest_path_distance(self, coord: FloatCoord, dest: FloatCoord) -> int:
+    def get_shortest_path_distance(
+        self, coord: FloatCoord, dest: FloatCoord
+    ) -> int | float:
         """Get the shortest path distance from coord to destination."""
         coord_c = self.convert_to_coord(coord)
         dest_c = self.convert_to_coord(dest)
@@ -801,13 +902,13 @@ def parseworld_str(world_str: str, supported_num_agents: int) -> DrivingWorld:
     width = len(row_strs[0])
 
     agent_start_chars = set(["+"] + [str(i) for i in range(10)])
-    agent_dest_chars = set(["-"] + list("abcdefghij"))
+    agent_dest_chars = {"-", *list("abcdefghij")}
 
-    blocked_coords: Set[Coord] = set()
-    shared_start_coords: Set[FloatCoord] = set()
-    agent_start_coords_map: Dict[int, Set[FloatCoord]] = {}
-    shared_dest_coords: Set[FloatCoord] = set()
-    agent_dest_coords_map: Dict[int, Set[FloatCoord]] = {}
+    blocked_coords: set[Coord] = set()
+    shared_start_coords: set[FloatCoord] = set()
+    agent_start_coords_map: dict[int, set[FloatCoord]] = {}
+    shared_dest_coords: set[FloatCoord] = set()
+    agent_dest_coords_map: dict[int, set[FloatCoord]] = {}
     for r, c in product(range(height), range(width)):
         coord = (c + 0.5, r + 0.5)
         char = row_strs[r][c]
@@ -840,8 +941,8 @@ def parseworld_str(world_str: str, supported_num_agents: int) -> DrivingWorld:
     if len(included_agent_ids) > 0:
         assert max(included_agent_ids) < supported_num_agents
 
-    start_coords: List[Set[FloatCoord]] = []
-    dest_coords: List[Set[FloatCoord]] = []
+    start_coords: list[set[FloatCoord]] = []
+    dest_coords: list[set[FloatCoord]] = []
     for i in range(supported_num_agents):
         agent_start_coords = set(shared_start_coords)
         agent_start_coords.update(agent_start_coords_map.get(i, {}))
@@ -859,11 +960,18 @@ def parseworld_str(world_str: str, supported_num_agents: int) -> DrivingWorld:
     )
 
 
-SUPPORTED_WORLDS: Dict[str, Dict[str, Any]] = {
+SUPPORTED_WORLDS: dict[str, dict[str, Any]] = {
     "6x6Intersection": {
+        # fmt: off
         "world_str": (
-            "##0b##\n" "##..##\n" "d....3\n" "2....c\n" "##..##\n" "##a1##\n"
+            "##0b##\n"
+            "##..##\n"
+            "d....3\n"
+            "2....c\n"
+            "##..##\n"
+            "##a1##\n"
         ),
+        # fmt: on
         "supported_num_agents": 4,
         "max_episode_steps": 20,
     },
@@ -878,7 +986,7 @@ SUPPORTED_WORLDS: Dict[str, Dict[str, Any]] = {
             "#+...+#\n"
         ),
         "supported_num_agents": 4,
-        "max_episode_steps": 50,
+        "max_episode_steps": 500,
     },
     "7x7CrissCross": {
         "world_str": (
@@ -891,7 +999,7 @@ SUPPORTED_WORLDS: Dict[str, Dict[str, Any]] = {
             "#+#+#+#\n"
         ),
         "supported_num_agents": 6,
-        "max_episode_steps": 50,
+        "max_episode_steps": 500,
     },
     "7x7RoundAbout": {
         "world_str": (
@@ -904,7 +1012,7 @@ SUPPORTED_WORLDS: Dict[str, Dict[str, Any]] = {
             "#+...+#\n"
         ),
         "supported_num_agents": 4,
-        "max_episode_steps": 50,
+        "max_episode_steps": 500,
     },
     "14x14Blocks": {
         "world_str": (
@@ -924,7 +1032,7 @@ SUPPORTED_WORLDS: Dict[str, Dict[str, Any]] = {
             "#+..........+#\n"
         ),
         "supported_num_agents": 4,
-        "max_episode_steps": 50,
+        "max_episode_steps": 500,
     },
     "14x14CrissCross": {
         "world_str": (
@@ -944,7 +1052,7 @@ SUPPORTED_WORLDS: Dict[str, Dict[str, Any]] = {
             "##+##+##+##+##\n"
         ),
         "supported_num_agents": 8,
-        "max_episode_steps": 50,
+        "max_episode_steps": 500,
     },
     "14x14RoundAbout": {
         "world_str": (
@@ -964,6 +1072,42 @@ SUPPORTED_WORLDS: Dict[str, Dict[str, Any]] = {
             "#+..........+#\n"
         ),
         "supported_num_agents": 4,
-        "max_episode_steps": 50,
+        "max_episode_steps": 500,
+    },
+    "14x14Empty": {
+        "world_str": (
+            ".-------------\n"
+            "-------------+\n"
+            "--------------\n"
+            "--------------\n"
+            "--------------\n"
+            "--------------\n"
+            "--------------\n"
+            "--------------\n"
+            "++++++++++++++\n"
+            "++++++++++++++\n"
+            "++++++++++++++\n"
+            "++++++++++++++\n"
+            "-+++++++++++++\n"
+            "++++++++++++++\n"
+        ),
+        "supported_num_agents": 4,
+        "max_episode_steps": 5000,
     },
 }
+
+if __name__ == "__main__":
+    from posggym.utils.run_random_agents import run_random
+
+    env = DrivingContinuousEnv(
+        render_mode="human",
+        obs_self_model=True,
+        num_agents=1,
+        control_type=ControlType.VelocityHolonomoic,
+    )
+
+    run_random(
+        env=env,
+        num_episodes=1,
+        max_episode_steps=1000,
+    )

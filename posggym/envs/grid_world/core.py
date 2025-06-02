@@ -3,11 +3,13 @@
 import enum
 import itertools
 import random
+from collections.abc import Callable, Iterable
 from queue import PriorityQueue, Queue
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import TypeVar
+
 
 # (x, y) coord = (col, row) coord
-Coord = Tuple[int, int]
+Coord = tuple[int, int]
 
 
 class Direction(enum.IntEnum):
@@ -29,8 +31,8 @@ class Grid:
         self,
         grid_width: int,
         grid_height: int,
-        block_coords: Optional[Set[Coord]] = None,
-    ):
+        block_coords: set[Coord] | None = None,
+    ) -> None:
         self.width = grid_width
         self.height = grid_height
 
@@ -39,7 +41,7 @@ class Grid:
         self.block_coords = block_coords
 
     @property
-    def all_coords(self) -> List[Coord]:
+    def all_coords(self) -> list[Coord]:
         """The list of all locations on grid, including blocks."""
         return list(itertools.product(range(self.width), range(self.width)))
 
@@ -49,7 +51,7 @@ class Grid:
         return self.height * self.width
 
     @property
-    def unblocked_coords(self) -> List[Coord]:
+    def unblocked_coords(self) -> list[Coord]:
         """The list of all coordinates on the grid excluding blocks."""
         return [coord for coord in self.all_coords if coord not in self.block_coords]
 
@@ -67,7 +69,7 @@ class Grid:
         coord: Coord,
         ignore_blocks: bool = False,
         include_out_of_bounds: bool = False,
-    ) -> List[Coord]:
+    ) -> list[Coord]:
         """Get set of adjacent non-blocked coordinates."""
         neighbours = []
         if coord[1] > 0 or include_out_of_bounds:
@@ -114,7 +116,7 @@ class Grid:
 
     def get_coords_within_dist(
         self, origin: Coord, dist: int, ignore_blocks: bool, include_origin: bool
-    ) -> Set[Coord]:
+    ) -> set[Coord]:
         """Get set of coords within given distance from origin."""
         if dist == 0:
             return {origin} if include_origin else set()
@@ -141,14 +143,14 @@ class Grid:
 
     def get_coords_at_dist(
         self, origin: Coord, dist: int, ignore_blocks: bool
-    ) -> Set[Coord]:
+    ) -> set[Coord]:
         """Get set of coords at given distance from origin."""
         if dist == 0:
             return {origin}
 
         in_dist_coords = self.get_coords_within_dist(origin, dist, ignore_blocks, False)
 
-        at_dist_coords: Set[Coord] = set()
+        at_dist_coords: set[Coord] = set()
         for coord in in_dist_coords:
             if self.manhattan_dist(origin, coord) == dist:
                 at_dist_coords.add(coord)
@@ -157,7 +159,7 @@ class Grid:
 
     def get_min_dist_coords(
         self, origin: Coord, coords: Iterable[Coord]
-    ) -> List[Coord]:
+    ) -> list[Coord]:
         """Get list of coord in coords closest to origin."""
         dists = self.get_coords_by_distance(origin, coords)
         if len(dists) == 0:
@@ -166,9 +168,9 @@ class Grid:
 
     def get_coords_by_distance(
         self, origin: Coord, coords: Iterable[Coord]
-    ) -> Dict[int, List[Coord]]:
+    ) -> dict[int, list[Coord]]:
         """Get mapping from distance to coords at that distance from origin."""
-        dists: Dict[int, List[Coord]] = {}
+        dists: dict[int, list[Coord]] = {}
         for coord in coords:
             d = self.manhattan_dist(origin, coord)
             if d not in dists:
@@ -178,14 +180,14 @@ class Grid:
 
     def get_all_shortest_paths(
         self, origins: Iterable[Coord]
-    ) -> Dict[Coord, Dict[Coord, int]]:
+    ) -> dict[Coord, dict[Coord, int]]:
         """Get shortest path distance from every origin to all other coords."""
         src_dists = {}
         for origin in origins:
             src_dists[origin] = self.dijkstra(origin)
         return src_dists
 
-    def dijkstra(self, origin: Coord) -> Dict[Coord, int]:
+    def dijkstra(self, origin: Coord) -> dict[Coord, int]:
         """Get shortest path distance between origin and all other coords."""
         dist = {origin: 0}
         pq = PriorityQueue()  # type: ignore
@@ -205,7 +207,7 @@ class Grid:
                         visited.add(adj_coord)
         return dist
 
-    def get_connected_components(self) -> List[Set[Coord]]:
+    def get_connected_components(self) -> list[set[Coord]]:
         """Get list of connected components.
 
         A connected component is the set of all coords that are connected to
@@ -244,7 +246,7 @@ class Grid:
         This is useful for mapping from coords in agent observations to coords in the
         actual grid.
 
-        Arguments
+        Arguments:
         ---------
         rel_coord
             the relative coordinate. This is the coordinate relative to the origin
@@ -263,7 +265,7 @@ class Grid:
             relative grid reaches. Defines where the zeroth column of the grid is
             relative to the origin.
 
-        Returns
+        Returns:
         -------
         Coord
             The relative coord mapped to the actual grid.
@@ -286,11 +288,11 @@ class Grid:
         return (grid_col, grid_row)
 
     def get_rectangular_bounds(
-        self, origin: Coord, facing_dir: Direction, rect_size: Tuple[int, int, int, int]
-    ) -> Tuple[int, int, int, int]:
+        self, origin: Coord, facing_dir: Direction, rect_size: tuple[int, int, int, int]
+    ) -> tuple[int, int, int, int]:
         """Get rectangular bounds for a rectangle with given origin and size.
 
-        Arguments
+        Arguments:
         ---------
         origin
             the origin coordinate for the rectangle
@@ -303,7 +305,7 @@ class Grid:
                 rect_size[2] = number of cells left
                 rect_size[3] = number of cells right
 
-        Returns
+        Returns:
         -------
         Tuple[int, int, int, int]
             min_col, max_col, min_row, max_row of rectangle that is within the grid's
@@ -332,14 +334,14 @@ class Grid:
         return min_col, max_col, min_row, max_row
 
     def get_rectangular_padding(
-        self, origin: Coord, facing_dir: Direction, rect_size: Tuple[int, int, int, int]
-    ) -> Tuple[Tuple[int, int], Tuple[int, int]]:
+        self, origin: Coord, facing_dir: Direction, rect_size: tuple[int, int, int, int]
+    ) -> tuple[tuple[int, int], tuple[int, int]]:
         """Get padding for a rectangle with given origin and size.
 
         The padding quantities are the number of cells the rectangle is out-of-bounds
         on each dimension.
 
-        Arguments
+        Arguments:
         ---------
         origin
             the origin coordinate for the rectangle
@@ -352,7 +354,7 @@ class Grid:
                 rect_size[2] = number of cells left
                 rect_size[3] = number of cells right
 
-        Returns
+        Returns:
         -------
         Tuple[Tuple[int, int], Tuple[int, int]]
             (before_col, after_col), (before_row, after_row padding)
@@ -390,12 +392,12 @@ class GridGenerator:
         self,
         width: int,
         height: int,
-        mask: Set[Coord],
+        mask: set[Coord],
         max_obstacle_size: int,
         max_num_obstacles: int,
         ensure_grid_connected: bool,
-        seed: Optional[int] = None,
-    ):
+        seed: int | None = None,
+    ) -> None:
         assert max_obstacle_size > 0
         self.width = width
         self.height = height
@@ -407,7 +409,7 @@ class GridGenerator:
 
     def generate(self) -> Grid:
         """Generate a new grid."""
-        block_coords: Set[Coord] = set()
+        block_coords: set[Coord] = set()
         for _ in range(self.max_num_obstacles):
             obstacle = self._get_random_obstacle()
             if not self.mask.intersection(obstacle):
@@ -419,12 +421,12 @@ class GridGenerator:
 
         return grid
 
-    def generate_n(self, n: int) -> List[Grid]:
+    def generate_n(self, n: int) -> list[Grid]:
         """Generate N new grids."""
         grids = [self.generate() for _ in range(n)]
         return grids
 
-    def _get_random_obstacle(self) -> Set[Coord]:
+    def _get_random_obstacle(self) -> set[Coord]:
         obstacle_height = self._rng.randint(1, self.max_obstacle_size)
         obstacle_width = self._rng.randint(1, self.max_obstacle_size)
         obstacle_x = self._rng.randint(0, self.width - 1)
@@ -475,13 +477,13 @@ class GridGenerator:
         return grid
 
     def _component_distance(
-        self, grid: Grid, origin: Coord, component: Set[Coord]
+        self, grid: Grid, origin: Coord, component: set[Coord]
     ) -> int:
         return min([grid.manhattan_dist(origin, coord) for coord in component])
 
     def _get_closest_pair(
-        self, grid: Grid, component_0: Set[Coord], component_1: Set[Coord]
-    ) -> Tuple[Coord, Coord]:
+        self, grid: Grid, component_0: set[Coord], component_1: set[Coord]
+    ) -> tuple[Coord, Coord]:
         min_dist = grid.width * grid.height
         min_pair = ((0, 0), (0, 0))
         for c0, c1 in itertools.product(component_0, component_1):
@@ -493,7 +495,7 @@ class GridGenerator:
 
     def _get_shortest_direct_path(
         self, grid: Grid, start_coord: Coord, goal_coord: Coord
-    ) -> List[Coord]:
+    ) -> list[Coord]:
         """Get shortest direct path between two coords.
 
         This will possibly include blocks in the path, but will greedily chose
@@ -555,8 +557,8 @@ class GridCycler:
     """Class for handling cycling through a set of generated grids."""
 
     def __init__(
-        self, grids: List[Grid], shuffle_each_cycle: bool, seed: Optional[int] = None
-    ):
+        self, grids: list[Grid], shuffle_each_cycle: bool, seed: int | None = None
+    ) -> None:
         self.grids = grids
         self.shuffle = shuffle_each_cycle
         self._rng = random.Random(seed)
@@ -573,3 +575,7 @@ class GridCycler:
         grid = self.grids[self._next_idx]
         self._next_idx += 1
         return grid
+
+
+GridSubClass = TypeVar("GridSubClass", bound=Grid)
+SupportedGridTypes = dict[str, tuple[Callable[[], GridSubClass], int]]

@@ -42,9 +42,7 @@ def test_record_episode_statistics(env_id, deque_size):
                 assert len(infos) == len(env.possible_agents)
                 for i in env.possible_agents:
                     assert "episode" in infos[i]
-                    assert all(
-                        [item in infos[i]["episode"] for item in ["r", "l", "t"]]
-                    )
+                    assert all(item in infos[i]["episode"] for item in ["r", "l", "t"])
                     assert np.isclose(infos[i]["episode"]["r"], agent_returns[i])
                     assert infos[i]["episode"]["l"] == t + 1
                 break
@@ -95,7 +93,7 @@ def test_record_episode_statistics_with_vectorenv(num_envs):
                 assert "episode" in infos[i]
                 assert "_episode" in infos[i]
                 assert all(infos[i]["_episode"] == dones)
-                assert all([item in infos[i]["episode"] for item in ["r", "l", "t"]])
+                assert all(item in infos[i]["episode"] for item in ["r", "l", "t"])
             break
         else:
             for i in envs.possible_agents:

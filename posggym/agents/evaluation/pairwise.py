@@ -5,7 +5,8 @@ import csv
 import multiprocessing as mp
 from datetime import datetime
 from itertools import product
-from typing import Dict, List, NamedTuple, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
+
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -43,8 +44,8 @@ class PWCParams(NamedTuple):
 
     env_id: str
     env_args_id: str | None
-    env_args: Dict[str, str]
-    policy_ids: Dict[str, str]
+    env_args: dict[str, str]
+    policy_ids: dict[str, str]
     output_file: str
     num_episodes: int
     seed: int | None
@@ -52,7 +53,7 @@ class PWCParams(NamedTuple):
     verbose: bool = False
 
 
-def run_episodes(args) -> Dict[str, Dict[str, float]]:
+def run_episodes(args) -> dict[str, dict[str, float]]:
     """Run episodes and return the average reward for each policy."""
     params, total_runs = args
     policy_names = {
@@ -143,14 +144,14 @@ def run_episodes(args) -> Dict[str, Dict[str, float]]:
         print(f"Run {params.run_num}/{total_runs} complete.")
 
 
-def get_pairwise_comparison_params(
+def get_pairwise_comparison_params(  # noqa: PLR0912
     env_id: str,
     output_dir: Path,
     env_args_id: str | None = None,
     num_episodes: int = 1000,
     seed: int | None = None,
     verbose: bool = False,
-) -> List[PWCParams]:
+) -> list[PWCParams]:
     """Get parameters for pairwise comparisons of all of an environment's policies."""
     # attempt to make env to check if it is registered (displays nicer error msg)
     posggym.make(env_id)
@@ -181,7 +182,7 @@ def get_pairwise_comparison_params(
 
         output_file = env_output_dir / f"{args_id}.csv"
         if output_file.exists():
-            logger.warn(f"{output_file} exists. Rewriting.")
+            logger.warning(f"{output_file} exists. Rewriting.")
 
         headers = [
             "env_id",
@@ -249,8 +250,9 @@ def get_pairwise_comparison_params(
 
             # run all pairwise combinations of policies
             for policy_specs in product(*all_policy_specs):
-                policy_ids = {i: spec.id for i, spec in zip(agent_ids, policy_specs)}
-                # print(f"  {policy_ids=}")
+                policy_ids = {
+                    i: spec.id for i, spec in zip(agent_ids, policy_specs, strict=False)
+                }
                 pairwise_policy_ids.append(policy_ids)
 
         if verbose:
@@ -358,7 +360,7 @@ def load_pairwise_comparison_results(
 
 def get_pairwise_returns_matrix(
     df: pd.DataFrame,
-) -> Dict[str, Tuple[np.ndarray, List[str], List[str]]]:
+) -> dict[str, tuple[np.ndarray, list[str], list[str]]]:
     """Get pairwise returns matrix for each agent in environment."""
     num_episodes = df["num_episodes"].unique().tolist()[0]
     agent_ids = df["agent_id"].unique().tolist()
@@ -417,12 +419,12 @@ def get_pairwise_returns_matrix(
                 (df["agent_id"] == i)
                 & (df["policy_name"] == policy_name)
                 & (df["co_team_id"] == co_team_id)
-            ]["episode_reward_mean"].values[0]
+            ]["episode_reward_mean"].to_numpy()[0]
             pw_returns_i[1, policy_idx, co_team_idx] = df[
                 (df["agent_id"] == i)
                 & (df["policy_name"] == policy_name)
                 & (df["co_team_id"] == co_team_id)
-            ]["episode_reward_std"].values[0]
+            ]["episode_reward_std"].to_numpy()[0]
             # compute 95% CI for mean: 1.96*std/sqrt(N)
             pw_returns_i[2, policy_idx, co_team_idx] = (
                 1.96 * pw_returns_i[1, policy_idx, co_team_idx] / np.sqrt(num_episodes)
@@ -434,7 +436,7 @@ def generate_pairwise_returns_plot(
     env_id: str,
     output_dir: Path,
     env_args_id: str | None,
-    pw_returns_per_agent: Dict[str, Tuple[np.ndarray, List[str], List[str]]],
+    pw_returns_per_agent: dict[str, tuple[np.ndarray, list[str], list[str]]],
     show: bool = True,
     save: bool = True,
     mean_only: bool = False,
@@ -534,14 +536,14 @@ def plot_pairwise_comparison_results(
                 continue
 
             print(f"  {args_id=}")
-            df = load_pairwise_comparison_results(env_id, output_dir, args_id)
+            results_df = load_pairwise_comparison_results(env_id, output_dir, args_id)
 
-            if df["symmetric"].unique().tolist()[0]:
+            if results_df["symmetric"].unique().tolist()[0]:
                 # only keep results for one agent
-                agent_ids = df["agent_id"].unique().tolist()
-                df = df[df["agent_id"] == agent_ids[0]]
+                agent_ids = results_df["agent_id"].unique().tolist()
+                results_df = results_df[results_df["agent_id"] == agent_ids[0]]
 
-            pw_returns_per_agent = get_pairwise_returns_matrix(df)
+            pw_returns_per_agent = get_pairwise_returns_matrix(results_df)
 
             generate_pairwise_returns_plot(
                 env_id=env_id,

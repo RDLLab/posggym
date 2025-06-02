@@ -1,7 +1,9 @@
 """The Unmanned Aerial Vehicle Grid World Environment."""
+from __future__ import annotations
+
 import random
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import ClassVar
 
 from gymnasium import spaces
 
@@ -11,14 +13,15 @@ from posggym.core import DefaultEnv
 from posggym.envs.grid_world.core import Coord, Direction, Grid
 from posggym.utils import seeding
 
-UAVState = Tuple[Coord, Coord]
+
+UAVState = tuple[Coord, Coord]
 UAVAction = int
 
 # UAV Obs = (uav coord, fug coord)
-UAVUAVObs = Tuple[Coord, Coord]
+UAVUAVObs = tuple[Coord, Coord]
 # FUG Obs = house direction
 UAVFUGObs = int
-UAVObs = Union[UAVUAVObs, UAVFUGObs]
+UAVObs = UAVUAVObs | UAVFUGObs
 
 OBSNORTH = 0
 OBSSOUTH = 1
@@ -94,9 +97,8 @@ class UAVEnv(DefaultEnv[UAVState, UAVObs, UAVAction]):
     limit is reached, as specified by  `max_episode_steps` when initializing the
     environment with `posggym.make` (default=`50`).
 
-    Arguments
+    Arguments:
     ---------
-
     - `grid` - the grid of the environment. This can be an integer specifying
         the width and height of the grid, in which case an empty grid with the given
         dimensions and default position for the safe house will be used. Alternatively,
@@ -123,15 +125,16 @@ class UAVEnv(DefaultEnv[UAVState, UAVObs, UAVAction]):
     ---------
     Panella, Alessandro, and Piotr Gmytrasiewicz. 2017. “Interactive POMDPs
     with Finite-State Models of Other Agents.” Autonomous Agents and
-    Multi-Agent Systems 31 (4): 861–904.
+    Multi-Agent Systems 31 (4): 861-904.
 
     """
 
-    metadata = {"render_modes": ["human", "ansi", "rgb_array"], "render_fps": 15}
+    metadata: ClassVar[dict] = {
+        "render_modes": ["human", "ansi", "rgb_array"],
+        "render_fps": 15,
+    }
 
-    def __init__(
-        self, grid: Union["UAVGrid", int] = 5, render_mode: Optional[str] = None
-    ):
+    def __init__(self, grid: UAVGrid | int = 5, render_mode: str | None = None) -> None:
         super().__init__(UAVModel(grid), render_mode=render_mode)
         self.renderer = None
         self.uav_img = None
@@ -140,7 +143,7 @@ class UAVEnv(DefaultEnv[UAVState, UAVObs, UAVAction]):
     def render(self):
         if self.render_mode is None:
             assert self.spec is not None
-            logger.warn(
+            logger.warning(
                 "You are calling render method without specifying any render mode. "
                 "You can specify the render_mode at initialization, "
                 f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
@@ -222,13 +225,18 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
     R_CAPTURE = 1.0  # UAV reward, fugitive = -R_CAPTURE
     R_SAFE = -1.0  # UAV reward, fugitive = -R_SAFE
 
-    # Observatio Accuracy for each agent
+    # Observation Accuracy for each agent
     FUG_OBS_ACC = 0.8
     UAV_OBS_ACC = 0.9
 
-    def __init__(self, grid: Union["UAVGrid", int]):
+    MIN_GRID_SIZE = 3
+    REQUIRED_ADJACENT_COORDS = 4
+
+    def __init__(self, grid: UAVGrid | int) -> None:
         if isinstance(grid, int):
-            assert grid >= 3, "Grid size must be >= 3."
+            assert (
+                grid >= self.MIN_GRID_SIZE
+            ), f"Grid size must be >= {self.MIN_GRID_SIZE}."
             # grid specified size of grid,
             grid = UAVGrid(grid, grid, None)
         self.grid = grid
@@ -261,11 +269,11 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
         self.is_symmetric = False
 
         # cache for sampling obs conditioned init state for fug
-        self._cached_init_fug_obs: Optional[UAVFUGObs] = None
-        self._valid_fug_coords_dist: Tuple[List[Coord], List[float]] = ([], [])
+        self._cached_init_fug_obs: UAVFUGObs | None = None
+        self._valid_fug_coords_dist: tuple[list[Coord], list[float]] = ([], [])
 
     @property
-    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
+    def reward_ranges(self) -> dict[str, tuple[float, float]]:
         return {i: (self.R_SAFE, self.R_CAPTURE) for i in self.possible_agents}
 
     @property
@@ -274,7 +282,7 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
             self._rng, seed = seeding.std_random()
         return self._rng
 
-    def get_agents(self, state: UAVState) -> List[str]:
+    def get_agents(self, state: UAVState) -> list[str]:
         return list(self.possible_agents)
 
     def sample_initial_state(self) -> UAVState:
@@ -294,7 +302,7 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
         house_adj_coords = self.grid.get_neighbours(
             self.grid.safe_house_coord, ignore_blocks=False
         )
-        if len(house_adj_coords) != 4:
+        if len(house_adj_coords) != self.REQUIRED_ADJACENT_COORDS:
             # Doesn't work for 3x3 grid
             raise NotImplementedError(
                 "Sampling observation conditioned initial state for the fugitive is "
@@ -329,7 +337,7 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
         uav_coord = self.rng.choice(uav_start_coords)
         return uav_coord, fug_coord
 
-    def _get_fug_coord_dist(self, obs: UAVFUGObs) -> Tuple[List[Coord], List[float]]:
+    def _get_fug_coord_dist(self, obs: UAVFUGObs) -> tuple[list[Coord], list[float]]:
         house_adj_coords = self.grid.get_neighbours(
             self.grid.safe_house_coord, ignore_blocks=False
         )
@@ -369,11 +377,11 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
                 dist.append((1.0 - self.FUG_OBS_ACC) / (num_adj - num_true))
         return house_adj_coords, dist
 
-    def sample_initial_obs(self, state: UAVState) -> Dict[str, UAVObs]:
+    def sample_initial_obs(self, state: UAVState) -> dict[str, UAVObs]:
         return self._sample_obs(state)
 
     def step(
-        self, state: UAVState, actions: Dict[str, UAVAction]
+        self, state: UAVState, actions: dict[str, UAVAction]
     ) -> M.JointTimestep[UAVState, UAVObs]:
         assert all(0 <= a_i < len(Direction) for a_i in actions.values())
         next_state = self._sample_next_state(state, actions)
@@ -389,13 +397,13 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
         terminated = {i: False for i in self.possible_agents}
         truncated = {i: False for i in self.possible_agents}
         all_done = False
-        info: Dict[str, Dict] = {i: {} for i in self.possible_agents}
+        info: dict[str, dict] = {i: {} for i in self.possible_agents}
         return M.JointTimestep(
             next_state, obs, rewards, terminated, truncated, all_done, info
         )
 
     def _sample_next_state(
-        self, state: UAVState, actions: Dict[str, UAVAction]
+        self, state: UAVState, actions: dict[str, UAVAction]
     ) -> UAVState:
         uav_a, fug_a = actions[self.UAV_ID], actions[self.FUG_ID]
         uav_coord, fug_coord = state
@@ -415,7 +423,7 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
             fug_start_coords.remove(uav_coord)
         return self.rng.choice(fug_start_coords)
 
-    def _sample_obs(self, state: UAVState) -> Dict[str, UAVObs]:
+    def _sample_obs(self, state: UAVState) -> dict[str, UAVObs]:
         return {
             self.UAV_ID: self._sample_uav_obs(state),
             self.FUG_ID: self._sample_fug_obs(state),
@@ -458,7 +466,7 @@ class UAVModel(M.POSGModel[UAVState, UAVObs, UAVAction]):
             return true_obs
         return self.rng.choice([OBSNORTH, OBSSOUTH, OBSLEVEL])
 
-    def _get_reward(self, next_state: UAVState) -> Dict[str, float]:
+    def _get_reward(self, next_state: UAVState) -> dict[str, float]:
         uav_coord, fug_coord = next_state
         uav_reward, fug_reward = self.R_ACTION, self.R_ACTION
         if fug_coord == self.grid.safe_house_coord:
@@ -480,11 +488,11 @@ class UAVGrid(Grid):
         self,
         grid_width: int,
         grid_height: int,
-        block_coords: Optional[Set[Coord]],
-        safe_house_coord: Optional[Coord] = None,
-        init_fug_coords: Optional[List[Coord]] = None,
-        init_uav_coords: Optional[List[Coord]] = None,
-    ):
+        block_coords: set[Coord] | None,
+        safe_house_coord: Coord | None = None,
+        init_fug_coords: list[Coord] | None = None,
+        init_uav_coords: list[Coord] | None = None,
+    ) -> None:
         super().__init__(grid_width, grid_height, block_coords)
         if safe_house_coord is None:
             safe_house_coord = (grid_width // 2, grid_height // 4)
@@ -503,9 +511,7 @@ class UAVGrid(Grid):
         self.valid_coords = set(self.unblocked_coords)
         self.valid_coords.remove(self.safe_house_coord)
 
-    def get_ascii_repr(
-        self, fug_coord: Optional[Coord], uav_coord: Optional[Coord]
-    ) -> str:
+    def get_ascii_repr(self, fug_coord: Coord | None, uav_coord: Coord | None) -> str:
         """Get ascii repr of grid."""
         grid_repr = []
         for row in range(self.height):

@@ -1,5 +1,5 @@
 """Tests for envs.grid_world.core."""
-from posggym.envs.grid_world.core import Grid, Direction
+from posggym.envs.grid_world.core import Direction, Grid
 
 
 class TestGrid:

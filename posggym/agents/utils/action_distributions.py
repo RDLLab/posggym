@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import abc
 import random
-from typing import TYPE_CHECKING, Any, Dict, List, Union
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -27,7 +27,7 @@ class ActionDistribution(abc.ABC):
 class DiscreteActionDistribution(ActionDistribution):
     """Action distribution for discrete actions."""
 
-    def __init__(self, probs: Dict[Any, float], rng: seeding.RNG | None = None):
+    def __init__(self, probs: dict[Any, float], rng: seeding.RNG | None = None) -> None:
         self.probs = probs
         self._rng = rng
 
@@ -61,7 +61,9 @@ class DiscreteActionDistribution(ActionDistribution):
 class MultiDiscreteActionDistribution(ActionDistribution):
     """Action distribution for multi-discrete actions."""
 
-    def __init__(self, probs: List[Dict[Any, float]], rng: seeding.RNG | None = None):
+    def __init__(
+        self, probs: list[dict[Any, float]], rng: seeding.RNG | None = None
+    ) -> None:
         self.probs = probs
         self._rng = rng
 
@@ -94,18 +96,17 @@ class NormalActionDistribution(ActionDistribution):
 
     def __init__(
         self,
-        mean: Union[float, np.ndarray],
-        stddev: Union[float, np.ndarray],
+        mean: float | np.ndarray,
+        stddev: float | np.ndarray,
         rng: np.random.Generator | None = None,
-    ):
+    ) -> None:
         self.mean = mean
         self.stddev = stddev
         self._rng = rng
 
     def sample(self) -> Any:
-        if self._rng is None:
-            return np.random.normal(loc=self.mean, scale=self.stddev)
-        return self._rng.normal(loc=self.mean, scale=self.stddev)
+        rng = self._rng or np.random.default_rng()
+        return rng.normal(loc=self.mean, scale=self.stddev)
 
     def pdf(self, action: Any) -> float:
         # ref:
@@ -126,7 +127,7 @@ class NormalActionDistribution(ActionDistribution):
 class DeterministicActionDistribution(ActionDistribution):
     """Action distribution for deterministic action distribution."""
 
-    def __init__(self, action: Union[int, float, np.ndarray]):
+    def __init__(self, action: int | float | np.ndarray) -> None:
         self.action = action
 
     def sample(self) -> Any:
@@ -146,18 +147,17 @@ class ContinousUniformActionDistribution(ActionDistribution):
 
     def __init__(
         self,
-        low: Union[float, np.ndarray],
-        high: Union[float, np.ndarray],
+        low: float | np.ndarray,
+        high: float | np.ndarray,
         rng: np.random.Generator | None = None,
-    ):
+    ) -> None:
         self.low = low
         self.high = high
         self._rng = rng
 
     def sample(self) -> Any:
-        if self._rng is None:
-            return np.random.uniform(low=self.low, high=self.high)
-        return self._rng.uniform(low=self.low, high=self.high)
+        rng = self._rng or np.random.default_rng()
+        return rng.uniform(low=self.low, high=self.high)
 
     def pdf(self, action: Any) -> float:
         return 1.0 / np.prod(self.high - self.low)
@@ -180,18 +180,17 @@ class DiscreteUniformActionDistribution(ActionDistribution):
 
     def __init__(
         self,
-        low: Union[int, np.ndarray],
-        high: Union[int, np.ndarray],
+        low: int | np.ndarray,
+        high: int | np.ndarray,
         rng: np.random.Generator | None = None,
-    ):
+    ) -> None:
         self.low = low
         self.high = high
         self._rng = rng
 
     def sample(self) -> Any:
-        if self._rng is None:
-            return np.random.randint(low=self.low, high=self.high + 1)
-        return self._rng.integers(low=self.low, high=self.high + 1)
+        rng = self._rng or np.random.default_rng()
+        return rng.integers(low=self.low, high=self.high + 1)
 
     def pdf(self, action: Any) -> float:
         return 1.0 / np.prod(self.high - self.low + 1)

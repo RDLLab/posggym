@@ -1,13 +1,14 @@
 """Heuristic policies for the PredatorPrey grid world environment."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Tuple, cast
+from typing import TYPE_CHECKING, ClassVar, cast
 
 import posggym.envs.grid_world.predator_prey as pp
 from posggym.agents.policy import Policy, PolicyID, PolicyState
 from posggym.agents.utils import action_distributions
 from posggym.envs.grid_world.core import Direction
 from posggym.utils import seeding
+
 
 if TYPE_CHECKING:
     from posggym.envs.grid_world.core import Coord
@@ -21,7 +22,7 @@ DIR_TO_ACTION = [pp.UP, pp.RIGHT, pp.DOWN, pp.LEFT]
 class PPHeuristicPolicy(Policy[pp.PPAction, pp.PPObs]):
     """Base class for PredatorPrey environment heuristic policies."""
 
-    VALID_EXPLORE_STRATEGIES = [
+    VALID_EXPLORE_STRATEGIES: ClassVar[list[str]] = [
         "uniform_random",
         "spiral",
     ]
@@ -33,7 +34,7 @@ class PPHeuristicPolicy(Policy[pp.PPAction, pp.PPObs]):
         policy_id: PolicyID,
         explore_strategy: str = "uniform_random",
         explore_epsilon: float = 0.05,
-    ):
+    ) -> None:
         super().__init__(model, agent_id, policy_id)
         assert explore_strategy in self.VALID_EXPLORE_STRATEGIES
         assert 0 <= explore_epsilon <= 1
@@ -113,15 +114,15 @@ class PPHeuristicPolicy(Policy[pp.PPAction, pp.PPObs]):
         )
 
     def get_actions_from_obs(
-        self, pred_coords: List[Coord], prey_coords: List[Coord]
-    ) -> List[pp.PPAction]:
+        self, pred_coords: list[Coord], prey_coords: list[Coord]
+    ) -> list[pp.PPAction]:
         raise NotImplementedError(
             f"`get_pi_from_obs()` not implemented by {self.__class__.__name__} policy"
         )
 
     def get_explore_actions_from_obs(
-        self, wall_obs: List[bool], explore_dir: Direction | None
-    ) -> Tuple[List[pp.PPAction], Direction | None]:
+        self, wall_obs: list[bool], explore_dir: Direction | None
+    ) -> tuple[list[pp.PPAction], Direction | None]:
         # using list slice for quick copy of list of primitives
         if self.explore_strategy == "uniform_random":
             # random explore
@@ -146,7 +147,7 @@ class PPHeuristicPolicy(Policy[pp.PPAction, pp.PPObs]):
             f"{self.__class__.__name__} policy"
         )
 
-    def parse_obs(self, obs: pp.PPObs) -> Tuple[List[Coord], List[Coord], List[bool]]:
+    def parse_obs(self, obs: pp.PPObs) -> tuple[list[Coord], list[Coord], list[bool]]:
         """Parse obs into list of predator coords, prey coords, and wall directions."""
         pred_coords = []
         prey_coords = []
@@ -171,14 +172,14 @@ class PPHeuristicPolicy(Policy[pp.PPAction, pp.PPObs]):
                     walls_obs[Direction.SOUTH] = True
         return pred_coords, prey_coords, walls_obs
 
-    def get_closest_coord(self, origin: Coord, coords: List[Coord]) -> Coord | None:
+    def get_closest_coord(self, origin: Coord, coords: list[Coord]) -> Coord | None:
         """Get coord of from list that is closest to the origin coord."""
         return min(
             coords,
             key=lambda coord: self._grid.manhattan_dist(origin, coord),
         )
 
-    def get_actions_towards_target(self, target_coord: Coord) -> List[pp.PPAction]:
+    def get_actions_towards_target(self, target_coord: Coord) -> list[pp.PPAction]:
         """Get action towards target coord."""
         agent_coord = self.agent_obs_coord
 
@@ -203,12 +204,12 @@ class PPHeuristic1(PPHeuristicPolicy):
     randomly, in that order.
     """
 
-    def __init__(self, model: POSGModel, agent_id: str, policy_id: PolicyID):
+    def __init__(self, model: POSGModel, agent_id: str, policy_id: PolicyID) -> None:
         super().__init__(model, agent_id, policy_id, "uniform_random")
 
     def get_actions_from_obs(
-        self, pred_coords: List[Coord], prey_coords: List[Coord]
-    ) -> List[pp.PPAction]:
+        self, pred_coords: list[Coord], prey_coords: list[Coord]
+    ) -> list[pp.PPAction]:
         if len(prey_coords) != 0:
             closest_prey_coord = self.get_closest_coord(
                 self.agent_obs_coord, prey_coords
@@ -229,12 +230,12 @@ class PPHeuristic2(PPHeuristicPolicy):
     a clockwise spiral around arena, in that order.
     """
 
-    def __init__(self, model: POSGModel, agent_id: str, policy_id: PolicyID):
+    def __init__(self, model: POSGModel, agent_id: str, policy_id: PolicyID) -> None:
         super().__init__(model, agent_id, policy_id, "spiral")
 
     def get_actions_from_obs(
-        self, pred_coords: List[Coord], prey_coords: List[Coord]
-    ) -> List[pp.PPAction]:
+        self, pred_coords: list[Coord], prey_coords: list[Coord]
+    ) -> list[pp.PPAction]:
         if len(prey_coords) != 0:
             closest_prey_coord = self.get_closest_coord(
                 self.agent_obs_coord, prey_coords
@@ -255,12 +256,12 @@ class PPHeuristic3(PPHeuristicPolicy):
     explores in a clockwise spiral around arena, in that order.
     """
 
-    def __init__(self, model: POSGModel, agent_id: str, policy_id: PolicyID):
+    def __init__(self, model: POSGModel, agent_id: str, policy_id: PolicyID) -> None:
         super().__init__(model, agent_id, policy_id, "spiral")
 
     def get_actions_from_obs(
-        self, pred_coords: List[Coord], prey_coords: List[Coord]
-    ) -> List[pp.PPAction]:
+        self, pred_coords: list[Coord], prey_coords: list[Coord]
+    ) -> list[pp.PPAction]:
         if len(prey_coords) == 0:
             return []
 

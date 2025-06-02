@@ -1,4 +1,4 @@
-"""Race for glory in HurdleRace!
+"""Race for glory in HurdleRace!.
 
 This file contains an example of a simple custom POSGGym environment, and can be used
 as a reference for implementing your own.
@@ -10,19 +10,19 @@ $ python examples/custom_envs/hurdle_race.py
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, ClassVar
 
 import numpy as np
 import posggym
 import posggym.model as M
-import posggym.utils.seeding as seeding
 from gymnasium import spaces
+from posggym.utils import seeding
 
 
 try:
     import pygame
 except ImportError as e:
-    raise posggym.error.DependencyNotInstalled(
+    raise posggym.error.DependencyNotInstalledError(
         "pygame is not installed, run `pip install pygame` or "
         "`pip install posggym[all]`"
     ) from e
@@ -31,7 +31,7 @@ except ImportError as e:
 # The type of an individual states
 # This is used for type hinting, and is optional, but encouraged if you plan to share
 # your environment with others
-HurdleRaceState = Tuple[int, int, int, int, int]
+HurdleRaceState = tuple[int, int, int, int, int]
 
 
 class HurdleRaceEnv(posggym.DefaultEnv[HurdleRaceState, int, int]):
@@ -95,9 +95,9 @@ class HurdleRaceEnv(posggym.DefaultEnv[HurdleRaceState, int, int]):
     # Here we specify the meta-data, this should include as a minimum:
     # 'render_modes' - the render modes supported by the environment
     # 'render_fps' - the render framerate to use
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
+    metadata: ClassVar[dict] = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode: str | None):
+    def __init__(self, render_mode: str | None) -> None:
         model = HurdleRaceModel()
 
         """
@@ -157,7 +157,7 @@ class HurdleRaceEnv(posggym.DefaultEnv[HurdleRaceState, int, int]):
             )
 
         # next we draw the agents
-        for idx, i in enumerate(self.agents):
+        for idx, _i in enumerate(self.agents):
             pygame.draw.circle(
                 canvas,
                 color=(0, 0, 255) if idx == 0 else (255, 0, 0),
@@ -228,7 +228,7 @@ class HurdleRaceModel(M.POSGModel[HurdleRaceState, int, int]):
     R_DRAW = 0.0
     R_LOSS = -1.0
 
-    def __init__(self):
+    def __init__(self) -> None:
         # tuple of possible agents in our environment
         self.possible_agents = ("0", "1")
         # The state space is actually optional to define, but can be helpful for some
@@ -249,7 +249,7 @@ class HurdleRaceModel(M.POSGModel[HurdleRaceState, int, int]):
         self.is_symmetric = True
 
     @property
-    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
+    def reward_ranges(self) -> dict[str, tuple[float, float]]:
         # This contains the minimum and maximum reward each agent can receive
         return {i: (self.R_LOSS, self.R_WIN) for i in self.possible_agents}
 
@@ -264,7 +264,7 @@ class HurdleRaceModel(M.POSGModel[HurdleRaceState, int, int]):
             self._rng, seed = seeding.std_random()
         return self._rng
 
-    def get_agents(self, state: HurdleRaceState) -> List[str]:
+    def get_agents(self, state: HurdleRaceState) -> list[str]:
         # This is the list of agents active in a given state
         # For our problem both agents are always active, but for some environments
         # agents may leave or join (e.g. via finishing early) and so the active agents
@@ -284,7 +284,7 @@ class HurdleRaceModel(M.POSGModel[HurdleRaceState, int, int]):
         # the full state
         return (agent_0_pos, agent_1_pos, hurdle_0_pos, hurdle_1_pos, hurdle_2_pos)
 
-    def sample_initial_obs(self, state: HurdleRaceState) -> Dict[str, int]:
+    def sample_initial_obs(self, state: HurdleRaceState) -> dict[str, int]:
         # we get the initial observation for an agent (before any action is taken)
         # For this environment the observation is independent of action, so this is easy
         # each agent observes whether the next cell contains a hurdle or not
@@ -292,7 +292,7 @@ class HurdleRaceModel(M.POSGModel[HurdleRaceState, int, int]):
         return self._get_obs(state)
 
     def step(
-        self, state: HurdleRaceState, actions: Dict[str, int]
+        self, state: HurdleRaceState, actions: dict[str, int]
     ) -> M.JointTimestep[HurdleRaceState, int]:
         # first we get the next state
         next_state = self._get_next_state(state, actions)
@@ -326,7 +326,7 @@ class HurdleRaceModel(M.POSGModel[HurdleRaceState, int, int]):
         )
 
     def _get_next_state(
-        self, state: HurdleRaceState, actions: Dict[str, int]
+        self, state: HurdleRaceState, actions: dict[str, int]
     ) -> HurdleRaceState:
         agent_positions = []
         for idx, i in enumerate(self.possible_agents):
@@ -337,18 +337,17 @@ class HurdleRaceModel(M.POSGModel[HurdleRaceState, int, int]):
                     if not any(pos + 1 == h_pos for h_pos in state[2:]):
                         pos += 1
                 pos = min(self.TRACK_LENGTH, pos)
-            else:
+            elif (
+                not any(pos + 1 == h_pos for h_pos in state[2:])
+                or self.rng.random() < self.JUMP_SUCCESS_RATE
+            ):
                 # JUMP
-                if (
-                    not any(pos + 1 == h_pos for h_pos in state[2:])
-                    or self.rng.random() < self.JUMP_SUCCESS_RATE
-                ):
-                    pos += 1
+                pos += 1
             agent_positions.append(pos)
         # the hurdle positions remain unchanged from previous state
         return (agent_positions[0], agent_positions[1], *state[2:])
 
-    def _get_obs(self, state: HurdleRaceState) -> Dict[str, int]:
+    def _get_obs(self, state: HurdleRaceState) -> dict[str, int]:
         # each agent observes whether the next cell contains a hurdle or not
         obs = {}
         for idx, i in enumerate(self.possible_agents):
@@ -362,7 +361,7 @@ class HurdleRaceModel(M.POSGModel[HurdleRaceState, int, int]):
             obs[i] = self.HURDLE if hurdle_present else self.NOHURDLE
         return obs
 
-    def _get_rewards(self, state: HurdleRaceState) -> Dict[str, float]:
+    def _get_rewards(self, state: HurdleRaceState) -> dict[str, float]:
         # agents only receive a reward when at least one agent reaches the end of their
         # track, otherwise the step reward is 0 for both agents
         agent_0_pos, agent_1_pos = state[0], state[1]
@@ -376,10 +375,10 @@ class HurdleRaceModel(M.POSGModel[HurdleRaceState, int, int]):
             agent_0_reward, agent_1_reward = 0, 0
         return {"0": agent_0_reward, "1": agent_1_reward}
 
-    def _get_info(self, state: HurdleRaceState) -> Dict[str, Dict]:
+    def _get_info(self, state: HurdleRaceState) -> dict[str, dict]:
         # we return the position of the agent each step in the auxiliary information
         # as well as the final outcome
-        infos: Dict[str, Dict[str, Any]] = {
+        infos: dict[str, dict[str, Any]] = {
             i: {"pos": state[idx]} for idx, i in enumerate(self.possible_agents)
         }
         agent_0_pos, agent_1_pos = state[0], state[1]
@@ -423,8 +422,6 @@ def run_hurdle_race():
 
 
 if __name__ == "__main__":
-    # run_hurdle_race()
-
     import sys
 
     sys.path.insert(0, "/home/jonathon/code/posggym/docs/scripts")

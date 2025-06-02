@@ -17,8 +17,8 @@ def test_make_petting_zoo(spec):
         from pettingzoo.utils import agent_selector  # type: ignore
         from pettingzoo.utils.conversions import parallel_to_aec_wrapper  # type: ignore
         from posggym.wrappers.petting_zoo import PettingZoo
-    except (ImportError, posggym.error.DependencyNotInstalled) as e:
-        pytest.skip(f"pettingzoo not installed.: {str(e)}")
+    except (ImportError, posggym.error.DependencyNotInstalledError) as e:
+        pytest.skip(f"pettingzoo not installed.: {e!s}")
 
     class custom_parallel_to_aec_wrapper(parallel_to_aec_wrapper):
         """PettingZoo ParallelEnv to AECEnv converter.

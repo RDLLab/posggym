@@ -9,6 +9,7 @@ import argparse
 
 from posggym.agents.evaluation import pairwise
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter

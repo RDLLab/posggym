@@ -12,9 +12,10 @@ from __future__ import annotations
 
 import abc
 import copy
-from typing import TYPE_CHECKING, Any, Dict, Generic, List, Optional, Tuple, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar
 
 from posggym.model import ActType, ObsType, POSGModel, StateType
+
 
 if TYPE_CHECKING:
     import numpy as np
@@ -70,7 +71,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
     """
 
     # Set this in SOME subclasses
-    metadata: Dict[str, Any] = {"render_modes": []}
+    metadata: ClassVar[dict[str, Any]] = {"render_modes": []}
 
     # Define render_mode if your environment supports rendering
     render_mode: str | None = None
@@ -84,26 +85,26 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
 
     @abc.abstractmethod
     def step(
-        self, actions: Dict[str, ActType]
-    ) -> Tuple[
-        Dict[str, ObsType],
-        Dict[str, float],
-        Dict[str, bool],
-        Dict[str, bool],
+        self, actions: dict[str, ActType]
+    ) -> tuple[
+        dict[str, ObsType],
+        dict[str, float],
+        dict[str, bool],
+        dict[str, bool],
         bool,
-        Dict[str, Dict[str, Any]],
+        dict[str, dict[str, Any]],
     ]:
         """Run one timestep in the environment using the agents' actions.
 
         When the end of an episode is reached, the user is responsible for
         calling :meth:`reset()` to reset this environments state.
 
-        Arguments
+        Arguments:
         ---------
         actions : Dict[str, ActType]
             a joint action containing one action per active agent in the environment.
 
-        Returns
+        Returns:
         -------
         observations : Dict[str, ObsType]
             the joint observation containing one observation per agent.
@@ -133,8 +134,8 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
         """
 
     def reset(
-        self, *, seed: int | None = None, options: Dict[str, Any] | None = None
-    ) -> Tuple[Dict[str, ObsType], Dict[str, Dict]]:
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> tuple[dict[str, ObsType], dict[str, dict]]:
         """Resets the environment and returns an initial observations and info.
 
         This method generates a new starting state often with some randomness. This
@@ -149,7 +150,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
         For Custom environments, the first line of :meth:`reset` should be
         ``super().reset(seed=seed)`` which implements the seeding correctly.
 
-        Arguments
+        Arguments:
         ---------
         seed : int,  optional
             The seed that is used to initialize the environment's RNG. If the
@@ -161,7 +162,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
             Additional information to specify how the environment is reset (optional,
             depending on the specific environment)
 
-        Returns
+        Returns:
         -------
         observations : Dict[str, ObsType]
             The joint observation containing one observation per agent in the
@@ -178,7 +179,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
 
     def render(
         self,
-    ) -> None | np.ndarray | str | Dict[str, np.ndarray] | Dict[str, str]:
+    ) -> None | np.ndarray | str | dict[str, np.ndarray] | dict[str, str]:
         """Render the environment as specified by environment :attr:`render_mode`.
 
         The render mode attribute :attr:`render_mode` is set during the initialization
@@ -203,7 +204,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
           render for the entire environment (like `"rgb_array"` and `"ansi"` render
           modes) which should be mapped to the `"env"` key in the dictionary by default.
 
-        Note
+        Note:
         ----
         Make sure that your class's :attr:`metadata` ``"render_modes"`` key includes
         the list of supported modes.
@@ -216,7 +217,6 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
 
         Should be overridden in subclasses as necessary.
         """
-        pass
 
     @property
     @abc.abstractmethod
@@ -232,7 +232,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
         """
 
     @property
-    def possible_agents(self) -> Tuple[str, ...]:
+    def possible_agents(self) -> tuple[str, ...]:
         """The list of all possible agents that may appear in the environment.
 
         Returns
@@ -243,7 +243,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
         return self.model.possible_agents
 
     @property
-    def agents(self) -> List[str]:
+    def agents(self) -> list[str]:
         """The list of agents active in the environment for current state.
 
         This will be :attr:`possible_agents`, independent of state, for any environment
@@ -257,7 +257,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
         return self.model.get_agents(self.state)
 
     @property
-    def action_spaces(self) -> Dict[str, spaces.Space]:
+    def action_spaces(self) -> dict[str, spaces.Space]:
         """A mapping from Agent ID to the space of valid actions for that agent.
 
         Returns
@@ -268,7 +268,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
         return self.model.action_spaces
 
     @property
-    def observation_spaces(self) -> Dict[str, spaces.Space]:
+    def observation_spaces(self) -> dict[str, spaces.Space]:
         """A mapping from Agent ID to the space of valid observations for that agent.
 
         Returns
@@ -279,7 +279,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
         return self.model.observation_spaces
 
     @property
-    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
+    def reward_ranges(self) -> dict[str, tuple[float, float]]:
         r"""A mapping from Agent ID to the min and max possible rewards for that agent.
 
         Each reward tuple corresponding to the minimum and maximum possible rewards for
@@ -320,7 +320,7 @@ class Env(abc.ABC, Generic[StateType, ObsType, ActType]):
         return self.model.is_symmetric
 
     @property
-    def unwrapped(self) -> "Env":
+    def unwrapped(self) -> Env:
         """Completely unwrap this env.
 
         Returns
@@ -374,7 +374,11 @@ class DefaultEnv(Env[StateType, ObsType, ActType]):
 
     """
 
-    def __init__(self, model: POSGModel, render_mode: Optional[str] = None):
+    def __init__(
+        self,
+        model: POSGModel,
+        render_mode: str | None = None,
+    ) -> None:
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.model = model
         self.render_mode = render_mode
@@ -382,18 +386,18 @@ class DefaultEnv(Env[StateType, ObsType, ActType]):
         self._state = self.model.sample_initial_state()
         self._last_obs = self.model.sample_initial_obs(self._state)
         self._step_num = 0
-        self._last_actions: Dict[str, ActType] | None = None
-        self._last_rewards: Dict[str, float] | None = None
+        self._last_actions: dict[str, ActType] | None = None
+        self._last_rewards: dict[str, float] | None = None
 
     def step(
-        self, actions: Dict[str, ActType]
-    ) -> Tuple[
-        Dict[str, ObsType],
-        Dict[str, float],
-        Dict[str, bool],
-        Dict[str, bool],
+        self, actions: dict[str, ActType]
+    ) -> tuple[
+        dict[str, ObsType],
+        dict[str, float],
+        dict[str, bool],
+        dict[str, bool],
         bool,
-        Dict[str, Dict],
+        dict[str, dict],
     ]:
         step = self.model.step(self._state, actions)
         self._step_num += 1
@@ -411,8 +415,8 @@ class DefaultEnv(Env[StateType, ObsType, ActType]):
         )
 
     def reset(
-        self, *, seed: int | None = None, options: Dict[str, Any] | None = None
-    ) -> Tuple[Dict[str, ObsType], Dict[str, Dict]]:
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> tuple[dict[str, ObsType], dict[str, dict]]:
         super().reset(seed=seed)
         self._state = self.model.sample_initial_state()
         self._last_obs = self.model.sample_initial_obs(self._state)
@@ -444,19 +448,19 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
     back to the wrapper's environment (i.e. to the corresponding attributes of
     :attr:`env`).
 
-    Note
+    Note:
     ----
     If you inherit from :class:`Wrapper`, don't forget to call ``super().__init__(env)``
     if the subclass overrides the `__init__` method.
 
     """
 
-    def __init__(self, env: Env[StateType, ObsType, ActType]):
+    def __init__(self, env: Env[StateType, ObsType, ActType]) -> None:
         self.env = env
-        self._action_spaces: Dict[str, spaces.Space] | None = None
-        self._observation_spaces: Dict[str, spaces.Space] | None = None
-        self._reward_ranges: Dict[str, Tuple[float, float]] | None = None
-        self._metadata: Dict[str, Any] | None = None
+        self._action_spaces: dict[str, spaces.Space] | None = None
+        self._observation_spaces: dict[str, spaces.Space] | None = None
+        self._reward_ranges: dict[str, tuple[float, float]] | None = None
+        self._metadata: dict[str, Any] | None = None
 
     def __getattr__(self, name):
         """Returns attribute with ``name``, unless ``name`` starts with underscore."""
@@ -484,17 +488,17 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         return self.env.state  # type: ignore
 
     @property
-    def possible_agents(self) -> Tuple[str, ...]:
+    def possible_agents(self) -> tuple[str, ...]:
         """Returns the :attr:`Env` :attr:`possible_agents`."""
         return self.env.possible_agents
 
     @property
-    def agents(self) -> List[str]:
+    def agents(self) -> list[str]:
         """Returns the :attr:`Env` :attr:`agents`."""
         return self.env.agents
 
     @property
-    def action_spaces(self) -> Dict[str, spaces.Space]:
+    def action_spaces(self) -> dict[str, spaces.Space]:
         """Return the :attr:`Env` :attr:`action_spaces`.
 
         This is the :attr:`Env` :attr:`action_spaces` unless it's overwritten then the
@@ -505,11 +509,11 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         return self._action_spaces
 
     @action_spaces.setter
-    def action_spaces(self, action_spaces: Dict[str, spaces.Space]):
+    def action_spaces(self, action_spaces: dict[str, spaces.Space]):
         self._action_spaces = action_spaces
 
     @property
-    def observation_spaces(self) -> Dict[str, spaces.Space]:
+    def observation_spaces(self) -> dict[str, spaces.Space]:
         """Return the :attr:`Env` :attr:`observation_spaces`.
 
         This is the :attr:`Env` :attr:`observation_spaces` unless it's overwritten then
@@ -520,11 +524,11 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         return self._observation_spaces
 
     @observation_spaces.setter
-    def observation_spaces(self, observation_spaces: Dict[str, spaces.Space]):
+    def observation_spaces(self, observation_spaces: dict[str, spaces.Space]):
         self._observation_spaces = observation_spaces
 
     @property
-    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
+    def reward_ranges(self) -> dict[str, tuple[float, float]]:
         """Return the :attr:`Env` :attr:`reward_ranges`.
 
         This is the :attr:`Env` :attr:`reward_ranges`, unless it's overwritten, then
@@ -535,18 +539,18 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         return self._reward_ranges
 
     @reward_ranges.setter
-    def reward_ranges(self, reward_ranges: Dict[str, Tuple[float, float]]):
+    def reward_ranges(self, reward_ranges: dict[str, tuple[float, float]]):
         self._reward_ranges = reward_ranges
 
     @property
-    def metadata(self) -> Dict[str, Any]:
+    def metadata(self) -> dict[str, Any]:
         """Returns the :attr:`Env` :attr:`metadata`."""
         if self._metadata is None:
             return self.env.metadata
         return self._metadata
 
     @metadata.setter
-    def metadata(self, value: Dict[str, Any]):
+    def metadata(self, value: dict[str, Any]):
         self._metadata = value
 
     @property
@@ -568,14 +572,14 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         self.env.render_mode = render_mode
 
     def step(
-        self, actions: Dict[str, WrapperActType]
-    ) -> Tuple[
-        Dict[str, WrapperObsType],
-        Dict[str, float],
-        Dict[str, bool],
-        Dict[str, bool],
+        self, actions: dict[str, WrapperActType]
+    ) -> tuple[
+        dict[str, WrapperObsType],
+        dict[str, float],
+        dict[str, bool],
+        dict[str, bool],
         bool,
-        Dict[str, Dict],
+        dict[str, dict],
     ]:
         """Uses the :meth:`step` of the :attr:`env`.
 
@@ -584,8 +588,8 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
         return self.env.step(actions)  # type: ignore
 
     def reset(
-        self, *, seed: int | None = None, options: Dict[str, Any] | None = None
-    ) -> Tuple[Dict[str, WrapperObsType], Dict[str, Dict]]:
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> tuple[dict[str, WrapperObsType], dict[str, dict]]:
         """Uses the :meth:`reset` of the :attr:`env`.
 
         Can be overwritten to change the returned data.
@@ -594,7 +598,7 @@ class Wrapper(Env[WrapperStateType, WrapperObsType, WrapperActType]):
 
     def render(
         self,
-    ) -> None | np.ndarray | str | Dict[str, np.ndarray] | Dict[str, str]:
+    ) -> None | np.ndarray | str | dict[str, np.ndarray] | dict[str, str]:
         """Uses the :meth:`render` of the :attr:`env`.
 
         Can be overwritten to change the returned data.
@@ -629,31 +633,31 @@ class ObservationWrapper(Wrapper[StateType, WrapperObsType, ActType]):
     Subclasses should at least implement the observations function.
     """
 
-    def __init__(self, env: Env[StateType, ObsType, ActType]):
+    def __init__(self, env: Env[StateType, ObsType, ActType]) -> None:
         super().__init__(env)
 
     def reset(
-        self, *, seed: int | None = None, options: Dict[str, Any] | None = None
-    ) -> Tuple[Dict[str, WrapperObsType], Dict[str, Dict]]:
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> tuple[dict[str, WrapperObsType], dict[str, dict]]:
         obs, info = self.env.reset(seed=seed, options=options)
         if obs is None:
             return obs, info
         return self.observations(obs), info
 
     def step(
-        self, actions: Dict[str, ActType]
-    ) -> Tuple[
-        Dict[str, WrapperObsType],
-        Dict[str, float],
-        Dict[str, bool],
-        Dict[str, bool],
+        self, actions: dict[str, ActType]
+    ) -> tuple[
+        dict[str, WrapperObsType],
+        dict[str, float],
+        dict[str, bool],
+        dict[str, bool],
         bool,
-        Dict[str, Dict],
+        dict[str, dict],
     ]:
         obs, reward, term, trunc, done, infos = self.env.step(actions)  # type: ignore
         return self.observations(obs), reward, term, trunc, done, infos
 
-    def observations(self, obs: Dict[str, ObsType]) -> Dict[str, WrapperObsType]:
+    def observations(self, obs: dict[str, ObsType]) -> dict[str, WrapperObsType]:
         """Transforms observations received from wrapped environment."""
         raise NotImplementedError
 
@@ -664,23 +668,23 @@ class RewardWrapper(Wrapper[StateType, ObsType, ActType]):
     Subclasses should at least implement the rewards function.
     """
 
-    def __init__(self, env: Env[StateType, ObsType, ActType]):
+    def __init__(self, env: Env[StateType, ObsType, ActType]) -> None:
         super().__init__(env)
 
     def step(
-        self, actions: Dict[str, ActType]
-    ) -> Tuple[
-        Dict[str, ObsType],
-        Dict[str, float],
-        Dict[str, bool],
-        Dict[str, bool],
+        self, actions: dict[str, ActType]
+    ) -> tuple[
+        dict[str, ObsType],
+        dict[str, float],
+        dict[str, bool],
+        dict[str, bool],
         bool,
-        Dict[str, Dict],
+        dict[str, dict],
     ]:
         obs, reward, term, trunc, done, info = self.env.step(actions)  # type: ignore
         return obs, self.rewards(reward), term, trunc, done, info  # type: ignore
 
-    def rewards(self, rewards: Dict[str, float]) -> Dict[str, float]:
+    def rewards(self, rewards: dict[str, float]) -> dict[str, float]:
         """Transforms rewards received from wrapped environment."""
         raise NotImplementedError
 
@@ -691,21 +695,21 @@ class ActionWrapper(Wrapper[StateType, ObsType, WrapperActType]):
     Subclasses should at least implement the actions function.
     """
 
-    def __init__(self, env: Env[StateType, ObsType, ActType]):
+    def __init__(self, env: Env[StateType, ObsType, ActType]) -> None:
         super().__init__(env)
 
     def step(
-        self, actions: Dict[str, ActType]
-    ) -> Tuple[
-        Dict[str, ObsType],
-        Dict[str, float],
-        Dict[str, bool],
-        Dict[str, bool],
+        self, actions: dict[str, ActType]
+    ) -> tuple[
+        dict[str, ObsType],
+        dict[str, float],
+        dict[str, bool],
+        dict[str, bool],
         bool,
-        Dict[str, Dict],
+        dict[str, dict],
     ]:
         return self.env.step(self.actions(actions))  # type: ignore
 
-    def actions(self, actions: Dict[str, ActType]) -> Dict[str, WrapperActType]:
+    def actions(self, actions: dict[str, ActType]) -> dict[str, WrapperActType]:
         """Transform actions for wrapped environment."""
         raise NotImplementedError

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from queue import PriorityQueue
-from typing import TYPE_CHECKING, Dict, Set, Tuple, cast
+from typing import TYPE_CHECKING, cast
 
 import posggym.envs.grid_world.pursuit_evasion as pe
 from posggym.agents.policy import Policy, PolicyID, PolicyState
@@ -10,13 +10,14 @@ from posggym.agents.utils import action_distributions
 from posggym.envs.grid_world.core import Coord, Direction
 from posggym.utils import seeding
 
+
 if TYPE_CHECKING:
     from posggym.model import POSGModel
     from posggym.utils.history import AgentHistory
 
 
 # Current coord, facing direction
-Pos = Tuple[Coord, Direction]
+Pos = tuple[Coord, Direction]
 
 
 class PEShortestPathPolicy(Policy[pe.PEAction, pe.PEObs]):
@@ -33,7 +34,7 @@ class PEShortestPathPolicy(Policy[pe.PEAction, pe.PEObs]):
 
     """
 
-    def __init__(self, model: POSGModel, agent_id: str, policy_id: PolicyID):
+    def __init__(self, model: POSGModel, agent_id: str, policy_id: PolicyID) -> None:
         super().__init__(model, agent_id, policy_id)
         self.model = cast(pe.PursuitEvasionModel, model)
         self._grid = self.model.grid
@@ -187,7 +188,7 @@ class PEShortestPathPolicy(Policy[pe.PEAction, pe.PEObs]):
             min_dist = min(min_dist, dists.get(pos, float("inf")))
         return min_dist
 
-    def get_all_shortest_paths(self, origin: Coord) -> Dict[Pos, Dict[Pos, int]]:
+    def get_all_shortest_paths(self, origin: Coord) -> dict[Pos, dict[Pos, int]]:
         """Get shortest paths from given origin to all other positions.
 
         Note, this is a search over agent configurations (coord, facing_dir), rather
@@ -200,7 +201,7 @@ class PEShortestPathPolicy(Policy[pe.PEAction, pe.PEObs]):
             src_dists[pos] = self.dijkstra(pos)
         return src_dists
 
-    def dijkstra(self, origin: Pos) -> Dict[Pos, int]:
+    def dijkstra(self, origin: Pos) -> dict[Pos, int]:
         """Get shortest path distance to origin from all other positions."""
         dist = {origin: 0}
         pq = PriorityQueue()  # type: ignore
@@ -220,7 +221,7 @@ class PEShortestPathPolicy(Policy[pe.PEAction, pe.PEObs]):
                         visited.add(adj_pos)
         return dist
 
-    def get_prev_positions(self, pos: Pos) -> Set[Pos]:
+    def get_prev_positions(self, pos: Pos) -> set[Pos]:
         """Get all positions reachable from given position."""
         coord, facing_dir = pos
         prev_positions = set()

@@ -30,12 +30,12 @@ class DTCHeuristicPolicy(Policy[DTCAction, DTCObs], abc.ABC):
         model: DroneTeamCaptureModel,
         agent_id: str,
         policy_id: PolicyID,
-    ):
+    ) -> None:
         if model.n_com_pursuers < model.n_pursuers - 1 or (
             model.observation_limit is not None
             and model.observation_limit < 2 * model.r_arena
         ):
-            logger.warn(
+            logger.warning(
                 "The DroneTeamCapture Heuristic policies are designed for the case "
                 "where each pursuer can see every other pursuer "
                 "(i.e. `n_com_pursuers = n_pursuers - 1` and `observation_limit = None`"
@@ -354,7 +354,7 @@ class DTCDPPHeuristicPolicy(DTCHeuristicPolicy):
 
     Souza, C., Castillo, P., & Vidolov, B. (2022). Local interaction and navigation
     guidance for hunters drones: a chase behavior approach with real-time tests.
-    Robotica, 40(8), 2697–2715.
+    Robotica, 40(8), 2697-2715.
 
     """
 

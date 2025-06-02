@@ -18,7 +18,6 @@ Example, to record 10 episodes of the `Driving-v1` environment run,
 
 import argparse
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import posggym
 
@@ -26,8 +25,8 @@ import posggym
 def record_env(
     env_id: str,
     num_episodes: int,
-    max_episode_steps: Optional[int] = None,
-    seed: Optional[int] = None,
+    max_episode_steps: int | None = None,
+    seed: int | None = None,
 ):
     """Run random agents."""
     if max_episode_steps is not None:
@@ -48,7 +47,7 @@ def record_env(
 
     dones = 0
     episode_steps = []
-    episode_rewards: Dict[str, List[float]] = {i: [] for i in env.possible_agents}
+    episode_rewards: dict[str, list[float]] = {i: [] for i in env.possible_agents}
     for ep_num in range(num_episodes):
         t = 0
         done = False

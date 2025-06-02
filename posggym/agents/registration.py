@@ -13,7 +13,7 @@ import importlib
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Protocol, Tuple
+from typing import TYPE_CHECKING, Any, Protocol
 
 import posggym
 from posggym import error, logger
@@ -44,12 +44,12 @@ class PolicyEntryPoint(Protocol):
 def load(name: str) -> PolicyEntryPoint:
     """Loads policy with name and returns a policy entry point.
 
-    Arguments
+    Arguments:
     ---------
     name : str
         The policy name.
 
-    Returns
+    Returns:
     -------
     entry_point : PolicyEntryPoint
         Policy creation function.
@@ -61,19 +61,19 @@ def load(name: str) -> PolicyEntryPoint:
     return fn
 
 
-def parse_policy_id(policy_id: str) -> Tuple[str | None, str | None, str, int | None]:
+def parse_policy_id(policy_id: str) -> tuple[str | None, str | None, str, int | None]:
     """Parse policy ID string format.
 
     env_id is group 1, env_args_id is group 2. policy_id is group 2, version is group 3
 
     [env_id/][env_args_id/](policy_id)-v(version)
 
-    Arguments
+    Arguments:
     ---------
     policy_id : str
         The policy id to parse.
 
-    Returns
+    Returns:
     -------
     env_id : str | None
         The environment ID.
@@ -84,9 +84,11 @@ def parse_policy_id(policy_id: str) -> Tuple[str | None, str | None, str, int | 
     version : int | None
         The policy version.
 
-    Raises
+    Raises:
     ------
-    Error
+
+    Error:
+    -----
         If the policy id does not a valid environment regex.
 
     """
@@ -120,7 +122,7 @@ def get_policy_id(
 
     Inverse of :meth:`parse_policy_id`.
 
-    Arguments
+    Arguments:
     ---------
     env_id : str | None
         The environment ID.
@@ -131,7 +133,7 @@ def get_policy_id(
     version : int | None
         The policy version.
 
-    Returns
+    Returns:
     -------
     policy_id : str
         The policy id.
@@ -153,7 +155,7 @@ def get_policy_id(
     return full_name
 
 
-def get_env_args_id(env_args: Dict[str, Any]) -> str:
+def get_env_args_id(env_args: dict[str, Any]) -> str:
     """Get string representation of environment keyword arguments.
 
     Converts keyword dictionary {k1: v1, k2: v2, k3: v3} into a string:
@@ -163,12 +165,12 @@ def get_env_args_id(env_args: Dict[str, Any]) -> str:
     Note we assume keywords are valid python variable names and so do not contain
     any hyphen '-' characters.
 
-    Arguments
+    Arguments:
     ---------
     env_args : Dict[str, Any]
         Environment keyword arguments.
 
-    Returns
+    Returns:
     -------
     env_args_id : str
         String representation of the envrinment keyword arguments.
@@ -184,7 +186,7 @@ class PolicySpec:
     Used to register agent policies that can then be dynamically loaded using
     posggym_agents.make.
 
-    Arguments
+    Arguments:
     ---------
     policy_name
         The name of the policy.
@@ -231,15 +233,15 @@ class PolicySpec:
 
     # Environment attributes
     env_id: str | None = field(default=None)
-    env_args: Dict[str, Any] | None = field(default=None)
+    env_args: dict[str, Any] | None = field(default=None)
 
     # Policy attributes
-    valid_agent_ids: List[str] | None = field(default=None)
+    valid_agent_ids: list[str] | None = field(default=None)
     nondeterministic: bool = field(default=False)
     description: str | None = field(default=None)
 
     # Policy Arguments
-    kwargs: Dict = field(default_factory=dict)
+    kwargs: dict = field(default_factory=dict)
 
     # post-init attributes
     env_args_id: str | None = field(default=None)
@@ -285,7 +287,7 @@ def _check_env_id_exists(env_id: str | None, env_args_id: str | None):
             if suggestion
             else f"Have you installed the proper package for {env_id}?"
         )
-        raise error.PolicyEnvIDNotFound(
+        raise error.PolicyEnvIDNotFoundError(
             f"Environment ID {env_id} not found. {suggestion_msg}"
         )
 
@@ -303,7 +305,7 @@ def _check_env_id_exists(env_id: str | None, env_args_id: str | None):
             else None
         )
         suggestion_msg = f"Did you mean: `{suggestion[0]}`?" if suggestion else ""
-        raise error.PolicyEnvArgsIDNotFound(
+        raise error.PolicyEnvArgsIDNotFoundError(
             f"Environment Arguments {env_args_id} for environment ID {env_id} not "
             f"found. {suggestion_msg}"
         )
@@ -337,7 +339,7 @@ def _check_name_exists(env_id: str | None, env_args_id: str | None, policy_name:
     env_id_msg = f" for env ID {env_id}" if env_id else ""
     suggestion_msg = f"Did you mean: `{names[suggestion[0]]}`?" if suggestion else ""
 
-    raise error.PolicyNameNotFound(
+    raise error.PolicyNameNotFoundError(
         f"Policy {policy_name} doesn't exist{env_id_msg}. {suggestion_msg}"
     )
 
@@ -350,7 +352,7 @@ def _check_version_exists(
     This is a complete test whether an policy ID is valid, and will provide the best
     available hints.
 
-    Arguments
+    Arguments:
     ---------
     env_id : str | None
         The environment ID.
@@ -361,12 +363,12 @@ def _check_version_exists(
     version : int | None
         The policy version.
 
-    Raises
+    Raises:
     ------
-    DeprecatedPolicy
+    DeprecatedPolicyError
         The policy doesn't exist but a default version does or the policy version is
         deprecated
-    VersionNotFound
+    VersionNotFoundError
         The ``version`` used doesn't exist
 
     """
@@ -397,7 +399,7 @@ def _check_version_exists(
     if default_spec:
         message += f" It provides the default version {default_spec[0].id}`."
         if len(policy_specs) == 1:
-            raise error.DeprecatedPolicy(message)
+            raise error.DeprecatedPolicyError(message)
 
     # Process possible versioned environments
     versioned_specs = [spec_ for spec_ in policy_specs if spec_.version is not None]
@@ -411,10 +413,10 @@ def _check_version_exists(
     if version > latest_spec.version:
         version_list_msg = ", ".join(f"`v{spec_.version}`" for spec_ in policy_specs)
         message += f" It provides versioned policies: [ {version_list_msg} ]."
-        raise error.PolicyVersionNotFound(message)
+        raise error.PolicyVersionNotFoundError(message)
 
     if version < latest_spec.version:
-        raise error.DeprecatedPolicy(
+        raise error.DeprecatedPolicyError(
             f"Policy version v{version} for "
             f"`{get_policy_id(env_id, env_args_id, policy_name, None)}` "
             f"is deprecated. Please use `{latest_spec.id}` instead."
@@ -499,8 +501,8 @@ def register(
     entry_point: PolicyEntryPoint | str,
     version: int | None = None,
     env_id: str | None = None,
-    env_args: Dict[str, Any] | None = None,
-    valid_agent_ids: List[str] | None = None,
+    env_args: dict[str, Any] | None = None,
+    valid_agent_ids: list[str] | None = None,
     nondeterministic: bool = False,
     description: str | None = None,
     **kwargs,
@@ -510,7 +512,7 @@ def register(
     The policy is registered in posggym so it can be used with
     :py:method:`posggym.agents.make`
 
-    Arguments
+    Arguments:
     ---------
     policy_name : str
         The name of the policy
@@ -553,7 +555,7 @@ def register(
 def register_spec(spec: PolicySpec):
     """Register a policy spec with posggym-agents.
 
-    Arguments
+    Arguments:
     ---------
     spec : PolicySpec
         The policy spec.
@@ -562,7 +564,7 @@ def register_spec(spec: PolicySpec):
     global registry
     _check_spec_register(spec)
     if spec.id in registry:
-        logger.warn(f"Overriding policy {spec.id} already in registry.")
+        logger.warning(f"Overriding policy {spec.id} already in registry.")
     registry[spec.id] = spec
 
 
@@ -572,7 +574,7 @@ def make(id: str | PolicySpec, model: M.POSGModel, agent_id: str, **kwargs) -> P
     To find all available policies use `posggym_agents.agents.registry.keys()` for
     all valid ids.
 
-    Arguments
+    Arguments:
     ---------
     id : str | PolicySpec
         Unique identifier of the policy or a policy spec.
@@ -583,14 +585,16 @@ def make(id: str | PolicySpec, model: M.POSGModel, agent_id: str, **kwargs) -> P
     **kwargs
         Additional arguments to pass to the policy constructor.
 
-    Returns
+    Returns:
     -------
     Policy
         An instance of the policy.
 
-    Raises
+    Raises:
     ------
-    Error
+
+    Error:
+    -----
         If the ``id`` doesn't exist then an error is raised
 
     """
@@ -616,7 +620,7 @@ def make(id: str | PolicySpec, model: M.POSGModel, agent_id: str, **kwargs) -> P
             and latest_version is not None
             and latest_version > version
         ):
-            logger.warn(
+            logger.warning(
                 f"The policy {id} is out of date. You should consider "
                 f"upgrading to version `v{latest_version}`."
             )
@@ -625,7 +629,7 @@ def make(id: str | PolicySpec, model: M.POSGModel, agent_id: str, **kwargs) -> P
             version = latest_version
             new_policy_id = get_policy_id(env_id, env_args_id, policy_name, version)
             spec_ = registry.get(new_policy_id)  # type: ignore
-            logger.warn(
+            logger.warning(
                 f"Using the latest versioned policy `{new_policy_id}` "
                 f"instead of the unversioned policy `{id}`."
             )
@@ -668,19 +672,21 @@ def make(id: str | PolicySpec, model: M.POSGModel, agent_id: str, **kwargs) -> P
 def spec(id: str) -> PolicySpec:
     """Retrieve the spec for the given policy from the global registry.
 
-    Arguments
+    Arguments:
     ---------
     id : str
         The policy id.
 
-    Returns
+    Returns:
     -------
     PolicySpec
         The policy spec from the global registry.
 
-    Raises
+    Raises:
     ------
-    Error
+
+    Error:
+    -----
         If policy with given ``id`` doesn't exist in global registry.
 
     """
@@ -702,15 +708,15 @@ def spec(id: str) -> PolicySpec:
 
 
 def pprint_registry(
-    _registry: Dict = registry,
+    _registry: dict = registry,
     num_cols: int = 3,
-    include_env_ids: List[str] | None = None,
-    exclude_env_ids: List[str] | None = None,
+    include_env_ids: list[str] | None = None,
+    exclude_env_ids: list[str] | None = None,
     disable_print: bool = False,
 ) -> str | None:
     """Pretty print the policies in the registry.
 
-    Arguments
+    Arguments:
     ---------
     _registry : Dict
         Policy registry to be printed.
@@ -725,7 +731,7 @@ def pprint_registry(
         Whether to return a string of all the policy IDs instead of printing it to
         console.
 
-    Returns
+    Returns:
     -------
     str | None
         Formatted str representation of registry, if ``disable_print=True``, otherwise
@@ -733,7 +739,7 @@ def pprint_registry(
 
     """
     # Defaultdict to store policy names according to env_id.
-    env_policies = defaultdict(lambda: defaultdict(lambda: []))
+    env_policies = defaultdict(lambda: defaultdict(list))
     max_justify = 0
     for spec in _registry.values():
         env_id = "Generic" if spec.env_id is None else spec.env_id
@@ -774,13 +780,13 @@ def pprint_registry(
 
 def get_all_env_policies(
     env_id: str,
-    env_args: Dict[str, Any] | str | None = None,
-    _registry: Dict = registry,
+    env_args: dict[str, Any] | str | None = None,
+    _registry: dict = registry,
     include_generic_policies: bool = True,
-) -> List[PolicySpec]:
+) -> list[PolicySpec]:
     """Get all PolicySpecs that are associated with a given environment ID.
 
-    Arguments
+    Arguments:
     ---------
     env_id : str
         The ID of the environment.
@@ -793,7 +799,7 @@ def get_all_env_policies(
         Whether to also return policies that are valid for all environments (e.g. the
         random-v0 policy).
 
-    Returns
+    Returns:
     -------
     List[PolicySpec]
         List of specs for policies associated with given environment.
@@ -819,13 +825,13 @@ def get_all_env_policies(
 
 def get_env_agent_policies(
     env_id: str,
-    env_args: Dict[str, Any] | None = None,
-    _registry: Dict = registry,
+    env_args: dict[str, Any] | None = None,
+    _registry: dict = registry,
     include_generic_policies: bool = True,
-) -> Dict[str, List[PolicySpec]]:
+) -> dict[str, list[PolicySpec]]:
     """Get each agent's policy specs associated with given environment.
 
-    Arguments
+    Arguments:
     ---------
     env_id : str
         The ID of the environment.
@@ -838,7 +844,7 @@ def get_env_agent_policies(
         Whether to also return policies that are valid for all environments (e.g. the
         random-v0 policy) and environment args.
 
-    Returns
+    Returns:
     -------
     Dict[str, List[PolicySpec]]
         List of specs for policies associated with given environment.
@@ -846,7 +852,7 @@ def get_env_agent_policies(
     """
     env = posggym.make(env_id) if env_args is None else posggym.make(env_id, **env_args)
 
-    policies: Dict[str, List[PolicySpec]] = {i: [] for i in env.possible_agents}
+    policies: dict[str, list[PolicySpec]] = {i: [] for i in env.possible_agents}
     for spec in get_all_env_policies(
         env_id,
         env_args,
@@ -860,23 +866,23 @@ def get_env_agent_policies(
 
 
 def get_all_envs(
-    _registry: Dict = registry,
-) -> Dict[str, Dict[str | None, Dict[str, Any] | None]]:
+    _registry: dict = registry,
+) -> dict[str, dict[str | None, dict[str, Any] | None]]:
     """Get all the environments that have at least one registered policy.
 
-    Arguments
+    Arguments:
     ---------
     _registry : Dict
         The policy registry.
 
-    Returns
+    Returns:
     -------
     Dict[str, Dict[str | None, Dict[str, Any] | None]]
         A dictionary with env IDs as keys as list of (env_args, env_args_id) tuples as
         the values.
 
     """
-    envs: Dict[str, Dict[str | None, Dict[str, Any] | None]] = {}
+    envs: dict[str, dict[str | None, dict[str, Any] | None]] = {}
     for spec in _registry.values():
         if spec.env_id is not None:
             envs.setdefault(spec.env_id, {})

@@ -8,7 +8,7 @@ https://github.com/uoe-agents/BRDiv/blob/master/envs/lb-foraging/lbforaging/agen
 from __future__ import annotations
 
 import random
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, cast
+from typing import TYPE_CHECKING, cast
 
 from posggym.agents.policy import Policy, PolicyID, PolicyState
 from posggym.agents.utils import action_distributions
@@ -17,6 +17,7 @@ from posggym.envs.grid_world.level_based_foraging import (
     LBFObs,
     LevelBasedForagingModel,
 )
+
 
 if TYPE_CHECKING:
     from posggym.envs.grid_world.core import Coord
@@ -31,7 +32,7 @@ class LBFHeuristicPolicy(Policy[LBFAction, LBFObs]):
 
     def __init__(
         self, model: LevelBasedForagingModel, agent_id: str, policy_id: PolicyID
-    ):
+    ) -> None:
         super().__init__(model, agent_id, policy_id)
         assert model.observation_mode in ("vector", "tuple")
         self._rng = random.Random()
@@ -86,23 +87,23 @@ class LBFHeuristicPolicy(Policy[LBFAction, LBFObs]):
 
     def _get_target_pos(
         self,
-        agent_obs: Tuple[int, int, int],
-        food_obs: List[Tuple[int, int, int]],
-        other_agent_obs: List[Tuple[int, int, int]],
+        agent_obs: tuple[int, int, int],
+        food_obs: list[tuple[int, int, int]],
+        other_agent_obs: list[tuple[int, int, int]],
         last_action: LBFAction,
-        target_pos: Optional[Coord],
-    ) -> Optional[Coord]:
+        target_pos: Coord | None,
+    ) -> Coord | None:
         """Get target position from observations."""
         raise NotImplementedError
 
     def _get_food_by_distance(
         self,
         agent_pos: Coord,
-        food_obs: List[Tuple[int, int, int]],
+        food_obs: list[tuple[int, int, int]],
         closest: bool = True,
-        max_food_level: Optional[int] = None,
-    ) -> Optional[Coord]:
-        food_distances: Dict[int, List[Coord]] = {}
+        max_food_level: int | None = None,
+    ) -> Coord | None:
+        food_distances: dict[int, list[Coord]] = {}
         for y, x, level in food_obs:
             if x == -1 or (max_food_level is not None and level > max_food_level):
                 continue
@@ -118,14 +119,14 @@ class LBFHeuristicPolicy(Policy[LBFAction, LBFObs]):
         desired_dist = min(food_distances) if closest else max(food_distances)
         return self._rng.choice(food_distances[desired_dist])
 
-    def _center_of_agents(self, agent_obs: List[Tuple[int, int, int]]) -> Coord:
+    def _center_of_agents(self, agent_obs: list[tuple[int, int, int]]) -> Coord:
         y_mean = sum(o[0] for o in agent_obs) / len(agent_obs)
         x_mean = sum(o[1] for o in agent_obs) / len(agent_obs)
         return round(x_mean), round(y_mean)
 
     def _move_towards(
         self, agent_pos: Coord, target: Coord, load_if_adjacent: bool = True
-    ) -> List[LBFAction]:
+    ) -> list[LBFAction]:
         if (
             load_if_adjacent
             and abs(target[0] - agent_pos[0]) + abs(target[1] - agent_pos[1]) == 1
@@ -168,12 +169,12 @@ class LBFHeuristic1(LBFHeuristicPolicy):
 
     def _get_target_pos(
         self,
-        agent_obs: Tuple[int, int, int],
-        food_obs: List[Tuple[int, int, int]],
-        other_agent_obs: List[Tuple[int, int, int]],
+        agent_obs: tuple[int, int, int],
+        food_obs: list[tuple[int, int, int]],
+        other_agent_obs: list[tuple[int, int, int]],
         last_action: LBFAction,
-        target_pos: Optional[Coord],
-    ) -> Optional[Coord]:
+        target_pos: Coord | None,
+    ) -> Coord | None:
         agent_pos = agent_obs[:2]
         return self._get_food_by_distance(
             agent_pos, food_obs, closest=True, max_food_level=None
@@ -187,12 +188,12 @@ class LBFHeuristic2(LBFHeuristicPolicy):
 
     def _get_target_pos(
         self,
-        agent_obs: Tuple[int, int, int],
-        food_obs: List[Tuple[int, int, int]],
-        other_agent_obs: List[Tuple[int, int, int]],
+        agent_obs: tuple[int, int, int],
+        food_obs: list[tuple[int, int, int]],
+        other_agent_obs: list[tuple[int, int, int]],
         last_action: LBFAction,
-        target_pos: Optional[Coord],
-    ) -> Optional[Coord]:
+        target_pos: Coord | None,
+    ) -> Coord | None:
         if not other_agent_obs:
             return None
 
@@ -207,12 +208,12 @@ class LBFHeuristic3(LBFHeuristicPolicy):
 
     def _get_target_pos(
         self,
-        agent_obs: Tuple[int, int, int],
-        food_obs: List[Tuple[int, int, int]],
-        other_agent_obs: List[Tuple[int, int, int]],
+        agent_obs: tuple[int, int, int],
+        food_obs: list[tuple[int, int, int]],
+        other_agent_obs: list[tuple[int, int, int]],
         last_action: LBFAction,
-        target_pos: Optional[Coord],
-    ) -> Optional[Coord]:
+        target_pos: Coord | None,
+    ) -> Coord | None:
         agent_pos, agent_level = agent_obs[:2], agent_obs[2]
         return self._get_food_by_distance(
             agent_pos, food_obs, closest=True, max_food_level=agent_level
@@ -226,12 +227,12 @@ class LBFHeuristic4(LBFHeuristicPolicy):
 
     def _get_target_pos(
         self,
-        agent_obs: Tuple[int, int, int],
-        food_obs: List[Tuple[int, int, int]],
-        other_agent_obs: List[Tuple[int, int, int]],
+        agent_obs: tuple[int, int, int],
+        food_obs: list[tuple[int, int, int]],
+        other_agent_obs: list[tuple[int, int, int]],
         last_action: LBFAction,
-        target_pos: Optional[Coord],
-    ) -> Optional[Coord]:
+        target_pos: Coord | None,
+    ) -> Coord | None:
         if target_pos is not None:
             # At the start of an episode it will select a target food and move towards
             # it. Each time it's current target food is collected it then selects a new
@@ -258,12 +259,12 @@ class LBFHeuristic5(LBFHeuristicPolicy):
 
     def _get_target_pos(
         self,
-        agent_obs: Tuple[int, int, int],
-        food_obs: List[Tuple[int, int, int]],
-        other_agent_obs: List[Tuple[int, int, int]],
+        agent_obs: tuple[int, int, int],
+        food_obs: list[tuple[int, int, int]],
+        other_agent_obs: list[tuple[int, int, int]],
         last_action: LBFAction,
-        target_pos: Optional[Coord],
-    ) -> Optional[Coord]:
+        target_pos: Coord | None,
+    ) -> Coord | None:
         if target_pos is not None:
             # At the start of an episode it will select a target food and move towards
             # it. Each time it's current target food is collected it then selects a new

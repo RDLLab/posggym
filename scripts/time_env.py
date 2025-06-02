@@ -8,24 +8,23 @@ To see options and usage:
 
 import argparse
 import time
-from typing import Optional
 
 import posggym
 
 
 def time_env_step_rate(
-    env_id: str, num_steps: int, seed: Optional[int], render_mode: Optional[str]
+    env_id: str, num_steps: int, seed: int | None, render_mode: str | None
 ) -> float:
     """Calculate the step rate of environment.
 
-    Arguments
+    Arguments:
     ---------
     env_id: ID of environment to test
     num_steps: The number of steps to test for
     seed: the random seed to use
     render_mode: render mode for environment
 
-    Returns
+    Returns:
     -------
     step_rate: the average steps per second executed in the environment
 
@@ -50,10 +49,10 @@ def time_env_step_rate(
 
 
 def main(
-    env_id: Optional[str] = None,
+    env_id: str | None = None,
     num_steps: int = 1000,
-    seed: Optional[int] = None,
-    render_mode: Optional[str] = None,
+    seed: int | None = None,
+    render_mode: str | None = None,
 ):
     env_ids = list(posggym.registry) if env_id is None else [env_id]
 

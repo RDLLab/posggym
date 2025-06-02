@@ -11,27 +11,27 @@ class Error(Exception):
     """Base posggym error."""
 
 
-class Unregistered(Error):
+class UnregisteredError(Error):
     """Raised when user requests item from registry that doesn't exist."""
 
 
-class UnregisteredEnv(Unregistered):
+class UnregisteredEnvError(UnregisteredError):
     """Raised when user requests env from registry that doesn't exist."""
 
 
-class NamespaceNotFound(UnregisteredEnv):
+class NamespaceNotFoundError(UnregisteredEnvError):
     """Raised when user requests env from registry where namespace doesn't exist."""
 
 
-class NameNotFound(UnregisteredEnv):
+class NameNotFoundError(UnregisteredEnvError):
     """Raised when user requests env from registry where name doesn't exist."""
 
 
-class VersionNotFound(UnregisteredEnv):
+class VersionNotFoundError(UnregisteredEnvError):
     """Raised when user requests env from registry where version doesn't exist."""
 
 
-class DeprecatedEnv(Error):
+class DeprecatedEnvError(Error):
     """Raised when user requests env from registry with old version.
 
     I.e. if the version number is older than the latest version env with the same
@@ -46,88 +46,84 @@ class RegistrationError(Error):
     """
 
 
-class UnseedableEnv(Error):
+class UnseedableEnvError(Error):
     """Raised when the user tries to seed an env that does not support seeding."""
 
 
-class DependencyNotInstalled(Error):
+class DependencyNotInstalledError(Error):
     """Raised when the user has not installed a dependency."""
 
 
-class UnsupportedMode(Error):
+class UnsupportedModeError(Error):
     """Raised when user requests rendering mode not supported by the environment."""
 
 
-class InvalidMetadata(Error):
+class InvalidMetadataError(Error):
     """Raised when the metadata of an environment is not valid."""
 
 
-class ResetNeeded(Error):
+class ResetNeededError(Error):
     """Raised when the user attempts to step environment before a reset."""
 
 
-class ResetNotAllowed(Error):
+class ResetNotAllowedError(Error):
     """Raised when user tries to reset an environment that's not done.
 
     Applicable when monitor is active.
     """
 
 
-class InvalidAction(Error):
+class InvalidActionError(Error):
     """Raised when the user performs an action not contained within the action space."""
 
 
-class MissingArgument(Error):
+class MissingArgumentError(Error):
     """Raised when a required argument in the initializer is missing."""
 
 
-class InvalidProbability(Error):
+class InvalidProbabilityError(Error):
     """Raised when given an invalid value for a probability."""
 
 
-class InvalidBound(Error):
+class InvalidBoundError(Error):
     """Raised when the clipping an array with invalid upper and/or lower bound."""
 
 
 # Video errors
 
 
-class VideoRecorderError(Error):
+class VideoRecorderErrorError(Error):
     """Video recorder error."""
 
-    pass
 
-
-class InvalidFrame(Error):
+class InvalidFrameError(Error):
     """Invalid video frame error."""
-
-    pass
 
 
 # posggym.agent specific errors
 
 
-class UnregisteredPolicy(Unregistered):
+class UnregisteredPolicyError(UnregisteredError):
     """Raised when user requests policy from registry that doesn't exist."""
 
 
-class PolicyEnvIDNotFound(UnregisteredPolicy):
+class PolicyEnvIDNotFoundError(UnregisteredPolicyError):
     """Raised when user requests policy from registry with env-id that doesn't exist."""
 
 
-class PolicyEnvArgsIDNotFound(UnregisteredPolicy):
+class PolicyEnvArgsIDNotFoundError(UnregisteredPolicyError):
     """Raised when user requests policy from registry with env-args that don't exist."""
 
 
-class PolicyNameNotFound(UnregisteredPolicy):
+class PolicyNameNotFoundError(UnregisteredPolicyError):
     """Raised when user requests policy from registry where name doesn't exist."""
 
 
-class PolicyVersionNotFound(UnregisteredPolicy):
+class PolicyVersionNotFoundError(UnregisteredPolicyError):
     """Raised when user requests policy from registry where version doesn't exist."""
 
 
-class DeprecatedPolicy(Error):
+class DeprecatedPolicyError(Error):
     """Raised when user requests policy from registry with old version.
 
     I.e. if the version number is older than the latest version env with the same
@@ -142,11 +138,11 @@ class PolicyRegistrationError(Error):
     """
 
 
-class UnseedablePolicy(Error):
+class UnseedablePolicyError(Error):
     """Raised when the user tries to seed an policy that does not support seeding."""
 
 
-class InvalidFile(Error):
+class InvalidFileError(Error):
     """Raised when trying to access and invalid posggym file."""
 
 

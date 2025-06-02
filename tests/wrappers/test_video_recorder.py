@@ -5,6 +5,7 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/wrappers/test_
 
 """
 import re
+from typing import ClassVar
 
 import posggym
 import pytest
@@ -12,9 +13,9 @@ from posggym.wrappers.monitoring.video_recorder import VideoRecorder
 
 
 class BrokenRecordableEnv(posggym.Env):
-    metadata = {"render_modes": ["rgb_array"]}
+    metadata: ClassVar[dict] = {"render_modes": ["rgb_array"]}
 
-    def __init__(self, render_mode="rgb_array"):
+    def __init__(self, render_mode="rgb_array") -> None:
         self.render_mode = render_mode
 
     def render(self):
@@ -29,9 +30,9 @@ class BrokenRecordableEnv(posggym.Env):
 
 
 class UnrecordableEnv(posggym.Env):
-    metadata = {"render_modes": [None]}
+    metadata: ClassVar[dict] = {"render_modes": [None]}
 
-    def __init__(self, render_mode=None):
+    def __init__(self, render_mode=None) -> None:
         self.render_mode = render_mode
 
     def render(self):
@@ -103,13 +104,3 @@ def test_record_breaking_render_method():
 
 
 # def test_text_envs():
-#     env = posggym.make(
-#         "MultiAgentTiger-v0", render_mode="ansi", disable_env_checker=True
-#     )
-#     video = VideoRecorder(env)
-#     try:
-#         env.reset()
-#         video.capture_frame()
-#         video.close()
-#     finally:
-#         os.remove(video.path)

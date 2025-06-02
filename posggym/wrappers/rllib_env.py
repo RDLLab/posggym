@@ -1,24 +1,24 @@
 """Wrapper for converting a posggym environment into rllib multi-agent environment."""
 
 import warnings
-from typing import Optional, Set, Tuple
 
 from gymnasium import spaces
 
 import posggym
+
 
 try:
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=DeprecationWarning)
         from ray.rllib.env.multi_agent_env import MultiAgentEnv
         from ray.rllib.utils.typing import AgentID, MultiAgentDict
-except ImportError:
-    raise posggym.error.DependencyNotInstalled(
+except ImportError as err:
+    raise posggym.error.DependencyNotInstalledError(
         "The posggym.wrapper.rllib_multi_agent_env wrapper depends on the Ray RLlib "
         "library. run `pip install ray[rllib]>=2.3` or visit "
         "'https://docs.ray.io/en/latest/ray-overview/installation.html` for more "
         "details on installing rllib. "
-    )
+    ) from err
 
 
 class RllibMultiAgentEnv(MultiAgentEnv):
@@ -28,14 +28,13 @@ class RllibMultiAgentEnv(MultiAgentEnv):
 
     References
     ----------
-
     - https://github.com/ray-project/ray/blob/ray-2.3.0/rllib/env/multi_agent_env.py
 
     """
 
-    def __init__(self, env: posggym.Env):
+    def __init__(self, env: posggym.Env) -> None:
         self.env = env
-        self._done_agents: Set[AgentID] = set()
+        self._done_agents: set[AgentID] = set()
 
         # must assign this first before calling super().__init__() so that
         # property functions are initialized before super().__init__() is
@@ -64,22 +63,22 @@ class RllibMultiAgentEnv(MultiAgentEnv):
         """
         return spaces.Dict(self.env.action_spaces)
 
-    def get_agent_ids(self) -> Set[AgentID]:
+    def get_agent_ids(self) -> set[AgentID]:
         """Return a set of agent ids in the environment."""
         return self._agent_ids
 
     def reset(  # type: ignore
         self,
         *,
-        seed: Optional[int] = None,
-        options: Optional[dict] = None,
-    ) -> Tuple[MultiAgentDict, MultiAgentDict]:
+        seed: int | None = None,
+        options: dict | None = None,
+    ) -> tuple[MultiAgentDict, MultiAgentDict]:
         self._done_agents = set()
         return self.env.reset(seed=seed, options=options)
 
     def step(  # type: ignore
         self, action_dict: MultiAgentDict
-    ) -> Tuple[
+    ) -> tuple[
         MultiAgentDict, MultiAgentDict, MultiAgentDict, MultiAgentDict, MultiAgentDict
     ]:
         """Returns observations from ready agents.
@@ -87,12 +86,12 @@ class RllibMultiAgentEnv(MultiAgentEnv):
         The returns are dicts mapping from agent_id strings to values. The
         number of agents in the env can vary over time.
 
-        Arguments
+        Arguments:
         ---------
         action_dict : MultiAgentDict
             action for each agent
 
-        Returns
+        Returns:
         -------
         observations : MultiAgentDict
             new observations for each ready agent

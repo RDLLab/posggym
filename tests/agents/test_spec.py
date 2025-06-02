@@ -25,7 +25,7 @@ TEST_ENV_ARGS_ID = get_env_args_id(TEST_ENV_ARGS)
 
 @pytest.fixture(scope="function")
 def register_make_testing_policies():
-    """Registers testing policies for `posggym_agents.make`"""
+    """Registers testing policies for `posggym_agents.make`."""
     pga.register(policy_name="GenericTestPolicy", entry_point=RandomPolicy, version=0)
     pga.register(
         policy_name="EnvTestPolicy",
@@ -131,7 +131,7 @@ def test_generic_spec_missing_lookup(register_make_testing_policies):
     pga.register("Other1", entry_point="no-entry-point", version=100)
 
     with pytest.raises(
-        error.DeprecatedPolicy,
+        error.DeprecatedPolicyError,
         match=re.escape(
             "Policy version v1 for `Test1` is deprecated. Please use `Test1-v15` "
             "instead."
@@ -140,7 +140,7 @@ def test_generic_spec_missing_lookup(register_make_testing_policies):
         pga.spec("Test1-v1")
 
     with pytest.raises(
-        error.UnregisteredPolicy,
+        error.UnregisteredPolicyError,
         match=re.escape(
             "Policy version `v1000` for policy `Test1` doesn't exist. "
             "It provides versioned policies: [ `v0`, `v9`, `v15` ]."
@@ -149,7 +149,7 @@ def test_generic_spec_missing_lookup(register_make_testing_policies):
         pga.spec("Test1-v1000")
 
     with pytest.raises(
-        error.UnregisteredPolicy,
+        error.UnregisteredPolicyError,
         match=re.escape("Policy Unknown1 doesn't exist. "),
     ):
         pga.spec("Unknown1-v1")
@@ -163,7 +163,7 @@ def test_env_spec_missing_lookup():
     pga.register("Other1", entry_point="no-entry-point", version=100, env_id=env_id)
 
     with pytest.raises(
-        error.DeprecatedPolicy,
+        error.DeprecatedPolicyError,
         match=re.escape(
             f"Policy version v1 for `{env_id}/Test1` is deprecated. Please use "
             f"`{env_id}/Test1-v15` instead."
@@ -172,7 +172,7 @@ def test_env_spec_missing_lookup():
         pga.spec(f"{env_id}/Test1-v1")
 
     with pytest.raises(
-        error.UnregisteredPolicy,
+        error.UnregisteredPolicyError,
         match=re.escape(
             f"Policy version `v1000` for policy `{env_id}/Test1` doesn't exist. "
             "It provides versioned policies: [ `v0`, `v9`, `v15` ]."
@@ -181,7 +181,7 @@ def test_env_spec_missing_lookup():
         pga.spec(f"{env_id}/Test1-v1000")
 
     with pytest.raises(
-        error.UnregisteredPolicy,
+        error.UnregisteredPolicyError,
         match=re.escape(f"Policy Unknown1 doesn't exist for env ID {env_id}. "),
     ):
         pga.spec(f"{env_id}/Unknown1-v1")
@@ -206,7 +206,7 @@ def test_spec_default_lookups():
     pga.register("Test4", entry_point="no-entry-point", version=None, env_id=None)
 
     with pytest.raises(
-        error.DeprecatedPolicy,
+        error.DeprecatedPolicyError,
         match=re.escape(
             f"Policy version `v0` for policy `{env_id}/Test3` doesn't exist. "
             f"It provides the default version {env_id}/Test3`."
@@ -217,7 +217,7 @@ def test_spec_default_lookups():
     assert pga.spec(f"{env_id}/Test3") is not None
 
     with pytest.raises(
-        error.DeprecatedPolicy,
+        error.DeprecatedPolicyError,
         match=re.escape(
             "Policy version `v0` for policy `Test4` doesn't exist. "
             "It provides the default version Test4`."
@@ -228,7 +228,7 @@ def test_spec_default_lookups():
     assert pga.spec("Test4") is not None
 
     with pytest.raises(
-        error.DeprecatedPolicy,
+        error.DeprecatedPolicyError,
         match=re.escape(
             "Policy version `v0` for policy `Test4` doesn't exist. "
             "It provides the default version Test4`."

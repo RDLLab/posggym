@@ -6,6 +6,7 @@ from posggym.agents.torch_policy import PPOPolicy
 from posggym.agents.utils import processors
 from posggym.config import AGENT_MODEL_DIR
 
+
 agent_model_dir = AGENT_MODEL_DIR / "grid_world" / "pursuit_evasion"
 policy_specs = {}
 
@@ -42,7 +43,6 @@ def _get_policy_description(policy_file_name):
 
 
 # PursuitEvasion 16x16
-# Evader (agent=0)
 for policy_file_name in [
     "KLR0_i0.pkl",
     "KLR1_i0.pkl",
@@ -86,7 +86,6 @@ for policy_file_name in [
     policy_specs[spec.id] = spec
 
 
-# Pursuer (agent=1)
 for policy_file_name in [
     "KLR0_i1.pkl",
     "KLR1_i1.pkl",
@@ -130,7 +129,6 @@ for policy_file_name in [
     policy_specs[spec.id] = spec
 
 # PursuitEvasion 8x8
-# Evader (agent=0)
 for policy_file_name in [
     "KLR0_i0.pkl",
     "KLR1_i0.pkl",
@@ -170,7 +168,6 @@ for policy_file_name in [
     policy_specs[spec.id] = spec
 
 
-# Pursuer (agent=1)
 for policy_file_name in [
     "KLR0_i1.pkl",
     "KLR1_i1.pkl",

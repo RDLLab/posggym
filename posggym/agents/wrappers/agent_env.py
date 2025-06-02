@@ -1,5 +1,5 @@
 """Wrapper for incorporating posggym.agents as part of the environment."""
-from typing import Callable, Dict, List, Tuple
+from collections.abc import Callable
 
 from gymnasium import spaces
 
@@ -14,7 +14,7 @@ class AgentEnvWrapper(posggym.Wrapper):
     actions determined internally by a posggym.agent policy. The environment wrapper
     will only return observations, rewards, etc, for agents which are not controlled.
 
-    Arguments
+    Arguments:
     ---------
     env : posggym.Env
         The environment to apply the wrapper
@@ -27,8 +27,8 @@ class AgentEnvWrapper(posggym.Wrapper):
     def __init__(
         self,
         env: posggym.Env,
-        agent_fn: Callable[[posggym.POSGModel], Dict[str, pga.Policy]],
-    ):
+        agent_fn: Callable[[posggym.POSGModel], dict[str, pga.Policy]],
+    ) -> None:
         """Initializes the wrapper."""
         super().__init__(env)
         self.agent_fn = agent_fn
@@ -39,17 +39,17 @@ class AgentEnvWrapper(posggym.Wrapper):
         self.last_terminateds = {}
 
     @property
-    def possible_agents(self) -> Tuple[str, ...]:
+    def possible_agents(self) -> tuple[str, ...]:
         return tuple(
             i for i in super().possible_agents if i not in self.controlled_agents
         )
 
     @property
-    def agents(self) -> List[str]:
+    def agents(self) -> list[str]:
         return [i for i in super().agents if i not in self.controlled_agents]
 
     @property
-    def action_spaces(self) -> Dict[str, spaces.Space]:
+    def action_spaces(self) -> dict[str, spaces.Space]:
         return {
             i: act_space
             for i, act_space in super().action_spaces.items()
@@ -57,7 +57,7 @@ class AgentEnvWrapper(posggym.Wrapper):
         }
 
     @property
-    def observation_spaces(self) -> Dict[str, spaces.Space]:
+    def observation_spaces(self) -> dict[str, spaces.Space]:
         return {
             i: obs_space
             for i, obs_space in super().observation_spaces.items()
@@ -65,7 +65,7 @@ class AgentEnvWrapper(posggym.Wrapper):
         }
 
     @property
-    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
+    def reward_ranges(self) -> dict[str, tuple[float, float]]:
         return {
             i: rew_range
             for i, rew_range in super().reward_ranges.items()

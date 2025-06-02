@@ -30,7 +30,7 @@ class DrivingGenShortestPathPolicy(DrivingShortestPathPolicy):
     computes the shortest path for the agent's current destination, rather than for
     all destinations.
 
-    Arguments
+    Arguments:
     ---------
     aggressiveness : float
         The aggressiveness of the policy towards other vehicles. A value of 0.0 means
@@ -47,7 +47,7 @@ class DrivingGenShortestPathPolicy(DrivingShortestPathPolicy):
         agent_id: str,
         policy_id: PolicyID,
         aggressiveness: float = 1.0,
-    ):
+    ) -> None:
         super().__init__(
             model,
             agent_id,

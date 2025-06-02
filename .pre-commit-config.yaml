@@ -30,9 +30,12 @@ repos:
       - id: black
   - repo: https://github.com/charliermarsh/ruff-pre-commit
     # Ruff version.
-    rev: 'v0.0.254'
+    rev: 'v0.4.10'
     hooks:
       - id: ruff
+        args:
+          - --fix
+          - --unsafe-fixes
   - repo: local
     hooks:
       - id: pyright

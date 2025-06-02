@@ -15,7 +15,7 @@ def has_wrapper(wrapped_env: posggym.Env, wrapper_type: type) -> bool:
 def assert_equals(a, b, prefix=None):
     """Assert equality of data structures `a` and `b`.
 
-    Arguments
+    Arguments:
     ---------
     a:
         first data structure
@@ -35,7 +35,7 @@ def assert_equals(a, b, prefix=None):
     elif isinstance(a, np.ndarray):
         np.testing.assert_array_equal(a, b)
     elif isinstance(a, tuple):
-        for elem_from_a, elem_from_b in zip(a, b):
+        for elem_from_a, elem_from_b in zip(a, b, strict=False):
             assert_equals(elem_from_a, elem_from_b, prefix)
     else:
         assert a == b

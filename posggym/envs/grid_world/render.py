@@ -1,19 +1,19 @@
 """Functions and classes for rendering grid world environments."""
 import abc
-from typing import Dict, List, Optional, Tuple, Union
-
 from pathlib import Path
+
 import numpy as np
 
 from posggym.envs.grid_world.core import Coord, Direction, Grid
-from posggym.error import DependencyNotInstalled
+from posggym.error import DependencyNotInstalledError
 
-ColorTuple = Union[Tuple[int, int, int], Tuple[int, int, int, int]]
+
+ColorTuple = tuple[int, int, int] | tuple[int, int, int, int]
 
 try:
     import pygame
 except ImportError as e:
-    raise DependencyNotInstalled(
+    raise DependencyNotInstalledError(
         "pygame is not installed, run `pip install posggym[grid-world]`"
     ) from e
 
@@ -31,7 +31,7 @@ AGENT_COLORS = [
 ]
 
 
-def get_agent_color(agent_id: str) -> Tuple[ColorTuple, ColorTuple]:
+def get_agent_color(agent_id: str) -> tuple[ColorTuple, ColorTuple]:
     """Get color for agent."""
     return AGENT_COLORS[int(agent_id) % len(AGENT_COLORS)]
 
@@ -41,12 +41,12 @@ def get_color(color_name: str) -> ColorTuple:
     return pygame.colordict.THECOLORS[color_name]
 
 
-def load_img_file(img_path: Path, cell_size: Tuple[int, int]):
+def load_img_file(img_path: Path, cell_size: tuple[int, int]):
     """Load an image from file and scale it to cell size."""
     return pygame.transform.scale(pygame.image.load(img_path), cell_size)
 
 
-def get_default_font_size(cell_size: Tuple[int, int]) -> int:
+def get_default_font_size(cell_size: tuple[int, int]) -> int:
     """Get the default font size based on cell size."""
     return cell_size[1] // 2
 
@@ -62,13 +62,13 @@ class GWObject(abc.ABC):
     def __init__(
         self,
         coord: Coord,
-        cell_size: Tuple[int, int],
-    ):
+        cell_size: tuple[int, int],
+    ) -> None:
         self.coord = coord
         self.cell_size = cell_size
 
     @property
-    def pos(self) -> Tuple[int, int]:
+    def pos(self) -> tuple[int, int]:
         """The (x, y) position of the object on render surface."""
         return (self.coord[0] * self.cell_size[0], self.coord[1] * self.cell_size[1])
 
@@ -83,9 +83,9 @@ class GWRectangle(GWObject):
     def __init__(
         self,
         coord: Coord,
-        cell_size: Tuple[int, int],
+        cell_size: tuple[int, int],
         color: ColorTuple,
-    ):
+    ) -> None:
         super().__init__(coord, cell_size)
         self.color = color
 
@@ -100,10 +100,10 @@ class GWTriangle(GWObject):
     def __init__(
         self,
         coord: Coord,
-        cell_size: Tuple[int, int],
+        cell_size: tuple[int, int],
         color: ColorTuple,
         facing_dir: Direction,
-    ):
+    ) -> None:
         super().__init__(coord, cell_size)
         self.color = color
         self.facing_dir = facing_dir
@@ -156,9 +156,9 @@ class GWCircle(GWObject):
     def __init__(
         self,
         coord: Coord,
-        cell_size: Tuple[int, int],
+        cell_size: tuple[int, int],
         color: ColorTuple,
-    ):
+    ) -> None:
         super().__init__(coord, cell_size)
         self.color = color
 
@@ -174,7 +174,9 @@ class GWCircle(GWObject):
 class GWHighlight(GWObject):
     """A transparent rectangle for highlighting a cell in the grid world."""
 
-    def __init__(self, coord: Coord, cell_size: Tuple[int, int], alpha: float = 0.25):
+    def __init__(
+        self, coord: Coord, cell_size: tuple[int, int], alpha: float = 0.25
+    ) -> None:
         super().__init__(coord, cell_size)
         self.alpha = alpha
         self.surface = pygame.Surface(cell_size, pygame.SRCALPHA)
@@ -190,9 +192,9 @@ class GWImage(GWObject):
     def __init__(
         self,
         coord: Coord,
-        cell_size: Tuple[int, int],
+        cell_size: tuple[int, int],
         img: pygame.Surface,
-    ):
+    ) -> None:
         super().__init__(coord, cell_size)
         self.img = img
 
@@ -206,10 +208,10 @@ class GWText(GWObject):
     def __init__(
         self,
         coord: Coord,
-        cell_size: Tuple[int, int],
+        cell_size: tuple[int, int],
         text: str,
         font: pygame.font.Font,
-    ):
+    ) -> None:
         super().__init__(coord, cell_size)
         self.text = text
         self.font = font
@@ -227,11 +229,11 @@ class GWImageAndText(GWObject):
     def __init__(
         self,
         coord: Coord,
-        cell_size: Tuple[int, int],
+        cell_size: tuple[int, int],
         img: pygame.Surface,
         text: str,
         font: pygame.font.Font,
-    ):
+    ) -> None:
         super().__init__(coord, cell_size)
         self.img = img
         self.text = text
@@ -258,7 +260,7 @@ class GWRenderer:
         bg_color: ColorTuple = (0, 0, 0),
         grid_line_color: ColorTuple = (255, 255, 255),
         block_color: ColorTuple = (131, 139, 139),
-    ):
+    ) -> None:
         self.render_mode = render_mode
         self.grid = grid
         self.render_fps = render_fps
@@ -278,7 +280,7 @@ class GWRenderer:
             for coord in grid.block_coords
         ]
         # list of static objects user can add to
-        self.static_objects: List[GWObject] = []
+        self.static_objects: list[GWObject] = []
 
         pygame.init()
         if render_mode == "human":
@@ -316,8 +318,8 @@ class GWRenderer:
         ]
 
     def render(
-        self, objects: List[GWObject], observed_coords: Optional[List[Coord]] = None
-    ) -> Optional[np.ndarray]:
+        self, objects: list[GWObject], observed_coords: list[Coord] | None = None
+    ) -> np.ndarray | None:
         """Generate Grid-World render."""
         self._reset_surface()
         for obj in objects:
@@ -343,12 +345,12 @@ class GWRenderer:
 
     def render_agents(
         self,
-        objects: List[GWObject],
-        agent_coords_and_dirs: Dict[str, Tuple[Coord, Direction]],
-        agent_obs_dims: Union[int, Tuple[int, int, int, int]],
-        observed_coords: Optional[List[Coord]] = None,
-        agent_obs_mask: Optional[List[Coord]] = None,
-    ) -> Dict[str, np.ndarray]:
+        objects: list[GWObject],
+        agent_coords_and_dirs: dict[str, tuple[Coord, Direction]],
+        agent_obs_dims: int | tuple[int, int, int, int],
+        observed_coords: list[Coord] | None = None,
+        agent_obs_mask: list[Coord] | None = None,
+    ) -> dict[str, np.ndarray]:
         """Generate environment and agent-centric grid-world renders."""
         if agent_obs_mask is None:
             agent_obs_mask = []
@@ -364,7 +366,7 @@ class GWRenderer:
 
         env_array = np.array(pygame.surfarray.pixels3d(self.window_surface))
 
-        array_dict: Dict[str, np.ndarray] = {}
+        array_dict: dict[str, np.ndarray] = {}
         for i, (coord, facing_dir) in agent_coords_and_dirs.items():
             # 1. get agent's view of env
             # (min_col, max_col, min_row, max_row) of coords in grid that agent observed

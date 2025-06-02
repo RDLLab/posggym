@@ -5,7 +5,6 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/docs/scripts/gen_mds
 
 """
 import re
-from typing import Dict, List
 from pathlib import Path
 
 import posggym
@@ -22,7 +21,7 @@ posggym.logger.set_level(posggym.logger.DISABLED)
 
 all_agents = list(pga.registry.values())
 # env_type -> env_name -> [PolicySpec]
-filtered_agents_by_env_type: Dict[str, Dict[str, List[PolicySpec]]] = {}
+filtered_agents_by_env_type: dict[str, dict[str, list[PolicySpec]]] = {}
 
 # Obtain filtered list
 for pi_spec in tqdm(all_agents):
@@ -100,7 +99,7 @@ title: {title_env_name}
         else:
             info = (
                 "These policies are for the "
-                + f"<a href='../../../environments/{env_type}/{snake_env_name}'>"
+                f"<a href='../../../environments/{env_type}/{snake_env_name}'>"
                 f"{title_env_name} environment</a>. Read environment page for detailed "
                 "information about the environment."
             )
@@ -124,7 +123,7 @@ title: {title_env_name}
         env_args_ids.sort()
 
         if None in filtered_agents_by_env_args_id:
-            env_args_ids = [None] + env_args_ids
+            env_args_ids = [None, *env_args_ids]
 
         for env_args_id in env_args_ids:
             policy_specs = filtered_agents_by_env_args_id[env_args_id]

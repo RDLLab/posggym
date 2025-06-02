@@ -5,11 +5,9 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/test_regi
 
 """
 import re
-from typing import Optional
-
-import pytest
 
 import posggym
+import pytest
 
 
 @pytest.fixture(scope="function")
@@ -65,9 +63,7 @@ def register_registration_testing_envs():
         ("MyAwesomeEnv-v", None, "MyAwesomeEnv-v", None),
     ],
 )
-def test_register(
-    env_id: str, namespace: Optional[str], name: str, version: Optional[int]
-):
+def test_register(env_id: str, namespace: str | None, name: str, version: int | None):
     posggym.register(env_id, "no-entry-point")
     assert posggym.spec(env_id).id == env_id
 
@@ -113,7 +109,7 @@ def test_env_suggestions(
     register_registration_testing_envs, env_id_input, env_id_suggested
 ):
     with pytest.raises(
-        posggym.error.UnregisteredEnv, match=f"Did you mean: `{env_id_suggested}`?"
+        posggym.error.UnregisteredEnvError, match=f"Did you mean: `{env_id_suggested}`?"
     ):
         posggym.make(env_id_input, disable_env_checker=True)
 
@@ -134,13 +130,13 @@ def test_env_version_suggestions(
 ):
     if default_version:
         with pytest.raises(
-            posggym.error.DeprecatedEnv,
+            posggym.error.DeprecatedEnvError,
             match="It provides the default version",  # env name,
         ):
             posggym.make(env_id_input, disable_env_checker=True)
     else:
         with pytest.raises(
-            posggym.error.UnregisteredEnv,
+            posggym.error.UnregisteredEnvError,
             match=f"It provides versioned environments: \\[ {suggested_versions} \\]",
         ):
             posggym.make(env_id_input, disable_env_checker=True)

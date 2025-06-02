@@ -2,10 +2,9 @@
 import math
 
 import numpy as np
+import posggym
 import pytest
 from gymnasium import spaces
-
-import posggym
 from posggym.wrappers import RescaleObservations
 
 
@@ -41,12 +40,14 @@ def test_rescale_observation(min_val, max_val):
     sensors_dim, obs_dim = n_sensors * 2, n_sensors * 2 + 5
     sensor_low, sensor_high = [0.0] * sensors_dim, [obs_dist] * sensors_dim
     base_space = spaces.Box(
-        low=np.array([*sensor_low, -2 * math.pi, -1, -1, 0, 0], dtype=np.float32),
+        low=np.array(
+            [*sensor_low, -2 * math.pi, -1, -1, -size, -size], dtype=np.float32
+        ),
         high=np.array([*sensor_high, 2 * math.pi, 1, 1, size, size], dtype=np.float32),
     )
 
     wrapped_spaces = {}
-    if isinstance(min_val, (int, float)):
+    if isinstance(min_val, int | float):
         # assume max_val also (int, float)
         wrapped_spaces = {
             i: spaces.Box(
@@ -80,7 +81,7 @@ def test_rescale_observation(min_val, max_val):
         }
 
     assert all(i in obs for i in env.agents)
-    for i, obs_i in obs.items():
+    for _i, obs_i in obs.items():
         assert base_space.contains(obs_i), (obs_i, base_space)
 
     assert all(i in wrapped_obs for i in env.agents)

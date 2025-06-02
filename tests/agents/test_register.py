@@ -5,7 +5,7 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/test_regi
 
 """
 import re
-from typing import Any, Dict, Optional
+from typing import Any
 
 import posggym.agents as pga
 import pytest
@@ -32,10 +32,10 @@ from posggym.agents.registration import get_env_args_id
     ],
 )
 def test_register(
-    env_id: Optional[str],
-    env_args: Optional[Dict[str, Any]],
+    env_id: str | None,
+    env_args: dict[str, Any] | None,
     policy_name: str,
-    version: Optional[int],
+    version: int | None,
 ):
     pga.register(
         policy_name=policy_name,
@@ -76,10 +76,10 @@ def test_register(
     ],
 )
 def test_register_error(
-    env_id: Optional[str],
-    env_args: Optional[Dict[str, Any]],
+    env_id: str | None,
+    env_args: dict[str, Any] | None,
     policy_name: str,
-    version: Optional[int],
+    version: int | None,
 ):
     with pytest.raises(error.Error, match="^Malformed policy ID:"):
         pga.register(
@@ -98,10 +98,10 @@ def test_register_error(
     ],
 )
 def test_register_error2(
-    env_id: Optional[str],
-    env_args: Optional[Dict[str, Any]],
+    env_id: str | None,
+    env_args: dict[str, Any] | None,
     policy_name: str,
-    version: Optional[int],
+    version: int | None,
 ):
     with pytest.raises(error.Error, match="^Cannot create policy ID."):
         pga.register(

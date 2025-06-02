@@ -1,6 +1,5 @@
 """A passive environment checker wrapper for an environment."""
 
-from typing import Dict
 
 import posggym
 import posggym.model as M
@@ -19,19 +18,19 @@ class PassiveEnvChecker(posggym.Wrapper):
     Surrounds the step, reset and render functions to check that they follow the
     posggym environment and model APIs.
 
-    Arguments
+    Arguments:
     ---------
     env : posggym.Env
         The environment to apply the wrapper
 
-    Note
+    Note:
     ----
     This implementation is based on the similar Gymnasium wrapper:
     https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/gymnasium/wrappers/env_checker.py
 
     """
 
-    def __init__(self, env: posggym.Env):
+    def __init__(self, env: posggym.Env) -> None:
         super().__init__(env)
 
         assert hasattr(env, "model"), "The environment must specify a model."
@@ -49,7 +48,7 @@ class PassiveEnvChecker(posggym.Wrapper):
         self.checked_step = False
         self.checked_render = False
 
-    def step(self, actions: Dict[str, M.ActType]):
+    def step(self, actions: dict[str, M.ActType]):
         """Steps through the environment.
 
         On the first call will run the `passive_env_step_check`.

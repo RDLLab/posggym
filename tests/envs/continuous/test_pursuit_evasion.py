@@ -2,7 +2,6 @@
 from typing import cast
 
 import numpy as np
-
 import posggym
 from posggym.envs.continuous.pursuit_evasion_continuous import (
     PEState,
@@ -44,8 +43,8 @@ def test_obs():
     state = cast(PEState, env.state)
 
     # Check state is as expected
-    assert np.allclose(state.evader_state[:3], evader_start_coord + (0,))
-    assert np.allclose(state.pursuer_state[:3], pursuer_start_coord + (0,))
+    assert np.allclose(state.evader_state[:3], (*evader_start_coord, 0))
+    assert np.allclose(state.pursuer_state[:3], (*pursuer_start_coord, 0))
     assert np.allclose(state.evader_start_coord, evader_start_coord)
     assert np.allclose(pursuer_start_coord, pursuer_start_coord)
     assert np.allclose(state.evader_goal_coord, goal_coord)
@@ -154,8 +153,8 @@ def test_shortest_path():
     state = cast(PEState, env.state)
 
     # Check state is as expected
-    assert np.allclose(state.evader_state[:3], evader_start_coord + (0,))
-    assert np.allclose(state.pursuer_state[:3], pursuer_start_coord + (0,))
+    assert np.allclose(state.evader_state[:3], (*evader_start_coord, 0))
+    assert np.allclose(state.pursuer_state[:3], (*pursuer_start_coord, 0))
     assert np.allclose(state.evader_start_coord, evader_start_coord)
     assert np.allclose(pursuer_start_coord, pursuer_start_coord)
     assert np.allclose(state.evader_goal_coord, goal_coord)
@@ -210,8 +209,8 @@ def test_shortest_path_not_double_reward():
     state = cast(PEState, env.state)
 
     # Check state is as expected
-    assert np.allclose(state.evader_state[:3], evader_start_coord + (0,))
-    assert np.allclose(state.pursuer_state[:3], pursuer_start_coord + (0,))
+    assert np.allclose(state.evader_state[:3], (*evader_start_coord, 0))
+    assert np.allclose(state.pursuer_state[:3], (*pursuer_start_coord, 0))
     assert np.allclose(state.evader_start_coord, evader_start_coord)
     assert np.allclose(pursuer_start_coord, pursuer_start_coord)
     assert np.allclose(state.evader_goal_coord, goal_coord)

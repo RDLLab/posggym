@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import abc
 import copy
-from typing import TYPE_CHECKING, Any, Dict, Generic
+from typing import TYPE_CHECKING, Any, Generic
 
 from posggym.model import ActType, ObsType
 
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 # Convenient type definitions
 PolicyID = str
-PolicyState = Dict[str, Any]
+PolicyState = dict[str, Any]
 
 
 class Policy(abc.ABC, Generic[ActType, ObsType]):
@@ -80,7 +80,7 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
     # Whether the policy expects the full state as it's observation or not
     observes_state: bool = False
 
-    def __init__(self, model: POSGModel, agent_id: str, policy_id: PolicyID):
+    def __init__(self, model: POSGModel, agent_id: str, policy_id: PolicyID) -> None:
         self.model = model
         self.agent_id = agent_id
         self.policy_id = policy_id
@@ -93,12 +93,12 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
         This function updates the policy's current internal state given the most recent
         observation, and returns the next action for the policy.
 
-        Arguments
+        Arguments:
         ---------
         obs : ObsType
             The latest observation.
 
-        Returns
+        Returns:
         -------
         action : ActType
             The next action
@@ -119,7 +119,7 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
         this is that the seed provided once by the user, just after the policy is first
         created and before it interacts with an environment.
 
-        Arguments
+        Arguments:
         ---------
         seed : int, optional
             Seed for random number generator.
@@ -133,7 +133,6 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
 
         Should be overridden in subclasses as necessary.
         """
-        pass
 
     def get_initial_state(self) -> PolicyState:
         """Get the policy's initial state.
@@ -161,7 +160,7 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
 
         Subclasses must implement this method.
 
-        Arguments
+        Arguments:
         ---------
         action : ActType, optional
             The action performed. May be None if this is the first observation.
@@ -170,7 +169,7 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
         state : PolicyState
             The policy's state before action was performed and obs received
 
-        Returns
+        Returns:
         -------
         next_state : PolicyState
             The next policy state
@@ -187,12 +186,12 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
 
         Subclasses must implement this method.
 
-        Arguments
+        Arguments:
         ---------
         state : PolicyState
             The policy's current state.
 
-        Returns
+        Returns:
         -------
         action : ActType
             The sampled action.
@@ -208,12 +207,12 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
         :py:class:`posggym.agents.utils.action_distributions.ActionDistribution`
         class.
 
-        Arguments
+        Arguments:
         ---------
         state : PolicyState
             The policy's current state.
 
-        Returns
+        Returns:
         -------
         pi : ActionDistribution
             The policy's distribution over actions.
@@ -227,12 +226,12 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
         Subclasses must implement this method, but may set it to raise a
         NotImplementedError if the policy does not support value estimates.
 
-        Arguments
+        Arguments:
         ---------
         state : PolicyState
             The policy's current state.
 
-        Returns
+        Returns:
         -------
         value : float
             The value estimate.
@@ -246,7 +245,7 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
         override this method, to set any attributes used for the by the class to store
         policy state.
 
-        Arguments
+        Arguments:
         ---------
         state : PolicyState
             The new policy state.
@@ -254,7 +253,7 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
             The last action taken by the policy. If not provided then the last action
             will be set to None.
 
-        Raises
+        Raises:
         ------
         AssertionError
             If new policy state is not valid.
@@ -285,12 +284,12 @@ class Policy(abc.ABC, Generic[ActType, ObsType]):
         Note, this function will return None for the action in the final output state,
         as this would correspond to the action that was selected by the policy to action
 
-        Arguments
+        Arguments:
         ---------
         history : AgentHistory
             The agent's action-observation history.
 
-        Returns
+        Returns:
         -------
         state : PolicyState
             Policy state given history.

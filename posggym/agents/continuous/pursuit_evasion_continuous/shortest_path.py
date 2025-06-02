@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import math
 from itertools import product
-from typing import TYPE_CHECKING, List, Tuple, cast
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
@@ -22,11 +22,13 @@ if TYPE_CHECKING:
     from posggym.posggym.model import POSGModel
     from posggym.utils.history import AgentHistory
 
+ZERO_ACTION = 0.0
+
 
 class PECShortestPathPolicy(Policy[PEAction, PEObs]):
     """Shortest path policy for pursuit evasion continuous environment."""
 
-    def __init__(self, model: POSGModel, agent_id: str, policy_id: PolicyID):
+    def __init__(self, model: POSGModel, agent_id: str, policy_id: PolicyID) -> None:
         super().__init__(model, agent_id, policy_id)
         self.model = cast(PursuitEvasionContinuousModel, model)
         self._rng, _ = seeding.np_random()
@@ -168,7 +170,7 @@ class PECShortestPathPolicy(Policy[PEAction, PEObs]):
         prev_body_state: PMBodyState,
         body_state: PMBodyState,
         target_coord: np.ndarray,
-    ) -> Tuple[List[PEAction], action_distributions.ActionDistribution]:
+    ) -> tuple[list[PEAction], action_distributions.ActionDistribution]:
         angle_vels = [
             -self.model.dyaw_limit,
             -self.model.dyaw_limit / 2.0,
@@ -234,10 +236,10 @@ class PECShortestPathPolicy(Policy[PEAction, PEObs]):
             rtol=0.0,
             atol=1e-1,
         ).all():
-            if all(a[1] == 0.0 for a in sp_actions):
+            if all(a[1] == ZERO_ACTION for a in sp_actions):
                 # try to move forward
                 sp_actions = [(a[0], a[1] + 0.5) for a in sp_actions]
-            elif all(a[0] == 0.0 for a in sp_actions):
+            elif all(a[0] == ZERO_ACTION for a in sp_actions):
                 # try to turn
                 old_sp_actions = sp_actions
                 sp_actions = []

@@ -1,6 +1,6 @@
 """The Drone Team Capture Environment."""
 import math
-from typing import Dict, List, NamedTuple, Optional, Tuple, cast
+from typing import ClassVar, NamedTuple, cast
 
 import numpy as np
 from gymnasium import spaces
@@ -9,6 +9,9 @@ import posggym.model as M
 from posggym import logger
 from posggym.core import DefaultEnv
 from posggym.envs.continuous.core import (
+    ANGLE_IDX,
+    X_IDX,
+    Y_IDX,
     CircularContinuousWorld,
     PMBodyState,
     clip_actions,
@@ -140,9 +143,8 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
     `max_episode_steps` when creating the environment with `posggym.make`).
 
 
-    Arguments
+    Arguments:
     ---------
-
     - `num_agents` - The number of agents which exist in the environment
         Must be between 1 and 8 (default = `3`)
     - `n_communicating_pursuers - The maximum number of agents which an
@@ -191,7 +193,7 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
 
     """
 
-    metadata = {
+    metadata: ClassVar[dict] = {
         "render_modes": ["human", "rgb_array"],
         "render_fps": 15,
     }
@@ -199,14 +201,14 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
     def __init__(
         self,
         num_agents: int = 3,
-        n_communicating_pursuers: Optional[int] = None,
+        n_communicating_pursuers: int | None = None,
         arena_radius: float = 430,
-        observation_limit: Optional[float] = None,
+        observation_limit: float | None = None,
         velocity_control: bool = False,
         capture_radius: float = 30,
         use_q_reward: bool = False,
-        render_mode: Optional[str] = None,
-    ):
+        render_mode: str | None = None,
+    ) -> None:
         super().__init__(
             DroneTeamCaptureModel(
                 num_agents,
@@ -233,7 +235,7 @@ class DroneTeamCaptureEnv(DefaultEnv[DTCState, DTCObs, DTCAction]):
     def render(self):
         if self.render_mode is None:
             assert self.spec is not None
-            logger.warn(
+            logger.warning(
                 "You are calling render method without specifying any render mode. "
                 "You can specify the render_mode at initialization, "
                 f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
@@ -343,18 +345,19 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
 
     PURSUER_COLOR = (55, 155, 205, 255)  # blueish
     EVADER_COLOR = (110, 55, 155, 255)  # purpleish
+    MAX_AGENTS = 8
 
     def __init__(
         self,
         num_agents: int,
-        n_communicating_pursuers: Optional[int] = None,
+        n_communicating_pursuers: int | None = None,
         arena_radius: float = 430,
-        observation_limit: Optional[float] = None,
+        observation_limit: float | None = None,
         velocity_control: bool = False,
         capture_radius: float = 30,
         use_q_reward: bool = False,
-    ):
-        assert 1 < num_agents <= 8
+    ) -> None:
+        assert 1 < num_agents <= self.MAX_AGENTS
         assert (
             n_communicating_pursuers is None
             or 0 < n_communicating_pursuers < num_agents
@@ -394,7 +397,6 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
                 for i in self.possible_agents
             }
         else:
-            # act[0] = angular velocity
             self.action_spaces = {
                 i: spaces.Box(
                     low=np.array([-self.dyaw_limit], dtype=np.float32),
@@ -460,11 +462,11 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
             self.world.add_entity(f"pursuer_{i}", None, color=self.PURSUER_COLOR)
         self.world.add_entity("evader", None, color=self.EVADER_COLOR)
 
-    def get_agents(self, state: DTCState) -> List[str]:
+    def get_agents(self, state: DTCState) -> list[str]:
         return list(self.possible_agents)
 
     @property
-    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
+    def reward_ranges(self) -> dict[str, tuple[float, float]]:
         min_reward = self.R_TARGET_DIST_COEFF * 2 * self.r_arena
         max_reward = self.R_CAPTURE_TEAM + self.R_CAPTURE
         if self.use_q_reward:
@@ -487,7 +489,7 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
         for i in range(self.n_pursuers):
             # distributes the agents based on their index
             x = 50.0 * (-math.floor(self.n_pursuers / 2) + i) + self.r_arena
-            pursuer_states[i][:3] = (x, self.r_arena, 0.0)
+            pursuer_states[i][[X_IDX, Y_IDX, ANGLE_IDX]] = (x, self.r_arena, 0.0)
 
         # Target is placed randomly in sphere,
         # excluding area near center where pursuers start
@@ -507,7 +509,7 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
         target_vel = relative_target_vel * self.max_pursuer_vel
 
         target_state = np.zeros((PMBodyState.num_features()), dtype=np.float32)
-        target_state[:3] = (x, y, 0.0)
+        target_state[[X_IDX, Y_IDX, ANGLE_IDX]] = (x, y, 0.0)
 
         return DTCState(
             pursuer_states,
@@ -517,11 +519,11 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
             target_vel,
         )
 
-    def sample_initial_obs(self, state: DTCState) -> Dict[str, DTCObs]:
+    def sample_initial_obs(self, state: DTCState) -> dict[str, DTCObs]:
         return self._get_obs(state)
 
     def step(
-        self, state: DTCState, actions: Dict[str, DTCAction]
+        self, state: DTCState, actions: dict[str, DTCAction]
     ) -> M.JointTimestep[DTCState, DTCObs]:
         clipped_actions = clip_actions(actions, self.action_spaces)
         next_state = self._get_next_state(state, clipped_actions)
@@ -529,13 +531,13 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
         all_done, rewards = self._get_rewards(next_state)
         terminations = {i: all_done for i in self.possible_agents}
         truncations = {i: False for i in self.possible_agents}
-        infos: Dict[str, Dict] = {i: {} for i in self.possible_agents}
+        infos: dict[str, dict] = {i: {} for i in self.possible_agents}
         return M.JointTimestep(
             next_state, obs, rewards, terminations, truncations, all_done, infos
         )
 
     def _get_next_state(
-        self, state: DTCState, actions: Dict[str, DTCAction]
+        self, state: DTCState, actions: dict[str, DTCAction]
     ) -> DTCState:
         for i in range(self.n_pursuers):
             self.world.set_entity_state(f"pursuer_{i}", state.pursuer_states[i])
@@ -571,7 +573,7 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
             state.target_vel,
         )
 
-    def _get_obs(self, state: DTCState) -> Dict[str, DTCObs]:
+    def _get_obs(self, state: DTCState) -> dict[str, DTCObs]:
         observation = {}
         for i in range(self.n_pursuers):
             # getting the target engagement
@@ -622,7 +624,7 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
             engagement = sorted(
                 engagement, key=lambda t: float("inf") if t[1] == -1.0 else t[1]
             )
-            alphas, dists = list(zip(*engagement))
+            alphas, dists = list(zip(*engagement, strict=False))
 
             angle_i = (
                 self.world.convert_angle_to_negpi_pi_interval(
@@ -663,7 +665,7 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
 
     def _engagement(
         self, agent_i: np.ndarray, agent_j: np.ndarray, dist_norm_factor: float
-    ) -> Tuple[Tuple[float, float], bool]:
+    ) -> tuple[tuple[float, float], bool]:
         """Get engagement between two agents.
 
         Engagement here is the angle (in radians) from agent_i's current position and
@@ -679,19 +681,19 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
             return (-1.0, -1.0), False
 
         # Rotation matrix of yaw
-        yaw = agent_i[2]
+        yaw = agent_i[ANGLE_IDX]
         rot = np.array(
             [[math.cos(yaw), math.sin(yaw)], [-math.sin(yaw), math.cos(yaw)]]
         )
-        rel_xy = agent_j[:2] - agent_i[:2]
+        rel_xy = agent_j[[X_IDX, Y_IDX]] - agent_i[[X_IDX, Y_IDX]]
         rel_xy = rot.dot(rel_xy)
-        alpha = math.atan2(rel_xy[1], rel_xy[0])
+        alpha = math.atan2(rel_xy[Y_IDX], rel_xy[X_IDX])
         alpha = self.world.convert_angle_to_negpi_pi_interval(alpha)
         return (alpha / math.pi, dist / dist_norm_factor), True
 
-    def _get_rewards(self, state: DTCState) -> Tuple[bool, Dict[str, float]]:
+    def _get_rewards(self, state: DTCState) -> tuple[bool, dict[str, float]]:
         done = False
-        reward: Dict[str, float] = {}
+        reward: dict[str, float] = {}
         # q_formation reward: [-1 * (n-1) / n, 3 * (n-1) / n]
         q_formation = self._q_parameter(state) if self.use_q_reward else 0.0
         for i in self.possible_agents:
@@ -713,7 +715,6 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
 
     def _q_parameter(self, state: DTCState) -> float:
         """Calculate Q-formation value."""
-        # min = -1 * (n-1) / n, max = 3 * (n-1) / n
         closest = self._get_closest_pursuer(state)
         unit = self._get_unit_vectors(state)
         Qk = 0.0
@@ -735,16 +736,16 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
             raise Exception("No closest index found. Something has gone wrong.")
         return min_index
 
-    def _get_unit_vectors(self, state: DTCState) -> List[List[float]]:
+    def _get_unit_vectors(self, state: DTCState) -> list[list[float]]:
         """Get unit vectors between target and each pursuer."""
         unit = []
-        q = state.target_state[:2]
+        q = state.target_state[[X_IDX, Y_IDX]]
         for p in state.pursuer_states:
             dist = self.world.euclidean_dist(p, state.target_state)
-            unit.append([(q[0] - p[0]) / dist, (q[1] - p[1]) / dist])
+            unit.append([(q[X_IDX] - p[X_IDX]) / dist, (q[Y_IDX] - p[Y_IDX]) / dist])
         return unit
 
-    def _get_target_move_repulsive(self, state: DTCState) -> Tuple[float, float]:
+    def _get_target_move_repulsive(self, state: DTCState) -> tuple[float, float]:
         xy_pos = state.target_state[:2]
         x, y = xy_pos
 
@@ -753,7 +754,7 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
 
         final_vector = [0.0, 0.0]
         for s in state.pursuer_states:
-            vector = s[:2] - xy_pos
+            vector = s[[X_IDX, Y_IDX]] - xy_pos
             final_vector = self._scale_vector(vector, scale_fn, final_vector)
 
         # Find closest point on border then put it in to the vectorial sum
@@ -771,20 +772,20 @@ class DroneTeamCaptureModel(M.POSGModel[DTCState, DTCObs, DTCAction]):
         )
 
         scaled_move_dir = [v / self._abs_sum(final_vector) for v in final_vector]
-        dx, dy = scaled_move_dir[0], scaled_move_dir[1]
+        dx, dy = scaled_move_dir[X_IDX], scaled_move_dir[Y_IDX]
         d = np.linalg.norm([dx, dy])
         dx = float(state.target_vel * dx / d)
         dy = float(state.target_vel * dy / d)
         return dx, dy
 
-    def _scale_vector(self, vector, scale_fn, final_vector, factor=1.0) -> List[float]:
+    def _scale_vector(self, vector, scale_fn, final_vector, factor=1.0) -> list[float]:
         vec_sum = self._abs_sum(vector)
         div = max(0.00001, vec_sum)
         f = -factor * scale_fn(vec_sum) / div
         vector = f * vector
-        return [x + y for x, y in zip(final_vector, vector)]
+        return [x + y for x, y in zip(final_vector, vector, strict=False)]
 
-    def _abs_sum(self, vector: List[float]) -> float:
+    def _abs_sum(self, vector: list[float]) -> float:
         return sum([abs(x) for x in vector])
 
     def _target_distance(self, state: DTCState, pursuer_idx: int) -> float:

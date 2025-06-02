@@ -5,14 +5,21 @@ https://github.com/Farama-Foundation/Gymnasium/blob/v0.27.0/tests/envs/test_envs
 """
 import warnings
 
+import posggym
+import posggym.model as M
 import pytest
+from posggym.envs.registration import EnvSpec
+from posggym.utils.model_checker import check_model
+
 from tests.envs.test_envs import CHECK_ENV_IGNORE_WARNINGS
 from tests.envs.utils import all_testing_env_specs, assert_equals
 
-import posggym
-import posggym.model as M
-from posggym.envs.registration import EnvSpec
-from posggym.utils.model_checker import check_model
+
+try:
+    import torch
+except ImportError:
+    torch = None
+from posggym.utils.torch_utils import maybe_expand_dims
 
 
 @pytest.mark.parametrize(
@@ -24,7 +31,7 @@ def test_models_pass_env_checker(spec):
     """Check that all environment models pass checker with no unexpected warnings."""
     with warnings.catch_warnings(record=True) as caught_warnings:
         env = spec.make(disable_env_checker=True).unwrapped
-        check_model(env.model)
+        check_model(env, env.model)
 
         env.close()
 
@@ -99,6 +106,11 @@ def test_model_determinism_rollout(env_spec: EnvSpec):
     initial_obs_2 = model_2.sample_initial_obs(initial_state_2)
     assert_equals(initial_obs_1, initial_obs_2)
     # obs_2 verified by previous assertion
+    if torch is not None and isinstance(
+        next(iter(initial_obs_1.values())), torch.Tensor
+    ):
+        initial_obs_1 = {k: v.cpu().numpy().squeeze() for k, v in initial_obs_1.items()}
+
     assert all(
         model_1.observation_spaces[i].contains(o_i) for i, o_i in initial_obs_1.items()
     )
@@ -130,7 +142,8 @@ def test_model_determinism_rollout(env_spec: EnvSpec):
         for t in range(num_steps):
             # We don't evaluate the determinism of actions
             actions = {
-                i: model_1.action_spaces[i].sample() for i in model_1.get_agents(state)
+                i: maybe_expand_dims(env_1, model_1.action_spaces[i].sample())
+                for i in model_1.get_agents(state)
             }
 
             result_1 = model_1.step(state, actions)
@@ -153,6 +166,9 @@ def test_model_determinism_rollout(env_spec: EnvSpec):
             )
             # obs_2 verified by previous assertion
             for i, o_i in result_1.observations.items():
+                if torch is not None and isinstance(o_i, torch.Tensor):
+                    o_i = o_i.cpu().detach().numpy().squeeze()
+
                 assert model_1.observation_spaces[i].contains(o_i)
             assert all(i in result_1.observations for i in model_1.get_agents(state))
 

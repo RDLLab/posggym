@@ -30,7 +30,7 @@ class DiscreteFixedDistributionPolicy(Policy[int, ObsType]):
         agent_id: str,
         policy_id: PolicyID,
         dist: action_distributions.ActionDistribution | None = None,
-    ):
+    ) -> None:
         super().__init__(model, agent_id, policy_id)
         self.dist = dist
         self._rng, _ = seeding.np_random()
@@ -97,7 +97,7 @@ class RandomPolicy(Policy[ActType, ObsType]):
 
     """
 
-    def __init__(self, model: M.POSGModel, agent_id: str, policy_id: PolicyID):
+    def __init__(self, model: M.POSGModel, agent_id: str, policy_id: PolicyID) -> None:
         super().__init__(model, agent_id, policy_id)
         self._action_space = model.action_spaces[agent_id]
         self._rng = random.Random()

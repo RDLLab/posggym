@@ -2,7 +2,6 @@
 
 import argparse
 import sys
-from typing import Optional
 
 from posggym.envs.grid_world.driving_gen import DrivingGridGenerator
 
@@ -10,7 +9,7 @@ from posggym.envs.grid_world.driving_gen import DrivingGridGenerator
 def main(
     width: int,
     height: int,
-    max_obstacle_size: Optional[int] = None,
+    max_obstacle_size: int | None = None,
     seed: int = 0,
 ):
     """Run."""

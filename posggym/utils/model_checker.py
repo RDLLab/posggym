@@ -16,10 +16,9 @@ These projects are covered by the MIT License.
 
 import inspect
 from copy import deepcopy
-from typing import Optional
 
 import posggym.model as M
-from posggym import logger
+from posggym import Env, logger
 from posggym.utils.passive_env_checker import (
     check_agent_action_spaces,
     check_agent_obs,
@@ -31,22 +30,23 @@ from posggym.utils.passive_env_checker import (
     data_equivalence,
     model_step_passive_checker,
 )
+from posggym.utils.torch_utils import maybe_expand_dims
 
 
 def check_initial_state_type(model: M.POSGModel) -> M.StateType:
     """Checks that :meth:`sample_initial_state` correctly returns a valid state.
 
-    Arguments
+    Arguments:
     ---------
     model
         The model to check
 
-    Returns
+    Returns:
     -------
     state
         sampled initial state
 
-    Raises
+    Raises:
     ------
     AssertionError
         depending on spec violation
@@ -57,12 +57,12 @@ def check_initial_state_type(model: M.POSGModel) -> M.StateType:
     return state
 
 
-def check_initial_obs_type(model: M.POSGModel, state: Optional[M.StateType] = None):
+def check_initial_obs_type(model: M.POSGModel, state: M.StateType | None = None):
     """Checks that :meth:`sample_initial_obs` works correctly.
 
     Assumes ``model.sample_initial_state()`` works as expected.
 
-    Arguments
+    Arguments:
     ---------
     model
         the model to check
@@ -70,7 +70,7 @@ def check_initial_obs_type(model: M.POSGModel, state: Optional[M.StateType] = No
         the state to use for check, default is None in which case a new state is
         sampled from the model.
 
-    Raises
+    Raises:
     ------
     AssertionError
         depending on spec violation
@@ -82,21 +82,21 @@ def check_initial_obs_type(model: M.POSGModel, state: Optional[M.StateType] = No
     try:
         obs = model.sample_initial_obs(state)
         check_agent_obs(obs, model.observation_spaces, "sample_initial_obs")
-    except NotImplementedError:
+    except NotImplementedError as err:
         raise AssertionError(
             "Model requires the ``sample_initial_obs`` method to be implemented."
-        )
+        ) from err
 
 
 def check_initial_sampling_seed(model: M.POSGModel):
     """Check that model seeding works correctly for initial conditions.
 
-    Arguments
+    Arguments:
     ---------
     model
         The environment model to check
 
-    Raises
+    Raises:
     ------
     AssertionError
         The model random seeding doesn't work as expected.
@@ -179,21 +179,21 @@ def check_initial_sampling_seed(model: M.POSGModel):
     seed_param = signature.parameters.get("seed")
     # Check the default value is None
     if seed_param is not None and seed_param.default is not None:
-        logger.warn(
+        logger.warning(
             "The default seed argument in `seed` method should be `None`, otherwise "
             "the model will by default always be deterministic. "
             f"Actual default: {seed_param.default}"
         )
 
 
-def check_model(model: M.POSGModel):
+def check_model(env: Env, model: M.POSGModel):
     """Check that an environment model follows posggym API.
 
     This is an invasive function that calls the models step.
 
     This is particularly useful when using a custom environment.
 
-    Arguments
+    Arguments:
     ---------
     model
         The posggym environment model that will be checked
@@ -259,5 +259,8 @@ def check_model(model: M.POSGModel):
     model_step_passive_checker(
         model,
         state,
-        {i: model.action_spaces[i].sample() for i in model.get_agents(state)},
+        {
+            i: maybe_expand_dims(env, model.action_spaces[i].sample())
+            for i in model.get_agents(state)
+        },
     )

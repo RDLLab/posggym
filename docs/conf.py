@@ -7,6 +7,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 import posggym
 
+
 project = "POSGGym"
 copyright = "2023, Jonathon Schwartz"
 author = "Jonathon Schwartz"

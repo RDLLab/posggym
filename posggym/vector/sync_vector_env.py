@@ -8,8 +8,13 @@ https://github.com/Farama-Foundation/Gymnasium/blob/main/gymnasium/vector/sync_v
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+
 from copy import deepcopy
-from typing import Any, Callable, Dict, Iterable, List, Tuple
 
 import numpy as np
 from gymnasium.vector.utils import concatenate, create_empty_array
@@ -58,10 +63,10 @@ class SyncVectorEnv(posggym.Env):
         self,
         env_fns: Iterable[Callable[[], posggym.Env]],
         copy: bool = True,
-    ):
+    ) -> None:
         """Initialize the vectorized environment.
 
-        Arguments
+        Arguments:
         ---------
         env_fns
             iterable of callable functions that create the environments.
@@ -118,8 +123,8 @@ class SyncVectorEnv(posggym.Env):
     def reset(
         self,
         *,
-        seed: int | None | List[int] = None,
-        options: Dict[str, Any] | None = None,
+        seed: int | None | list[int] = None,
+        options: dict[str, Any] | None = None,
     ):
         """Reset all environments and return batch of initial observations and info."""
         if seed is None:
@@ -136,7 +141,7 @@ class SyncVectorEnv(posggym.Env):
         observations = {i: [] for i in self.single_observation_spaces}
         infos = {i: {} for i in self.single_observation_spaces}
 
-        for env_num, (env, s) in enumerate(zip(self.envs, seed)):
+        for env_num, (env, s) in enumerate(zip(self.envs, seed, strict=False)):
             obs, info = env.reset(seed=s, options=options)
             for i in self.single_observation_spaces:
                 observations[i].append(obs[i])
@@ -159,14 +164,14 @@ class SyncVectorEnv(posggym.Env):
         dictionary under the keys ``final_observation`` and ``final_info``.
 
 
-        Arguments
+        Arguments:
         ---------
         actions
             dict mapping agent ID to batch of actions for that agent, with one action
             for each environment. So should be a dict of arrays or lists, with each
             array/list having length equal to the number of environments.
 
-        Returns
+        Returns:
         -------
         observations
             dict mapping agent ID to batch of observations for that agent, with one
@@ -244,7 +249,7 @@ class SyncVectorEnv(posggym.Env):
         for env in self.envs:
             env.close()
 
-    def call(self, name: str, *args, **kwargs) -> Tuple:
+    def call(self, name: str, *args, **kwargs) -> tuple:
         """Call a method on all environments and return the results."""
         results = []
         for env in self.envs:
@@ -256,7 +261,7 @@ class SyncVectorEnv(posggym.Env):
         return tuple(results)
 
     @property
-    def possible_agents(self) -> Tuple[str, ...]:
+    def possible_agents(self) -> tuple[str, ...]:
         return self.envs[0].possible_agents
 
     @property
@@ -284,7 +289,7 @@ class SyncVectorEnv(posggym.Env):
         whether or not the i-indexed environment has this `info`.
 
         Arguments:
-        ----------
+        ---------
         infos
             the infos of the vectorized environment
         info
@@ -292,7 +297,7 @@ class SyncVectorEnv(posggym.Env):
         env_num
             the index of the single environment
 
-        Returns
+        Returns:
         -------
         infos
             the (updated) infos of the vectorized environment
@@ -308,7 +313,7 @@ class SyncVectorEnv(posggym.Env):
             infos[k], infos[f"_{k}"] = info_array, array_mask
         return infos
 
-    def _init_info_arrays(self, dtype: type) -> Tuple[np.ndarray, np.ndarray]:
+    def _init_info_arrays(self, dtype: type) -> tuple[np.ndarray, np.ndarray]:
         """Initialize the info array.
 
         Initialize the info array. If the dtype is numeric the info array will have the
@@ -316,12 +321,12 @@ class SyncVectorEnv(posggym.Env):
         same length is returned. It will be used for assessing which environment has
         info data.
 
-        Arguments
+        Arguments:
         ---------
         dtype
             data type of the info coming from the env.
 
-        Returns
+        Returns:
         -------
         array
             the initialized info array.

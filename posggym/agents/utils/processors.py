@@ -13,7 +13,7 @@ class Processor(abc.ABC):
     example observations or actions.
     """
 
-    def __init__(self, input_space: spaces.Space):
+    def __init__(self, input_space: spaces.Space) -> None:
         self.input_space = input_space
 
     @abc.abstractmethod
@@ -67,7 +67,7 @@ class RescaleProcessor(Processor):
         min_val: float = -1.0,
         max_val: float = 1.0,
         clip: bool = True,
-    ):
+    ) -> None:
         assert isinstance(input_space, spaces.Box)
         super().__init__(input_space)
         self.min_val = min_val

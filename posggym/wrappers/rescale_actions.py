@@ -1,5 +1,4 @@
 """Wrapper to rescale continuous actions from [min, max] range."""
-from typing import Dict, Union
 
 import numpy as np
 from gymnasium import spaces
@@ -18,16 +17,16 @@ class RescaleActions(posggym.ActionWrapper):
     the given agent. If :attr:`min_action` or :attr:`max_action` are dictionaries then
     they must have an entry for each possible agent ID in the wrapped environment.
 
-    Arguments
+    Arguments:
     ---------
     env : posggym.Env
         The environment to apply the wrapper
-    min_action : float, int, np.ndarray, Dict[str, Union[float, int, np.ndarray]]
+    min_action : float, int, np.ndarray, Dict[str, float | int | np.ndarray]
         The minimum value for the scaled actions.
-    max_action : float, int, np.ndarray, Dict[str, Union[float, int, np.ndarray]]
+    max_action : float, int, np.ndarray, Dict[str, float | int | np.ndarray]
         The maximum value for the scaled actions.
 
-    Note
+    Note:
     ----
     Explanation of how to scale number from one interval into new interval:
     https://stats.stackexchange.com/questions/281162/scale-a-number-between-a-range
@@ -40,13 +39,9 @@ class RescaleActions(posggym.ActionWrapper):
     def __init__(
         self,
         env: posggym.Env,
-        min_action: Union[
-            float, int, np.ndarray, Dict[str, Union[float, int, np.ndarray]]
-        ],
-        max_action: Union[
-            float, int, np.ndarray, Dict[str, Union[float, int, np.ndarray]]
-        ],
-    ):
+        min_action: float | int | np.ndarray | dict[str, float | int | np.ndarray],
+        max_action: float | int | np.ndarray | dict[str, float | int | np.ndarray],
+    ) -> None:
         self.min_action = {}
         self.max_action = {}
         self.rescale_factor = {}
@@ -57,7 +52,7 @@ class RescaleActions(posggym.ActionWrapper):
             )
 
             min_action_i = min_action[i] if isinstance(min_action, dict) else min_action
-            if isinstance(min_action_i, (float, int)):
+            if isinstance(min_action_i, float | int):
                 self.min_action[i] = np.full_like(action_space.low, min_action_i)
             else:
                 assert isinstance(min_action_i, np.ndarray), min_action_i
@@ -68,7 +63,7 @@ class RescaleActions(posggym.ActionWrapper):
                 self.min_action[i] = min_action_i
 
             max_action_i = max_action[i] if isinstance(max_action, dict) else max_action
-            if isinstance(max_action_i, (float, int)):
+            if isinstance(max_action_i, float | int):
                 self.max_action[i] = np.full_like(action_space.high, max_action_i)
             else:
                 assert isinstance(max_action_i, np.ndarray), max_action_i

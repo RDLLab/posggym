@@ -3,12 +3,13 @@
 import argparse
 import sys
 from itertools import product
-from typing import Dict, List, Optional, Tuple, cast
+from typing import cast
 
 import numpy as np
 import posggym
 import pygame
 from posggym.envs.continuous.pursuit_evasion_continuous import PEWorld
+
 
 key_action_map = {
     None: 0,
@@ -26,8 +27,8 @@ key_action_map = {
 
 
 def run_keyboard_agent(
-    env: posggym.Env, keyboard_agent_id: List[str]
-) -> Optional[Tuple[Dict[str, float], int]]:
+    env: posggym.Env, keyboard_agent_id: list[str]
+) -> tuple[dict[str, float], int] | None:
     """Run manual keyboard agent in continuous environment.
 
     Assumes environment actions are continuous (i.e. space.Box). So user will be

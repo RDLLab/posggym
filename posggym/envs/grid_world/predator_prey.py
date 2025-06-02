@@ -1,25 +1,30 @@
 """The Predator-Prey Grid World Environment."""
+from __future__ import annotations
 
 import math
 from itertools import product
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Optional, Sequence, Set, Tuple, Union
+from typing import TYPE_CHECKING, ClassVar, NamedTuple
 
 from gymnasium import spaces
 
 import posggym.model as M
 from posggym import logger
 from posggym.core import DefaultEnv
-from posggym.envs.grid_world.core import Coord, Direction, Grid
+from posggym.envs.grid_world.core import Coord, Direction, Grid, SupportedGridTypes
 from posggym.utils import seeding
+
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 class PPState(NamedTuple):
     """A state in the Predator-Prey Environment."""
 
-    predator_coords: Tuple[Coord, ...]
-    prey_coords: Tuple[Coord, ...]
-    prey_caught: Tuple[int, ...]
+    predator_coords: tuple[Coord, ...]
+    prey_coords: tuple[Coord, ...]
+    prey_caught: tuple[int, ...]
 
 
 # Actions
@@ -34,8 +39,7 @@ ACTIONS_STR = ["0", "U", "D", "L", "R"]
 ACTION_TO_DIR = [None, Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST]
 
 # Observations
-# Obs = (adj_obs)
-PPObs = Tuple[int, ...]
+PPObs = tuple[int, ...]
 # Cell Obs
 EMPTY = 0
 WALL = 1
@@ -122,9 +126,8 @@ class PredatorPreyEnv(DefaultEnv[PPState, PPObs, PPAction]):
     grids (this can be done by manually specifying a value for `max_episode_steps` when
     creating the environment with `posggym.make`).
 
-    Arguments
+    Arguments:
     ---------
-
     - `grid` - the grid layout to use. This can either be a string specifying one of
         the supported grids, or a custom :class:`PredatorPreyGrid` object
         (default = `"10x10"`).
@@ -181,28 +184,28 @@ class PredatorPreyEnv(DefaultEnv[PPState, PPObs, PPAction]):
     ---------
     - Ming Tan. 1993. Multi-Agent Reinforcement Learning: Independent vs. Cooperative
       Agents. In Proceedings of the Tenth International Conference on Machine Learning.
-      330–337.
+      330-337.
     - J. Z. Leibo, V. F. Zambaldi, M. Lanctot, J. Marecki, and T. Graepel. 2017.
       Multi-Agent Reinforcement Learning in Sequential Social Dilemmas. In AAMAS,
-      Vol. 16. ACM, 464–473
+      Vol. 16. ACM, 464-473
 
     """
 
-    metadata = {
+    metadata: ClassVar[dict] = {
         "render_modes": ["human", "ansi", "rgb_array", "rgb_array_dict"],
         "render_fps": 15,
     }
 
     def __init__(
         self,
-        grid: Union[str, "PredatorPreyGrid"] = "10x10",
+        grid: str | PredatorPreyGrid = "10x10",
         num_predators: int = 2,
         num_prey: int = 3,
         cooperative: bool = True,
-        prey_strength: Optional[int] = None,
+        prey_strength: int | None = None,
         obs_dim: int = 2,
-        render_mode: Optional[str] = None,
-    ):
+        render_mode: str | None = None,
+    ) -> None:
         super().__init__(
             PredatorPreyModel(
                 grid,
@@ -222,7 +225,7 @@ class PredatorPreyEnv(DefaultEnv[PPState, PPObs, PPAction]):
     def render(self):
         if self.render_mode is None:
             assert self.spec is not None
-            logger.warn(
+            logger.warning(
                 "You are calling render method without specifying any render mode. "
                 "You can specify the render_mode at initialization, "
                 f'e.g. posggym.make("{self.spec.id}", render_mode="rgb_array")'
@@ -237,7 +240,7 @@ class PredatorPreyEnv(DefaultEnv[PPState, PPObs, PPAction]):
         grid = model.grid
         uncaught_prey_coords = [
             self._state.prey_coords[i]
-            for i in range(self.model.num_prey)
+            for i in range(model.num_prey)
             if not self._state.prey_caught[i]
         ]
         grid_str = grid.get_ascii_repr(
@@ -257,6 +260,8 @@ class PredatorPreyEnv(DefaultEnv[PPState, PPObs, PPAction]):
         return "\n".join(output) + "\n"
 
     def _render_img(self):
+        print(self.render_mode)
+        assert self.render_mode in ["human", "rgb", "rgb_array", "rgb_array_dict"]
         model: PredatorPreyModel = self.model  # type: ignore
 
         import posggym.envs.grid_world.render as render_lib
@@ -298,7 +303,7 @@ class PredatorPreyEnv(DefaultEnv[PPState, PPObs, PPAction]):
             agent_obj.coord = coord
             render_objects.append(agent_obj)
 
-        agent_coords_and_dirs = {
+        agent_coords_and_dirs: dict[str, tuple[Coord, Direction]] = {
             str(i): (coord, Direction.NORTH)
             for i, coord in enumerate(self._state.predator_coords)
         }
@@ -343,16 +348,17 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
 
     R_MAX = 1.0
     PREY_CAUGHT_COORD = (0, 0)
+    MAX_AGENTS = 8
 
     def __init__(
         self,
-        grid: Union[str, "PredatorPreyGrid"],
+        grid: str | PredatorPreyGrid,
         num_predators: int,
         num_prey: int,
         cooperative: bool,
-        prey_strength: Optional[int],
+        prey_strength: int | None,
         obs_dim: int,
-    ):
+    ) -> None:
         if isinstance(grid, str):
             assert grid in SUPPORTED_GRIDS, (
                 f"Unsupported grid name '{grid}'. Grid name must be one of: "
@@ -363,7 +369,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
         if prey_strength is None:
             prey_strength = min(4, num_predators)
 
-        assert 1 < num_predators <= 8
+        assert 1 < num_predators <= self.MAX_AGENTS
         assert num_prey > 0
         assert obs_dim > 0
         assert 0 < prey_strength <= min(4, num_predators)
@@ -376,6 +382,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
         self.cooperative = cooperative
         self.prey_strength = prey_strength
         self._per_prey_reward = self.R_MAX / self.num_prey
+        self.action_mask = [DO_NOTHING] * self.num_predators
 
         if self.grid.prey_start_coords is None:
             center_coords = self.grid.get_unblocked_center_coords(num_prey)
@@ -412,7 +419,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
         self.is_symmetric = True
 
     @property
-    def reward_ranges(self) -> Dict[str, Tuple[float, float]]:
+    def reward_ranges(self) -> dict[str, tuple[float, float]]:
         return {i: (0.0, self.R_MAX) for i in self.possible_agents}
 
     @property
@@ -421,7 +428,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
             self._rng, _ = seeding.std_random()
         return self._rng
 
-    def get_agents(self, state: PPState) -> List[str]:
+    def get_agents(self, state: PPState) -> list[str]:
         return list(self.possible_agents)
 
     def sample_initial_state(self) -> PPState:
@@ -441,12 +448,13 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         return PPState(tuple(predator_coords), tuple(prey_coords_list), prey_caught)
 
-    def sample_initial_obs(self, state: PPState) -> Dict[str, PPObs]:
+    def sample_initial_obs(self, state: PPState) -> dict[str, PPObs]:
         return self._get_obs(state, state)
 
     def step(
-        self, state: PPState, actions: Dict[str, PPAction]
+        self, state: PPState, actions: dict[str, PPAction]
     ) -> M.JointTimestep[PPState, PPObs]:
+        assert all(a_i in ACTIONS for a_i in actions.values())
         next_state = self._get_next_state(state, actions)
         obs = self._get_obs(state, next_state)
         rewards = self._get_rewards(state, next_state)
@@ -455,7 +463,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
         truncated = {i: False for i in self.possible_agents}
         terminated = {i: all_done for i in self.possible_agents}
 
-        info: Dict[str, Dict] = {i: {} for i in self.possible_agents}
+        info: dict[str, dict] = {i: {} for i in self.possible_agents}
         if all_done:
             for i in self.possible_agents:
                 info[i]["outcome"] = M.Outcome.WIN
@@ -464,15 +472,15 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
             next_state, obs, rewards, terminated, truncated, all_done, info
         )
 
-    def _get_next_state(self, state: PPState, actions: Dict[str, PPAction]) -> PPState:
+    def _get_next_state(self, state: PPState, actions: dict[str, PPAction]) -> PPState:
         # prey move first
         prey_coords = self._get_next_prey_state(state)
         predator_coords = self._get_next_predator_state(state, actions, prey_coords)
         prey_caught = self._get_next_prey_caught(state, prey_coords, predator_coords)
         return PPState(predator_coords, prey_coords, prey_caught)
 
-    def _get_next_prey_state(self, state: PPState) -> Tuple[Coord, ...]:
-        next_prey_coords: List[Optional[Coord]] = [None] * self.num_prey
+    def _get_next_prey_state(self, state: PPState) -> tuple[Coord, ...]:
+        next_prey_coords: list[Coord | None] = [None] * self.num_prey
         occupied_coords = set(
             state.predator_coords
             + tuple(
@@ -540,9 +548,9 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
     def _move_away_from_predators(
         self,
         prey_coord: Coord,
-        predator_coords: Tuple[Coord, ...],
-        occupied_coords: Set[Coord],
-    ) -> Optional[Coord]:
+        predator_coords: tuple[Coord, ...],
+        occupied_coords: set[Coord],
+    ) -> Coord | None:
         # get any predators within obs distance
         predator_dists = [
             self.grid.manhattan_dist(prey_coord, c) for c in predator_coords
@@ -557,7 +565,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
 
         if all(
             abs(a - b) > self.obs_dim
-            for a, b in zip(prey_coord, closest_predator_coord)
+            for a, b in zip(prey_coord, closest_predator_coord, strict=False)
         ):
             # closes predator out of obs range
             return None
@@ -565,18 +573,18 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
         # move into furthest away free cell, includes current coord
         neighbours = [
             (self.grid.manhattan_dist(c, closest_predator_coord), c)
-            for c in self.grid.get_neighbours(prey_coord) + [prey_coord]
+            for c in [*self.grid.get_neighbours(prey_coord), prey_coord]
         ]
         neighbours.sort()
-        for d, c in reversed(neighbours):
+        for _d, c in reversed(neighbours):
             if c == prey_coord or self._coord_available_for_prey(c, occupied_coords):
                 return c
 
         raise AssertionError("Something has gone wrong, please investigate.")
 
     def _move_away_from_preys(
-        self, prey_coord: Coord, state: PPState, occupied_coords: Set[Coord]
-    ) -> Optional[Coord]:
+        self, prey_coord: Coord, state: PPState, occupied_coords: set[Coord]
+    ) -> Coord | None:
         prey_dists = [
             (
                 self.grid.manhattan_dist(prey_coord, c)
@@ -594,7 +602,8 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
         closest_prey_coord = self.rng.choice(all_closest_prey_coords)
 
         if all(
-            abs(a - b) > self.obs_dim for a, b in zip(prey_coord, closest_prey_coord)
+            abs(a - b) > self.obs_dim
+            for a, b in zip(prey_coord, closest_prey_coord, strict=False)
         ):
             # closes predator out of obs range
             return None
@@ -602,17 +611,17 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
         # move into furthest away free cell, includes current coord
         neighbours = [
             (self.grid.manhattan_dist(c, closest_prey_coord), c)
-            for c in self.grid.get_neighbours(prey_coord) + [prey_coord]
+            for c in [*self.grid.get_neighbours(prey_coord), prey_coord]
         ]
         neighbours.sort()
-        for d, c in reversed(neighbours):
+        for _d, c in reversed(neighbours):
             if c == prey_coord or self._coord_available_for_prey(c, occupied_coords):
                 return c
 
         raise AssertionError("Something has gone wrong, please investigate.")
 
     def _coord_available_for_prey(
-        self, coord: Coord, occupied_coords: Set[Coord]
+        self, coord: Coord, occupied_coords: set[Coord]
     ) -> bool:
         if coord in occupied_coords:
             return False
@@ -627,15 +636,17 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
     def _get_next_predator_state(
         self,
         state: PPState,
-        actions: Dict[str, PPAction],
-        next_prey_coords: Tuple[Coord, ...],
-    ) -> Tuple[Coord, ...]:
+        actions: dict[str, PPAction],
+        next_prey_coords: tuple[Coord, ...],
+    ) -> tuple[Coord, ...]:
         potential_next_coords = []
         occupied_prey_coords = {
             c for i, c in enumerate(next_prey_coords) if not state.prey_caught[i]
         }
         for i, coord in enumerate(state.predator_coords):
-            if actions[str(i)] == 0:
+            if actions[str(i)] == self.action_mask[i] or actions[str(i)] == DO_NOTHING:
+                # Current action is `masked` out, e.g., impossible
+                # `or` do nothing
                 next_coord = coord
             else:
                 a_dir = ACTION_TO_DIR[actions[str(i)]]
@@ -664,9 +675,9 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
     def _get_next_prey_caught(
         self,
         state: PPState,
-        next_prey_coords: Tuple[Coord, ...],
-        next_predator_coords: Tuple[Coord, ...],
-    ) -> Tuple[int, ...]:
+        next_prey_coords: tuple[Coord, ...],
+        next_predator_coords: tuple[Coord, ...],
+    ) -> tuple[int, ...]:
         prey_caught = []
         for i in range(self.num_prey):
             if state.prey_caught[i]:
@@ -680,7 +691,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
                 prey_caught.append(int(num_adj_predators >= self.prey_strength))
         return tuple(prey_caught)
 
-    def _get_obs(self, state: PPState, next_state: PPState) -> Dict[str, PPObs]:
+    def _get_obs(self, state: PPState, next_state: PPState) -> dict[str, PPObs]:
         return {
             i: self._get_local_cell__obs(int(i), state, next_state)
             for i in self.possible_agents
@@ -688,7 +699,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
 
     def _get_local_cell__obs(
         self, agent_idx: int, state: PPState, next_state: PPState
-    ) -> Tuple[int, ...]:
+    ) -> tuple[int, ...]:
         obs_size = (2 * self.obs_dim) + 1
         agent_coord = next_state.predator_coords[agent_idx]
 
@@ -716,7 +727,7 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
 
     def _map_obs_to_grid_coord(
         self, obs_coord: Coord, agent_coord: Coord
-    ) -> Optional[Coord]:
+    ) -> Coord | None:
         grid_col = agent_coord[0] + obs_coord[0] - self.obs_dim
         grid_row = agent_coord[1] + obs_coord[1] - self.obs_dim
 
@@ -724,17 +735,17 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
             return (grid_col, grid_row)
         return None
 
-    def get_obs_coords(self, origin: Coord) -> List[Coord]:
+    def get_obs_coords(self, origin: Coord) -> list[Coord]:
         """Get the list of coords observed from agent at origin."""
         obs_size = (2 * self.obs_dim) + 1
-        obs_coords: List[Coord] = []
+        obs_coords: list[Coord] = []
         for col, row in product(range(obs_size), repeat=2):
             obs_grid_coord = self._map_obs_to_grid_coord((col, row), origin)
             if obs_grid_coord is not None:
                 obs_coords.append(obs_grid_coord)
         return obs_coords
 
-    def _get_rewards(self, state: PPState, next_state: PPState) -> Dict[str, float]:
+    def _get_rewards(self, state: PPState, next_state: PPState) -> dict[str, float]:
         new_caught_prey = []
         for i in range(self.num_prey):
             if not state.prey_caught[i] and next_state.prey_caught[i]:
@@ -769,30 +780,32 @@ class PredatorPreyModel(M.POSGModel[PPState, PPObs, PPAction]):
 class PredatorPreyGrid(Grid):
     """A grid for the Predator-Prey Problem."""
 
+    MIN_GRID_SIZE = 3
+
     def __init__(
         self,
         grid_size: int,
-        block_coords: Optional[Set[Coord]],
-        predator_start_coords: Optional[List[Coord]] = None,
-        prey_start_coords: Optional[List[Coord]] = None,
-    ):
-        assert grid_size >= 3
+        block_coords: set[Coord] | None,
+        predator_start_coords: list[Coord] | None = None,
+        prey_start_coords: list[Coord] | None = None,
+    ) -> None:
+        assert grid_size >= self.MIN_GRID_SIZE
         super().__init__(grid_size, grid_size, block_coords)
         self.size = grid_size
         # predators start in corners or half-way along a side
         if predator_start_coords is None:
             predator_start_coords = [
-                c
+                (c[0], c[1])
                 for c in product([0, grid_size // 2, grid_size - 1], repeat=2)
                 if c[0] in (0, grid_size - 1) or c[1] in (0, grid_size - 1)
             ]
-        self.predator_start_coords: List[Coord] = predator_start_coords
+        self.predator_start_coords: list[Coord] = predator_start_coords
         self.prey_start_coords = prey_start_coords
 
     def get_ascii_repr(
         self,
-        predator_coords: Optional[Sequence[Coord]],
-        prey_coords: Optional[Sequence[Coord]],
+        predator_coords: Sequence[Coord] | None,
+        prey_coords: Sequence[Coord] | None,
     ) -> str:
         """Get ascii repr of grid."""
         grid_repr = []
@@ -815,7 +828,7 @@ class PredatorPreyGrid(Grid):
 
         return str(self) + "\n" + "\n".join([" ".join(r) for r in grid_repr])
 
-    def get_unblocked_center_coords(self, num: int) -> List[Coord]:
+    def get_unblocked_center_coords(self, num: int) -> list[Coord]:
         """Get at least num closest coords to the center of grid.
 
         May return more than num, since can be more than one coord at equal
@@ -929,7 +942,15 @@ def get_5x5_grid() -> PredatorPreyGrid:
 
 def get_5x5_blocks_grid() -> PredatorPreyGrid:
     """Generate 5x5 Blocks grid layout."""
-    grid_str = ".....\n" ".#.#.\n" ".....\n" ".#.#.\n" ".....\n"
+    # fmt: off
+    grid_str = (
+        ".....\n"
+        ".#.#.\n"
+        ".....\n"
+        ".#.#.\n"
+        ".....\n"
+    )
+    # fmt: on
     return parse_grid_str(grid_str)
 
 
@@ -1014,8 +1035,7 @@ def get_20x20_blocks_grid() -> PredatorPreyGrid:
     return parse_grid_str(grid_str)
 
 
-#  (grid_make_fn, step_limit)
-SUPPORTED_GRIDS = {
+SUPPORTED_GRIDS: SupportedGridTypes[PredatorPreyGrid] = {
     "5x5": (get_5x5_grid, 25),
     "5x5Blocks": (get_5x5_blocks_grid, 50),
     "10x10": (get_10x10_grid, 50),
