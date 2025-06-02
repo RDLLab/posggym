@@ -38,7 +38,7 @@ dependencies = [
 	"typing-extensions >=4.3.0",
 	"importlib-metadata >=4.8.0; python_version < '3.10'",
 	"pygame >=2.0",
-	"pymunk >=6.0.0",
+	"pymunk >=6.0.0, <7.0.0",
 	"vmas==1.4.1"
 ]
 dynamic = ["version"]
