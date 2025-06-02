@@ -57,7 +57,6 @@ class DiscretizeActions(ActionWrapper):
             for i, act_space in box_action_spaces.items()
         }
         self.model_action_spaces = self.model.action_spaces
-        self.model = self._wrap_model(self.model)
 
     def _wrap_model(self, model):
         class DiscretizedModel:
